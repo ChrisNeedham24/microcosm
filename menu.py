@@ -11,10 +11,27 @@ class MenuOption(Enum):
 
 class Menu:
     def __init__(self):
-        pyxel.load("resources/title_text.pyxres")
         self.menu_option = MenuOption.NEW_GAME
 
     def draw(self):
         pyxel.cls(0)
         pyxel.image(0)
-        pyxel.blt(20, 30, 0, 0, 0, 100, 100)
+        pyxel.text(32, 30, "MICROCOSM", pyxel.COLOR_WHITE)
+        pyxel.text(35, 50, "New Game",
+                   pyxel.COLOR_RED if self.menu_option is MenuOption.NEW_GAME else pyxel.COLOR_WHITE)
+        pyxel.text(32, 60, "Load Game",
+                   pyxel.COLOR_RED if self.menu_option is MenuOption.LOAD_GAME else pyxel.COLOR_WHITE)
+        pyxel.text(42, 70, "Exit",
+                   pyxel.COLOR_RED if self.menu_option is MenuOption.EXIT else pyxel.COLOR_WHITE)
+
+    def navigate(self, down: bool):
+        if down:
+            if self.menu_option is MenuOption.NEW_GAME:
+                self.menu_option = MenuOption.LOAD_GAME
+            elif self.menu_option is MenuOption.LOAD_GAME:
+                self.menu_option = MenuOption.EXIT
+        else:
+            if self.menu_option is MenuOption.LOAD_GAME:
+                self.menu_option = MenuOption.NEW_GAME
+            elif self.menu_option is MenuOption.EXIT:
+                self.menu_option = MenuOption.LOAD_GAME
