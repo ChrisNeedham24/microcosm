@@ -12,7 +12,7 @@ class Game:
         self.on_menu = True
         self.resource_loader = ResourceLoader()
 
-        pyxel.play(0, 0, loop=True)
+        # pyxel.play(0, 0, loop=True)
 
         pyxel.run(self.on_update, self.draw)
 
