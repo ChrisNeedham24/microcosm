@@ -15,7 +15,6 @@ class Menu:
 
     def draw(self):
         pyxel.cls(0)
-        pyxel.image(0)
         pyxel.text(32, 30, "MICROCOSM", pyxel.COLOR_WHITE)
         pyxel.text(35, 50, "New Game",
                    pyxel.COLOR_RED if self.menu_option is MenuOption.NEW_GAME else pyxel.COLOR_WHITE)

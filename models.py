@@ -1,3 +1,4 @@
+import random
 import typing
 from dataclasses import dataclass
 from enum import Enum
@@ -50,3 +51,26 @@ class Settlement:
     improvements: typing.List[Improvement]
     level: int
     strength: float
+    location: (float, float)
+
+
+@dataclass
+class Unit:
+    strength: float
+    power: float
+    health: float
+    location: (float, float)
+
+
+class Player:
+    name: str
+    colour: int  # Refers to pyxel's colours, which resolve to integers.
+    settlements: typing.List[Settlement]
+    units: typing.List[Unit]
+
+    def __init__(self, name: str, colour: int):
+        self.name = name
+        self.colour = colour
+        location: (float, float) = (random.uniform(50, 90), random.uniform(40, 80))
+        self.settlements = [Settlement("Protevousa", [], 1, 100, location)]
+        self.units = [Unit(25, 25, 25, (location[0] - 20, location[1] - 20))]
