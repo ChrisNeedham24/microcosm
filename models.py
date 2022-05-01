@@ -71,6 +71,6 @@ class Player:
     def __init__(self, name: str, colour: int):
         self.name = name
         self.colour = colour
-        location: (float, float) = (random.uniform(50, 90), random.uniform(40, 80))
+        location: (float, float) = (random.uniform(40, 80), random.uniform(30, 70))
         self.settlements = [Settlement("Protevousa", [], 1, 100, location)]
         self.units = [Unit(25, 25, 25, (location[0] - 20, location[1] - 20))]
