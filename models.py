@@ -52,7 +52,7 @@ class Settlement:
     level: int
     strength: float
     location: (int, int)
-
+    quads: typing.List[Quad]
 
 @dataclass
 class Unit:

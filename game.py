@@ -6,7 +6,7 @@ import pyxel
 from board import Board
 from calculator import clamp
 from menu import Menu, MenuOption
-from models import Player
+from models import Player, Settlement
 
 
 class Game:
@@ -23,6 +23,7 @@ class Game:
         self.last_time = time.time()
 
         self.map_pos: (int, int) = 0, 0
+        self.turn = 1
 
         # pyxel.play(0, 0, loop=True)
 
@@ -35,7 +36,11 @@ class Game:
         self.board.update(time_elapsed)
 
         if pyxel.btnp(pyxel.KEY_ESCAPE):
-            pyxel.quit()
+            # TODO Should essentially back out of everything here, not quit (eventually add pause menu)
+            if self.board.selected_settlement is not None:
+                self.board.selected_settlement = None
+            else:
+                pyxel.quit()
         elif pyxel.btnp(pyxel.KEY_DOWN):
             if self.on_menu:
                 self.menu.navigate(True)
@@ -64,14 +69,17 @@ class Game:
                     pyxel.quit()
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
             if self.game_started:
-                self.board.process_right_click(pyxel.mouse_x, pyxel.mouse_y)
+                self.board.process_right_click(pyxel.mouse_x, pyxel.mouse_y, self.map_pos)
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             if self.game_started:
                 self.board.process_left_click(pyxel.mouse_x, pyxel.mouse_y,
-                                              len(self.players[0].settlements) > 0, self.players[0])
+                                              len(self.players[0].settlements) > 0, self.players[0], self.map_pos)
+        elif pyxel.btnp(pyxel.KEY_SHIFT):
+            if self.game_started:
+                self.board.showing_overlay = not self.board.showing_overlay
 
     def draw(self):
         if self.on_menu:
             self.menu.draw()
         elif self.game_started:
-            self.board.draw(self.players, self.map_pos)
+            self.board.draw(self.players, self.map_pos, self.turn)
