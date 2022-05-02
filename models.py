@@ -14,7 +14,9 @@ class ImprovementType(Enum):
     INDUSTRIAL = "INDUSTRIAL",
     MAGICAL = "MAGICAL",
     ECONOMICAL = "ECONOMICAL",
-    BOUNTIFUL = "BOUNTIFUL"
+    BOUNTIFUL = "BOUNTIFUL",
+    INTIMIDATORY = "INTIMIDATORY",
+    PANDERING = "PANDERING"
 
 
 @dataclass
@@ -29,11 +31,19 @@ class Quad:
 
 @dataclass
 class Effect:
-    wealth: float
-    harvest: float
-    zeal: float
-    fortune: float
-    satisfaction: float
+    wealth: float = 0.0
+    harvest: float = 0.0
+    zeal: float = 0.0
+    fortune: float = 0.0
+    strength: float = 0.0
+    satisfaction: float = 0.0
+
+
+@dataclass
+class Blessing:
+    name: str
+    description: str
+    cost: float
 
 
 @dataclass
@@ -42,24 +52,28 @@ class Improvement:
     cost: float
     name: str
     description: str
-    effects: typing.List[Effect]
+    effect: Effect
+    prereq: Blessing or None
+
+
+@dataclass
+class Unit:
+    power: float
+    health: float
+    stamina: int
+    location: (float, float)
+    garrisoned: bool
 
 
 @dataclass
 class Settlement:
     name: str
     improvements: typing.List[Improvement]
-    level: int
     strength: float
+    satisfaction: float
     location: (int, int)
     quads: typing.List[Quad]
-
-@dataclass
-class Unit:
-    strength: float
-    power: float
-    health: float
-    location: (float, float)
+    garrison: typing.List[Unit]
 
 
 @dataclass
@@ -68,3 +82,4 @@ class Player:
     colour: int  # Refers to pyxel's colours, which resolve to integers.
     settlements: typing.List[Settlement]
     units: typing.List[Unit]
+    blessings: typing.List[Blessing]

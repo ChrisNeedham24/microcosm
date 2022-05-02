@@ -15,7 +15,7 @@ class Game:
 
         self.menu = Menu()
         self.board = Board()
-        self.players: typing.List[Player] = [Player("Test", pyxel.COLOR_RED, [], [])]
+        self.players: typing.List[Player] = [Player("Test", pyxel.COLOR_RED, [], [], [])]
 
         self.on_menu = True
         self.game_started = False

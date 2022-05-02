@@ -5,7 +5,7 @@ from enum import Enum
 import pyxel
 
 from calculator import calculate_yield_for_quad
-from models import Player, Quad, Biome, Settlement
+from models import Player, Quad, Biome, Settlement, Unit
 from overlay import Overlay
 
 
@@ -121,7 +121,8 @@ class Board:
             adj_x = int((mouse_x - 2) / 4) + map_pos[0]
             adj_y = int((mouse_y - 2) / 4) + map_pos[1]
             if not settled:
-                new_settl = Settlement("Protevousa", [], 1, 100, (adj_x, adj_y), [self.quads[adj_y][adj_x]])
+                new_settl = Settlement("Protevousa", [], 100, 50, (adj_x, adj_y), [self.quads[adj_y][adj_x]],
+                                       [Unit(100, 100, 3, (adj_x, adj_y), True)])
                 player.settlements.append(new_settl)
                 self.selected_settlement = new_settl
 
