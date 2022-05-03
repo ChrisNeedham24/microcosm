@@ -116,7 +116,8 @@ class Board:
                 self.quad_selected.selected = False
             self.quad_selected = self.quads[adj_y][adj_x]
 
-    def process_left_click(self, mouse_x: int, mouse_y: int, settled: bool, player: Player, map_pos: (int, int)):
+    def process_left_click(self, mouse_x: int, mouse_y: int, settled: bool,
+                           player: Player, map_pos: (int, int)):
         if 2 <= mouse_x <= 98 and 2 <= mouse_y <= 90:
             adj_x = int((mouse_x - 2) / 4) + map_pos[0]
             adj_y = int((mouse_y - 2) / 4) + map_pos[1]
@@ -125,4 +126,9 @@ class Board:
                                        [Unit(100, 100, 3, (adj_x, adj_y), True)])
                 player.settlements.append(new_settl)
                 self.selected_settlement = new_settl
+            elif self.selected_settlement is not None and self.selected_settlement.location != (adj_x, adj_y):
+                self.selected_settlement = None
+            elif self.selected_settlement is None and \
+                    any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
+                self.selected_settlement = to_select
 

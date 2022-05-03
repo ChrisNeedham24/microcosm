@@ -10,11 +10,14 @@ BLESSINGS = {
     "adv_trd": Blessing("Advanced Trading", "You could base a society on this.", 50),
     "sl_vau": Blessing("Self-locking Vaults", "Nothing's getting in or out.", 150),
     "prf_nec": Blessing("Profitable Necessities", "The irresistible temptation of a quick buck.", 50),
-    "art_pht": Blessing("Artificial Photosynthesis", "Moonlight is just as good.", 150)
-    # TODO Add blessings for strength and satisfaction
+    "art_pht": Blessing("Artificial Photosynthesis", "Moonlight is just as good.", 150),
+    "tor_tec": Blessing("Torture Techniques", "There's got to be something better.", 50),
+    "apr_ref": Blessing("Aperture Refinement", "Picture perfect.", 150),
+    "grt_goo": Blessing("The Greater Good", "The benefit of helping others.", 50),
+    "ref_prc": Blessing("Reformist Principles", "Maybe another system could be better.", 150)
 }
 
-# TODO There should really be multiple improvements for some blessings.
+# TODO F There should really be multiple improvements for some blessings.
 
 IMPROVEMENTS = [
     Improvement(ImprovementType.MAGICAL, 30, "Melting Pot", "A starting pot to conduct concoctions.",
@@ -40,8 +43,19 @@ IMPROVEMENTS = [
     Improvement(ImprovementType.BOUNTIFUL, 100, "Supermarket Chains", "On every street corner.",
                 Effect(harvest=25, satisfaction=2), BLESSINGS["prf_nec"]),
     Improvement(ImprovementType.BOUNTIFUL, 250, "Underground Greenhouses", "The glass is just for show.",
-                Effect(harvest=50, zeal=-5, fortune=-2), BLESSINGS["art_pht"])
-    # TODO Add improvements for strength and satisfaction
+                Effect(harvest=50, zeal=-5, fortune=-2), BLESSINGS["art_pht"]),
+    Improvement(ImprovementType.INTIMIDATORY, 30, "Insurmountable Walls", "Quite the view from up here.",
+                Effect(strength=25, satisfaction=2), None),
+    Improvement(ImprovementType.INTIMIDATORY, 100, "Intelligence Academy", "What's learnt in here, stays in here.",
+                Effect(strength=50, satisfaction=-2), BLESSINGS["tor_tec"]),
+    Improvement(ImprovementType.INTIMIDATORY, 250, "CCTV Cameras", "Big Brother's always watching.",
+                Effect(zeal=5, fortune=-2, strength=100, satisfaction=-2), BLESSINGS["apr_ref"]),
+    Improvement(ImprovementType.PANDERING, 30, "Aqueduct", "Water from there to here.",
+                Effect(harvest=2, fortune=-1, satisfaction=5), None),
+    Improvement(ImprovementType.PANDERING, 100, "Soup Kitchen", "No one's going hungry here.",
+                Effect(wealth=-1, zeal=2, fortune=2, satisfaction=10), BLESSINGS["grt_goo"]),
+    Improvement(ImprovementType.PANDERING, 250, "Universal Basic Income", "Utopian in more ways than one.",
+                Effect(wealth=-5, harvest=2, zeal=2, fortune=2, strength=2, satisfaction=20), BLESSINGS["ref_prc"])
 ]
 
 

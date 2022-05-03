@@ -11,7 +11,7 @@ from models import Player, Settlement
 
 class Game:
     def __init__(self):
-        pyxel.init(100, 100)
+        pyxel.init(100, 100, title="Microcosm")
 
         self.menu = Menu()
         self.board = Board()
@@ -35,13 +35,7 @@ class Game:
 
         self.board.update(time_elapsed)
 
-        if pyxel.btnp(pyxel.KEY_ESCAPE):
-            # TODO Should essentially back out of everything here, not quit (eventually add pause menu)
-            if self.board.selected_settlement is not None:
-                self.board.selected_settlement = None
-            else:
-                pyxel.quit()
-        elif pyxel.btnp(pyxel.KEY_DOWN):
+        if pyxel.btnp(pyxel.KEY_DOWN):
             if self.on_menu:
                 self.menu.navigate(True)
             elif self.game_started:
@@ -73,7 +67,8 @@ class Game:
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             if self.game_started:
                 self.board.process_left_click(pyxel.mouse_x, pyxel.mouse_y,
-                                              len(self.players[0].settlements) > 0, self.players[0], self.map_pos)
+                                              len(self.players[0].settlements) > 0,
+                                              self.players[0], self.map_pos)
         elif pyxel.btnp(pyxel.KEY_SHIFT):
             if self.game_started:
                 self.board.showing_overlay = not self.board.showing_overlay
