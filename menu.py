@@ -15,12 +15,12 @@ class Menu:
 
     def draw(self):
         pyxel.cls(0)
-        pyxel.text(32, 30, "MICROCOSM", pyxel.COLOR_WHITE)
-        pyxel.text(35, 50, "New Game",
+        pyxel.text(82, 60, "MICROCOSM", pyxel.COLOR_WHITE)
+        pyxel.text(85, 100, "New Game",
                    pyxel.COLOR_RED if self.menu_option is MenuOption.NEW_GAME else pyxel.COLOR_WHITE)
-        pyxel.text(32, 60, "Load Game",
+        pyxel.text(82, 120, "Load Game",
                    pyxel.COLOR_RED if self.menu_option is MenuOption.LOAD_GAME else pyxel.COLOR_WHITE)
-        pyxel.text(42, 70, "Exit",
+        pyxel.text(92, 140, "Exit",
                    pyxel.COLOR_RED if self.menu_option is MenuOption.EXIT else pyxel.COLOR_WHITE)
 
     def navigate(self, down: bool):

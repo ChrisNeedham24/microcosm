@@ -2,6 +2,8 @@ import typing
 
 from models import Player, Improvement, ImprovementType, Effect, Blessing
 
+# TODO F Figure out a way to work these descriptions in somehow. Maybe shorten some?
+
 BLESSINGS = {
     "beg_spl": Blessing("Beginner Spells", "Everyone has to start somewhere, right?", 50),
     "div_arc": Blessing("Divine Architecture", "As the holy ones intended.", 150),
@@ -60,7 +62,7 @@ IMPROVEMENTS = [
 
 
 def get_available_improvements(player: Player) -> typing.List[Improvement]:
-    return [imp for imp in IMPROVEMENTS if imp.prereq in player.blessings]
+    return [imp for imp in IMPROVEMENTS if imp.prereq in player.blessings or imp.prereq is None]
 
 
 def get_available_blessings(player: Player) -> typing.List[Blessing]:

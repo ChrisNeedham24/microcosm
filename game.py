@@ -5,13 +5,14 @@ import pyxel
 
 from board import Board
 from calculator import clamp
+from catalogue import get_available_improvements
 from menu import Menu, MenuOption
 from models import Player, Settlement
 
 
 class Game:
     def __init__(self):
-        pyxel.init(100, 100, title="Microcosm")
+        pyxel.init(200, 200, title="Microcosm")
 
         self.menu = Menu()
         self.board = Board()
@@ -39,12 +40,18 @@ class Game:
             if self.on_menu:
                 self.menu.navigate(True)
             elif self.game_started:
-                self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
+                if self.board.overlay.is_constructing():
+                    self.board.overlay.navigate_constructions(down=True)
+                else:
+                    self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_UP):
             if self.on_menu:
                 self.menu.navigate(False)
             elif self.game_started:
-                self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
+                if self.board.overlay.is_constructing():
+                    self.board.overlay.navigate_constructions(down=False)
+                else:
+                    self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_LEFT):
             if self.game_started:
                 self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
@@ -72,6 +79,11 @@ class Game:
         elif pyxel.btnp(pyxel.KEY_SHIFT):
             if self.game_started:
                 self.board.showing_overlay = not self.board.showing_overlay
+                self.board.overlay.toggle_standard(self.turn)
+        elif pyxel.btnp(pyxel.KEY_A):
+            if self.game_started and self.board.selected_settlement is not None:
+                self.board.overlay.toggle_construction(get_available_improvements(self.players[0]))
+        # TODO Handle enter presses when selecting construction
 
     def draw(self):
         if self.on_menu:

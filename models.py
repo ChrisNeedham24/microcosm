@@ -53,7 +53,7 @@ class Improvement:
     name: str
     description: str
     effect: Effect
-    prereq: Blessing or None
+    prereq: typing.Optional[Blessing]
 
 
 @dataclass
@@ -66,6 +66,12 @@ class Unit:
 
 
 @dataclass
+class Construction:
+    construction: typing.Union[Improvement, Unit]
+    zeal_consumed: float
+
+
+@dataclass
 class Settlement:
     name: str
     improvements: typing.List[Improvement]
@@ -74,6 +80,7 @@ class Settlement:
     location: (int, int)
     quads: typing.List[Quad]
     garrison: typing.List[Unit]
+    current_work: typing.Optional[Construction]
 
 
 @dataclass
