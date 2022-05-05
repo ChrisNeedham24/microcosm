@@ -68,8 +68,9 @@ class Unit:
 @dataclass
 class Construction:
     construction: typing.Union[Improvement, Unit]
-    zeal_consumed: float
+    zeal_consumed: float = 0.0
 
+# TODO F Re-add settlement level, use harvest for it, some modifier to overall counts
 
 @dataclass
 class Settlement:

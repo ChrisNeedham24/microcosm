@@ -26,9 +26,8 @@ class Board:
         self.quad_selected: typing.Optional[Quad] = None
 
         self.overlay = Overlay()
-        self.showing_overlay = False
         self.selected_settlement: typing.Optional[Settlement] = None
-        self.adding_construction = False
+        self.deploying_army = False
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int):
         pyxel.cls(0)
@@ -55,6 +54,17 @@ class Board:
 
         pyxel.load("resources/sprites.pyxres")
         for player in players:
+            for unit in player.units:
+                quad: Quad = self.quads[unit.location[1]][unit.location[0]]
+                unit_x: int = 0
+                if quad.biome is Biome.FOREST:
+                    unit_x = 8
+                elif quad.biome is Biome.SEA:
+                    unit_x = 16
+                elif quad.biome is Biome.MOUNTAIN:
+                    unit_x = 24
+                pyxel.blt((unit.location[0] - map_pos[0]) * 8 + 4,
+                          (unit.location[1] - map_pos[1]) * 8 + 4, 0, unit_x, 16, 8, 8)
             for settlement in player.settlements:
                 quad: Quad = self.quads[settlement.location[1]][settlement.location[0]]
                 setl_x: int = 0
@@ -74,8 +84,6 @@ class Board:
                 else:
                     pyxel.rectb((settlement.location[0] - map_pos[0]) * 8 + 4,
                                 (settlement.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
-            for unit in player.units:
-                pyxel.blt(unit.location[0], unit.location[1], 0, 0, 12, 8, 8)
 
         if self.quad_selected is not None and selected_quad_coords is not None:
             x_offset = 30 if selected_quad_coords[0] - map_pos[0] <= 8 else 0
@@ -88,6 +96,10 @@ class Board:
             pyxel.text(base_x_pos - 4, base_y_pos + 14, f"{round(self.quad_selected.harvest)}", pyxel.COLOR_GREEN)
             pyxel.text(base_x_pos - 16, base_y_pos + 26, f"{round(self.quad_selected.zeal)}", pyxel.COLOR_RED)
             pyxel.text(base_x_pos - 4, base_y_pos + 26, f"{round(self.quad_selected.fortune)}", pyxel.COLOR_PURPLE)
+
+        if self.deploying_army:
+            pyxel.rectb((self.selected_settlement.location[0] - map_pos[0]) * 8 - 4,
+                        (self.selected_settlement.location[1] - map_pos[1]) * 8 - 4, 24, 24, pyxel.COLOR_WHITE)
 
         self.overlay.display()
 
@@ -130,11 +142,21 @@ class Board:
                 player.settlements.append(new_settl)
                 self.selected_settlement = new_settl
                 self.overlay.toggle_settlement(new_settl, player)
-            elif self.selected_settlement is not None and self.selected_settlement.location != (adj_x, adj_y):
+            elif not self.deploying_army and \
+                    self.selected_settlement is not None and self.selected_settlement.location != (adj_x, adj_y):
                 self.selected_settlement = None
                 self.overlay.toggle_settlement(None, player)
             elif self.selected_settlement is None and \
                     any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
                 self.selected_settlement = to_select
                 self.overlay.toggle_settlement(to_select, player)
+            elif self.deploying_army and \
+                    self.selected_settlement.location[0] - 1 <= adj_x <= self.selected_settlement.location[0] + 1 and \
+                    self.selected_settlement.location[1] - 1 <= adj_y <= self.selected_settlement.location[1] + 1:
+                deployed = self.selected_settlement.garrison.pop()
+                deployed.garrisoned = False
+                deployed.location = adj_x, adj_y
+                player.units.append(deployed)
+                self.deploying_army = False
+                self.overlay.toggle_deployment()
 

@@ -2,6 +2,8 @@ import typing
 
 from models import Player, Improvement, ImprovementType, Effect, Blessing
 
+# TODO F Add list of settlement names
+
 # TODO F Figure out a way to work these descriptions in somehow. Maybe shorten some?
 
 BLESSINGS = {

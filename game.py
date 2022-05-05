@@ -7,7 +7,7 @@ from board import Board
 from calculator import clamp
 from catalogue import get_available_improvements
 from menu import Menu, MenuOption
-from models import Player, Settlement
+from models import Player, Settlement, Construction
 
 
 class Game:
@@ -68,6 +68,10 @@ class Game:
                     print("Unsupported for now.")
                 elif self.menu.menu_option is MenuOption.EXIT:
                     pyxel.quit()
+            elif self.game_started and self.board.overlay.is_constructing():
+                if self.board.overlay.selected_construction is not None:
+                    self.board.selected_settlement.current_work = Construction(self.board.overlay.selected_construction)
+                self.board.overlay.toggle_construction([])
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
             if self.game_started:
                 self.board.process_right_click(pyxel.mouse_x, pyxel.mouse_y, self.map_pos)
@@ -78,12 +82,15 @@ class Game:
                                               self.players[0], self.map_pos)
         elif pyxel.btnp(pyxel.KEY_SHIFT):
             if self.game_started:
-                self.board.showing_overlay = not self.board.showing_overlay
                 self.board.overlay.toggle_standard(self.turn)
-        elif pyxel.btnp(pyxel.KEY_A):
+        elif pyxel.btnp(pyxel.KEY_C):
             if self.game_started and self.board.selected_settlement is not None:
                 self.board.overlay.toggle_construction(get_available_improvements(self.players[0]))
-        # TODO Handle enter presses when selecting construction
+        elif pyxel.btnp(pyxel.KEY_D):
+            if self.game_started and self.board.selected_settlement is not None and \
+                    len(self.board.selected_settlement.garrison) > 0:
+                self.board.deploying_army = True
+                self.board.overlay.toggle_deployment()
 
     def draw(self):
         if self.on_menu:
