@@ -5,10 +5,15 @@ import pyxel
 
 from board import Board
 from calculator import clamp
-from catalogue import get_available_improvements
+from catalogue import get_available_improvements, get_available_blessings
 from menu import Menu, MenuOption
-from models import Player, Settlement, Construction
+from models import Player, Settlement, Construction, OngoingBlessing
 
+
+# TODO F Music?
+# TODO Need prompt for user to click anywhere to found their first settlement
+# TODO Actually make it so the space and tab keys do their shortcuts
+# TODO End turn functionality
 
 class Game:
     def __init__(self):
@@ -16,7 +21,7 @@ class Game:
 
         self.menu = Menu()
         self.board = Board()
-        self.players: typing.List[Player] = [Player("Test", pyxel.COLOR_RED, [], [], [])]
+        self.players: typing.List[Player] = [Player("Test", pyxel.COLOR_RED, 0, [], [], [])]
 
         self.on_menu = True
         self.game_started = False
@@ -42,6 +47,8 @@ class Game:
             elif self.game_started:
                 if self.board.overlay.is_constructing():
                     self.board.overlay.navigate_constructions(down=True)
+                elif self.board.overlay.is_blessing():
+                    self.board.overlay.navigate_blessings(down=True)
                 else:
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_UP):
@@ -50,6 +57,8 @@ class Game:
             elif self.game_started:
                 if self.board.overlay.is_constructing():
                     self.board.overlay.navigate_constructions(down=False)
+                elif self.board.overlay.is_standard():
+                    self.board.overlay.navigate_blessings(down=False)
                 else:
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_LEFT):
@@ -72,6 +81,10 @@ class Game:
                 if self.board.overlay.selected_construction is not None:
                     self.board.selected_settlement.current_work = Construction(self.board.overlay.selected_construction)
                 self.board.overlay.toggle_construction([])
+            elif self.game_started and self.board.overlay.is_blessing():
+                if self.board.overlay.selected_blessing is not None:
+                    self.players[0].ongoing_blessing = OngoingBlessing(self.board.overlay.selected_blessing)
+                self.board.overlay.toggle_blessing([])
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
             if self.game_started:
                 self.board.process_right_click(pyxel.mouse_x, pyxel.mouse_y, self.map_pos)
@@ -86,6 +99,9 @@ class Game:
         elif pyxel.btnp(pyxel.KEY_C):
             if self.game_started and self.board.selected_settlement is not None:
                 self.board.overlay.toggle_construction(get_available_improvements(self.players[0]))
+        elif pyxel.btnp(pyxel.KEY_F):
+            if self.game_started and self.board.overlay.is_standard():
+                self.board.overlay.toggle_blessing(get_available_blessings(self.players[0]))
         elif pyxel.btnp(pyxel.KEY_D):
             if self.game_started and self.board.selected_settlement is not None and \
                     len(self.board.selected_settlement.garrison) > 0:

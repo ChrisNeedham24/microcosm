@@ -14,7 +14,7 @@ BLESSINGS = {
     "adv_trd": Blessing("Advanced Trading", "You could base a society on this.", 50),
     "sl_vau": Blessing("Self-locking Vaults", "Nothing's getting in or out.", 150),
     "prf_nec": Blessing("Profitable Necessities", "The irresistible temptation of a quick buck.", 50),
-    "art_pht": Blessing("Artificial Photosynthesis", "Moonlight is just as good.", 150),
+    "art_pht": Blessing("Hollow Photosynthesis", "Moonlight is just as good.", 150),
     "tor_tec": Blessing("Torture Techniques", "There's got to be something better.", 50),
     "apr_ref": Blessing("Aperture Refinement", "Picture perfect.", 150),
     "grt_goo": Blessing("The Greater Good", "The benefit of helping others.", 50),
@@ -64,8 +64,24 @@ IMPROVEMENTS = [
 
 
 def get_available_improvements(player: Player) -> typing.List[Improvement]:
-    return [imp for imp in IMPROVEMENTS if imp.prereq in player.blessings or imp.prereq is None]
+    imps = [imp for imp in IMPROVEMENTS if imp.prereq in player.blessings or imp.prereq is None]
+
+    def get_cost(imp: Improvement) -> float:
+        return imp.cost
+
+    imps.sort(key=get_cost)
+    return imps
 
 
 def get_available_blessings(player: Player) -> typing.List[Blessing]:
-    return [bls for bls in BLESSINGS.values() if bls not in player.blessings]
+    blessings = [bls for bls in BLESSINGS.values() if bls not in player.blessings]
+
+    def get_cost(blessing: Blessing) -> float:
+        return blessing.cost
+
+    blessings.sort(key=get_cost)
+    return blessings
+
+
+def get_unlockable_improvements(blessing: Blessing) -> typing.List[Improvement]:
+    return [imp for imp in IMPROVEMENTS if imp.prereq is blessing]

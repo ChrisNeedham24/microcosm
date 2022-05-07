@@ -60,7 +60,9 @@ class Improvement:
 class Unit:
     power: float
     health: float
-    stamina: int
+    total_stamina: int
+    remaining_stamina: int
+    name: str
     location: (float, float)
     garrisoned: bool
 
@@ -69,6 +71,12 @@ class Unit:
 class Construction:
     construction: typing.Union[Improvement, Unit]
     zeal_consumed: float = 0.0
+
+
+@dataclass
+class OngoingBlessing:
+    blessing: Blessing
+    fortune_consumed: float = 0.0
 
 # TODO F Re-add settlement level, use harvest for it, some modifier to overall counts
 
@@ -88,6 +96,8 @@ class Settlement:
 class Player:
     name: str
     colour: int  # Refers to pyxel's colours, which resolve to integers.
+    wealth: float
     settlements: typing.List[Settlement]
     units: typing.List[Unit]
     blessings: typing.List[Blessing]
+    ongoing_blessing: typing.Optional[OngoingBlessing] = None

@@ -12,6 +12,7 @@ from overlay import Overlay
 class HelpOption(Enum):
     SETTLEMENT = "TAB: Next settlement"
     UNIT = "SPACE: Next unit"
+    OVERLAY = "SHIFT: Show status overlay"
     END_TURN = "ENTER: End turn"
 
 
@@ -28,6 +29,7 @@ class Board:
         self.overlay = Overlay()
         self.selected_settlement: typing.Optional[Settlement] = None
         self.deploying_army = False
+        self.selected_unit: typing.Optional[Unit] = None
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int):
         pyxel.cls(0)
@@ -65,6 +67,13 @@ class Board:
                     unit_x = 24
                 pyxel.blt((unit.location[0] - map_pos[0]) * 8 + 4,
                           (unit.location[1] - map_pos[1]) * 8 + 4, 0, unit_x, 16, 8, 8)
+                if self.selected_unit is unit:
+                    pyxel.rectb((unit.location[0] - map_pos[0]) * 8 + 4,
+                                (unit.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
+                    movement = self.selected_unit.remaining_stamina
+                    pyxel.rectb((self.selected_unit.location[0] - map_pos[0]) * 8 + 4 - (movement * 8),
+                                (self.selected_unit.location[1] - map_pos[1]) * 8 + 4 - (movement * 8),
+                                (2 * movement + 1) * 8, (2 * movement + 1) * 8, pyxel.COLOR_WHITE)
             for settlement in player.settlements:
                 quad: Quad = self.quads[settlement.location[1]][settlement.location[0]]
                 setl_x: int = 0
@@ -103,13 +112,14 @@ class Board:
 
         self.overlay.display()
 
-
     def update(self, elapsed_time: float):
         self.time_bank += elapsed_time
         if self.time_bank > 3:
             if self.current_help is HelpOption.SETTLEMENT:
                 self.current_help = HelpOption.UNIT
             elif self.current_help is HelpOption.UNIT:
+                self.current_help = HelpOption.OVERLAY
+            elif self.current_help is HelpOption.OVERLAY:
                 self.current_help = HelpOption.END_TURN
             elif self.current_help is HelpOption.END_TURN:
                 self.current_help = HelpOption.SETTLEMENT
@@ -138,25 +148,45 @@ class Board:
             adj_y = int((mouse_y - 4) / 8) + map_pos[1]
             if not settled:
                 new_settl = Settlement("Protevousa", [], 100, 50, (adj_x, adj_y), [self.quads[adj_y][adj_x]],
-                                       [Unit(100, 100, 3, (adj_x, adj_y), True)], None)
+                                       [Unit(100, 100, 3, 3, "First Army", (adj_x, adj_y), True)], None)
                 player.settlements.append(new_settl)
                 self.selected_settlement = new_settl
                 self.overlay.toggle_settlement(new_settl, player)
-            elif not self.deploying_army and \
-                    self.selected_settlement is not None and self.selected_settlement.location != (adj_x, adj_y):
-                self.selected_settlement = None
-                self.overlay.toggle_settlement(None, player)
-            elif self.selected_settlement is None and \
-                    any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
-                self.selected_settlement = to_select
-                self.overlay.toggle_settlement(to_select, player)
-            elif self.deploying_army and \
-                    self.selected_settlement.location[0] - 1 <= adj_x <= self.selected_settlement.location[0] + 1 and \
-                    self.selected_settlement.location[1] - 1 <= adj_y <= self.selected_settlement.location[1] + 1:
-                deployed = self.selected_settlement.garrison.pop()
-                deployed.garrisoned = False
-                deployed.location = adj_x, adj_y
-                player.units.append(deployed)
-                self.deploying_army = False
-                self.overlay.toggle_deployment()
-
+            else:
+                if not self.deploying_army and \
+                        self.selected_settlement is not None and self.selected_settlement.location != (adj_x, adj_y):
+                    self.selected_settlement = None
+                    self.overlay.toggle_settlement(None, player)
+                elif self.selected_unit is None and self.selected_settlement is None and \
+                        any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
+                    self.selected_settlement = to_select
+                    self.overlay.toggle_settlement(to_select, player)
+                elif self.deploying_army and \
+                        self.selected_settlement.location[0] - 1 <= adj_x <= self.selected_settlement.location[0] + 1 and \
+                        self.selected_settlement.location[1] - 1 <= adj_y <= self.selected_settlement.location[1] + 1:
+                    deployed = self.selected_settlement.garrison.pop()
+                    deployed.garrisoned = False
+                    deployed.location = adj_x, adj_y
+                    player.units.append(deployed)
+                    self.deploying_army = False
+                    self.selected_unit = deployed
+                    self.overlay.toggle_deployment()
+                    self.selected_settlement = None
+                    self.overlay.toggle_settlement(None, player)
+                    self.overlay.toggle_unit(deployed)
+                elif self.selected_unit is not None and \
+                        self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
+                        self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
+                        self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
+                        self.selected_unit.location[1] + self.selected_unit.remaining_stamina:
+                    initial = self.selected_unit.location
+                    distance_travelled = max(abs(initial[0] - adj_x), abs(initial[1] - adj_y))
+                    self.selected_unit.remaining_stamina -= distance_travelled
+                    self.selected_unit.location = adj_x, adj_y
+                elif self.selected_unit is not None and self.selected_unit.location != (adj_x, adj_y):
+                    self.selected_unit = None
+                    self.overlay.toggle_unit(None)
+                elif self.selected_unit is None and \
+                        any((to_select := unit).location == (adj_x, adj_y) for unit in player.units):
+                    self.selected_unit = to_select
+                    self.overlay.toggle_unit(to_select)

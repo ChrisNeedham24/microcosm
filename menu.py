@@ -15,6 +15,7 @@ class Menu:
 
     def draw(self):
         pyxel.cls(0)
+        # TODO F We should really have some sort of background here
         pyxel.text(82, 60, "MICROCOSM", pyxel.COLOR_WHITE)
         pyxel.text(85, 100, "New Game",
                    pyxel.COLOR_RED if self.menu_option is MenuOption.NEW_GAME else pyxel.COLOR_WHITE)
