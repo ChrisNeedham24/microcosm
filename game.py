@@ -10,10 +10,10 @@ from menu import Menu, MenuOption
 from models import Player, Settlement, Construction, OngoingBlessing
 
 
-# TODO F Music?
-# TODO Need prompt for user to click anywhere to found their first settlement
-# TODO Actually make it so the space and tab keys do their shortcuts
-# TODO End turn functionality
+# TODO F Music? Warduke Module 1/2/3 looks like a good shout
+# TODO F Victory conditions - one for each resource type (harvest, wealth, etc.)
+# TODO F Some sort of fog of war would be cool
+# TODO F Pause screen for saving and exiting
 
 class Game:
     def __init__(self):
@@ -74,6 +74,7 @@ class Game:
                     self.game_started = True
                     self.on_menu = False
                 elif self.menu.menu_option is MenuOption.LOAD_GAME:
+                    # TODO F Saving and loading
                     print("Unsupported for now.")
                 elif self.menu.menu_option is MenuOption.EXIT:
                     pyxel.quit()
@@ -85,6 +86,9 @@ class Game:
                 if self.board.overlay.selected_blessing is not None:
                     self.players[0].ongoing_blessing = OngoingBlessing(self.board.overlay.selected_blessing)
                 self.board.overlay.toggle_blessing([])
+            elif self.game_started and not self.board.overlay.is_tutorial():
+                self.board.overlay.update_turn(self.turn)
+                self.end_turn()
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
             if self.game_started:
                 self.board.process_right_click(pyxel.mouse_x, pyxel.mouse_y, self.map_pos)
@@ -94,11 +98,12 @@ class Game:
                                               len(self.players[0].settlements) > 0,
                                               self.players[0], self.map_pos)
         elif pyxel.btnp(pyxel.KEY_SHIFT):
-            if self.game_started:
+            if self.game_started and not self.board.overlay.is_tutorial():
                 self.board.overlay.toggle_standard(self.turn)
         elif pyxel.btnp(pyxel.KEY_C):
             if self.game_started and self.board.selected_settlement is not None:
-                self.board.overlay.toggle_construction(get_available_improvements(self.players[0]))
+                self.board.overlay.toggle_construction(get_available_improvements(self.players[0],
+                                                                                  self.board.selected_settlement))
         elif pyxel.btnp(pyxel.KEY_F):
             if self.game_started and self.board.overlay.is_standard():
                 self.board.overlay.toggle_blessing(get_available_blessings(self.players[0]))
@@ -107,9 +112,81 @@ class Game:
                     len(self.board.selected_settlement.garrison) > 0:
                 self.board.deploying_army = True
                 self.board.overlay.toggle_deployment()
+        elif pyxel.btnp(pyxel.KEY_TAB):
+            if self.game_started and self.board.overlay.can_iter_settlements_units():
+                if self.board.overlay.is_unit():
+                    self.board.selected_unit = None
+                    self.board.overlay.toggle_unit(None)
+                if self.board.selected_settlement is None:
+                    self.board.selected_settlement = self.players[0].settlements[0]
+                    self.board.overlay.toggle_settlement(self.players[0].settlements[0], self.players[0])
+                elif len(self.players[0].settlements) > 1:
+                    current_idx = self.players[0].settlements.index(self.board.selected_settlement)
+                    new_idx = 0
+                    if current_idx != len(self.players[0].settlements) - 1:
+                        new_idx = current_idx + 1
+                    self.board.selected_settlement = self.players[0].settlements[new_idx]
+                    self.board.overlay.update_settlement(self.players[0].settlements[new_idx])
+                self.map_pos = (clamp(self.board.selected_settlement.location[0] - 12, -1, 77),
+                                clamp(self.board.selected_settlement.location[1] - 11, -1, 69))
+        elif pyxel.btnp(pyxel.KEY_SPACE):
+            if self.game_started and self.board.overlay.can_iter_settlements_units() and len(self.players[0].units) > 0:
+                if self.board.overlay.is_setl():
+                    self.board.selected_settlement = None
+                    self.board.overlay.toggle_settlement(None, self.players[0])
+                if self.board.selected_unit is None:
+                    self.board.selected_unit = self.players[0].units[0]
+                    self.board.overlay.toggle_unit(self.players[0].units[0])
+                elif len(self.players[0].units) > 1:
+                    current_idx = self.players[0].units.index(self.board.selected_unit)
+                    new_idx = 0
+                    if current_idx != len(self.players[0].units) - 1:
+                        new_idx = current_idx + 1
+                    self.board.selected_unit = self.players[0].units[new_idx]
+                    self.board.overlay.update_unit(self.players[0].units[new_idx])
+                self.map_pos = (clamp(self.board.selected_unit.location[0] - 12, -1, 77),
+                                clamp(self.board.selected_unit.location[1] - 11, -1, 69))
 
     def draw(self):
         if self.on_menu:
             self.menu.draw()
         elif self.game_started:
             self.board.draw(self.players, self.map_pos, self.turn)
+
+    def end_turn(self):
+        # First make sure the player hasn't ended their turn without a construction or blessing.
+        problematic_settlements = []
+        for setl in self.players[0].settlements:
+            if setl.current_work is None:
+                problematic_settlements.append(setl)
+        has_no_blessing = self.players[0].ongoing_blessing is None
+        if not self.board.overlay.is_warning() and (len(problematic_settlements) > 0 or has_no_blessing):
+            self.board.overlay.toggle_warning(problematic_settlements, has_no_blessing)
+            return
+
+        for player in self.players:
+            total_fortune = 0
+            for setl in player.settlements:
+                total_zeal = max(sum(quad.zeal for quad in setl.quads) +
+                                 sum(imp.effect.zeal for imp in setl.improvements), 0.5)
+                total_fortune += sum(quad.fortune for quad in setl.quads)
+                total_fortune += sum(imp.effect.fortune for imp in setl.improvements)
+                total_fortune = max(0.5, total_fortune)
+                if setl.current_work is not None:
+                    setl.current_work.zeal_consumed += total_zeal
+                    if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
+                        setl.improvements.append(setl.current_work.construction)
+                        if setl.current_work.construction.effect.strength > 0:
+                            setl.strength += setl.current_work.construction.effect.strength
+                        if setl.current_work.construction.effect.satisfaction > 0:
+                            setl.satisfaction += setl.current_work.construction.effect.satisfaction
+                        setl.current_work = None
+            for unit in player.units:
+                unit.remaining_stamina = unit.total_stamina
+            if player.ongoing_blessing is not None:
+                player.ongoing_blessing.fortune_consumed += total_fortune
+                if player.ongoing_blessing.fortune_consumed >= player.ongoing_blessing.blessing.cost:
+                    player.blessings.append(player.ongoing_blessing.blessing)
+                    player.ongoing_blessing = None
+        self.board.overlay.remove_warning_if_possible()
+        self.turn += 1

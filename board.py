@@ -16,6 +16,11 @@ class HelpOption(Enum):
     END_TURN = "ENTER: End turn"
 
 
+# TODO F Make it so biomes naturally cluster
+# TODO F Show number of units with unspent movement
+# TODO F Look into drawing issues with units/settlements on edge of map
+
+
 class Board:
     def __init__(self):
         self.current_help = HelpOption.SETTLEMENT
@@ -35,6 +40,7 @@ class Board:
         pyxel.cls(0)
         pyxel.rectb(0, 0, 200, 184, pyxel.COLOR_WHITE)
         pyxel.text(2, 189, self.current_help.value, pyxel.COLOR_WHITE)
+        pyxel.text(165, 189, f"Turn {turn}", pyxel.COLOR_WHITE)
 
         pyxel.load("resources/quads.pyxres")
         selected_quad_coords: (int, int) = None
@@ -99,12 +105,12 @@ class Board:
             y_offset = -34 if selected_quad_coords[1] - map_pos[1] >= 36 else 0
             base_x_pos = (selected_quad_coords[0] - map_pos[0]) * 8 + x_offset
             base_y_pos = (selected_quad_coords[1] - map_pos[1]) * 8 + y_offset
-            pyxel.rectb(base_x_pos - 22, base_y_pos + 8, 30, 34, pyxel.COLOR_WHITE)
-            pyxel.rect(base_x_pos - 21, base_y_pos + 11, 28, 32, pyxel.COLOR_BLACK)
-            pyxel.text(base_x_pos - 16, base_y_pos + 14, f"{round(self.quad_selected.wealth)}", pyxel.COLOR_YELLOW)
-            pyxel.text(base_x_pos - 4, base_y_pos + 14, f"{round(self.quad_selected.harvest)}", pyxel.COLOR_GREEN)
-            pyxel.text(base_x_pos - 16, base_y_pos + 26, f"{round(self.quad_selected.zeal)}", pyxel.COLOR_RED)
-            pyxel.text(base_x_pos - 4, base_y_pos + 26, f"{round(self.quad_selected.fortune)}", pyxel.COLOR_PURPLE)
+            pyxel.rectb(base_x_pos - 22, base_y_pos + 8, 30, 12, pyxel.COLOR_WHITE)
+            pyxel.rect(base_x_pos - 21, base_y_pos + 9, 28, 10, pyxel.COLOR_BLACK)
+            pyxel.text(base_x_pos - 18, base_y_pos + 12, f"{round(self.quad_selected.wealth)}", pyxel.COLOR_YELLOW)
+            pyxel.text(base_x_pos - 12, base_y_pos + 12, f"{round(self.quad_selected.harvest)}", pyxel.COLOR_GREEN)
+            pyxel.text(base_x_pos - 6, base_y_pos + 12, f"{round(self.quad_selected.zeal)}", pyxel.COLOR_RED)
+            pyxel.text(base_x_pos, base_y_pos + 12, f"{round(self.quad_selected.fortune)}", pyxel.COLOR_PURPLE)
 
         if self.deploying_army:
             pyxel.rectb((self.selected_settlement.location[0] - map_pos[0]) * 8 - 4,
@@ -150,6 +156,7 @@ class Board:
                 new_settl = Settlement("Protevousa", [], 100, 50, (adj_x, adj_y), [self.quads[adj_y][adj_x]],
                                        [Unit(100, 100, 3, 3, "First Army", (adj_x, adj_y), True)], None)
                 player.settlements.append(new_settl)
+                self.overlay.toggle_tutorial()
                 self.selected_settlement = new_settl
                 self.overlay.toggle_settlement(new_settl, player)
             else:

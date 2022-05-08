@@ -1,6 +1,6 @@
 import typing
 
-from models import Player, Improvement, ImprovementType, Effect, Blessing
+from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement
 
 # TODO F Add list of settlement names
 
@@ -22,6 +22,8 @@ BLESSINGS = {
 }
 
 # TODO F There should really be multiple improvements for some blessings.
+# TODO Constructing units? Including settlers or the like
+# TODO F Should be able to expand a settlement somehow probably
 
 IMPROVEMENTS = [
     Improvement(ImprovementType.MAGICAL, 30, "Melting Pot", "A starting pot to conduct concoctions.",
@@ -63,8 +65,9 @@ IMPROVEMENTS = [
 ]
 
 
-def get_available_improvements(player: Player) -> typing.List[Improvement]:
-    imps = [imp for imp in IMPROVEMENTS if imp.prereq in player.blessings or imp.prereq is None]
+def get_available_improvements(player: Player, settlement: Settlement) -> typing.List[Improvement]:
+    imps = [imp for imp in IMPROVEMENTS if (imp.prereq in player.blessings or imp.prereq is None)
+            and imp not in settlement.improvements]
 
     def get_cost(imp: Improvement) -> float:
         return imp.cost
