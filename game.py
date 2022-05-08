@@ -14,6 +14,7 @@ from models import Player, Settlement, Construction, OngoingBlessing
 # TODO F Victory conditions - one for each resource type (harvest, wealth, etc.)
 # TODO F Some sort of fog of war would be cool
 # TODO F Pause screen for saving and exiting
+# TODO Add notifications for completed constructions and blessings
 
 class Game:
     def __init__(self):
@@ -50,6 +51,7 @@ class Game:
                 elif self.board.overlay.is_blessing():
                     self.board.overlay.navigate_blessings(down=True)
                 else:
+                    self.board.overlay.remove_warning_if_possible()
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_UP):
             if self.on_menu:
@@ -60,12 +62,15 @@ class Game:
                 elif self.board.overlay.is_standard():
                     self.board.overlay.navigate_blessings(down=False)
                 else:
+                    self.board.overlay.remove_warning_if_possible()
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_LEFT):
             if self.game_started:
+                self.board.overlay.remove_warning_if_possible()
                 self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RIGHT):
             if self.game_started:
+                self.board.overlay.remove_warning_if_possible()
                 self.map_pos = clamp(self.map_pos[0] + 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RETURN):
             if self.on_menu:
@@ -91,14 +96,17 @@ class Game:
                 self.end_turn()
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
             if self.game_started:
+                self.board.overlay.remove_warning_if_possible()
                 self.board.process_right_click(pyxel.mouse_x, pyxel.mouse_y, self.map_pos)
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             if self.game_started:
+                self.board.overlay.remove_warning_if_possible()
                 self.board.process_left_click(pyxel.mouse_x, pyxel.mouse_y,
                                               len(self.players[0].settlements) > 0,
                                               self.players[0], self.map_pos)
         elif pyxel.btnp(pyxel.KEY_SHIFT):
             if self.game_started and not self.board.overlay.is_tutorial():
+                self.board.overlay.remove_warning_if_possible()
                 self.board.overlay.toggle_standard(self.turn)
         elif pyxel.btnp(pyxel.KEY_C):
             if self.game_started and self.board.selected_settlement is not None:
@@ -114,6 +122,7 @@ class Game:
                 self.board.overlay.toggle_deployment()
         elif pyxel.btnp(pyxel.KEY_TAB):
             if self.game_started and self.board.overlay.can_iter_settlements_units():
+                self.board.overlay.remove_warning_if_possible()
                 if self.board.overlay.is_unit():
                     self.board.selected_unit = None
                     self.board.overlay.toggle_unit(None)
@@ -131,6 +140,7 @@ class Game:
                                 clamp(self.board.selected_settlement.location[1] - 11, -1, 69))
         elif pyxel.btnp(pyxel.KEY_SPACE):
             if self.game_started and self.board.overlay.can_iter_settlements_units() and len(self.players[0].units) > 0:
+                self.board.overlay.remove_warning_if_possible()
                 if self.board.overlay.is_setl():
                     self.board.selected_settlement = None
                     self.board.overlay.toggle_settlement(None, self.players[0])
