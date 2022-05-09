@@ -153,8 +153,7 @@ class Board:
             adj_x = int((mouse_x - 4) / 8) + map_pos[0]
             adj_y = int((mouse_y - 4) / 8) + map_pos[1]
             if not settled:
-                new_settl = Settlement("Protevousa", [], 100, 50, (adj_x, adj_y), [self.quads[adj_y][adj_x]],
-                                       [Unit(100, 100, 3, 3, "First Army", (adj_x, adj_y), True)], None)
+                new_settl = Settlement("Protevousa", [], 100, 50, (adj_x, adj_y), [self.quads[adj_y][adj_x]], [], None)
                 player.settlements.append(new_settl)
                 self.overlay.toggle_tutorial()
                 self.selected_settlement = new_settl

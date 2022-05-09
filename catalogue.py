@@ -1,6 +1,6 @@
 import typing
 
-from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement
+from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan
 
 # TODO F Add list of settlement names
 
@@ -22,7 +22,7 @@ BLESSINGS = {
 }
 
 # TODO F There should really be multiple improvements for some blessings.
-# TODO Constructing units? Including settlers or the like
+# TODO Allow settlers to found new settlements
 # TODO F Should be able to expand a settlement somehow probably
 
 IMPROVEMENTS = [
@@ -64,6 +64,17 @@ IMPROVEMENTS = [
                 Effect(wealth=-5, harvest=2, zeal=2, fortune=2, strength=2, satisfaction=20), BLESSINGS["ref_prc"])
 ]
 
+UNIT_PLANS = [
+    UnitPlan(100, 100, 3, "Warrior", None, 25),
+    UnitPlan(125, 50, 5, "Archer", None, 25),
+    UnitPlan(25, 25, 6, "Settler", None, 50),
+    UnitPlan(150, 75, 4, "Mage", BLESSINGS["beg_spl"], 50),
+    UnitPlan(200, 40, 2, "Grenadier", BLESSINGS["rud_exp"], 75),
+    UnitPlan(150, 150, 5, "Drone", BLESSINGS["rob_exp"], 125),
+    UnitPlan(50, 200, 2, "Flagellant", BLESSINGS["tor_tec"], 80),
+    UnitPlan(150, 125, 3, "Sniper", BLESSINGS["apr_ref"], 100),
+]
+
 
 def get_available_improvements(player: Player, settlement: Settlement) -> typing.List[Improvement]:
     imps = [imp for imp in IMPROVEMENTS if (imp.prereq in player.blessings or imp.prereq is None)
@@ -74,6 +85,16 @@ def get_available_improvements(player: Player, settlement: Settlement) -> typing
 
     imps.sort(key=get_cost)
     return imps
+
+
+def get_available_unit_plans(player: Player) -> typing.List[UnitPlan]:
+    unit_plans = [up for up in UNIT_PLANS if (up.prereq in player.blessings or up.prereq is None)]
+
+    def get_cost(up: UnitPlan) -> float:
+        return up.cost
+
+    unit_plans.sort(key=get_cost)
+    return unit_plans
 
 
 def get_available_blessings(player: Player) -> typing.List[Blessing]:

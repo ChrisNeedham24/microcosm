@@ -5,7 +5,7 @@ from enum import Enum
 import pyxel
 
 from catalogue import get_unlockable_improvements
-from models import Settlement, Player, Improvement, Unit, Blessing, ImprovementType
+from models import Settlement, Player, Improvement, Unit, Blessing, ImprovementType, CompletedConstruction, UnitPlan
 
 
 class OverlayType(Enum):
@@ -16,7 +16,9 @@ class OverlayType(Enum):
     DEPLOYMENT = "DEPLOYMENT",
     UNIT = "UNIT",
     TUTORIAL = "TUTORIAL",
-    WARNING = "WARNING"
+    WARNING = "WARNING",
+    BLESS_NOTIF = "BLESS_NOTIF",
+    CONSTR_NOTIF = "CONSTR_NOTIF"
 
 
 class Overlay:
@@ -25,15 +27,20 @@ class Overlay:
         self.current_turn: int = 0
         self.current_settlement: typing.Optional[Settlement] = None
         self.current_player: typing.Optional[Player] = None
-        self.available_constructions: typing.List[typing.Union[Improvement, Unit]] = []
-        self.selected_construction: typing.Optional[typing.Union[Improvement, Unit]] = None
+        self.available_constructions: typing.List[Improvement] = []
+        self.available_unit_plans: typing.List[UnitPlan] = []
+        self.selected_construction: typing.Optional[typing.Union[Improvement, UnitPlan]] = None
         self.construction_boundaries: typing.Tuple[int, int] = 0, 5
+        self.unit_plan_boundaries: typing.Tuple[int, int] = 0, 5
+        self.constructing_improvement: bool = True
         self.selected_unit: typing.Optional[Unit] = None
         self.available_blessings: typing.List[Blessing] = []
         self.selected_blessing: typing.Optional[Blessing] = None
         self.blessing_boundaries: typing.Tuple[int, int] = 0, 5
         self.problematic_settlements: typing.List[Settlement] = []
         self.has_no_blessing: bool = False
+        self.completed_blessing: typing.Optional[Blessing] = None
+        self.completed_constructions: typing.List[CompletedConstruction] = []
 
     def display(self):
         pyxel.load("resources/sprites.pyxres")
@@ -65,7 +72,25 @@ class Overlay:
                 for setl in self.problematic_settlements:
                     pyxel.text(80, 73 + offset, setl.name, pyxel.COLOR_WHITE)
                     offset += 10
-
+        elif OverlayType.BLESS_NOTIF in self.showing:
+            unlocked = get_unlockable_improvements(self.completed_blessing)
+            pyxel.rectb(12, 60, 176, 45 + len(unlocked) * 10, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 61, 174, 43 + len(unlocked) * 10, pyxel.COLOR_BLACK)
+            pyxel.text(60, 63, "Blessing completed!", pyxel.COLOR_PURPLE)
+            pyxel.text(20, 73, self.completed_blessing.name, pyxel.COLOR_WHITE)
+            pyxel.text(20, 83, "Unlocks:", pyxel.COLOR_WHITE)
+            for idx, imp in enumerate(get_unlockable_improvements(self.completed_blessing)):
+                pyxel.text(25, 93 + idx * 10, imp.name, pyxel.COLOR_RED)
+            pyxel.text(70, 93 + len(unlocked) * 10, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+        elif OverlayType.CONSTR_NOTIF in self.showing:
+            pyxel.rectb(12, 60, 176, 25 + len(self.completed_constructions) * 20, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 61, 174, 23 + len(self.completed_constructions) * 20, pyxel.COLOR_BLACK)
+            pluralisation = "s" if len(self.completed_constructions) > 1 else ""
+            pyxel.text(60, 63, f"Construction{pluralisation} completed!", pyxel.COLOR_RED)
+            for idx, constr in enumerate(self.completed_constructions):
+                pyxel.text(20, 73 + idx * 20, constr.settlement.name, pyxel.COLOR_WHITE)
+                pyxel.text(25, 83 + idx * 20, constr.construction.name, pyxel.COLOR_RED)
+            pyxel.text(70, 73 + len(self.completed_constructions) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
         else:
             if OverlayType.SETTLEMENT in self.showing:
                 pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
@@ -121,59 +146,79 @@ class Overlay:
                 total_zeal += sum(quad.zeal for quad in self.current_settlement.quads)
                 total_zeal += sum(imp.effect.zeal for imp in self.current_settlement.improvements)
                 total_zeal = max(0.5, total_zeal)
-                for idx, construction in enumerate(self.available_constructions):
-                    if self.construction_boundaries[0] <= idx <= self.construction_boundaries[1]:
-                        adj_idx = idx - self.construction_boundaries[0]
-                        pyxel.text(30, 35 + adj_idx * 18,
-                                   f"{construction.name} ({math.ceil(construction.cost / total_zeal)})",
-                                   pyxel.COLOR_WHITE)
-                        pyxel.text(150, 35 + adj_idx * 18, "Build",
-                                   pyxel.COLOR_RED if self.selected_construction is construction else pyxel.COLOR_WHITE)
-                        effects = 0
-                        if construction.effect.wealth != 0:
-                            sign = "+" if construction.effect.wealth > 0 else "-"
-                            pyxel.text(30 + effects * 25, 42 + adj_idx * 18,
-                                       f"{sign}{abs(construction.effect.wealth)}", pyxel.COLOR_YELLOW)
-                            effects += 1
-                        if construction.effect.harvest != 0:
-                            sign = "+" if construction.effect.harvest > 0 else "-"
-                            pyxel.text(30 + effects * 25, 42 + adj_idx * 18,
-                                       f"{sign}{abs(construction.effect.harvest)}", pyxel.COLOR_GREEN)
-                            effects += 1
-                        if construction.effect.zeal != 0:
-                            sign = "+" if construction.effect.zeal > 0 else "-"
-                            pyxel.text(30 + effects * 25, 42 + adj_idx * 18,
-                                       f"{sign}{abs(construction.effect.zeal)}", pyxel.COLOR_RED)
-                            effects += 1
-                        if construction.effect.fortune != 0:
-                            sign = "+" if construction.effect.fortune > 0 else "-"
-                            pyxel.text(30 + effects * 25, 42 + adj_idx * 18,
-                                       f"{sign}{abs(construction.effect.fortune)}", pyxel.COLOR_PURPLE)
-                            effects += 1
-                        if construction.effect.strength != 0:
-                            sign = "+" if construction.effect.strength > 0 else "-"
-                            pyxel.blt(30 + effects * 25, 42 + adj_idx * 18, 0, 0, 28, 8, 8)
-                            pyxel.text(40 + effects * 25, 42 + adj_idx * 18,
-                                       f"{sign}{abs(construction.effect.strength)}", pyxel.COLOR_WHITE)
-                            effects += 1
-                        if construction.effect.satisfaction != 0:
-                            sign = "+" if construction.effect.satisfaction > 0 else "-"
-                            satisfaction_u = 8 if construction.effect.satisfaction >= 0 else 16
-                            pyxel.blt(30 + effects * 25, 42 + adj_idx * 18, 0, satisfaction_u, 28, 8, 8)
-                            pyxel.text(40 + effects * 25, 42 + adj_idx * 18,
-                                       f"{sign}{abs(construction.effect.satisfaction)}", pyxel.COLOR_WHITE)
+                if self.constructing_improvement:
+                    for idx, construction in enumerate(self.available_constructions):
+                        if self.construction_boundaries[0] <= idx <= self.construction_boundaries[1]:
+                            adj_idx = idx - self.construction_boundaries[0]
+                            pyxel.text(30, 35 + adj_idx * 18,
+                                       f"{construction.name} ({math.ceil(construction.cost / total_zeal)})",
+                                       pyxel.COLOR_WHITE)
+                            pyxel.text(150, 35 + adj_idx * 18, "Build",
+                                       pyxel.COLOR_RED if self.selected_construction is construction else pyxel.COLOR_WHITE)
+                            effects = 0
+                            if construction.effect.wealth != 0:
+                                sign = "+" if construction.effect.wealth > 0 else "-"
+                                pyxel.text(30 + effects * 25, 42 + adj_idx * 18,
+                                           f"{sign}{abs(construction.effect.wealth)}", pyxel.COLOR_YELLOW)
+                                effects += 1
+                            if construction.effect.harvest != 0:
+                                sign = "+" if construction.effect.harvest > 0 else "-"
+                                pyxel.text(30 + effects * 25, 42 + adj_idx * 18,
+                                           f"{sign}{abs(construction.effect.harvest)}", pyxel.COLOR_GREEN)
+                                effects += 1
+                            if construction.effect.zeal != 0:
+                                sign = "+" if construction.effect.zeal > 0 else "-"
+                                pyxel.text(30 + effects * 25, 42 + adj_idx * 18,
+                                           f"{sign}{abs(construction.effect.zeal)}", pyxel.COLOR_RED)
+                                effects += 1
+                            if construction.effect.fortune != 0:
+                                sign = "+" if construction.effect.fortune > 0 else "-"
+                                pyxel.text(30 + effects * 25, 42 + adj_idx * 18,
+                                           f"{sign}{abs(construction.effect.fortune)}", pyxel.COLOR_PURPLE)
+                                effects += 1
+                            if construction.effect.strength != 0:
+                                sign = "+" if construction.effect.strength > 0 else "-"
+                                pyxel.blt(30 + effects * 25, 42 + adj_idx * 18, 0, 0, 28, 8, 8)
+                                pyxel.text(40 + effects * 25, 42 + adj_idx * 18,
+                                           f"{sign}{abs(construction.effect.strength)}", pyxel.COLOR_WHITE)
+                                effects += 1
+                            if construction.effect.satisfaction != 0:
+                                sign = "+" if construction.effect.satisfaction > 0 else "-"
+                                satisfaction_u = 8 if construction.effect.satisfaction >= 0 else 16
+                                pyxel.blt(30 + effects * 25, 42 + adj_idx * 18, 0, satisfaction_u, 28, 8, 8)
+                                pyxel.text(40 + effects * 25, 42 + adj_idx * 18,
+                                           f"{sign}{abs(construction.effect.satisfaction)}", pyxel.COLOR_WHITE)
+                else:
+                    for idx, unit_plan in enumerate(self.available_unit_plans):
+                        if self.unit_plan_boundaries[0] <= idx <= self.unit_plan_boundaries[1]:
+                            adj_idx = idx - self.unit_plan_boundaries[0]
+                            pyxel.text(30, 35 + adj_idx * 18,
+                                       f"{unit_plan.name} ({math.ceil(unit_plan.cost / total_zeal)})",
+                                       pyxel.COLOR_WHITE)
+                            pyxel.text(146, 35 + adj_idx * 18, "Recruit",
+                                       pyxel.COLOR_RED if self.selected_construction is unit_plan else pyxel.COLOR_WHITE)
+                            pyxel.blt(30, 42 + adj_idx * 18, 0, 8, 36, 8, 8)
+                            pyxel.text(45, 42 + adj_idx * 18, str(unit_plan.max_health), pyxel.COLOR_WHITE)
+                            pyxel.blt(60, 42 + adj_idx * 18, 0, 0, 36, 8, 8)
+                            pyxel.text(75, 42 + adj_idx * 18, str(unit_plan.power), pyxel.COLOR_WHITE)
+                            pyxel.blt(90, 42 + adj_idx * 18, 0, 16, 36, 8, 8)
+                            pyxel.text(105, 42 + adj_idx * 18, str(unit_plan.total_stamina), pyxel.COLOR_WHITE)
                 pyxel.text(90, 150, "Cancel",
                            pyxel.COLOR_RED if self.selected_construction is None else pyxel.COLOR_WHITE)
+                if self.constructing_improvement:
+                    pyxel.text(140, 150, "Units ->", pyxel.COLOR_WHITE)
+                else:
+                    pyxel.text(25, 150, "<- Improvements", pyxel.COLOR_WHITE)
             if OverlayType.UNIT in self.showing:
                 pyxel.rectb(12, 130, 56, 40, pyxel.COLOR_WHITE)
                 pyxel.rect(13, 131, 54, 38, pyxel.COLOR_BLACK)
-                pyxel.text(20, 134, self.selected_unit.name, pyxel.COLOR_WHITE)
+                pyxel.text(20, 134, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
                 pyxel.blt(20, 140, 0, 8, 36, 8, 8)
                 pyxel.text(30, 142, str(self.selected_unit.health), pyxel.COLOR_WHITE)
                 pyxel.blt(20, 150, 0, 0, 36, 8, 8)
-                pyxel.text(30, 152, str(self.selected_unit.power), pyxel.COLOR_WHITE)
+                pyxel.text(30, 152, str(self.selected_unit.plan.power), pyxel.COLOR_WHITE)
                 pyxel.blt(20, 160, 0, 16, 36, 8, 8)
-                pyxel.text(30, 162, f"{self.selected_unit.remaining_stamina}/{self.selected_unit.total_stamina}",
+                pyxel.text(30, 162, f"{self.selected_unit.remaining_stamina}/{self.selected_unit.plan.total_stamina}",
                            pyxel.COLOR_WHITE)
             if OverlayType.STANDARD in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
@@ -199,7 +244,8 @@ class Overlay:
                 for setl in self.current_player.settlements:
                     wealth_per_turn += sum(quad.wealth for quad in setl.quads)
                     wealth_per_turn += sum(imp.effect.wealth for imp in setl.improvements)
-                pyxel.text(30, 90, f"{self.current_player.wealth} (+{round(wealth_per_turn, 2)})", pyxel.COLOR_WHITE)
+                pyxel.text(30, 90,
+                           f"{round(self.current_player.wealth)} (+{round(wealth_per_turn, 2)})", pyxel.COLOR_WHITE)
             if OverlayType.BLESSING in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -254,19 +300,23 @@ class Overlay:
             self.showing.append(OverlayType.STANDARD)
             self.current_turn = turn
 
-    def toggle_construction(self, available_constructions: typing.List[typing.Union[Improvement, Unit]]):
+    def toggle_construction(self, available_constructions: typing.List[Improvement],
+                            available_unit_plans: typing.List[UnitPlan]):
         if OverlayType.CONSTRUCTION in self.showing and OverlayType.STANDARD not in self.showing:
             self.showing.pop()
         elif OverlayType.STANDARD not in self.showing:
             self.showing.append(OverlayType.CONSTRUCTION)
             self.available_constructions = available_constructions
+            self.available_unit_plans = available_unit_plans
+            self.constructing_improvement = True
             self.selected_construction = self.available_constructions[0]
 
     def navigate_constructions(self, down: bool):
+        list_to_use = self.available_constructions if self.constructing_improvement else self.available_unit_plans
         if down and self.selected_construction is not None:
-            current_index = self.available_constructions.index(self.selected_construction)
-            if current_index != len(self.available_constructions) - 1:
-                self.selected_construction = self.available_constructions[current_index + 1]
+            current_index = list_to_use.index(self.selected_construction)
+            if current_index != len(list_to_use) - 1:
+                self.selected_construction = list_to_use[current_index + 1]
                 if current_index == self.construction_boundaries[1]:
                     self.construction_boundaries = \
                         self.construction_boundaries[0] + 1, self.construction_boundaries[1] + 1
@@ -274,11 +324,11 @@ class Overlay:
                 self.selected_construction = None
         elif not down:
             if self.selected_construction is None:
-                self.selected_construction = self.available_constructions[len(self.available_constructions) - 1]
+                self.selected_construction = list_to_use[len(list_to_use) - 1]
             else:
-                current_index = self.available_constructions.index(self.selected_construction)
+                current_index = list_to_use.index(self.selected_construction)
                 if current_index != 0:
-                    self.selected_construction = self.available_constructions[current_index - 1]
+                    self.selected_construction = list_to_use[current_index - 1]
                     if current_index == self.construction_boundaries[0]:
                         self.construction_boundaries = \
                             self.construction_boundaries[0] - 1, self.construction_boundaries[1] - 1
@@ -386,3 +436,23 @@ class Overlay:
     def remove_warning_if_possible(self):
         if OverlayType.WARNING in self.showing:
             self.showing.pop()
+
+    def toggle_blessing_notification(self, blessing: typing.Optional[Blessing]):
+        if OverlayType.BLESS_NOTIF in self.showing:
+            self.showing.pop()
+        else:
+            self.showing.append(OverlayType.BLESS_NOTIF)
+            self.completed_blessing = blessing
+
+    def is_bless_notif(self):
+        return OverlayType.BLESS_NOTIF in self.showing
+
+    def toggle_construction_notification(self, constructions: typing.List[CompletedConstruction]):
+        if OverlayType.CONSTR_NOTIF in self.showing:
+            self.showing.pop()
+        else:
+            self.showing.append(OverlayType.CONSTR_NOTIF)
+            self.completed_constructions = constructions
+
+    def is_constr_notif(self):
+        return OverlayType.CONSTR_NOTIF in self.showing

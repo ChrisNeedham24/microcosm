@@ -57,19 +57,27 @@ class Improvement:
 
 
 @dataclass
-class Unit:
+class UnitPlan:
     power: float
-    health: float
+    max_health: float
     total_stamina: int
-    remaining_stamina: int
     name: str
+    prereq: typing.Optional[Blessing]
+    cost: float
+
+
+@dataclass
+class Unit:
+    health: float
+    remaining_stamina: int
     location: (float, float)
     garrisoned: bool
+    plan: UnitPlan
 
 
 @dataclass
 class Construction:
-    construction: typing.Union[Improvement, Unit]
+    construction: typing.Union[Improvement, UnitPlan]
     zeal_consumed: float = 0.0
 
 
@@ -78,7 +86,7 @@ class OngoingBlessing:
     blessing: Blessing
     fortune_consumed: float = 0.0
 
-# TODO F Re-add settlement level, use harvest for it, some modifier to overall counts
+# TODO Re-add settlement level, use harvest for it, some modifier to overall counts
 
 @dataclass
 class Settlement:
@@ -90,6 +98,12 @@ class Settlement:
     quads: typing.List[Quad]
     garrison: typing.List[Unit]
     current_work: typing.Optional[Construction]
+
+
+@dataclass
+class CompletedConstruction:
+    construction: typing.Union[Improvement, UnitPlan]
+    settlement: Settlement
 
 
 @dataclass
