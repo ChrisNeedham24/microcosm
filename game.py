@@ -203,7 +203,7 @@ class Game:
                             setl.improvements.append(setl.current_work.construction)
                             if setl.current_work.construction.effect.strength > 0:
                                 setl.strength += setl.current_work.construction.effect.strength
-                            if setl.current_work.construction.effect.satisfaction > 0:
+                            if setl.current_work.construction.effect.satisfaction != 0:
                                 setl.satisfaction += setl.current_work.construction.effect.satisfaction
                         else:
                             plan: UnitPlan = setl.current_work.construction
