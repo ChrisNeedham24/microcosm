@@ -1,6 +1,6 @@
 import typing
 
-from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan
+from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit
 
 # TODO F Add list of settlement names
 
@@ -74,6 +74,10 @@ UNIT_PLANS = [
     UnitPlan(50, 200, 2, "Flagellant", BLESSINGS["tor_tec"], 80),
     UnitPlan(150, 125, 3, "Sniper", BLESSINGS["apr_ref"], 100),
 ]
+
+
+def get_default_unit(location: (int, int)) -> Unit:
+    return Unit(UNIT_PLANS[0].max_health, UNIT_PLANS[0].total_stamina, location, True, UNIT_PLANS[0])
 
 
 def get_available_improvements(player: Player, settlement: Settlement) -> typing.List[Improvement]:
