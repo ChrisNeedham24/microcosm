@@ -18,7 +18,7 @@ class HelpOption(Enum):
 
 
 # TODO F Make it so biomes naturally cluster
-# TODO F Show number of units with unspent movement
+# TODO Show number of units with unspent movement
 # TODO F Look into drawing issues with units/settlements on edge of map
 
 
@@ -40,7 +40,10 @@ class Board:
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int):
         pyxel.cls(0)
         pyxel.rectb(0, 0, 200, 184, pyxel.COLOR_WHITE)
-        pyxel.text(2, 189, self.current_help.value, pyxel.COLOR_WHITE)
+        if self.selected_unit is not None and self.selected_unit.plan.can_settle:
+            pyxel.text(2, 189, "S: Found new settlement", pyxel.COLOR_WHITE)
+        else:
+            pyxel.text(2, 189, self.current_help.value, pyxel.COLOR_WHITE)
         pyxel.text(165, 189, f"Turn {turn}", pyxel.COLOR_WHITE)
 
         pyxel.load("resources/quads.pyxres")
@@ -198,3 +201,20 @@ class Board:
                         any((to_select := unit).location == (adj_x, adj_y) for unit in player.units):
                     self.selected_unit = to_select
                     self.overlay.toggle_unit(to_select)
+
+    def handle_new_settlement(self, player: Player):
+        can_settle = True
+        for setl in player.settlements:
+            if setl.location == self.selected_unit.location:
+                can_settle = False
+                break
+        if can_settle:
+            new_settl = Settlement("Sequelius", [], 100, 50, self.selected_unit.location,
+                                   [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]],
+                                   [], None)
+            player.settlements.append(new_settl)
+            player.units.remove(self.selected_unit)
+            self.selected_unit = None
+            self.overlay.toggle_unit(None)
+            self.selected_settlement = new_settl
+            self.overlay.toggle_settlement(new_settl, player)

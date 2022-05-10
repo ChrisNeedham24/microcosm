@@ -64,6 +64,7 @@ class UnitPlan:
     name: str
     prereq: typing.Optional[Blessing]
     cost: float
+    can_settle: bool = False
 
 
 @dataclass
@@ -86,7 +87,6 @@ class OngoingBlessing:
     blessing: Blessing
     fortune_consumed: float = 0.0
 
-# TODO Re-add settlement level, use harvest for it, some modifier to overall counts
 
 @dataclass
 class Settlement:
@@ -98,6 +98,21 @@ class Settlement:
     quads: typing.List[Quad]
     garrison: typing.List[Unit]
     current_work: typing.Optional[Construction]
+    """
+    The harvest reserves required for each upgrade is as below:
+    Threshold = (current_level ^ 2) * 25
+    Level 1 -> 2 = 25
+    Level 2 -> 3 = 100
+    Level 3 -> 4 = 225
+    Level 4 -> 5 = 400
+    Level 5 -> 6 = 625
+    Level 6 -> 7 = 900
+    Level 7 -> 8 = 1225
+    Level 8 -> 9 = 1600
+    Level 9 -> 10 = 2025
+    """
+    level: int = 1
+    harvest_reserves: float = 0.0
 
 
 @dataclass

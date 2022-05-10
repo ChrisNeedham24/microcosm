@@ -18,7 +18,8 @@ class OverlayType(Enum):
     TUTORIAL = "TUTORIAL",
     WARNING = "WARNING",
     BLESS_NOTIF = "BLESS_NOTIF",
-    CONSTR_NOTIF = "CONSTR_NOTIF"
+    CONSTR_NOTIF = "CONSTR_NOTIF",
+    LEVEL_NOTIF = "LEVEL_NOTIF"
 
 
 class Overlay:
@@ -41,6 +42,7 @@ class Overlay:
         self.has_no_blessing: bool = False
         self.completed_blessing: typing.Optional[Blessing] = None
         self.completed_constructions: typing.List[CompletedConstruction] = []
+        self.levelled_up_settlements: typing.List[Settlement] = []
 
     def display(self):
         pyxel.load("resources/sprites.pyxres")
@@ -91,24 +93,42 @@ class Overlay:
                 pyxel.text(20, 73 + idx * 20, constr.settlement.name, pyxel.COLOR_WHITE)
                 pyxel.text(25, 83 + idx * 20, constr.construction.name, pyxel.COLOR_RED)
             pyxel.text(70, 73 + len(self.completed_constructions) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+        elif OverlayType.LEVEL_NOTIF in self.showing:
+            pyxel.rectb(12, 60, 176, 25 + len(self.levelled_up_settlements) * 20, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 61, 174, 23 + len(self.levelled_up_settlements) * 20, pyxel.COLOR_BLACK)
+            pluralisation = "s" if len(self.levelled_up_settlements) > 1 else ""
+            pyxel.text(60, 63, f"Settlement{pluralisation} level up!", pyxel.COLOR_WHITE)
+            for idx, setl in enumerate(self.levelled_up_settlements):
+                pyxel.text(20, 73 + idx * 20, setl.name, pyxel.COLOR_WHITE)
+                pyxel.text(25, 83 + idx * 20, f"{setl.level - 1} -> {setl.level}", pyxel.COLOR_WHITE)
+            pyxel.text(70, 73 + len(self.levelled_up_settlements) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
         else:
             if OverlayType.SETTLEMENT in self.showing:
                 pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
                 pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
-                pyxel.text(20, 14, self.current_settlement.name, self.current_player.colour)
-                pyxel.blt(70, 12, 0, 0, 28, 8, 8)
-                pyxel.text(80, 14, str(self.current_settlement.strength), pyxel.COLOR_WHITE)
+                pyxel.text(20, 14, f"{self.current_settlement.name} ({self.current_settlement.level})",
+                           self.current_player.colour)
+                pyxel.blt(80, 12, 0, 0, 28, 8, 8)
+                pyxel.text(90, 14, str(self.current_settlement.strength), pyxel.COLOR_WHITE)
                 satisfaction_u = 8 if self.current_settlement.satisfaction >= 50 else 16
-                pyxel.blt(95, 12, 0, satisfaction_u, 28, 8, 8)
-                pyxel.text(105, 14, str(self.current_settlement.satisfaction), pyxel.COLOR_WHITE)
-                total_wealth = max(round(sum(quad.wealth for quad in self.current_settlement.quads) +
-                                     sum(imp.effect.wealth for imp in self.current_settlement.improvements)), 0)
-                total_harvest = max(round(sum(quad.harvest for quad in self.current_settlement.quads) +
-                                      sum(imp.effect.harvest for imp in self.current_settlement.improvements)), 0)
-                total_zeal = max(round(sum(quad.zeal for quad in self.current_settlement.quads) +
-                                   sum(imp.effect.zeal for imp in self.current_settlement.improvements)), 0)
-                total_fortune = max(round(sum(quad.fortune for quad in self.current_settlement.quads) +
-                                      sum(imp.effect.fortune for imp in self.current_settlement.improvements)), 0)
+                pyxel.blt(105, 12, 0, satisfaction_u, 28, 8, 8)
+                pyxel.text(115, 14, str(self.current_settlement.satisfaction), pyxel.COLOR_WHITE)
+                total_wealth = max(sum(quad.wealth for quad in self.current_settlement.quads) +
+                                     sum(imp.effect.wealth for imp in self.current_settlement.improvements), 0)
+                total_wealth += (self.current_settlement.level - 1) * 0.25 * total_wealth
+                total_wealth = round(total_wealth)
+                total_harvest = max(sum(quad.harvest for quad in self.current_settlement.quads) +
+                                      sum(imp.effect.harvest for imp in self.current_settlement.improvements), 0)
+                total_harvest += (self.current_settlement.level - 1) * 0.25 * total_harvest
+                total_harvest = round(total_harvest)
+                total_zeal = max(sum(quad.zeal for quad in self.current_settlement.quads) +
+                                   sum(imp.effect.zeal for imp in self.current_settlement.improvements), 0)
+                total_zeal += (self.current_settlement.level - 1) * 0.25 * total_zeal
+                total_zeal = round(total_zeal)
+                total_fortune = max(sum(quad.fortune for quad in self.current_settlement.quads) +
+                                      sum(imp.effect.fortune for imp in self.current_settlement.improvements), 0)
+                total_fortune += (self.current_settlement.level - 1) * 0.25 * total_fortune
+                total_fortune = round(total_fortune)
 
                 pyxel.text(138, 14, str(total_wealth), pyxel.COLOR_YELLOW)
                 pyxel.text(150, 14, str(total_harvest), pyxel.COLOR_GREEN)
@@ -122,9 +142,10 @@ class Overlay:
                 if self.current_settlement.current_work is not None:
                     current_work = self.current_settlement.current_work
                     remaining_work = current_work.construction.cost - current_work.zeal_consumed
-                    remaining_turns = math.ceil(remaining_work /
-                                                max(sum(quad.zeal for quad in self.current_settlement.quads) +
-                                                sum(imp.effect.zeal for imp in self.current_settlement.improvements), 0.5))
+                    total_zeal = max(sum(quad.zeal for quad in self.current_settlement.quads) +
+                                                sum(imp.effect.zeal for imp in self.current_settlement.improvements), 0.5)
+                    total_zeal += (self.current_settlement.level - 1) * 0.25 * total_zeal
+                    remaining_turns = math.ceil(remaining_work / total_zeal)
                     pyxel.text(20, 145, current_work.construction.name, pyxel.COLOR_WHITE)
                     pyxel.text(20, 155, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
                 else:
@@ -145,7 +166,7 @@ class Overlay:
                 total_zeal = 0
                 total_zeal += sum(quad.zeal for quad in self.current_settlement.quads)
                 total_zeal += sum(imp.effect.zeal for imp in self.current_settlement.improvements)
-                total_zeal = max(0.5, total_zeal)
+                total_zeal = max(0.5, total_zeal) + (self.current_settlement.level - 1) * 0.25 * total_zeal
                 if self.constructing_improvement:
                     for idx, construction in enumerate(self.available_constructions):
                         if self.construction_boundaries[0] <= idx <= self.construction_boundaries[1]:
@@ -213,6 +234,8 @@ class Overlay:
                 pyxel.rectb(12, 130, 56, 40, pyxel.COLOR_WHITE)
                 pyxel.rect(13, 131, 54, 38, pyxel.COLOR_BLACK)
                 pyxel.text(20, 134, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
+                if self.selected_unit.plan.can_settle:
+                    pyxel.blt(55, 133, 0, 24, 36, 8, 8)
                 pyxel.blt(20, 140, 0, 8, 36, 8, 8)
                 pyxel.text(30, 142, str(self.selected_unit.health), pyxel.COLOR_WHITE)
                 pyxel.blt(20, 150, 0, 0, 36, 8, 8)
@@ -230,8 +253,11 @@ class Overlay:
                     remaining_work = ong_blessing.blessing.cost - ong_blessing.fortune_consumed
                     total_fortune = 0
                     for setl in self.current_player.settlements:
-                        total_fortune += sum(quad.fortune for quad in setl.quads)
-                        total_fortune += sum(imp.effect.fortune for imp in setl.improvements)
+                        fortune_to_add = 0
+                        fortune_to_add += sum(quad.fortune for quad in setl.quads)
+                        fortune_to_add += sum(imp.effect.fortune for imp in setl.improvements)
+                        fortune_to_add += (setl.level - 1) * 0.25 * fortune_to_add
+                        total_fortune += fortune_to_add
                     total_fortune = max(0.5, total_fortune)
                     remaining_turns = math.ceil(remaining_work / total_fortune)
                     pyxel.text(30, 50, ong_blessing.blessing.name, pyxel.COLOR_WHITE)
@@ -242,8 +268,11 @@ class Overlay:
                 pyxel.text(30, 80, "Wealth", pyxel.COLOR_YELLOW)
                 wealth_per_turn = 0
                 for setl in self.current_player.settlements:
-                    wealth_per_turn += sum(quad.wealth for quad in setl.quads)
-                    wealth_per_turn += sum(imp.effect.wealth for imp in setl.improvements)
+                    wealth_to_add = 0
+                    wealth_to_add += sum(quad.wealth for quad in setl.quads)
+                    wealth_to_add += sum(imp.effect.wealth for imp in setl.improvements)
+                    wealth_to_add += (setl.level - 1) * 0.25 * wealth_to_add
+                    wealth_per_turn += wealth_to_add
                 pyxel.text(30, 90,
                            f"{round(self.current_player.wealth)} (+{round(wealth_per_turn, 2)})", pyxel.COLOR_WHITE)
             if OverlayType.BLESSING in self.showing:
@@ -252,8 +281,11 @@ class Overlay:
                 pyxel.text(65, 25, "Available blessings", pyxel.COLOR_PURPLE)
                 total_fortune = 0
                 for setl in self.current_player.settlements:
-                    total_fortune += sum(quad.fortune for quad in setl.quads)
-                    total_fortune += sum(imp.effect.fortune for imp in setl.improvements)
+                    fortune_to_add = 0
+                    fortune_to_add += sum(quad.fortune for quad in setl.quads)
+                    fortune_to_add += sum(imp.effect.fortune for imp in setl.improvements)
+                    fortune_to_add += (setl.level - 1) * 0.25 * fortune_to_add
+                    total_fortune += fortune_to_add
                 total_fortune = max(0.5, total_fortune)
                 for idx, blessing in enumerate(self.available_blessings):
                     if self.blessing_boundaries[0] <= idx <= self.blessing_boundaries[1]:
@@ -456,3 +488,13 @@ class Overlay:
 
     def is_constr_notif(self):
         return OverlayType.CONSTR_NOTIF in self.showing
+
+    def toggle_level_up_notification(self, settlements: typing.List[Settlement]):
+        if OverlayType.LEVEL_NOTIF in self.showing:
+            self.showing.pop()
+        else:
+            self.showing.append(OverlayType.LEVEL_NOTIF)
+            self.levelled_up_settlements = settlements
+
+    def is_lvl_notif(self):
+        return OverlayType.LEVEL_NOTIF in self.showing

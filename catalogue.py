@@ -2,7 +2,7 @@ import typing
 
 from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit
 
-# TODO F Add list of settlement names
+# TODO Add list of settlement names
 
 # TODO F Figure out a way to work these descriptions in somehow. Maybe shorten some?
 
@@ -22,7 +22,6 @@ BLESSINGS = {
 }
 
 # TODO F There should really be multiple improvements for some blessings.
-# TODO Allow settlers to found new settlements
 # TODO F Should be able to expand a settlement somehow probably
 
 IMPROVEMENTS = [
@@ -67,7 +66,7 @@ IMPROVEMENTS = [
 UNIT_PLANS = [
     UnitPlan(100, 100, 3, "Warrior", None, 25),
     UnitPlan(125, 50, 5, "Archer", None, 25),
-    UnitPlan(25, 25, 6, "Settler", None, 50),
+    UnitPlan(25, 25, 6, "Settler", None, 50, can_settle=True),
     UnitPlan(150, 75, 4, "Mage", BLESSINGS["beg_spl"], 50),
     UnitPlan(200, 40, 2, "Grenadier", BLESSINGS["rud_exp"], 75),
     UnitPlan(150, 150, 5, "Drone", BLESSINGS["rob_exp"], 125),

@@ -11,9 +11,12 @@ from models import Player, Settlement, Construction, OngoingBlessing, CompletedC
 
 
 # TODO F Music? Warduke Module 1/2/3 looks like a good shout
-# TODO F Victory conditions - one for each resource type (harvest, wealth, etc.)
-# TODO F Some sort of fog of war would be cool
-# TODO F Pause screen for saving and exiting
+# TODO FF Victory conditions - one for each resource type (harvest, wealth, etc.)
+# TODO FF Some sort of fog of war would be cool
+# TODO F Pause screen for saving and exiting (also controls)
+# TODO FF Add Wiki on main menu
+# TODO Add barbarians, randomly generated every 5 turns, move in circle around point, if player army within certain
+#  distance, move to attack. Will need attacking implemented too.
 
 class Game:
     def __init__(self):
@@ -147,6 +150,8 @@ class Game:
                 self.board.overlay.toggle_blessing_notification(None)
             elif self.game_started and self.board.overlay.is_constr_notif():
                 self.board.overlay.toggle_construction_notification(None)
+            elif self.game_started and self.board.overlay.is_lvl_notif():
+                self.board.overlay.toggle_level_up_notification(None)
             elif self.game_started and self.board.overlay.can_iter_settlements_units() and \
                     len(self.players[0].units) > 0:
                 self.board.overlay.remove_warning_if_possible()
@@ -165,6 +170,9 @@ class Game:
                     self.board.overlay.update_unit(self.players[0].units[new_idx])
                 self.map_pos = (clamp(self.board.selected_unit.location[0] - 12, -1, 77),
                                 clamp(self.board.selected_unit.location[1] - 11, -1, 69))
+        elif pyxel.btnp(pyxel.KEY_S):
+            if self.game_started and self.board.selected_unit.plan.can_settle:
+                self.board.handle_new_settlement(self.players[0])
 
     def draw(self):
         if self.on_menu:
@@ -187,15 +195,28 @@ class Game:
             total_fortune = 0
             total_wealth = 0
             completed_constructions: typing.List[CompletedConstruction] = []
+            levelled_up_settlements: typing.List[Settlement] = []
             for setl in player.settlements:
                 total_zeal = max(sum(quad.zeal for quad in setl.quads) +
                                  sum(imp.effect.zeal for imp in setl.improvements), 0.5)
+                total_zeal += (setl.level - 1) * 0.25 * total_zeal
                 total_fortune += sum(quad.fortune for quad in setl.quads)
                 total_fortune += sum(imp.effect.fortune for imp in setl.improvements)
                 total_fortune = max(0.5, total_fortune)
+                total_fortune += (setl.level - 1) * 0.25 * total_fortune
                 total_wealth += sum(quad.wealth for quad in setl.quads)
                 total_wealth += sum(imp.effect.wealth for imp in setl.improvements)
                 total_wealth = max(0.5, total_wealth)
+                total_wealth += (setl.level - 1) * 0.25 * total_wealth
+
+                total_harvest = max(sum(quad.harvest for quad in setl.quads) +
+                                 sum(imp.effect.harvest for imp in setl.improvements), 0.5)
+                total_harvest += (setl.level - 1) * 0.25 * total_harvest
+                setl.harvest_reserves += total_harvest
+                if setl.harvest_reserves >= pow(setl.level, 2) * 25:
+                    setl.level += 1
+                    levelled_up_settlements.append(setl)
+
                 if setl.current_work is not None:
                     setl.current_work.zeal_consumed += total_zeal
                     if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
@@ -212,6 +233,8 @@ class Game:
                         setl.current_work = None
             if len(completed_constructions) > 0:
                 self.board.overlay.toggle_construction_notification(completed_constructions)
+            if len(levelled_up_settlements) > 0:
+                self.board.overlay.toggle_level_up_notification(levelled_up_settlements)
             for unit in player.units:
                 unit.remaining_stamina = unit.plan.total_stamina
             if player.ongoing_blessing is not None:
