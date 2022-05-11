@@ -224,6 +224,8 @@ class Overlay:
                             pyxel.text(75, 42 + adj_idx * 18, str(unit_plan.power), pyxel.COLOR_WHITE)
                             pyxel.blt(90, 42 + adj_idx * 18, 0, 16, 36, 8, 8)
                             pyxel.text(105, 42 + adj_idx * 18, str(unit_plan.total_stamina), pyxel.COLOR_WHITE)
+                            if unit_plan.can_settle:
+                                pyxel.text(115, 42 + adj_idx * 18, "-1 LVL", pyxel.COLOR_WHITE)
                 pyxel.text(90, 150, "Cancel",
                            pyxel.COLOR_RED if self.selected_construction is None else pyxel.COLOR_WHITE)
                 if self.constructing_improvement:

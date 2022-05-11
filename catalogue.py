@@ -1,8 +1,30 @@
+import random
 import typing
 
-from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit
+from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome
 
-# TODO Add list of settlement names
+SETL_NAMES = {
+    Biome.DESERT: [
+        "Enfu", "Saknoten", "Despemar", "Khasolzum", "Nekpesir", "Akhtamar", "Absai", "Khanomhat", "Sharrisir", "Kisri"
+    ],
+    Biome.FOREST: [
+        "Kalshara", "Mora Caelora", "Yam Ennore", "Uyla Themar", "Nelrenqua", "Caranlian", "Osaenamel", "Elhamel",
+        "Allenrion", "Nilathaes"
+    ],
+    Biome.SEA: [
+        "Natanas", "Tempetia", "Leviarey", "Atlalis", "Neptulean", "Oceacada", "Naurus", "Hylore", "Expathis", "Liquasa"
+    ],
+    Biome.MOUNTAIN: [
+        "Nem Tarhir", "Dharnturm", "Hun Thurum", "Vil Tarum", "Khurn Kuldihr", "Hildarim", "Gog Daruhl", "Vogguruhm",
+        "Dhighthiod", "Malwihr"
+    ]
+}
+
+
+def get_settlement_name(biome: Biome) -> str:
+    name = random.choice(SETL_NAMES[biome])
+    SETL_NAMES[biome].remove(name)
+    return name
 
 # TODO F Figure out a way to work these descriptions in somehow. Maybe shorten some?
 
@@ -90,8 +112,14 @@ def get_available_improvements(player: Player, settlement: Settlement) -> typing
     return imps
 
 
-def get_available_unit_plans(player: Player) -> typing.List[UnitPlan]:
-    unit_plans = [up for up in UNIT_PLANS if (up.prereq in player.blessings or up.prereq is None)]
+def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitPlan]:
+    unit_plans = []
+    for unit_plan in UNIT_PLANS:
+        if unit_plan.prereq is None or unit_plan.prereq in player.blessings:
+            if unit_plan.can_settle and setl_lvl > 1:
+                unit_plans.append(unit_plan)
+            elif not unit_plan.can_settle:
+                unit_plans.append(unit_plan)
 
     def get_cost(up: UnitPlan) -> float:
         return up.cost

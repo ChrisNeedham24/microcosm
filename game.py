@@ -1,3 +1,4 @@
+import random
 import time
 import typing
 
@@ -10,13 +11,17 @@ from menu import Menu, MenuOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, UnitPlan
 
 
-# TODO F Music? Warduke Module 1/2/3 looks like a good shout
+# TODO Music? Warduke Module 1/2/3 looks like a good shout
 # TODO FF Victory conditions - one for each resource type (harvest, wealth, etc.)
 # TODO FF Some sort of fog of war would be cool
-# TODO F Pause screen for saving and exiting (also controls)
+# TODO FF Pause screen for saving and exiting (also controls)
 # TODO FF Add Wiki on main menu
-# TODO Add barbarians, randomly generated every 5 turns, move in circle around point, if player army within certain
+# TODO F Add barbarians, randomly generated every 5 turns, move in circle around point, if player army within certain
 #  distance, move to attack. Will need attacking implemented too.
+# TODO F There should be a punishment for settlement unhappiness.
+# TODO Construction and blessing buyouts with wealth
+# TODO FF Game setup screen with number of players and colours
+# TODO FF Zoom
 
 class Game:
     def __init__(self):
@@ -31,7 +36,7 @@ class Game:
 
         self.last_time = time.time()
 
-        self.map_pos: (int, int) = 0, 0
+        self.map_pos: (int, int) = random.randint(0, 76), random.randint(0, 68)
         self.turn = 1
 
         pyxel.run(self.on_update, self.draw)
@@ -85,7 +90,7 @@ class Game:
                     self.game_started = True
                     self.on_menu = False
                 elif self.menu.menu_option is MenuOption.LOAD_GAME:
-                    # TODO F Saving and loading
+                    # TODO FF Saving and loading
                     print("Unsupported for now.")
                 elif self.menu.menu_option is MenuOption.EXIT:
                     pyxel.quit()
@@ -118,7 +123,8 @@ class Game:
             if self.game_started and self.board.selected_settlement is not None:
                 self.board.overlay.toggle_construction(get_available_improvements(self.players[0],
                                                                                   self.board.selected_settlement),
-                                                       get_available_unit_plans(self.players[0]))
+                                                       get_available_unit_plans(self.players[0],
+                                                                                self.board.selected_settlement.level))
         elif pyxel.btnp(pyxel.KEY_F):
             if self.game_started and self.board.overlay.is_standard():
                 self.board.overlay.toggle_blessing(get_available_blessings(self.players[0]))
@@ -228,6 +234,9 @@ class Game:
                                 setl.satisfaction += setl.current_work.construction.effect.satisfaction
                         else:
                             plan: UnitPlan = setl.current_work.construction
+                            if plan.can_settle:
+                                setl.level -= 1
+                                setl.harvest_reserves = pow(setl.level - 1, 2) * 25
                             setl.garrison.append(Unit(plan.max_health, plan.total_stamina, setl.location, True, plan))
                         completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
                         setl.current_work = None

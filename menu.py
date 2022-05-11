@@ -1,3 +1,4 @@
+import random
 from enum import Enum
 
 import pyxel
@@ -12,16 +13,23 @@ class MenuOption(Enum):
 class Menu:
     def __init__(self):
         self.menu_option = MenuOption.NEW_GAME
+        self.image = random.randint(0, 3)
 
     def draw(self):
-        pyxel.cls(0)
-        # TODO F We should really have some sort of background here
-        pyxel.text(82, 60, "MICROCOSM", pyxel.COLOR_WHITE)
-        pyxel.text(85, 100, "New Game",
+        if self.image < 3:
+            pyxel.load("resources/background.pyxres")
+            pyxel.blt(0, 0, self.image, 0, 0, 200, 200)
+        else:
+            pyxel.load("resources/background2.pyxres")
+            pyxel.blt(0, 0, 0, 0, 0, 200, 200)
+        pyxel.rectb(75, 120, 50, 60, pyxel.COLOR_WHITE)
+        pyxel.rect(76, 121, 48, 58, pyxel.COLOR_BLACK)
+        pyxel.text(82, 125, "MICROCOSM", pyxel.COLOR_WHITE)
+        pyxel.text(85, 140, "New Game",
                    pyxel.COLOR_RED if self.menu_option is MenuOption.NEW_GAME else pyxel.COLOR_WHITE)
-        pyxel.text(82, 120, "Load Game",
+        pyxel.text(82, 155, "Load Game",
                    pyxel.COLOR_RED if self.menu_option is MenuOption.LOAD_GAME else pyxel.COLOR_WHITE)
-        pyxel.text(92, 140, "Exit",
+        pyxel.text(92, 170, "Exit",
                    pyxel.COLOR_RED if self.menu_option is MenuOption.EXIT else pyxel.COLOR_WHITE)
 
     def navigate(self, down: bool):

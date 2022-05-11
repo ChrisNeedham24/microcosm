@@ -5,7 +5,7 @@ from enum import Enum
 import pyxel
 
 from calculator import calculate_yield_for_quad
-from catalogue import get_default_unit
+from catalogue import get_default_unit, SETL_NAMES, get_settlement_name
 from models import Player, Quad, Biome, Settlement, Unit
 from overlay import Overlay
 
@@ -18,7 +18,6 @@ class HelpOption(Enum):
 
 
 # TODO F Make it so biomes naturally cluster
-# TODO Show number of units with unspent movement
 # TODO F Look into drawing issues with units/settlements on edge of map
 
 
@@ -97,9 +96,11 @@ class Board:
                 base_y_pos = (settlement.location[1] - map_pos[1]) * 8
                 pyxel.blt(base_x_pos + 4, base_y_pos + 4, 0, setl_x, 4, 8, 8)
                 if self.selected_settlement is not settlement:
+                    name_len = len(settlement.name)
+                    x_offset = 11 - name_len
                     pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10, pyxel.COLOR_BLACK)
                     pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
-                    pyxel.text(base_x_pos - 10, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
+                    pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
                 else:
                     pyxel.rectb((settlement.location[0] - map_pos[0]) * 8 + 4,
                                 (settlement.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
@@ -119,6 +120,15 @@ class Board:
         if self.deploying_army:
             pyxel.rectb((self.selected_settlement.location[0] - map_pos[0]) * 8 - 4,
                         (self.selected_settlement.location[1] - map_pos[1]) * 8 - 4, 24, 24, pyxel.COLOR_WHITE)
+
+        movable_units = [unit for unit in players[0].units if unit.remaining_stamina > 0]
+        if len(movable_units) > 0:
+            pluralisation = "s" if len(movable_units) > 1 else ""
+            pyxel.rectb(150, 147, 40, 20, pyxel.COLOR_WHITE)
+            pyxel.rect(151, 148, 38, 18, pyxel.COLOR_BLACK)
+            pyxel.text(168, 150, str(len(movable_units)), pyxel.COLOR_WHITE)
+            pyxel.text(156, 155, "movable", pyxel.COLOR_WHITE)
+            pyxel.text(161, 160, f"unit{pluralisation}", pyxel.COLOR_WHITE)
 
         self.overlay.display()
 
@@ -157,7 +167,9 @@ class Board:
             adj_x = int((mouse_x - 4) / 8) + map_pos[0]
             adj_y = int((mouse_y - 4) / 8) + map_pos[1]
             if not settled:
-                new_settl = Settlement("Protevousa", [], 100, 50, (adj_x, adj_y), [self.quads[adj_y][adj_x]],
+                quad_biome = self.quads[adj_y][adj_x].biome
+                setl_name = get_settlement_name(quad_biome)
+                new_settl = Settlement(setl_name, [], 100, 50, (adj_x, adj_y), [self.quads[adj_y][adj_x]],
                                        [get_default_unit((adj_x, adj_y))], None)
                 player.settlements.append(new_settl)
                 self.overlay.toggle_tutorial()
@@ -209,7 +221,9 @@ class Board:
                 can_settle = False
                 break
         if can_settle:
-            new_settl = Settlement("Sequelius", [], 100, 50, self.selected_unit.location,
+            quad_biome = self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]].biome
+            setl_name = get_settlement_name(quad_biome)
+            new_settl = Settlement(setl_name, [], 100, 50, self.selected_unit.location,
                                    [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]],
                                    [], None)
             player.settlements.append(new_settl)
