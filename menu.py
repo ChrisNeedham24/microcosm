@@ -13,6 +13,7 @@ class MenuOption(Enum):
 class Menu:
     def __init__(self):
         self.menu_option = MenuOption.NEW_GAME
+        random.seed()
         self.image = random.randint(0, 3)
 
     def draw(self):
