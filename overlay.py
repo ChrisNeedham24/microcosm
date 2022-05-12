@@ -135,10 +135,16 @@ class Overlay:
                 pyxel.text(162, 14, str(total_zeal), pyxel.COLOR_RED)
                 pyxel.text(174, 14, str(total_fortune), pyxel.COLOR_PURPLE)
 
-                pyxel.rectb(12, 130, 176, 40, pyxel.COLOR_WHITE)
-                pyxel.rect(13, 131, 174, 38, pyxel.COLOR_BLACK)
-                pyxel.line(100, 130, 100, 168, pyxel.COLOR_WHITE)
-                pyxel.text(20, 134, "Construction", pyxel.COLOR_RED)
+                y_offset = 0
+                if self.current_settlement.current_work is not None and \
+                    self.current_player.wealth >= \
+                    (self.current_settlement.current_work.construction.cost -
+                     self.current_settlement.current_work.zeal_consumed):
+                    y_offset = 10
+                pyxel.rectb(12, 130 - y_offset, 176, 40 + y_offset, pyxel.COLOR_WHITE)
+                pyxel.rect(13, 131 - y_offset, 174, 38 + y_offset, pyxel.COLOR_BLACK)
+                pyxel.line(100, 130 - y_offset, 100, 168, pyxel.COLOR_WHITE)
+                pyxel.text(20, 134 - y_offset, "Construction", pyxel.COLOR_RED)
                 if self.current_settlement.current_work is not None:
                     current_work = self.current_settlement.current_work
                     remaining_work = current_work.construction.cost - current_work.zeal_consumed
@@ -146,19 +152,25 @@ class Overlay:
                                                 sum(imp.effect.zeal for imp in self.current_settlement.improvements), 0.5)
                     total_zeal += (self.current_settlement.level - 1) * 0.25 * total_zeal
                     remaining_turns = math.ceil(remaining_work / total_zeal)
-                    pyxel.text(20, 145, current_work.construction.name, pyxel.COLOR_WHITE)
-                    pyxel.text(20, 155, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
+                    pyxel.text(20, 145 - y_offset, current_work.construction.name, pyxel.COLOR_WHITE)
+                    pyxel.text(20, 155 - y_offset, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
+                    if self.current_player.wealth >= remaining_work:
+                        pyxel.blt(20, 153, 0, 0, 52, 8, 8)
+                        pyxel.text(30, 155, "Buyout:", pyxel.COLOR_WHITE)
+                        pyxel.blt(60, 153, 0, 0, 44, 8, 8)
+                        pyxel.text(70, 155, str(round(remaining_work)), pyxel.COLOR_WHITE)
+                        pyxel.text(80, 155, "(B)", pyxel.COLOR_WHITE)
                 else:
-                    pyxel.text(20, 145, "None", pyxel.COLOR_RED)
-                    pyxel.text(20, 155, "Press C to add one!", pyxel.COLOR_WHITE)
-                pyxel.text(110, 134, "Garrison", pyxel.COLOR_RED)
+                    pyxel.text(20, 145 - y_offset, "None", pyxel.COLOR_RED)
+                    pyxel.text(20, 155 - y_offset, "Press C to add one!", pyxel.COLOR_WHITE)
+                pyxel.text(110, 134 - y_offset, "Garrison", pyxel.COLOR_RED)
                 if len(self.current_settlement.garrison) > 0:
                     pluralisation = "s" if len(self.current_settlement.garrison) > 1 else ""
-                    pyxel.text(110, 145, f"{len(self.current_settlement.garrison)} unit{pluralisation}",
+                    pyxel.text(110, 145 - y_offset, f"{len(self.current_settlement.garrison)} unit{pluralisation}",
                                pyxel.COLOR_WHITE)
-                    pyxel.text(110, 155, "Press D to deploy!", pyxel.COLOR_WHITE)
+                    pyxel.text(110, 155 - y_offset, "Press D to deploy!", pyxel.COLOR_WHITE)
                 else:
-                    pyxel.text(110, 145, "No units.", pyxel.COLOR_RED)
+                    pyxel.text(110, 145 - y_offset, "No units.", pyxel.COLOR_RED)
             if OverlayType.CONSTRUCTION in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -233,18 +245,20 @@ class Overlay:
                 else:
                     pyxel.text(25, 150, "<- Improvements", pyxel.COLOR_WHITE)
             if OverlayType.UNIT in self.showing:
-                pyxel.rectb(12, 130, 56, 40, pyxel.COLOR_WHITE)
-                pyxel.rect(13, 131, 54, 38, pyxel.COLOR_BLACK)
-                pyxel.text(20, 134, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
+                pyxel.rectb(12, 120, 56, 50, pyxel.COLOR_WHITE)
+                pyxel.rect(13, 121, 54, 48, pyxel.COLOR_BLACK)
+                pyxel.text(20, 124, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
                 if self.selected_unit.plan.can_settle:
-                    pyxel.blt(55, 133, 0, 24, 36, 8, 8)
-                pyxel.blt(20, 140, 0, 8, 36, 8, 8)
-                pyxel.text(30, 142, str(self.selected_unit.health), pyxel.COLOR_WHITE)
-                pyxel.blt(20, 150, 0, 0, 36, 8, 8)
-                pyxel.text(30, 152, str(self.selected_unit.plan.power), pyxel.COLOR_WHITE)
-                pyxel.blt(20, 160, 0, 16, 36, 8, 8)
-                pyxel.text(30, 162, f"{self.selected_unit.remaining_stamina}/{self.selected_unit.plan.total_stamina}",
+                    pyxel.blt(55, 123, 0, 24, 36, 8, 8)
+                pyxel.blt(20, 130, 0, 8, 36, 8, 8)
+                pyxel.text(30, 132, str(self.selected_unit.health), pyxel.COLOR_WHITE)
+                pyxel.blt(20, 140, 0, 0, 36, 8, 8)
+                pyxel.text(30, 142, str(self.selected_unit.plan.power), pyxel.COLOR_WHITE)
+                pyxel.blt(20, 150, 0, 16, 36, 8, 8)
+                pyxel.text(30, 152, f"{self.selected_unit.remaining_stamina}/{self.selected_unit.plan.total_stamina}",
                            pyxel.COLOR_WHITE)
+                pyxel.blt(20, 160, 0, 0, 44, 8, 8)
+                pyxel.text(30, 162, f"-{round(self.selected_unit.plan.cost / 25)}/turn", pyxel.COLOR_WHITE)
             if OverlayType.STANDARD in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -275,8 +289,13 @@ class Overlay:
                     wealth_to_add += sum(imp.effect.wealth for imp in setl.improvements)
                     wealth_to_add += (setl.level - 1) * 0.25 * wealth_to_add
                     wealth_per_turn += wealth_to_add
+                for unit in self.current_player.units:
+                    if not unit.garrisoned:
+                        wealth_per_turn -= unit.plan.cost / 25
+                sign = "+" if wealth_per_turn > 0 else "-"
                 pyxel.text(30, 90,
-                           f"{round(self.current_player.wealth)} (+{round(wealth_per_turn, 2)})", pyxel.COLOR_WHITE)
+                           f"{round(self.current_player.wealth)} ({sign}{abs(round(wealth_per_turn, 2))})",
+                           pyxel.COLOR_WHITE)
             if OverlayType.BLESSING in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)

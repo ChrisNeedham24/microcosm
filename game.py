@@ -9,9 +9,9 @@ from calculator import clamp
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans
 from menu import Menu, MenuOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, UnitPlan
+from music_player import MusicPlayer
 
 
-# TODO Music? Warduke Module 1/2/3 looks like a good shout
 # TODO FF Victory conditions - one for each resource type (harvest, wealth, etc.)
 # TODO FF Some sort of fog of war would be cool
 # TODO FF Pause screen for saving and exiting (also controls)
@@ -19,9 +19,9 @@ from models import Player, Settlement, Construction, OngoingBlessing, CompletedC
 # TODO F Add barbarians, randomly generated every 5 turns, move in circle around point, if player army within certain
 #  distance, move to attack. Will need attacking implemented too.
 # TODO F There should be a punishment for settlement unhappiness.
-# TODO Construction and blessing buyouts with wealth
+# TODO Blessing buyouts with wealth
 # TODO FF Game setup screen with number of players and colours
-# TODO FF Zoom
+# TODO F Auto-sell units if wealth is at 0 and negative per turn
 
 class Game:
     def __init__(self):
@@ -39,6 +39,9 @@ class Game:
         self.map_pos: (int, int) = random.randint(0, 76), random.randint(0, 68)
         self.turn = 1
 
+        self.music_player = MusicPlayer()
+        self.music_player.play_menu_music()
+
         pyxel.run(self.on_update, self.draw)
 
     def on_update(self):
@@ -46,6 +49,9 @@ class Game:
         self.last_time = time.time()
 
         self.board.update(time_elapsed)
+
+        if not self.on_menu and not self.music_player.is_playing():
+            self.music_player.next_song()
 
         if pyxel.btnp(pyxel.KEY_DOWN):
             if self.on_menu:
@@ -89,6 +95,8 @@ class Game:
                     pyxel.mouse(visible=True)
                     self.game_started = True
                     self.on_menu = False
+                    self.music_player.stop_menu_music()
+                    self.music_player.play_game_music()
                 elif self.menu.menu_option is MenuOption.LOAD_GAME:
                     # TODO FF Saving and loading
                     print("Unsupported for now.")
@@ -179,6 +187,20 @@ class Game:
         elif pyxel.btnp(pyxel.KEY_S):
             if self.game_started and self.board.selected_unit.plan.can_settle:
                 self.board.handle_new_settlement(self.players[0])
+        elif pyxel.btnp(pyxel.KEY_N):
+            if self.game_started:
+                self.music_player.next_song()
+        elif pyxel.btnp(pyxel.KEY_B):
+            if self.game_started and self.board.selected_settlement is not None:
+                current_work = self.board.selected_settlement.current_work
+                remaining_work = current_work.construction.cost - current_work.zeal_consumed
+                if self.players[0].wealth >= remaining_work:
+                    self.board.overlay.toggle_construction_notification([
+                        CompletedConstruction(self.board.selected_settlement.current_work.construction,
+                                              self.board.selected_settlement)
+                    ])
+                    self.complete_construction(self.board.selected_settlement)
+                    self.players[0].wealth -= remaining_work
 
     def draw(self):
         if self.on_menu:
@@ -226,32 +248,37 @@ class Game:
                 if setl.current_work is not None:
                     setl.current_work.zeal_consumed += total_zeal
                     if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
-                        if isinstance(setl.current_work.construction, Improvement):
-                            setl.improvements.append(setl.current_work.construction)
-                            if setl.current_work.construction.effect.strength > 0:
-                                setl.strength += setl.current_work.construction.effect.strength
-                            if setl.current_work.construction.effect.satisfaction != 0:
-                                setl.satisfaction += setl.current_work.construction.effect.satisfaction
-                        else:
-                            plan: UnitPlan = setl.current_work.construction
-                            if plan.can_settle:
-                                setl.level -= 1
-                                setl.harvest_reserves = pow(setl.level - 1, 2) * 25
-                            setl.garrison.append(Unit(plan.max_health, plan.total_stamina, setl.location, True, plan))
                         completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
-                        setl.current_work = None
+                        self.complete_construction(setl)
             if len(completed_constructions) > 0:
                 self.board.overlay.toggle_construction_notification(completed_constructions)
             if len(levelled_up_settlements) > 0:
                 self.board.overlay.toggle_level_up_notification(levelled_up_settlements)
             for unit in player.units:
                 unit.remaining_stamina = unit.plan.total_stamina
+                if not unit.garrisoned:
+                    total_wealth -= unit.plan.cost / 25
             if player.ongoing_blessing is not None:
                 player.ongoing_blessing.fortune_consumed += total_fortune
                 if player.ongoing_blessing.fortune_consumed >= player.ongoing_blessing.blessing.cost:
                     player.blessings.append(player.ongoing_blessing.blessing)
                     self.board.overlay.toggle_blessing_notification(player.ongoing_blessing.blessing)
                     player.ongoing_blessing = None
-            player.wealth += total_wealth
+            player.wealth = max(player.wealth + total_wealth, 0)
         self.board.overlay.remove_warning_if_possible()
         self.turn += 1
+
+    def complete_construction(self, setl: Settlement):
+        if isinstance(setl.current_work.construction, Improvement):
+            setl.improvements.append(setl.current_work.construction)
+            if setl.current_work.construction.effect.strength > 0:
+                setl.strength += setl.current_work.construction.effect.strength
+            if setl.current_work.construction.effect.satisfaction != 0:
+                setl.satisfaction += setl.current_work.construction.effect.satisfaction
+        else:
+            plan: UnitPlan = setl.current_work.construction
+            if plan.can_settle:
+                setl.level -= 1
+                setl.harvest_reserves = pow(setl.level - 1, 2) * 25
+            setl.garrison.append(Unit(plan.max_health, plan.total_stamina, setl.location, True, plan))
+        setl.current_work = None
