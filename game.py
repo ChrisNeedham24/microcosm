@@ -8,7 +8,8 @@ from board import Board
 from calculator import clamp
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans
 from menu import Menu, MenuOption
-from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, UnitPlan
+from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, \
+    UnitPlan, HarvestStatus, EconomicStatus
 from music_player import MusicPlayer
 
 
@@ -18,10 +19,10 @@ from music_player import MusicPlayer
 # TODO FF Add Wiki on main menu
 # TODO F Add barbarians, randomly generated every 5 turns, move in circle around point, if player army within certain
 #  distance, move to attack. Will need attacking implemented too.
-# TODO F There should be a punishment for settlement unhappiness.
-# TODO Blessing buyouts with wealth
-# TODO FF Game setup screen with number of players and colours
-# TODO F Auto-sell units if wealth is at 0 and negative per turn
+# TODO FF AI players
+# TODO FF Game setup screen with number of players and colours, also biome clustering on/off
+# TODO Auto-sell units if wealth is at 0 and negative per turn. Include warning the turn before a player will lose a
+#  unit.
 
 class Game:
     def __init__(self):
@@ -141,6 +142,11 @@ class Game:
                     len(self.board.selected_settlement.garrison) > 0:
                 self.board.deploying_army = True
                 self.board.overlay.toggle_deployment()
+            elif self.game_started and self.board.selected_unit is not None:
+                self.players[0].wealth += self.board.selected_unit.plan.cost
+                self.players[0].units.remove(self.board.selected_unit)
+                self.board.selected_unit = None
+                self.board.overlay.toggle_unit(None)
         elif pyxel.btnp(pyxel.KEY_TAB):
             if self.game_started and self.board.overlay.can_iter_settlements_units():
                 self.board.overlay.remove_warning_if_possible()
@@ -225,6 +231,22 @@ class Game:
             completed_constructions: typing.List[CompletedConstruction] = []
             levelled_up_settlements: typing.List[Settlement] = []
             for setl in player.settlements:
+                if setl.satisfaction < 20:
+                    setl.harvest_status = HarvestStatus.POOR
+                    setl.economic_status = EconomicStatus.RECESSION
+                elif setl.satisfaction < 40:
+                    setl.harvest_status = HarvestStatus.POOR
+                    setl.economic_status = EconomicStatus.STANDARD
+                elif setl.satisfaction < 60:
+                    setl.harvest_status = HarvestStatus.STANDARD
+                    setl.economic_status = EconomicStatus.STANDARD
+                elif setl.satisfaction >= 60:
+                    setl.harvest_status = HarvestStatus.PLENTIFUL
+                    setl.economic_status = EconomicStatus.STANDARD
+                elif setl.satisfaction >= 80:
+                    setl.harvest_status = HarvestStatus.PLENTIFUL
+                    setl.economic_status = EconomicStatus.BOOM
+
                 total_zeal = max(sum(quad.zeal for quad in setl.quads) +
                                  sum(imp.effect.zeal for imp in setl.improvements), 0.5)
                 total_zeal += (setl.level - 1) * 0.25 * total_zeal
@@ -236,10 +258,24 @@ class Game:
                 total_wealth += sum(imp.effect.wealth for imp in setl.improvements)
                 total_wealth = max(0.5, total_wealth)
                 total_wealth += (setl.level - 1) * 0.25 * total_wealth
+                if setl.economic_status is EconomicStatus.RECESSION:
+                    total_wealth = 0
+                elif setl.economic_status is EconomicStatus.BOOM:
+                    total_wealth *= 1.5
 
                 total_harvest = max(sum(quad.harvest for quad in setl.quads) +
                                  sum(imp.effect.harvest for imp in setl.improvements), 0.5)
                 total_harvest += (setl.level - 1) * 0.25 * total_harvest
+                if setl.harvest_status is HarvestStatus.POOR:
+                    total_harvest = 0
+                elif setl.harvest_status is HarvestStatus.PLENTIFUL:
+                    total_harvest *= 1.5
+
+                if total_harvest < setl.level * 3:
+                    setl.satisfaction -= 0.5
+                elif total_harvest >= setl.level * 6:
+                    setl.satisfaction += 0.5
+
                 setl.harvest_reserves += total_harvest
                 if setl.harvest_reserves >= pow(setl.level, 2) * 25:
                     setl.level += 1

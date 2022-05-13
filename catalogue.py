@@ -26,7 +26,7 @@ def get_settlement_name(biome: Biome) -> str:
     SETL_NAMES[biome].remove(name)
     return name
 
-# TODO F Figure out a way to work these descriptions in somehow. Maybe shorten some?
+# TODO F Figure out a way to work these descriptions in somehow. Maybe shorten some? Maybe in the eventual wiki?
 
 BLESSINGS = {
     "beg_spl": Blessing("Beginner Spells", "Everyone has to start somewhere, right?", 50),
@@ -43,7 +43,7 @@ BLESSINGS = {
     "ref_prc": Blessing("Reformist Principles", "Maybe another system could be better.", 150)
 }
 
-# TODO F There should really be multiple improvements for some blessings.
+# TODO There should really be multiple improvements for some blessings. Especially because there aren't enough anyway
 # TODO F Should be able to expand a settlement somehow probably
 
 IMPROVEMENTS = [

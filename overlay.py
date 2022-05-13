@@ -5,7 +5,8 @@ from enum import Enum
 import pyxel
 
 from catalogue import get_unlockable_improvements
-from models import Settlement, Player, Improvement, Unit, Blessing, ImprovementType, CompletedConstruction, UnitPlan
+from models import Settlement, Player, Improvement, Unit, Blessing, ImprovementType, CompletedConstruction, UnitPlan, \
+    EconomicStatus, HarvestStatus
 
 
 class OverlayType(Enum):
@@ -112,14 +113,22 @@ class Overlay:
                 pyxel.text(90, 14, str(self.current_settlement.strength), pyxel.COLOR_WHITE)
                 satisfaction_u = 8 if self.current_settlement.satisfaction >= 50 else 16
                 pyxel.blt(105, 12, 0, satisfaction_u, 28, 8, 8)
-                pyxel.text(115, 14, str(self.current_settlement.satisfaction), pyxel.COLOR_WHITE)
+                pyxel.text(115, 14, str(round(self.current_settlement.satisfaction)), pyxel.COLOR_WHITE)
                 total_wealth = max(sum(quad.wealth for quad in self.current_settlement.quads) +
                                      sum(imp.effect.wealth for imp in self.current_settlement.improvements), 0)
                 total_wealth += (self.current_settlement.level - 1) * 0.25 * total_wealth
+                if self.current_settlement.economic_status is EconomicStatus.RECESSION:
+                    total_wealth = 0
+                elif self.current_settlement.economic_status is EconomicStatus.BOOM:
+                    total_wealth *= 1.5
                 total_wealth = round(total_wealth)
                 total_harvest = max(sum(quad.harvest for quad in self.current_settlement.quads) +
                                       sum(imp.effect.harvest for imp in self.current_settlement.improvements), 0)
                 total_harvest += (self.current_settlement.level - 1) * 0.25 * total_harvest
+                if self.current_settlement.harvest_status is HarvestStatus.POOR:
+                    total_harvest = 0
+                elif self.current_settlement.harvest_status is HarvestStatus.PLENTIFUL:
+                    total_harvest *= 1.5
                 total_harvest = round(total_harvest)
                 total_zeal = max(sum(quad.zeal for quad in self.current_settlement.quads) +
                                    sum(imp.effect.zeal for imp in self.current_settlement.improvements), 0)
@@ -159,7 +168,7 @@ class Overlay:
                         pyxel.text(30, 155, "Buyout:", pyxel.COLOR_WHITE)
                         pyxel.blt(60, 153, 0, 0, 44, 8, 8)
                         pyxel.text(70, 155, str(round(remaining_work)), pyxel.COLOR_WHITE)
-                        pyxel.text(80, 155, "(B)", pyxel.COLOR_WHITE)
+                        pyxel.text(83, 155, "(B)", pyxel.COLOR_WHITE)
                 else:
                     pyxel.text(20, 145 - y_offset, "None", pyxel.COLOR_RED)
                     pyxel.text(20, 155 - y_offset, "Press C to add one!", pyxel.COLOR_WHITE)
@@ -245,20 +254,23 @@ class Overlay:
                 else:
                     pyxel.text(25, 150, "<- Improvements", pyxel.COLOR_WHITE)
             if OverlayType.UNIT in self.showing:
-                pyxel.rectb(12, 120, 56, 50, pyxel.COLOR_WHITE)
-                pyxel.rect(13, 121, 54, 48, pyxel.COLOR_BLACK)
-                pyxel.text(20, 124, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
+                pyxel.rectb(12, 110, 56, 60, pyxel.COLOR_WHITE)
+                pyxel.rect(13, 111, 54, 58, pyxel.COLOR_BLACK)
+                pyxel.text(20, 114, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
                 if self.selected_unit.plan.can_settle:
-                    pyxel.blt(55, 123, 0, 24, 36, 8, 8)
-                pyxel.blt(20, 130, 0, 8, 36, 8, 8)
-                pyxel.text(30, 132, str(self.selected_unit.health), pyxel.COLOR_WHITE)
-                pyxel.blt(20, 140, 0, 0, 36, 8, 8)
-                pyxel.text(30, 142, str(self.selected_unit.plan.power), pyxel.COLOR_WHITE)
-                pyxel.blt(20, 150, 0, 16, 36, 8, 8)
-                pyxel.text(30, 152, f"{self.selected_unit.remaining_stamina}/{self.selected_unit.plan.total_stamina}",
+                    pyxel.blt(55, 113, 0, 24, 36, 8, 8)
+                pyxel.blt(20, 120, 0, 8, 36, 8, 8)
+                pyxel.text(30, 122, str(self.selected_unit.health), pyxel.COLOR_WHITE)
+                pyxel.blt(20, 130, 0, 0, 36, 8, 8)
+                pyxel.text(30, 132, str(self.selected_unit.plan.power), pyxel.COLOR_WHITE)
+                pyxel.blt(20, 140, 0, 16, 36, 8, 8)
+                pyxel.text(30, 142, f"{self.selected_unit.remaining_stamina}/{self.selected_unit.plan.total_stamina}",
                            pyxel.COLOR_WHITE)
-                pyxel.blt(20, 160, 0, 0, 44, 8, 8)
-                pyxel.text(30, 162, f"-{round(self.selected_unit.plan.cost / 25)}/turn", pyxel.COLOR_WHITE)
+                pyxel.blt(20, 150, 0, 0, 44, 8, 8)
+                pyxel.text(30, 152, f"{self.selected_unit.plan.cost} (-{round(self.selected_unit.plan.cost / 25)}/T)",
+                           pyxel.COLOR_WHITE)
+                pyxel.blt(20, 160, 0, 8, 52, 8, 8)
+                pyxel.text(30, 162, "Disb. (D)", pyxel.COLOR_RED)
             if OverlayType.STANDARD in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -288,6 +300,10 @@ class Overlay:
                     wealth_to_add += sum(quad.wealth for quad in setl.quads)
                     wealth_to_add += sum(imp.effect.wealth for imp in setl.improvements)
                     wealth_to_add += (setl.level - 1) * 0.25 * wealth_to_add
+                    if setl.economic_status is EconomicStatus.RECESSION:
+                        wealth_to_add = 0
+                    elif setl.economic_status is EconomicStatus.BOOM:
+                        wealth_to_add *= 1.5
                     wealth_per_turn += wealth_to_add
                 for unit in self.current_player.units:
                     if not unit.garrisoned:

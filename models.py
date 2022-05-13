@@ -19,6 +19,18 @@ class ImprovementType(Enum):
     PANDERING = "PANDERING"
 
 
+class HarvestStatus(Enum):
+    POOR = "POOR",
+    STANDARD = "STANDARD",
+    PLENTIFUL = "PLENTIFUL"
+
+
+class EconomicStatus(Enum):
+    RECESSION = "RECESSION",
+    STANDARD = "STANDARD",
+    BOOM = "BOOM"
+
+
 @dataclass
 class Quad:
     biome: Biome
@@ -113,6 +125,8 @@ class Settlement:
     """
     level: int = 1
     harvest_reserves: float = 0.0
+    harvest_status: HarvestStatus = HarvestStatus.STANDARD
+    economic_status: EconomicStatus = EconomicStatus.STANDARD
 
 
 @dataclass
