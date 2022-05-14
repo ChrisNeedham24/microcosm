@@ -1,7 +1,7 @@
 import random
 import typing
 
-from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome
+from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome, Heathen
 
 SETL_NAMES = {
     Biome.DESERT: [
@@ -26,7 +26,7 @@ def get_settlement_name(biome: Biome) -> str:
     SETL_NAMES[biome].remove(name)
     return name
 
-# TODO F Figure out a way to work these descriptions in somehow. Maybe shorten some? Maybe in the eventual wiki?
+# TODO FF Put descriptions of blessings and improvements in the wiki
 
 BLESSINGS = {
     "beg_spl": Blessing("Beginner Spells", "Everyone has to start somewhere, right?", 50),
@@ -43,46 +43,69 @@ BLESSINGS = {
     "ref_prc": Blessing("Reformist Principles", "Maybe another system could be better.", 150)
 }
 
-# TODO There should really be multiple improvements for some blessings. Especially because there aren't enough anyway
 # TODO F Should be able to expand a settlement somehow probably
 
 IMPROVEMENTS = [
     Improvement(ImprovementType.MAGICAL, 30, "Melting Pot", "A starting pot to conduct concoctions.",
                 Effect(fortune=5, satisfaction=2), None),
     Improvement(ImprovementType.MAGICAL, 100, "Haunted Forest", "The branches shake, yet there's no wind.",
-                Effect(harvest=1, fortune=15, satisfaction=-5), BLESSINGS["beg_spl"]),
+                Effect(harvest=1, fortune=8, satisfaction=-5), BLESSINGS["beg_spl"]),
+    Improvement(ImprovementType.MAGICAL, 100, "Occult Bartering", "Dealing with both dead and alive.",
+                Effect(wealth=1, fortune=8, satisfaction=-1), BLESSINGS["adv_trd"]),
     Improvement(ImprovementType.MAGICAL, 250, "Ancient Shrine", "Some say it emanates an invigorating aura.",
-                Effect(wealth=2, zeal=-2, fortune=40, satisfaction=10), BLESSINGS["div_arc"]),
+                Effect(wealth=2, zeal=-2, fortune=20, satisfaction=10), BLESSINGS["div_arc"]),
+    Improvement(ImprovementType.MAGICAL, 250, "Dimensional imagery", "See into another world.",
+                Effect(fortune=25, satisfaction=2), BLESSINGS["apr_ref"]),
     Improvement(ImprovementType.INDUSTRIAL, 30, "Local Forge", "Just a mum-and-dad-type operation.",
                 Effect(wealth=2, zeal=5), None),
     Improvement(ImprovementType.INDUSTRIAL, 100, "Weapons Factory", "Made to kill outsiders. Mostly.",
-                Effect(wealth=2, zeal=10, strength=25, satisfaction=-2), BLESSINGS["rud_exp"]),
+                Effect(wealth=2, zeal=5, strength=25, satisfaction=-2), BLESSINGS["rud_exp"]),
+    Improvement(ImprovementType.INDUSTRIAL, 100, "Enslaved Workforce", "Gets the job done.",
+                Effect(wealth=2, harvest=-1, zeal=6, fortune=-2, satisfaction=-5), BLESSINGS["tor_tec"]),
     Improvement(ImprovementType.INDUSTRIAL, 250, "Automated Production", "In and out, no fuss.",
-                Effect(wealth=3, zeal=50, satisfaction=-10), BLESSINGS["rob_exp"]),
+                Effect(wealth=3, zeal=30, satisfaction=-10), BLESSINGS["rob_exp"]),
+    Improvement(ImprovementType.INDUSTRIAL, 250, "Lab-grown Workers", "Human or not, they work the same.",
+                Effect(wealth=3, harvest=-2, zeal=30, fortune=-5, strength=2, satisfaction=-10), BLESSINGS["art_pht"]),
     Improvement(ImprovementType.ECONOMICAL, 30, "City Market", "Pockets empty, but friend or foe?",
                 Effect(wealth=5, harvest=2, zeal=2, fortune=-1, satisfaction=2), None),
     Improvement(ImprovementType.ECONOMICAL, 100, "State Bank", "You're not the first to try your luck.",
-                Effect(wealth=15, fortune=-2, strength=5, satisfaction=2), BLESSINGS["adv_trd"]),
+                Effect(wealth=8, fortune=-2, strength=5, satisfaction=2), BLESSINGS["adv_trd"]),
+    Improvement(ImprovementType.ECONOMICAL, 100, "Harvest Levy", "Definitely only for times of need.",
+                Effect(wealth=8, harvest=2, zeal=-1, fortune=-1, satisfaction=-2), BLESSINGS["prf_nec"]),
     Improvement(ImprovementType.ECONOMICAL, 250, "National Mint", "Gold as far as the eye can see.",
-                Effect(wealth=50, fortune=-5, strength=10, satisfaction=5), BLESSINGS["sl_vau"]),
+                Effect(wealth=30, fortune=-5, strength=10, satisfaction=5), BLESSINGS["sl_vau"]),
+    Improvement(ImprovementType.ECONOMICAL, 250, "Federal Museum", "Cataloguing all that was left for us.",
+                Effect(wealth=10, fortune=10, satisfaction=4), BLESSINGS["div_arc"]),
     Improvement(ImprovementType.BOUNTIFUL, 30, "Collectivised Farms", "Well, the shelves will be stocked.",
                 Effect(wealth=2, harvest=10, zeal=-2, satisfaction=-2), None),
     Improvement(ImprovementType.BOUNTIFUL, 100, "Supermarket Chains", "On every street corner.",
-                Effect(harvest=25, satisfaction=2), BLESSINGS["prf_nec"]),
+                Effect(harvest=8, satisfaction=2), BLESSINGS["prf_nec"]),
+    Improvement(ImprovementType.BOUNTIFUL, 100, "Distributed Rations", "Everyone gets their fair share.",
+                Effect(harvest=8, zeal=-1, fortune=1, satisfaction=-1), BLESSINGS["grt_goo"]),
     Improvement(ImprovementType.BOUNTIFUL, 250, "Underground Greenhouses", "The glass is just for show.",
-                Effect(harvest=50, zeal=-5, fortune=-2), BLESSINGS["art_pht"]),
+                Effect(harvest=25, zeal=-5, fortune=-2), BLESSINGS["art_pht"]),
+    Improvement(ImprovementType.BOUNTIFUL, 250, "Impenetrable Stores", "Unprecedented control over stock.",
+                Effect(wealth=-1, harvest=25, strength=5, satisfaction=-5), BLESSINGS["sl_vau"]),
     Improvement(ImprovementType.INTIMIDATORY, 30, "Insurmountable Walls", "Quite the view from up here.",
                 Effect(strength=25, satisfaction=2), None),
     Improvement(ImprovementType.INTIMIDATORY, 100, "Intelligence Academy", "What's learnt in here, stays in here.",
-                Effect(strength=50, satisfaction=-2), BLESSINGS["tor_tec"]),
+                Effect(strength=30, satisfaction=-2), BLESSINGS["tor_tec"]),
+    Improvement(ImprovementType.INTIMIDATORY, 100, "Minefields", "Cross if you dare.",
+                Effect(harvest=-1, strength=30, satisfaction=-1), BLESSINGS["rud_exp"]),
     Improvement(ImprovementType.INTIMIDATORY, 250, "CCTV Cameras", "Big Brother's always watching.",
-                Effect(zeal=5, fortune=-2, strength=100, satisfaction=-2), BLESSINGS["apr_ref"]),
+                Effect(zeal=5, fortune=-2, strength=50, satisfaction=-2), BLESSINGS["apr_ref"]),
+    Improvement(ImprovementType.INTIMIDATORY, 250, "Cult of Personality", "The supreme leader can do no wrong.",
+                Effect(wealth=2, harvest=2, zeal=2, fortune=2, strength=50, satisfaction=5), BLESSINGS["ref_prc"]),
     Improvement(ImprovementType.PANDERING, 30, "Aqueduct", "Water from there to here.",
                 Effect(harvest=2, fortune=-1, satisfaction=5), None),
     Improvement(ImprovementType.PANDERING, 100, "Soup Kitchen", "No one's going hungry here.",
-                Effect(wealth=-1, zeal=2, fortune=2, satisfaction=10), BLESSINGS["grt_goo"]),
+                Effect(wealth=-1, zeal=2, fortune=2, satisfaction=6), BLESSINGS["grt_goo"]),
+    Improvement(ImprovementType.PANDERING, 100, "Puppet Shows", "Putting those spells to use.",
+                Effect(wealth=1, zeal=-1, fortune=1, satisfaction=6), BLESSINGS["beg_spl"]),
     Improvement(ImprovementType.PANDERING, 250, "Universal Basic Income", "Utopian in more ways than one.",
-                Effect(wealth=-5, harvest=2, zeal=2, fortune=2, strength=2, satisfaction=20), BLESSINGS["ref_prc"])
+                Effect(wealth=-5, harvest=2, zeal=2, fortune=2, strength=2, satisfaction=10), BLESSINGS["ref_prc"]),
+    Improvement(ImprovementType.PANDERING, 250, "Infinite Entertainment", "Where the robots are the stars.",
+                Effect(zeal=2, fortune=-1, satisfaction=12), BLESSINGS["rob_exp"])
 ]
 
 UNIT_PLANS = [
@@ -95,6 +118,13 @@ UNIT_PLANS = [
     UnitPlan(50, 200, 2, "Flagellant", BLESSINGS["tor_tec"], 80),
     UnitPlan(150, 125, 3, "Sniper", BLESSINGS["apr_ref"], 100),
 ]
+
+
+HEATHEN_UNIT_PLAN = UnitPlan(80, 80, 2, "Heathen", None, 0)
+
+
+def get_heathen(location: (int, int)) -> Heathen:
+    return Heathen(HEATHEN_UNIT_PLAN.max_health, HEATHEN_UNIT_PLAN.total_stamina, location, HEATHEN_UNIT_PLAN)
 
 
 def get_default_unit(location: (int, int)) -> Unit:

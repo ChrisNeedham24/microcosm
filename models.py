@@ -86,6 +86,16 @@ class Unit:
     location: (float, float)
     garrisoned: bool
     plan: UnitPlan
+    has_attacked: bool = False
+
+
+@dataclass
+class Heathen:
+    health: float
+    remaining_stamina: int
+    location: (float, float)
+    plan: UnitPlan
+    has_attacked: bool = False
 
 
 @dataclass
@@ -144,3 +154,14 @@ class Player:
     units: typing.List[Unit]
     blessings: typing.List[Blessing]
     ongoing_blessing: typing.Optional[OngoingBlessing] = None
+
+
+@dataclass
+class AttackData:
+    attacker: typing.Union[Unit, Heathen]
+    defender: typing.Union[Unit, Heathen]
+    damage_to_attacker: float
+    damage_to_defender: float
+    player_attack: bool
+    attacker_was_killed: bool
+    defender_was_killed: bool

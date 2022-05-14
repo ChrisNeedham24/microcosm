@@ -5,11 +5,11 @@ import typing
 import pyxel
 
 from board import Board
-from calculator import clamp
-from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans
+from calculator import clamp, attack
+from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen
 from menu import Menu, MenuOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, \
-    UnitPlan, HarvestStatus, EconomicStatus
+    UnitPlan, HarvestStatus, EconomicStatus, Heathen
 from music_player import MusicPlayer
 
 
@@ -17,12 +17,8 @@ from music_player import MusicPlayer
 # TODO FF Some sort of fog of war would be cool
 # TODO FF Pause screen for saving and exiting (also controls)
 # TODO FF Add Wiki on main menu
-# TODO F Add barbarians, randomly generated every 5 turns, move in circle around point, if player army within certain
-#  distance, move to attack. Will need attacking implemented too.
 # TODO FF AI players
 # TODO FF Game setup screen with number of players and colours, also biome clustering on/off
-# TODO Auto-sell units if wealth is at 0 and negative per turn. Include warning the turn before a player will lose a
-#  unit.
 
 class Game:
     def __init__(self):
@@ -31,6 +27,7 @@ class Game:
         self.menu = Menu()
         self.board = Board()
         self.players: typing.List[Player] = [Player("Test", pyxel.COLOR_RED, 0, [], [], [])]
+        self.heathens: typing.List[Heathen] = []
 
         self.on_menu = True
         self.game_started = False
@@ -114,6 +111,7 @@ class Game:
             elif self.game_started and not self.board.overlay.is_tutorial():
                 self.board.overlay.update_turn(self.turn)
                 self.end_turn()
+                self.process_heathens()
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
             if self.game_started:
                 self.board.overlay.remove_warning_if_possible()
@@ -123,7 +121,7 @@ class Game:
                 self.board.overlay.remove_warning_if_possible()
                 self.board.process_left_click(pyxel.mouse_x, pyxel.mouse_y,
                                               len(self.players[0].settlements) > 0,
-                                              self.players[0], self.map_pos)
+                                              self.players[0], self.map_pos, self.heathens)
         elif pyxel.btnp(pyxel.KEY_SHIFT):
             if self.game_started and not self.board.overlay.is_tutorial():
                 self.board.overlay.remove_warning_if_possible()
@@ -212,17 +210,30 @@ class Game:
         if self.on_menu:
             self.menu.draw()
         elif self.game_started:
-            self.board.draw(self.players, self.map_pos, self.turn)
+            self.board.draw(self.players, self.map_pos, self.turn, self.heathens)
 
     def end_turn(self):
         # First make sure the player hasn't ended their turn without a construction or blessing.
         problematic_settlements = []
+        total_wealth = 0
         for setl in self.players[0].settlements:
             if setl.current_work is None:
                 problematic_settlements.append(setl)
+            total_wealth += sum(quad.wealth for quad in setl.quads)
+            total_wealth += sum(imp.effect.wealth for imp in setl.improvements)
+            total_wealth += (setl.level - 1) * 0.25 * total_wealth
+            if setl.economic_status is EconomicStatus.RECESSION:
+                total_wealth = 0
+            elif setl.economic_status is EconomicStatus.BOOM:
+                total_wealth *= 1.5
+        for unit in self.players[0].units:
+            if not unit.garrisoned:
+                total_wealth -= unit.plan.cost / 25
         has_no_blessing = self.players[0].ongoing_blessing is None
-        if not self.board.overlay.is_warning() and (len(problematic_settlements) > 0 or has_no_blessing):
-            self.board.overlay.toggle_warning(problematic_settlements, has_no_blessing)
+        will_have_negative_wealth = (self.players[0].wealth + total_wealth) < 0 and len(self.players[0].units) > 0
+        if not self.board.overlay.is_warning() and \
+                (len(problematic_settlements) > 0 or has_no_blessing or will_have_negative_wealth):
+            self.board.overlay.toggle_warning(problematic_settlements, has_no_blessing, will_have_negative_wealth)
             return
 
         for player in self.players:
@@ -256,7 +267,6 @@ class Game:
                 total_fortune += (setl.level - 1) * 0.25 * total_fortune
                 total_wealth += sum(quad.wealth for quad in setl.quads)
                 total_wealth += sum(imp.effect.wealth for imp in setl.improvements)
-                total_wealth = max(0.5, total_wealth)
                 total_wealth += (setl.level - 1) * 0.25 * total_wealth
                 if setl.economic_status is EconomicStatus.RECESSION:
                     total_wealth = 0
@@ -292,6 +302,9 @@ class Game:
                 self.board.overlay.toggle_level_up_notification(levelled_up_settlements)
             for unit in player.units:
                 unit.remaining_stamina = unit.plan.total_stamina
+                if unit.health < unit.plan.max_health:
+                    unit.health = min(unit.health + unit.plan.max_health * 0.1, 100)
+                unit.has_attacked = False
                 if not unit.garrisoned:
                     total_wealth -= unit.plan.cost / 25
             if player.ongoing_blessing is not None:
@@ -300,7 +313,20 @@ class Game:
                     player.blessings.append(player.ongoing_blessing.blessing)
                     self.board.overlay.toggle_blessing_notification(player.ongoing_blessing.blessing)
                     player.ongoing_blessing = None
+            while player.wealth + total_wealth < 0:
+                sold_unit = player.units.pop()
+                player.wealth += sold_unit.plan.cost
             player.wealth = max(player.wealth + total_wealth, 0)
+
+        if self.turn % 5 == 0:
+            heathen_loc = random.randint(0, 100), random.randint(0, 90)
+            self.heathens.append(get_heathen(heathen_loc))
+
+        for heathen in self.heathens:
+            heathen.remaining_stamina = heathen.plan.total_stamina
+            if heathen.health < heathen.plan.max_health:
+                heathen.health = min(heathen.health + heathen.plan.max_health * 0.1, 100)
+
         self.board.overlay.remove_warning_if_possible()
         self.turn += 1
 
@@ -318,3 +344,36 @@ class Game:
                 setl.harvest_reserves = pow(setl.level - 1, 2) * 25
             setl.garrison.append(Unit(plan.max_health, plan.total_stamina, setl.location, True, plan))
         setl.current_work = None
+
+    def process_heathens(self):
+        all_units = []
+        for player in self.players:
+            for unit in player.units:
+                all_units.append(unit)
+        for heathen in self.heathens:
+            within_range: typing.Optional[Unit] = None
+            for unit in all_units:
+                if max(abs(unit.location[0] - heathen.location[0]),
+                       abs(unit.location[1] - heathen.location[1])) <= heathen.remaining_stamina:
+                    within_range = unit
+                    break
+            if within_range is not None:
+                if within_range.location[0] - heathen.location[0] < 0:
+                    heathen.location = within_range.location[0] + 1, within_range.location[1]
+                else:
+                    heathen.location = within_range.location[0] - 1, within_range.location[1]
+                heathen.remaining_stamina = 0
+                data = attack(heathen, within_range)
+                if within_range.health < 0:
+                    self.players[0].units.remove(within_range)
+                    self.board.selected_unit = None
+                    self.board.overlay.toggle_unit(None)
+                if heathen.health < 0:
+                    self.heathens.remove(heathen)
+                self.board.overlay.toggle_attack(data)
+            else:
+                x_movement = random.randint(-heathen.remaining_stamina, heathen.remaining_stamina)
+                rem_movement = heathen.remaining_stamina - abs(x_movement)
+                y_movement = random.choice([-rem_movement, rem_movement])
+                heathen.location = heathen.location[0] + x_movement, heathen.location[1] + y_movement
+                heathen.remaining_stamina -= abs(x_movement) + abs(y_movement)

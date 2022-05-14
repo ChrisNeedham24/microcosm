@@ -1,6 +1,7 @@
 import random
+import typing
 
-from models import Biome
+from models import Biome, Unit, Heathen, AttackData
 
 
 def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
@@ -36,3 +37,13 @@ def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
 
 def clamp(number: int, min_val: int, max_val: int) -> int:
     return max(min(max_val, number), min_val)
+
+
+def attack(attacker: typing.Union[Unit, Heathen], defender: typing.Union[Unit, Heathen]) -> AttackData:
+    attacker_dmg = attacker.plan.power * 0.25 * 1.2
+    defender_dmg = defender.plan.power * 0.25
+    defender.health -= attacker_dmg
+    attacker.health -= defender_dmg
+    attacker.has_attacked = True
+    return AttackData(attacker, defender, defender_dmg, attacker_dmg, isinstance(attacker, Unit),
+                      attacker.health < 0, defender.health < 0)

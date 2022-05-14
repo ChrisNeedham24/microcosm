@@ -5,9 +5,9 @@ from enum import Enum
 
 import pyxel
 
-from calculator import calculate_yield_for_quad
+from calculator import calculate_yield_for_quad, attack
 from catalogue import get_default_unit, SETL_NAMES, get_settlement_name
-from models import Player, Quad, Biome, Settlement, Unit
+from models import Player, Quad, Biome, Settlement, Unit, Heathen
 from overlay import Overlay
 
 
@@ -21,7 +21,8 @@ class HelpOption(Enum):
 class Board:
     def __init__(self):
         self.current_help = HelpOption.SETTLEMENT
-        self.time_bank = 0
+        self.help_time_bank = 0
+        self.attack_time_bank = 0
 
         self.quads: typing.List[typing.List[typing.Optional[Quad]]] = [[None] * 100 for _ in range(90)]
         random.seed()
@@ -32,9 +33,9 @@ class Board:
         self.overlay = Overlay()
         self.selected_settlement: typing.Optional[Settlement] = None
         self.deploying_army = False
-        self.selected_unit: typing.Optional[Unit] = None
+        self.selected_unit: typing.Optional[typing.Union[Unit, Heathen]] = None
 
-    def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int):
+    def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen]):
         pyxel.cls(0)
         pyxel.rectb(0, 0, 200, 184, pyxel.COLOR_WHITE)
 
@@ -102,6 +103,26 @@ class Board:
                         pyxel.rectb((settlement.location[0] - map_pos[0]) * 8 + 4,
                                     (settlement.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
 
+        for heathen in heathens:
+            if map_pos[0] <= heathen.location[0] < map_pos[0] + 24 and \
+                    map_pos[1] <= heathen.location[1] < map_pos[1] + 22:
+                quad: Quad = self.quads[heathen.location[1]][heathen.location[0]]
+                heathen_x: int = 0
+                if quad.biome is Biome.FOREST:
+                    heathen_x = 8
+                elif quad.biome is Biome.SEA:
+                    heathen_x = 16
+                elif quad.biome is Biome.MOUNTAIN:
+                    heathen_x = 24
+                pyxel.blt((heathen.location[0] - map_pos[0]) * 8 + 4,
+                          (heathen.location[1] - map_pos[1]) * 8 + 4, 0, heathen_x, 60, 8, 8)
+                if self.selected_unit is not None and self.selected_unit is not heathen and \
+                        not self.selected_unit.has_attacked and \
+                        abs(self.selected_unit.location[0] - heathen.location[0]) <= 1 and \
+                        abs(self.selected_unit.location[1] - heathen.location[1]) <= 1:
+                    pyxel.rectb((heathen.location[0] - map_pos[0]) * 8 + 4,
+                                (heathen.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
+
         if self.quad_selected is not None and selected_quad_coords is not None:
             x_offset = 30 if selected_quad_coords[0] - map_pos[0] <= 8 else 0
             y_offset = -34 if selected_quad_coords[1] - map_pos[1] >= 36 else 0
@@ -137,8 +158,8 @@ class Board:
         self.overlay.display()
 
     def update(self, elapsed_time: float):
-        self.time_bank += elapsed_time
-        if self.time_bank > 3:
+        self.help_time_bank += elapsed_time
+        if self.help_time_bank > 3:
             if self.current_help is HelpOption.SETTLEMENT:
                 self.current_help = HelpOption.UNIT
             elif self.current_help is HelpOption.UNIT:
@@ -147,7 +168,12 @@ class Board:
                 self.current_help = HelpOption.END_TURN
             elif self.current_help is HelpOption.END_TURN:
                 self.current_help = HelpOption.SETTLEMENT
-            self.time_bank = 0
+            self.help_time_bank = 0
+        if self.overlay.is_attack():
+            self.attack_time_bank += elapsed_time
+            if self.attack_time_bank > 3:
+                self.overlay.toggle_attack(None)
+                self.attack_time_bank = 0
 
     def generate_quads(self):
         for i in range(90):
@@ -185,7 +211,7 @@ class Board:
             self.quad_selected = self.quads[adj_y][adj_x]
 
     def process_left_click(self, mouse_x: int, mouse_y: int, settled: bool,
-                           player: Player, map_pos: (int, int)):
+                           player: Player, map_pos: (int, int), heathens: typing.List[Heathen]):
         if self.quad_selected is not None:
             self.quad_selected.selected = False
             self.quad_selected = None
@@ -224,7 +250,26 @@ class Board:
                         self.selected_settlement = None
                         self.overlay.toggle_settlement(None, player)
                         self.overlay.toggle_unit(deployed)
-                    elif self.selected_unit is not None and \
+                    elif self.selected_unit is None and \
+                             any((to_select := heathen).location == (adj_x, adj_y) for heathen in heathens):
+                        self.selected_unit = to_select
+                        self.overlay.toggle_unit(to_select)
+                    elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
+                            not self.selected_unit.has_attacked and \
+                            any((to_attack := heathen).location == (adj_x, adj_y) for heathen in heathens):
+                        if abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
+                                abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
+                            data = attack(self.selected_unit, to_attack)
+                            if self.selected_unit.health < 0:
+                                player.units.remove(self.selected_unit)
+                                self.selected_unit = None
+                                self.overlay.toggle_unit(None)
+                            if to_attack.health < 0:
+                                heathens.remove(to_attack)
+                            self.overlay.toggle_attack(data)
+                            self.attack_time_bank = 0
+                    elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
+                            not any(heathen.location == (adj_x, adj_y) for heathen in heathens) and \
                             self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
                             self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \

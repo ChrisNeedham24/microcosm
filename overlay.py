@@ -6,7 +6,7 @@ import pyxel
 
 from catalogue import get_unlockable_improvements
 from models import Settlement, Player, Improvement, Unit, Blessing, ImprovementType, CompletedConstruction, UnitPlan, \
-    EconomicStatus, HarvestStatus
+    EconomicStatus, HarvestStatus, Heathen, AttackData
 
 
 class OverlayType(Enum):
@@ -20,7 +20,8 @@ class OverlayType(Enum):
     WARNING = "WARNING",
     BLESS_NOTIF = "BLESS_NOTIF",
     CONSTR_NOTIF = "CONSTR_NOTIF",
-    LEVEL_NOTIF = "LEVEL_NOTIF"
+    LEVEL_NOTIF = "LEVEL_NOTIF",
+    ATTACK = "ATTACK"
 
 
 class Overlay:
@@ -35,15 +36,17 @@ class Overlay:
         self.construction_boundaries: typing.Tuple[int, int] = 0, 5
         self.unit_plan_boundaries: typing.Tuple[int, int] = 0, 5
         self.constructing_improvement: bool = True
-        self.selected_unit: typing.Optional[Unit] = None
+        self.selected_unit: typing.Optional[typing.Union[Unit, Heathen]] = None
         self.available_blessings: typing.List[Blessing] = []
         self.selected_blessing: typing.Optional[Blessing] = None
         self.blessing_boundaries: typing.Tuple[int, int] = 0, 5
         self.problematic_settlements: typing.List[Settlement] = []
         self.has_no_blessing: bool = False
+        self.will_have_negative_wealth = False
         self.completed_blessing: typing.Optional[Blessing] = None
         self.completed_constructions: typing.List[CompletedConstruction] = []
         self.levelled_up_settlements: typing.List[Settlement] = []
+        self.attack_data: typing.Optional[AttackData] = None
 
     def display(self):
         pyxel.load("resources/sprites.pyxres")
@@ -58,6 +61,8 @@ class Overlay:
             pyxel.text(15, 153, "Click a quad in the white square to deploy!", pyxel.COLOR_WHITE)
         elif OverlayType.WARNING in self.showing:
             extension = 0
+            if self.will_have_negative_wealth:
+                extension += 20
             if self.has_no_blessing:
                 extension += 10
             if len(self.problematic_settlements) > 0:
@@ -66,8 +71,12 @@ class Overlay:
             pyxel.rect(13, 61, 174, 18 + extension, pyxel.COLOR_BLACK)
             pyxel.text(85, 63, "Warning!", pyxel.COLOR_WHITE)
             offset = 0
+            if self.will_have_negative_wealth:
+                pyxel.text(32, 73, "Your treasuries will be depleted!", pyxel.COLOR_YELLOW)
+                pyxel.text(20, 83, "Units will be auto-sold to recoup losses.", pyxel.COLOR_WHITE)
+                offset += 20
             if self.has_no_blessing:
-                pyxel.text(20, 73, "You are currently undergoing no blessing!", pyxel.COLOR_PURPLE)
+                pyxel.text(20, 73 + offset, "You are currently undergoing no blessing!", pyxel.COLOR_PURPLE)
                 offset += 10
             if len(self.problematic_settlements) > 0:
                 pyxel.text(15, 73 + offset, "The below settlements have no construction:", pyxel.COLOR_RED)
@@ -347,7 +356,7 @@ class Overlay:
                                 types_unlockable.append(ImprovementType.INTIMIDATORY)
                             if imp.effect.satisfaction > 0:
                                 types_unlockable.append(ImprovementType.PANDERING)
-                        for type_idx, unl_type in enumerate(types_unlockable):
+                        for type_idx, unl_type in enumerate(set(types_unlockable)):
                             uv_coords: (int, int) = 0, 44
                             if unl_type is ImprovementType.BOUNTIFUL:
                                 uv_coords = 8, 44
@@ -361,6 +370,27 @@ class Overlay:
                                 uv_coords = 8, 28
                             pyxel.blt(65 + type_idx * 10, 41 + adj_idx * 18, 0, uv_coords[0], uv_coords[1], 8, 8)
                 pyxel.text(90, 150, "Cancel", pyxel.COLOR_RED if self.selected_blessing is None else pyxel.COLOR_WHITE)
+            if OverlayType.ATTACK in self.showing:
+                pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
+                pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
+                att_name = self.attack_data.attacker.plan.name
+                att_dmg = round(self.attack_data.damage_to_attacker)
+                def_name = self.attack_data.defender.plan.name
+                def_dmg = round(self.attack_data.damage_to_defender)
+                if self.attack_data.attacker_was_killed and self.attack_data.player_attack:
+                    pyxel.text(35, 15, f"Your {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
+                elif self.attack_data.defender_was_killed and not self.attack_data.player_attack:
+                    pyxel.text(35, 15, f"Your {def_name} (-{def_dmg}) was killed by", pyxel.COLOR_WHITE)
+                elif self.attack_data.attacker_was_killed and not self.attack_data.player_attack:
+                    pyxel.text(50, 15, f"Your {def_name} (-{def_dmg}) killed", pyxel.COLOR_WHITE)
+                elif self.attack_data.defender_was_killed and self.attack_data.player_attack:
+                    pyxel.text(50, 15, f"Your {att_name} (-{att_dmg}) killed", pyxel.COLOR_WHITE)
+                elif self.attack_data.player_attack:
+                    pyxel.text(46, 15, f"Your {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
+                else:
+                    pyxel.text(32, 15, f"Your {def_name} (-{def_dmg}) was attacked by", pyxel.COLOR_WHITE)
+                pyxel.text(72, 25, f"a {def_name if self.attack_data.player_attack else att_name} "
+                                   f"(-{def_dmg if self.attack_data.player_attack else att_dmg})", pyxel.COLOR_WHITE)
 
     def toggle_standard(self, turn: int):
         if OverlayType.STANDARD in self.showing:
@@ -458,9 +488,9 @@ class Overlay:
         else:
             self.showing.append(OverlayType.DEPLOYMENT)
 
-    def toggle_unit(self, unit: typing.Optional[Unit]):
+    def toggle_unit(self, unit: typing.Optional[typing.Union[Unit, Heathen]]):
         if OverlayType.UNIT in self.showing:
-            self.showing.pop()
+            self.showing.remove(OverlayType.UNIT)
         else:
             self.showing.append(OverlayType.UNIT)
             self.selected_unit = unit
@@ -491,13 +521,14 @@ class Overlay:
     def is_setl(self):
         return OverlayType.SETTLEMENT in self.showing
 
-    def toggle_warning(self, settlements: typing.List[Settlement], no_blessing: bool):
+    def toggle_warning(self, settlements: typing.List[Settlement], no_blessing: bool, will_have_negative_wealth: bool):
         if OverlayType.WARNING in self.showing:
             self.showing.pop()
         else:
             self.showing.append(OverlayType.WARNING)
             self.problematic_settlements = settlements
             self.has_no_blessing = no_blessing
+            self.will_have_negative_wealth = will_have_negative_wealth
 
     def is_warning(self):
         return OverlayType.WARNING in self.showing
@@ -535,3 +566,16 @@ class Overlay:
 
     def is_lvl_notif(self):
         return OverlayType.LEVEL_NOTIF in self.showing
+
+    def toggle_attack(self, attack_data: typing.Optional[AttackData]):
+        if OverlayType.ATTACK in self.showing:
+            if attack_data is None:
+                self.showing.pop()
+            else:
+                self.attack_data = attack_data
+        else:
+            self.showing.append(OverlayType.ATTACK)
+            self.attack_data = attack_data
+
+    def is_attack(self):
+        return OverlayType.ATTACK in self.showing
