@@ -307,9 +307,9 @@ class Game:
                     if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
                         completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
                         self.complete_construction(setl)
-            if len(completed_constructions) > 0:
+            if player.ai_playstyle is None and len(completed_constructions) > 0:
                 self.board.overlay.toggle_construction_notification(completed_constructions)
-            if len(levelled_up_settlements) > 0:
+            if player.ai_playstyle is None and len(levelled_up_settlements) > 0:
                 self.board.overlay.toggle_level_up_notification(levelled_up_settlements)
             for unit in player.units:
                 unit.remaining_stamina = unit.plan.total_stamina
@@ -322,7 +322,8 @@ class Game:
                 player.ongoing_blessing.fortune_consumed += total_fortune
                 if player.ongoing_blessing.fortune_consumed >= player.ongoing_blessing.blessing.cost:
                     player.blessings.append(player.ongoing_blessing.blessing)
-                    self.board.overlay.toggle_blessing_notification(player.ongoing_blessing.blessing)
+                    if player.ai_playstyle is None:
+                        self.board.overlay.toggle_blessing_notification(player.ongoing_blessing.blessing)
                     player.ongoing_blessing = None
             while player.wealth + total_wealth < 0:
                 sold_unit = player.units.pop()
@@ -330,7 +331,7 @@ class Game:
             player.wealth = max(player.wealth + total_wealth, 0)
 
         if self.turn % 5 == 0:
-            heathen_loc = random.randint(0, 100), random.randint(0, 90)
+            heathen_loc = random.randint(0, 99), random.randint(0, 89)
             self.heathens.append(get_heathen(heathen_loc))
 
         for heathen in self.heathens:
@@ -394,7 +395,7 @@ class Game:
         for player in self.players:
             if player.ai_playstyle is not None:
                 # Add their settlement.
-                setl_coords = random.randint(0, 100), random.randint(0, 90)
+                setl_coords = random.randint(0, 99), random.randint(0, 89)
                 quad_biome = self.board.quads[setl_coords[0]][setl_coords[1]].biome
                 setl_name = get_settlement_name(quad_biome)
                 new_settl = Settlement(setl_name, [], 100, 50, setl_coords,
