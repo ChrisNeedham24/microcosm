@@ -1,3 +1,4 @@
+import random
 import typing
 from dataclasses import dataclass
 from enum import Enum
@@ -29,6 +30,12 @@ class EconomicStatus(Enum):
     RECESSION = "RECESSION",
     STANDARD = "STANDARD",
     BOOM = "BOOM"
+
+
+class AIPlaystyle(Enum):
+    AGGRESSIVE = "AGGRESSIVE",
+    DEFENSIVE = "DEFENSIVE",
+    NEUTRAL = "NEUTRAL"
 
 
 @dataclass
@@ -154,6 +161,7 @@ class Player:
     units: typing.List[Unit]
     blessings: typing.List[Blessing]
     ongoing_blessing: typing.Optional[OngoingBlessing] = None
+    ai_playstyle: typing.Optional[AIPlaystyle] = None
 
 
 @dataclass

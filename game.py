@@ -1,15 +1,17 @@
 import random
 import time
 import typing
+from enum import Enum
 
 import pyxel
 
 from board import Board
-from calculator import clamp, attack
-from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen
+from calculator import clamp, attack, get_player_totals
+from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
+    get_settlement_name, get_default_unit, get_unlockable_units, get_unlockable_improvements
 from menu import Menu, MenuOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, \
-    UnitPlan, HarvestStatus, EconomicStatus, Heathen
+    UnitPlan, HarvestStatus, EconomicStatus, Heathen, AIPlaystyle, Blessing
 from music_player import MusicPlayer
 
 
@@ -17,8 +19,9 @@ from music_player import MusicPlayer
 # TODO FF Some sort of fog of war would be cool
 # TODO FF Pause screen for saving and exiting (also controls)
 # TODO FF Add Wiki on main menu
-# TODO FF AI players
+# TODO ONG AI players
 # TODO FF Game setup screen with number of players and colours, also biome clustering on/off
+# TODO F Add siegeing/attacking of settlements
 
 class Game:
     def __init__(self):
@@ -26,7 +29,12 @@ class Game:
 
         self.menu = Menu()
         self.board = Board()
-        self.players: typing.List[Player] = [Player("Test", pyxel.COLOR_RED, 0, [], [], [])]
+        self.players: typing.List[Player] = [
+            Player("Test", pyxel.COLOR_RED, 0, [], [], []),
+            Player("NPC1", pyxel.COLOR_GREEN, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
+            Player("NPC2", pyxel.COLOR_PURPLE, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
+            Player("NPC3", pyxel.COLOR_CYAN, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle)))
+        ]
         self.heathens: typing.List[Heathen] = []
 
         self.on_menu = True
@@ -39,6 +47,8 @@ class Game:
 
         self.music_player = MusicPlayer()
         self.music_player.play_menu_music()
+
+        self.initialise_ais()
 
         pyxel.run(self.on_update, self.draw)
 
@@ -112,6 +122,7 @@ class Game:
                 self.board.overlay.update_turn(self.turn)
                 self.end_turn()
                 self.process_heathens()
+                self.process_ais()
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
             if self.game_started:
                 self.board.overlay.remove_warning_if_possible()
@@ -354,7 +365,8 @@ class Game:
             within_range: typing.Optional[Unit] = None
             for unit in all_units:
                 if max(abs(unit.location[0] - heathen.location[0]),
-                       abs(unit.location[1] - heathen.location[1])) <= heathen.remaining_stamina:
+                       abs(unit.location[1] - heathen.location[1])) <= heathen.remaining_stamina and \
+                        heathen.health >= unit.health / 2:
                     within_range = unit
                     break
             if within_range is not None:
@@ -377,3 +389,79 @@ class Game:
                 y_movement = random.choice([-rem_movement, rem_movement])
                 heathen.location = heathen.location[0] + x_movement, heathen.location[1] + y_movement
                 heathen.remaining_stamina -= abs(x_movement) + abs(y_movement)
+
+    def initialise_ais(self):
+        for player in self.players:
+            if player.ai_playstyle is not None:
+                # Add their settlement.
+                setl_coords = random.randint(0, 100), random.randint(0, 90)
+                quad_biome = self.board.quads[setl_coords[0]][setl_coords[1]].biome
+                setl_name = get_settlement_name(quad_biome)
+                new_settl = Settlement(setl_name, [], 100, 50, setl_coords,
+                                       [self.board.quads[setl_coords[0]][setl_coords[1]]],
+                                       [get_default_unit(setl_coords)], None)
+                player.settlements.append(new_settl)
+
+    def process_ais(self):
+        for player in self.players:
+            if player.ai_playstyle is not None:
+                if player.ongoing_blessing is None:
+                    avail_bless = get_available_blessings(player)
+                    ideal: Blessing = avail_bless[0]
+                    totals = get_player_totals(player)
+                    lowest = totals.index(min(totals))
+                    if lowest == 0:
+                        highest_wealth: (float, Blessing) = 0, None
+                        for bless in avail_bless:
+                            cumulative_wealth: float = 0
+                            for imp in get_unlockable_improvements(bless):
+                                cumulative_wealth += imp.effect.wealth
+                            if cumulative_wealth > highest_wealth[0]:
+                                highest_wealth = cumulative_wealth, bless
+                        ideal = highest_wealth[1]
+                    if lowest == 1:
+                        highest_harvest: (float, Blessing) = 0, None
+                        for bless in avail_bless:
+                            cumulative_harvest: float = 0
+                            for imp in get_unlockable_improvements(bless):
+                                cumulative_harvest += imp.effect.harvest
+                            if cumulative_harvest > highest_harvest[0]:
+                                highest_harvest = cumulative_harvest, bless
+                        ideal = highest_harvest[1]
+                    if lowest == 2:
+                        highest_zeal: (float, Blessing) = 0, None
+                        for bless in avail_bless:
+                            cumulative_zeal: float = 0
+                            for imp in get_unlockable_improvements(bless):
+                                cumulative_zeal += imp.effect.zeal
+                            if cumulative_zeal > highest_zeal[0]:
+                                highest_zeal = cumulative_zeal, bless
+                        ideal = highest_zeal[1]
+                    if lowest == 3:
+                        highest_fortune: (float, Blessing) = 0, None
+                        for bless in avail_bless:
+                            cumulative_fortune: float = 0
+                            for imp in get_unlockable_improvements(bless):
+                                cumulative_fortune += imp.effect.fortune
+                            if cumulative_fortune > highest_fortune[0]:
+                                highest_fortune = cumulative_fortune, bless
+                        ideal = highest_fortune[1]
+                    if player.ai_playstyle is AIPlaystyle.AGGRESSIVE:
+                        for bless in avail_bless:
+                            unlockable = get_unlockable_units(bless)
+                            if len(unlockable) > 0:
+                                player.ongoing_blessing = OngoingBlessing(bless)
+                                break
+                        if player.ongoing_blessing is None:
+                            player.ongoing_blessing = OngoingBlessing(ideal)
+                    elif player.ai_playstyle is AIPlaystyle.DEFENSIVE:
+                        for bless in avail_bless:
+                            unlockable = get_unlockable_improvements(bless)
+                            if len([imp for imp in unlockable if imp.effect.strength > 0]) > 0:
+                                player.ongoing_blessing = OngoingBlessing(bless)
+                                break
+                        if player.ongoing_blessing is None:
+                            player.ongoing_blessing = OngoingBlessing(ideal)
+                    else:
+                        player.ongoing_blessing = OngoingBlessing(ideal)
+

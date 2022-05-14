@@ -58,6 +58,25 @@ class Board:
                         pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
 
         pyxel.load("resources/sprites.pyxres")
+        for heathen in heathens:
+            if map_pos[0] <= heathen.location[0] < map_pos[0] + 24 and \
+                    map_pos[1] <= heathen.location[1] < map_pos[1] + 22:
+                quad: Quad = self.quads[heathen.location[1]][heathen.location[0]]
+                heathen_x: int = 0
+                if quad.biome is Biome.FOREST:
+                    heathen_x = 8
+                elif quad.biome is Biome.SEA:
+                    heathen_x = 16
+                elif quad.biome is Biome.MOUNTAIN:
+                    heathen_x = 24
+                pyxel.blt((heathen.location[0] - map_pos[0]) * 8 + 4,
+                          (heathen.location[1] - map_pos[1]) * 8 + 4, 0, heathen_x, 60, 8, 8)
+                if self.selected_unit is not None and self.selected_unit is not heathen and \
+                        not self.selected_unit.has_attacked and \
+                        abs(self.selected_unit.location[0] - heathen.location[0]) <= 1 and \
+                        abs(self.selected_unit.location[1] - heathen.location[1]) <= 1:
+                    pyxel.rectb((heathen.location[0] - map_pos[0]) * 8 + 4,
+                                (heathen.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
         for player in players:
             for unit in player.units:
                 if map_pos[0] <= unit.location[0] < map_pos[0] + 24 and \
@@ -102,26 +121,6 @@ class Board:
                     else:
                         pyxel.rectb((settlement.location[0] - map_pos[0]) * 8 + 4,
                                     (settlement.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
-
-        for heathen in heathens:
-            if map_pos[0] <= heathen.location[0] < map_pos[0] + 24 and \
-                    map_pos[1] <= heathen.location[1] < map_pos[1] + 22:
-                quad: Quad = self.quads[heathen.location[1]][heathen.location[0]]
-                heathen_x: int = 0
-                if quad.biome is Biome.FOREST:
-                    heathen_x = 8
-                elif quad.biome is Biome.SEA:
-                    heathen_x = 16
-                elif quad.biome is Biome.MOUNTAIN:
-                    heathen_x = 24
-                pyxel.blt((heathen.location[0] - map_pos[0]) * 8 + 4,
-                          (heathen.location[1] - map_pos[1]) * 8 + 4, 0, heathen_x, 60, 8, 8)
-                if self.selected_unit is not None and self.selected_unit is not heathen and \
-                        not self.selected_unit.has_attacked and \
-                        abs(self.selected_unit.location[0] - heathen.location[0]) <= 1 and \
-                        abs(self.selected_unit.location[1] - heathen.location[1]) <= 1:
-                    pyxel.rectb((heathen.location[0] - map_pos[0]) * 8 + 4,
-                                (heathen.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
 
         if self.quad_selected is not None and selected_quad_coords is not None:
             x_offset = 30 if selected_quad_coords[0] - map_pos[0] <= 8 else 0
@@ -237,6 +236,13 @@ class Board:
                             any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
                         self.selected_settlement = to_select
                         self.overlay.toggle_settlement(to_select, player)
+                    elif self.selected_unit is not None and self.selected_settlement is None and \
+                            any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
+                        self.selected_unit.garrisoned = True
+                        to_select.garrison.append(self.selected_unit)
+                        player.units.remove(self.selected_unit)
+                        self.selected_unit = None
+                        self.overlay.toggle_unit(None)
                     elif self.deploying_army and \
                             self.selected_settlement.location[0] - 1 <= adj_x <= self.selected_settlement.location[0] + 1 and \
                             self.selected_settlement.location[1] - 1 <= adj_y <= self.selected_settlement.location[1] + 1:

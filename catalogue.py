@@ -170,3 +170,7 @@ def get_available_blessings(player: Player) -> typing.List[Blessing]:
 
 def get_unlockable_improvements(blessing: Blessing) -> typing.List[Improvement]:
     return [imp for imp in IMPROVEMENTS if imp.prereq is blessing]
+
+
+def get_unlockable_units(blessing: Blessing) -> typing.List[UnitPlan]:
+    return [up for up in UNIT_PLANS if up.prereq is blessing]
