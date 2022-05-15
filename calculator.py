@@ -1,7 +1,8 @@
 import random
 import typing
 
-from models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus
+from models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, Settlement, Improvement, \
+    UnitPlan
 
 
 def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
@@ -39,14 +40,13 @@ def clamp(number: int, min_val: int, max_val: int) -> int:
     return max(min(max_val, number), min_val)
 
 
-def attack(attacker: typing.Union[Unit, Heathen], defender: typing.Union[Unit, Heathen]) -> AttackData:
+def attack(attacker: typing.Union[Unit, Heathen], defender: typing.Union[Unit, Heathen], ai=True) -> AttackData:
     attacker_dmg = attacker.plan.power * 0.25 * 1.2
     defender_dmg = defender.plan.power * 0.25
     defender.health -= attacker_dmg
     attacker.health -= defender_dmg
     attacker.has_attacked = True
-    return AttackData(attacker, defender, defender_dmg, attacker_dmg, isinstance(attacker, Unit),
-                      attacker.health < 0, defender.health < 0)
+    return AttackData(attacker, defender, defender_dmg, attacker_dmg, not ai, attacker.health < 0, defender.health < 0)
 
 
 def get_player_totals(player: Player) -> (float, float, float, float):
@@ -56,34 +56,53 @@ def get_player_totals(player: Player) -> (float, float, float, float):
     overall_fortune = 0
     
     for setl in player.settlements:
-        total_wealth = max(sum(quad.wealth for quad in setl.quads) +
-                           sum(imp.effect.wealth for imp in setl.improvements), 0)
-        total_wealth += (setl.level - 1) * 0.25 * total_wealth
-        if setl.economic_status is EconomicStatus.RECESSION:
-            total_wealth = 0
-        elif setl.economic_status is EconomicStatus.BOOM:
-            total_wealth *= 1.5
-        total_wealth = round(total_wealth)
-        total_harvest = max(sum(quad.harvest for quad in setl.quads) +
-                            sum(imp.effect.harvest for imp in setl.improvements), 0)
-        total_harvest += (setl.level - 1) * 0.25 * total_harvest
-        if setl.harvest_status is HarvestStatus.POOR:
-            total_harvest = 0
-        elif setl.harvest_status is HarvestStatus.PLENTIFUL:
-            total_harvest *= 1.5
-        total_harvest = round(total_harvest)
-        total_zeal = max(sum(quad.zeal for quad in setl.quads) +
-                         sum(imp.effect.zeal for imp in setl.improvements), 0)
-        total_zeal += (setl.level - 1) * 0.25 * total_zeal
-        total_zeal = round(total_zeal)
-        total_fortune = max(sum(quad.fortune for quad in setl.quads) +
-                            sum(imp.effect.fortune for imp in setl.improvements), 0)
-        total_fortune += (setl.level - 1) * 0.25 * total_fortune
-        total_fortune = round(total_fortune)
+        setl_totals = get_setl_totals(setl)
 
-        overall_harvest += total_harvest
-        overall_wealth += total_wealth
-        overall_zeal += total_zeal
-        overall_fortune += total_fortune
+        overall_harvest += setl_totals[0]
+        overall_wealth += setl_totals[1]
+        overall_zeal += setl_totals[2]
+        overall_fortune += setl_totals[3]
 
     return overall_wealth, overall_harvest, overall_zeal, overall_fortune
+
+
+def get_setl_totals(setl: Settlement, strict: bool = False) -> (float, float, float, float):
+    total_wealth = max(sum(quad.wealth for quad in setl.quads) +
+                       sum(imp.effect.wealth for imp in setl.improvements), 0)
+    total_wealth += (setl.level - 1) * 0.25 * total_wealth
+    if setl.economic_status is EconomicStatus.RECESSION:
+        total_wealth = 0
+    elif setl.economic_status is EconomicStatus.BOOM:
+        total_wealth *= 1.5
+    total_harvest = max(sum(quad.harvest for quad in setl.quads) +
+                        sum(imp.effect.harvest for imp in setl.improvements), 0)
+    total_harvest += (setl.level - 1) * 0.25 * total_harvest
+    if setl.harvest_status is HarvestStatus.POOR:
+        total_harvest = 0
+    elif setl.harvest_status is HarvestStatus.PLENTIFUL:
+        total_harvest *= 1.5
+    total_zeal = max(sum(quad.zeal for quad in setl.quads) +
+                     sum(imp.effect.zeal for imp in setl.improvements), 0 if strict else 0.5)
+    total_zeal += (setl.level - 1) * 0.25 * total_zeal
+    total_fortune = max(sum(quad.fortune for quad in setl.quads) +
+                        sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 0.5)
+    total_fortune += (setl.level - 1) * 0.25 * total_fortune
+
+    return total_wealth, total_harvest, total_zeal, total_fortune
+
+
+def complete_construction(setl: Settlement):
+    if isinstance(setl.current_work.construction, Improvement):
+        setl.improvements.append(setl.current_work.construction)
+        if setl.current_work.construction.effect.strength > 0:
+            setl.strength += setl.current_work.construction.effect.strength
+        if setl.current_work.construction.effect.satisfaction != 0:
+            setl.satisfaction += setl.current_work.construction.effect.satisfaction
+    else:
+        plan: UnitPlan = setl.current_work.construction
+        if plan.can_settle:
+            setl.level -= 1
+            setl.harvest_reserves = pow(setl.level - 1, 2) * 25
+            setl.produced_settler = True
+        setl.garrison.append(Unit(plan.max_health, plan.total_stamina, setl.location, True, plan))
+    setl.current_work = None

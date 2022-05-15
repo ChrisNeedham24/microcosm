@@ -144,6 +144,7 @@ class Settlement:
     harvest_reserves: float = 0.0
     harvest_status: HarvestStatus = HarvestStatus.STANDARD
     economic_status: EconomicStatus = EconomicStatus.STANDARD
+    produced_settler = False
 
 
 @dataclass

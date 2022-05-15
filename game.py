@@ -6,12 +6,13 @@ from enum import Enum
 import pyxel
 
 from board import Board
-from calculator import clamp, attack, get_player_totals
+from calculator import clamp, attack, get_player_totals, get_setl_totals, complete_construction
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
     get_settlement_name, get_default_unit, get_unlockable_units, get_unlockable_improvements
 from menu import Menu, MenuOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, \
     UnitPlan, HarvestStatus, EconomicStatus, Heathen, AIPlaystyle, Blessing
+from movemaker import MoveMaker
 from music_player import MusicPlayer
 
 
@@ -19,7 +20,6 @@ from music_player import MusicPlayer
 # TODO FF Some sort of fog of war would be cool
 # TODO FF Pause screen for saving and exiting (also controls)
 # TODO FF Add Wiki on main menu
-# TODO ONG AI players
 # TODO FF Game setup screen with number of players and colours, also biome clustering on/off
 # TODO F Add siegeing/attacking of settlements
 
@@ -48,6 +48,7 @@ class Game:
         self.music_player = MusicPlayer()
         self.music_player.play_menu_music()
 
+        self.move_maker = MoveMaker(self.board)
         self.initialise_ais()
 
         pyxel.run(self.on_update, self.draw)
@@ -60,6 +61,11 @@ class Game:
 
         if not self.on_menu and not self.music_player.is_playing():
             self.music_player.next_song()
+
+        all_units = []
+        for player in self.players:
+            for unit in player.units:
+                all_units.append(unit)
 
         if pyxel.btnp(pyxel.KEY_DOWN):
             if self.on_menu:
@@ -132,7 +138,8 @@ class Game:
                 self.board.overlay.remove_warning_if_possible()
                 self.board.process_left_click(pyxel.mouse_x, pyxel.mouse_y,
                                               len(self.players[0].settlements) > 0,
-                                              self.players[0], self.map_pos, self.heathens)
+                                              self.players[0], self.map_pos, self.heathens, all_units,
+                                              self.players)
         elif pyxel.btnp(pyxel.KEY_SHIFT):
             if self.game_started and not self.board.overlay.is_tutorial():
                 self.board.overlay.remove_warning_if_possible()
@@ -214,7 +221,7 @@ class Game:
                         CompletedConstruction(self.board.selected_settlement.current_work.construction,
                                               self.board.selected_settlement)
                     ])
-                    self.complete_construction(self.board.selected_settlement)
+                    complete_construction(self.board.selected_settlement)
                     self.players[0].wealth -= remaining_work
 
     def draw(self):
@@ -269,28 +276,7 @@ class Game:
                     setl.harvest_status = HarvestStatus.PLENTIFUL
                     setl.economic_status = EconomicStatus.BOOM
 
-                total_zeal = max(sum(quad.zeal for quad in setl.quads) +
-                                 sum(imp.effect.zeal for imp in setl.improvements), 0.5)
-                total_zeal += (setl.level - 1) * 0.25 * total_zeal
-                total_fortune += sum(quad.fortune for quad in setl.quads)
-                total_fortune += sum(imp.effect.fortune for imp in setl.improvements)
-                total_fortune = max(0.5, total_fortune)
-                total_fortune += (setl.level - 1) * 0.25 * total_fortune
-                total_wealth += sum(quad.wealth for quad in setl.quads)
-                total_wealth += sum(imp.effect.wealth for imp in setl.improvements)
-                total_wealth += (setl.level - 1) * 0.25 * total_wealth
-                if setl.economic_status is EconomicStatus.RECESSION:
-                    total_wealth = 0
-                elif setl.economic_status is EconomicStatus.BOOM:
-                    total_wealth *= 1.5
-
-                total_harvest = max(sum(quad.harvest for quad in setl.quads) +
-                                 sum(imp.effect.harvest for imp in setl.improvements), 0.5)
-                total_harvest += (setl.level - 1) * 0.25 * total_harvest
-                if setl.harvest_status is HarvestStatus.POOR:
-                    total_harvest = 0
-                elif setl.harvest_status is HarvestStatus.PLENTIFUL:
-                    total_harvest *= 1.5
+                total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(setl)
 
                 if total_harvest < setl.level * 3:
                     setl.satisfaction -= 0.5
@@ -306,7 +292,7 @@ class Game:
                     setl.current_work.zeal_consumed += total_zeal
                     if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
                         completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
-                        self.complete_construction(setl)
+                        complete_construction(setl)
             if player.ai_playstyle is None and len(completed_constructions) > 0:
                 self.board.overlay.toggle_construction_notification(completed_constructions)
             if player.ai_playstyle is None and len(levelled_up_settlements) > 0:
@@ -331,7 +317,7 @@ class Game:
             player.wealth = max(player.wealth + total_wealth, 0)
 
         if self.turn % 5 == 0:
-            heathen_loc = random.randint(0, 99), random.randint(0, 89)
+            heathen_loc = random.randint(0, 89), random.randint(0, 99)
             self.heathens.append(get_heathen(heathen_loc))
 
         for heathen in self.heathens:
@@ -341,21 +327,6 @@ class Game:
 
         self.board.overlay.remove_warning_if_possible()
         self.turn += 1
-
-    def complete_construction(self, setl: Settlement):
-        if isinstance(setl.current_work.construction, Improvement):
-            setl.improvements.append(setl.current_work.construction)
-            if setl.current_work.construction.effect.strength > 0:
-                setl.strength += setl.current_work.construction.effect.strength
-            if setl.current_work.construction.effect.satisfaction != 0:
-                setl.satisfaction += setl.current_work.construction.effect.satisfaction
-        else:
-            plan: UnitPlan = setl.current_work.construction
-            if plan.can_settle:
-                setl.level -= 1
-                setl.harvest_reserves = pow(setl.level - 1, 2) * 25
-            setl.garrison.append(Unit(plan.max_health, plan.total_stamina, setl.location, True, plan))
-        setl.current_work = None
 
     def process_heathens(self):
         all_units = []
@@ -378,12 +349,16 @@ class Game:
                 heathen.remaining_stamina = 0
                 data = attack(heathen, within_range)
                 if within_range.health < 0:
-                    self.players[0].units.remove(within_range)
+                    for player in self.players:
+                        if within_range in player.units:
+                            player.units.remove(within_range)
+                            break
                     self.board.selected_unit = None
                     self.board.overlay.toggle_unit(None)
                 if heathen.health < 0:
                     self.heathens.remove(heathen)
-                self.board.overlay.toggle_attack(data)
+                if within_range in self.players[0].units:
+                    self.board.overlay.toggle_attack(data)
             else:
                 x_movement = random.randint(-heathen.remaining_stamina, heathen.remaining_stamina)
                 rem_movement = heathen.remaining_stamina - abs(x_movement)
@@ -395,7 +370,7 @@ class Game:
         for player in self.players:
             if player.ai_playstyle is not None:
                 # Add their settlement.
-                setl_coords = random.randint(0, 99), random.randint(0, 89)
+                setl_coords = random.randint(0, 89), random.randint(0, 99)
                 quad_biome = self.board.quads[setl_coords[0]][setl_coords[1]].biome
                 setl_name = get_settlement_name(quad_biome)
                 new_settl = Settlement(setl_name, [], 100, 50, setl_coords,
@@ -406,63 +381,6 @@ class Game:
     def process_ais(self):
         for player in self.players:
             if player.ai_playstyle is not None:
-                if player.ongoing_blessing is None:
-                    avail_bless = get_available_blessings(player)
-                    ideal: Blessing = avail_bless[0]
-                    totals = get_player_totals(player)
-                    lowest = totals.index(min(totals))
-                    if lowest == 0:
-                        highest_wealth: (float, Blessing) = 0, None
-                        for bless in avail_bless:
-                            cumulative_wealth: float = 0
-                            for imp in get_unlockable_improvements(bless):
-                                cumulative_wealth += imp.effect.wealth
-                            if cumulative_wealth > highest_wealth[0]:
-                                highest_wealth = cumulative_wealth, bless
-                        ideal = highest_wealth[1]
-                    if lowest == 1:
-                        highest_harvest: (float, Blessing) = 0, None
-                        for bless in avail_bless:
-                            cumulative_harvest: float = 0
-                            for imp in get_unlockable_improvements(bless):
-                                cumulative_harvest += imp.effect.harvest
-                            if cumulative_harvest > highest_harvest[0]:
-                                highest_harvest = cumulative_harvest, bless
-                        ideal = highest_harvest[1]
-                    if lowest == 2:
-                        highest_zeal: (float, Blessing) = 0, None
-                        for bless in avail_bless:
-                            cumulative_zeal: float = 0
-                            for imp in get_unlockable_improvements(bless):
-                                cumulative_zeal += imp.effect.zeal
-                            if cumulative_zeal > highest_zeal[0]:
-                                highest_zeal = cumulative_zeal, bless
-                        ideal = highest_zeal[1]
-                    if lowest == 3:
-                        highest_fortune: (float, Blessing) = 0, None
-                        for bless in avail_bless:
-                            cumulative_fortune: float = 0
-                            for imp in get_unlockable_improvements(bless):
-                                cumulative_fortune += imp.effect.fortune
-                            if cumulative_fortune > highest_fortune[0]:
-                                highest_fortune = cumulative_fortune, bless
-                        ideal = highest_fortune[1]
-                    if player.ai_playstyle is AIPlaystyle.AGGRESSIVE:
-                        for bless in avail_bless:
-                            unlockable = get_unlockable_units(bless)
-                            if len(unlockable) > 0:
-                                player.ongoing_blessing = OngoingBlessing(bless)
-                                break
-                        if player.ongoing_blessing is None:
-                            player.ongoing_blessing = OngoingBlessing(ideal)
-                    elif player.ai_playstyle is AIPlaystyle.DEFENSIVE:
-                        for bless in avail_bless:
-                            unlockable = get_unlockable_improvements(bless)
-                            if len([imp for imp in unlockable if imp.effect.strength > 0]) > 0:
-                                player.ongoing_blessing = OngoingBlessing(bless)
-                                break
-                        if player.ongoing_blessing is None:
-                            player.ongoing_blessing = OngoingBlessing(ideal)
-                    else:
-                        player.ongoing_blessing = OngoingBlessing(ideal)
+                # print(player)
+                self.move_maker.make_move(player, self.players)
 

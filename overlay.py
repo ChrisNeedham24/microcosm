@@ -4,6 +4,7 @@ from enum import Enum
 
 import pyxel
 
+from calculator import get_setl_totals
 from catalogue import get_unlockable_improvements
 from models import Settlement, Player, Improvement, Unit, Blessing, ImprovementType, CompletedConstruction, UnitPlan, \
     EconomicStatus, HarvestStatus, Heathen, AttackData
@@ -50,6 +51,27 @@ class Overlay:
 
     def display(self):
         pyxel.load("resources/sprites.pyxres")
+        if OverlayType.ATTACK in self.showing:
+            pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
+            att_name = self.attack_data.attacker.plan.name
+            att_dmg = round(self.attack_data.damage_to_attacker)
+            def_name = self.attack_data.defender.plan.name
+            def_dmg = round(self.attack_data.damage_to_defender)
+            if self.attack_data.attacker_was_killed and self.attack_data.player_attack:
+                pyxel.text(35, 15, f"Your {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
+            elif self.attack_data.defender_was_killed and not self.attack_data.player_attack:
+                pyxel.text(35, 15, f"Your {def_name} (-{def_dmg}) was killed by", pyxel.COLOR_WHITE)
+            elif self.attack_data.attacker_was_killed and not self.attack_data.player_attack:
+                pyxel.text(50, 15, f"Your {def_name} (-{def_dmg}) killed", pyxel.COLOR_WHITE)
+            elif self.attack_data.defender_was_killed and self.attack_data.player_attack:
+                pyxel.text(50, 15, f"Your {att_name} (-{att_dmg}) killed", pyxel.COLOR_WHITE)
+            elif self.attack_data.player_attack:
+                pyxel.text(46, 15, f"Your {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
+            else:
+                pyxel.text(32, 15, f"Your {def_name} (-{def_dmg}) was attacked by", pyxel.COLOR_WHITE)
+            pyxel.text(72, 25, f"a {def_name if self.attack_data.player_attack else att_name} "
+                               f"(-{def_dmg if self.attack_data.player_attack else att_dmg})", pyxel.COLOR_WHITE)
         if OverlayType.TUTORIAL in self.showing:
             pyxel.rectb(8, 140, 184, 25, pyxel.COLOR_WHITE)
             pyxel.rect(9, 141, 182, 23, pyxel.COLOR_BLACK)
@@ -123,35 +145,14 @@ class Overlay:
                 satisfaction_u = 8 if self.current_settlement.satisfaction >= 50 else 16
                 pyxel.blt(105, 12, 0, satisfaction_u, 28, 8, 8)
                 pyxel.text(115, 14, str(round(self.current_settlement.satisfaction)), pyxel.COLOR_WHITE)
-                total_wealth = max(sum(quad.wealth for quad in self.current_settlement.quads) +
-                                     sum(imp.effect.wealth for imp in self.current_settlement.improvements), 0)
-                total_wealth += (self.current_settlement.level - 1) * 0.25 * total_wealth
-                if self.current_settlement.economic_status is EconomicStatus.RECESSION:
-                    total_wealth = 0
-                elif self.current_settlement.economic_status is EconomicStatus.BOOM:
-                    total_wealth *= 1.5
-                total_wealth = round(total_wealth)
-                total_harvest = max(sum(quad.harvest for quad in self.current_settlement.quads) +
-                                      sum(imp.effect.harvest for imp in self.current_settlement.improvements), 0)
-                total_harvest += (self.current_settlement.level - 1) * 0.25 * total_harvest
-                if self.current_settlement.harvest_status is HarvestStatus.POOR:
-                    total_harvest = 0
-                elif self.current_settlement.harvest_status is HarvestStatus.PLENTIFUL:
-                    total_harvest *= 1.5
-                total_harvest = round(total_harvest)
-                total_zeal = max(sum(quad.zeal for quad in self.current_settlement.quads) +
-                                   sum(imp.effect.zeal for imp in self.current_settlement.improvements), 0)
-                total_zeal += (self.current_settlement.level - 1) * 0.25 * total_zeal
-                total_zeal = round(total_zeal)
-                total_fortune = max(sum(quad.fortune for quad in self.current_settlement.quads) +
-                                      sum(imp.effect.fortune for imp in self.current_settlement.improvements), 0)
-                total_fortune += (self.current_settlement.level - 1) * 0.25 * total_fortune
-                total_fortune = round(total_fortune)
 
-                pyxel.text(138, 14, str(total_wealth), pyxel.COLOR_YELLOW)
-                pyxel.text(150, 14, str(total_harvest), pyxel.COLOR_GREEN)
-                pyxel.text(162, 14, str(total_zeal), pyxel.COLOR_RED)
-                pyxel.text(174, 14, str(total_fortune), pyxel.COLOR_PURPLE)
+                total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(self.current_settlement,
+                                                                                         strict=True)
+
+                pyxel.text(138, 14, str(round(total_wealth)), pyxel.COLOR_YELLOW)
+                pyxel.text(150, 14, str(round(total_harvest)), pyxel.COLOR_GREEN)
+                pyxel.text(162, 14, str(round(total_zeal)), pyxel.COLOR_RED)
+                pyxel.text(174, 14, str(round(total_fortune)), pyxel.COLOR_PURPLE)
 
                 y_offset = 0
                 if self.current_settlement.current_work is not None and \
@@ -370,27 +371,6 @@ class Overlay:
                                 uv_coords = 8, 28
                             pyxel.blt(65 + type_idx * 10, 41 + adj_idx * 18, 0, uv_coords[0], uv_coords[1], 8, 8)
                 pyxel.text(90, 150, "Cancel", pyxel.COLOR_RED if self.selected_blessing is None else pyxel.COLOR_WHITE)
-            if OverlayType.ATTACK in self.showing:
-                pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
-                pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
-                att_name = self.attack_data.attacker.plan.name
-                att_dmg = round(self.attack_data.damage_to_attacker)
-                def_name = self.attack_data.defender.plan.name
-                def_dmg = round(self.attack_data.damage_to_defender)
-                if self.attack_data.attacker_was_killed and self.attack_data.player_attack:
-                    pyxel.text(35, 15, f"Your {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
-                elif self.attack_data.defender_was_killed and not self.attack_data.player_attack:
-                    pyxel.text(35, 15, f"Your {def_name} (-{def_dmg}) was killed by", pyxel.COLOR_WHITE)
-                elif self.attack_data.attacker_was_killed and not self.attack_data.player_attack:
-                    pyxel.text(50, 15, f"Your {def_name} (-{def_dmg}) killed", pyxel.COLOR_WHITE)
-                elif self.attack_data.defender_was_killed and self.attack_data.player_attack:
-                    pyxel.text(50, 15, f"Your {att_name} (-{att_dmg}) killed", pyxel.COLOR_WHITE)
-                elif self.attack_data.player_attack:
-                    pyxel.text(46, 15, f"Your {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
-                else:
-                    pyxel.text(32, 15, f"Your {def_name} (-{def_dmg}) was attacked by", pyxel.COLOR_WHITE)
-                pyxel.text(72, 25, f"a {def_name if self.attack_data.player_attack else att_name} "
-                                   f"(-{def_dmg if self.attack_data.player_attack else att_dmg})", pyxel.COLOR_WHITE)
 
     def toggle_standard(self, turn: int):
         if OverlayType.STANDARD in self.showing:
@@ -407,8 +387,14 @@ class Overlay:
             self.showing.append(OverlayType.CONSTRUCTION)
             self.available_constructions = available_constructions
             self.available_unit_plans = available_unit_plans
-            self.constructing_improvement = True
-            self.selected_construction = self.available_constructions[0]
+            if len(available_constructions) > 0:
+                self.constructing_improvement = True
+                self.selected_construction = self.available_constructions[0]
+                self.construction_boundaries = 0, 5
+            else:
+                self.constructing_improvement = False
+                self.selected_construction = self.available_unit_plans[0]
+                self.unit_plan_boundaries = 0, 5
 
     def navigate_constructions(self, down: bool):
         list_to_use = self.available_constructions if self.constructing_improvement else self.available_unit_plans
@@ -442,6 +428,7 @@ class Overlay:
             self.showing.append(OverlayType.BLESSING)
             self.available_blessings = available_blessings
             self.selected_blessing = self.available_blessings[0]
+            self.blessing_boundaries = 0, 5
 
     def navigate_blessings(self, down: bool):
         if down and self.selected_blessing is not None:

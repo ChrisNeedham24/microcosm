@@ -91,13 +91,14 @@ class Board:
                         unit_x = 24
                     pyxel.blt((unit.location[0] - map_pos[0]) * 8 + 4,
                               (unit.location[1] - map_pos[1]) * 8 + 4, 0, unit_x, 16, 8, 8)
-                    if self.selected_unit is unit:
-                        pyxel.rectb((unit.location[0] - map_pos[0]) * 8 + 4,
-                                    (unit.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
+                    pyxel.rectb((unit.location[0] - map_pos[0]) * 8 + 4,
+                                (unit.location[1] - map_pos[1]) * 8 + 4, 8, 8, player.colour)
+                    if self.selected_unit is unit and unit in players[0].units:
                         movement = self.selected_unit.remaining_stamina
                         pyxel.rectb((self.selected_unit.location[0] - map_pos[0]) * 8 + 4 - (movement * 8),
                                     (self.selected_unit.location[1] - map_pos[1]) * 8 + 4 - (movement * 8),
                                     (2 * movement + 1) * 8, (2 * movement + 1) * 8, pyxel.COLOR_WHITE)
+        for player in players:
             for settlement in player.settlements:
                 if map_pos[0] <= settlement.location[0] < map_pos[0] + 24 and \
                         map_pos[1] <= settlement.location[1] < map_pos[1] + 22:
@@ -210,7 +211,8 @@ class Board:
             self.quad_selected = self.quads[adj_y][adj_x]
 
     def process_left_click(self, mouse_x: int, mouse_y: int, settled: bool,
-                           player: Player, map_pos: (int, int), heathens: typing.List[Heathen]):
+                           player: Player, map_pos: (int, int), heathens: typing.List[Heathen],
+                           all_units: typing.List[Unit], all_players: typing.List[Player]):
         if self.quad_selected is not None:
             self.quad_selected.selected = False
             self.quad_selected = None
@@ -236,7 +238,8 @@ class Board:
                             any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
                         self.selected_settlement = to_select
                         self.overlay.toggle_settlement(to_select, player)
-                    elif self.selected_unit is not None and self.selected_settlement is None and \
+                    elif self.selected_unit is not None and self.selected_unit in player.units and \
+                            self.selected_settlement is None and \
                             any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
                         self.selected_unit.garrisoned = True
                         to_select.garrison.append(self.selected_unit)
@@ -261,21 +264,35 @@ class Board:
                         self.selected_unit = to_select
                         self.overlay.toggle_unit(to_select)
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
-                            not self.selected_unit.has_attacked and \
-                            any((to_attack := heathen).location == (adj_x, adj_y) for heathen in heathens):
-                        if abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
+                            self.selected_unit in player.units and not self.selected_unit.has_attacked and \
+                            (any((to_attack := heathen).location == (adj_x, adj_y) for heathen in heathens) or
+                            any((to_attack := enemy).location == (adj_x, adj_y) for enemy in all_units)):
+                        if self.selected_unit is not to_attack and \
+                                abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
                                 abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
-                            data = attack(self.selected_unit, to_attack)
+                            data = attack(self.selected_unit, to_attack, ai=False)
                             if self.selected_unit.health < 0:
                                 player.units.remove(self.selected_unit)
                                 self.selected_unit = None
                                 self.overlay.toggle_unit(None)
                             if to_attack.health < 0:
-                                heathens.remove(to_attack)
+                                if to_attack in heathens:
+                                    heathens.remove(to_attack)
+                                else:
+                                    for p in all_players:
+                                        if to_attack in p.units:
+                                            p.units.remove(to_attack)
+                                            break
                             self.overlay.toggle_attack(data)
                             self.attack_time_bank = 0
+                    elif self.selected_unit is None and \
+                             any((to_select := unit).location == (adj_x, adj_y) for unit in all_units):
+                        self.selected_unit = to_select
+                        self.overlay.toggle_unit(to_select)
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
                             not any(heathen.location == (adj_x, adj_y) for heathen in heathens) and \
+                            self.selected_unit in player.units and \
+                            not any(unit.location == (adj_x, adj_y) for unit in all_units) and \
                             self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
                             self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
@@ -287,10 +304,6 @@ class Board:
                     elif self.selected_unit is not None and self.selected_unit.location != (adj_x, adj_y):
                         self.selected_unit = None
                         self.overlay.toggle_unit(None)
-                    elif self.selected_unit is None and \
-                            any((to_select := unit).location == (adj_x, adj_y) for unit in player.units):
-                        self.selected_unit = to_select
-                        self.overlay.toggle_unit(to_select)
 
     def handle_new_settlement(self, player: Player):
         can_settle = True
