@@ -282,9 +282,10 @@ class Game:
                     setl.satisfaction -= 0.5
                 elif total_harvest >= setl.level * 6:
                     setl.satisfaction += 0.5
+                setl.satisfaction = clamp(setl.satisfaction, 0, 100)
 
                 setl.harvest_reserves += total_harvest
-                if setl.harvest_reserves >= pow(setl.level, 2) * 25:
+                if setl.harvest_reserves >= pow(setl.level, 2) * 25 and setl.level < 10:
                     setl.level += 1
                     levelled_up_settlements.append(setl)
 
@@ -353,8 +354,9 @@ class Game:
                         if within_range in player.units:
                             player.units.remove(within_range)
                             break
-                    self.board.selected_unit = None
-                    self.board.overlay.toggle_unit(None)
+                    if self.board.selected_unit is within_range:
+                        self.board.selected_unit = None
+                        self.board.overlay.toggle_unit(None)
                 if heathen.health < 0:
                     self.heathens.remove(heathen)
                 if within_range in self.players[0].units:

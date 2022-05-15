@@ -5,7 +5,7 @@ from enum import Enum
 import pyxel
 
 from calculator import get_setl_totals
-from catalogue import get_unlockable_improvements
+from catalogue import get_unlockable_improvements, get_all_unlockable
 from models import Settlement, Player, Improvement, Unit, Blessing, ImprovementType, CompletedConstruction, UnitPlan, \
     EconomicStatus, HarvestStatus, Heathen, AttackData
 
@@ -107,13 +107,13 @@ class Overlay:
                     pyxel.text(80, 73 + offset, setl.name, pyxel.COLOR_WHITE)
                     offset += 10
         elif OverlayType.BLESS_NOTIF in self.showing:
-            unlocked = get_unlockable_improvements(self.completed_blessing)
+            unlocked = get_all_unlockable(self.completed_blessing)
             pyxel.rectb(12, 60, 176, 45 + len(unlocked) * 10, pyxel.COLOR_WHITE)
             pyxel.rect(13, 61, 174, 43 + len(unlocked) * 10, pyxel.COLOR_BLACK)
             pyxel.text(60, 63, "Blessing completed!", pyxel.COLOR_PURPLE)
             pyxel.text(20, 73, self.completed_blessing.name, pyxel.COLOR_WHITE)
             pyxel.text(20, 83, "Unlocks:", pyxel.COLOR_WHITE)
-            for idx, imp in enumerate(get_unlockable_improvements(self.completed_blessing)):
+            for idx, imp in enumerate(unlocked):
                 pyxel.text(25, 93 + idx * 10, imp.name, pyxel.COLOR_RED)
             pyxel.text(70, 93 + len(unlocked) * 10, "SPACE: Dismiss", pyxel.COLOR_WHITE)
         elif OverlayType.CONSTR_NOTIF in self.showing:
@@ -374,7 +374,7 @@ class Overlay:
 
     def toggle_standard(self, turn: int):
         if OverlayType.STANDARD in self.showing:
-            self.showing.pop()
+            self.showing.remove(OverlayType.STANDARD)
         else:
             self.showing.append(OverlayType.STANDARD)
             self.current_turn = turn
@@ -382,7 +382,7 @@ class Overlay:
     def toggle_construction(self, available_constructions: typing.List[Improvement],
                             available_unit_plans: typing.List[UnitPlan]):
         if OverlayType.CONSTRUCTION in self.showing and OverlayType.STANDARD not in self.showing:
-            self.showing.pop()
+            self.showing.remove(OverlayType.CONSTRUCTION)
         elif OverlayType.STANDARD not in self.showing:
             self.showing.append(OverlayType.CONSTRUCTION)
             self.available_constructions = available_constructions
@@ -423,7 +423,7 @@ class Overlay:
 
     def toggle_blessing(self, available_blessings: typing.List[Blessing]):
         if OverlayType.BLESSING in self.showing:
-            self.showing.pop()
+            self.showing.remove(OverlayType.BLESSING)
         else:
             self.showing.append(OverlayType.BLESSING)
             self.available_blessings = available_blessings
@@ -471,7 +471,7 @@ class Overlay:
 
     def toggle_deployment(self):
         if OverlayType.DEPLOYMENT in self.showing:
-            self.showing.pop()
+            self.showing.remove(OverlayType.DEPLOYMENT)
         else:
             self.showing.append(OverlayType.DEPLOYMENT)
 
@@ -510,7 +510,7 @@ class Overlay:
 
     def toggle_warning(self, settlements: typing.List[Settlement], no_blessing: bool, will_have_negative_wealth: bool):
         if OverlayType.WARNING in self.showing:
-            self.showing.pop()
+            self.showing.remove(OverlayType.WARNING)
         else:
             self.showing.append(OverlayType.WARNING)
             self.problematic_settlements = settlements
@@ -522,11 +522,11 @@ class Overlay:
 
     def remove_warning_if_possible(self):
         if OverlayType.WARNING in self.showing:
-            self.showing.pop()
+            self.showing.remove(OverlayType.WARNING)
 
     def toggle_blessing_notification(self, blessing: typing.Optional[Blessing]):
         if OverlayType.BLESS_NOTIF in self.showing:
-            self.showing.pop()
+            self.showing.remove(OverlayType.BLESS_NOTIF)
         else:
             self.showing.append(OverlayType.BLESS_NOTIF)
             self.completed_blessing = blessing
@@ -536,7 +536,7 @@ class Overlay:
 
     def toggle_construction_notification(self, constructions: typing.List[CompletedConstruction]):
         if OverlayType.CONSTR_NOTIF in self.showing:
-            self.showing.pop()
+            self.showing.remove(OverlayType.CONSTR_NOTIF)
         else:
             self.showing.append(OverlayType.CONSTR_NOTIF)
             self.completed_constructions = constructions
@@ -546,7 +546,7 @@ class Overlay:
 
     def toggle_level_up_notification(self, settlements: typing.List[Settlement]):
         if OverlayType.LEVEL_NOTIF in self.showing:
-            self.showing.pop()
+            self.showing.remove(OverlayType.LEVEL_NOTIF)
         else:
             self.showing.append(OverlayType.LEVEL_NOTIF)
             self.levelled_up_settlements = settlements
@@ -557,7 +557,7 @@ class Overlay:
     def toggle_attack(self, attack_data: typing.Optional[AttackData]):
         if OverlayType.ATTACK in self.showing:
             if attack_data is None:
-                self.showing.pop()
+                self.showing.remove(OverlayType.ATTACK)
             else:
                 self.attack_data = attack_data
         else:

@@ -2,7 +2,7 @@ import random
 import typing
 
 from board import Board
-from calculator import get_player_totals, get_setl_totals, attack, complete_construction
+from calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp
 from catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, get_settlement_name
 from models import Player, Blessing, AIPlaystyle, OngoingBlessing, Settlement, Improvement, UnitPlan, Construction, Unit
@@ -181,7 +181,7 @@ class MoveMaker:
             x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
             rem_movement = unit.remaining_stamina - abs(x_movement)
             y_movement = random.choice([-rem_movement, rem_movement])
-            unit.location = unit.location[0] + x_movement, unit.location[1] + y_movement
+            unit.location = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
             unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
             far_enough = True
@@ -228,5 +228,5 @@ class MoveMaker:
                 x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
                 rem_movement = unit.remaining_stamina - abs(x_movement)
                 y_movement = random.choice([-rem_movement, rem_movement])
-                unit.location = unit.location[0] + x_movement, unit.location[1] + y_movement
+                unit.location = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
                 unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
