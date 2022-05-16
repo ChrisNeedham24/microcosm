@@ -94,6 +94,7 @@ class Unit:
     garrisoned: bool
     plan: UnitPlan
     has_attacked: bool = False
+    sieging: bool = False
 
 
 @dataclass
@@ -120,13 +121,14 @@ class OngoingBlessing:
 @dataclass
 class Settlement:
     name: str
-    improvements: typing.List[Improvement]
-    strength: float
-    satisfaction: float
     location: (int, int)
+    improvements: typing.List[Improvement]
     quads: typing.List[Quad]
     garrison: typing.List[Unit]
-    current_work: typing.Optional[Construction]
+    strength: float = 100
+    max_strength: float = 100
+    satisfaction: float = 50
+    current_work: typing.Optional[Construction] = None
     """
     The harvest reserves required for each upgrade is as below:
     Threshold = (current_level ^ 2) * 25
@@ -145,6 +147,7 @@ class Settlement:
     harvest_status: HarvestStatus = HarvestStatus.STANDARD
     economic_status: EconomicStatus = EconomicStatus.STANDARD
     produced_settler = False
+    under_siege = False
 
 
 @dataclass
@@ -174,3 +177,14 @@ class AttackData:
     player_attack: bool
     attacker_was_killed: bool
     defender_was_killed: bool
+
+
+@dataclass
+class SetlAttackData:
+    attacker: Unit
+    settlement: Settlement
+    damage_to_attacker: float
+    damage_to_setl: float
+    player_attack: bool
+    attacker_was_killed: bool
+    setl_was_taken: bool

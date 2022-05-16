@@ -22,7 +22,13 @@ class OverlayType(Enum):
     BLESS_NOTIF = "BLESS_NOTIF",
     CONSTR_NOTIF = "CONSTR_NOTIF",
     LEVEL_NOTIF = "LEVEL_NOTIF",
-    ATTACK = "ATTACK"
+    ATTACK = "ATTACK",
+    SETL_ATTACK = "SETL_ATTACK"
+
+
+class SettlementAttackType(Enum):
+    ATTACK = "ATTACK",
+    BESIEGE = "BESIEGE"
 
 
 class Overlay:
@@ -48,6 +54,9 @@ class Overlay:
         self.completed_constructions: typing.List[CompletedConstruction] = []
         self.levelled_up_settlements: typing.List[Settlement] = []
         self.attack_data: typing.Optional[AttackData] = None
+        self.setl_attack_opt: typing.Optional[SettlementAttackType] = None
+        self.attacked_settlement: typing.Optional[Settlement] = None
+        self.attacked_settlement_owner: typing.Optional[Player] = None
 
     def display(self):
         pyxel.load("resources/sprites.pyxres")
@@ -371,6 +380,20 @@ class Overlay:
                                 uv_coords = 8, 28
                             pyxel.blt(65 + type_idx * 10, 41 + adj_idx * 18, 0, uv_coords[0], uv_coords[1], 8, 8)
                 pyxel.text(90, 150, "Cancel", pyxel.COLOR_RED if self.selected_blessing is None else pyxel.COLOR_WHITE)
+            if OverlayType.SETL_ATTACK in self.showing:
+                pyxel.rectb(50, 60, 100, 70, pyxel.COLOR_WHITE)
+                pyxel.rect(51, 61, 98, 68, pyxel.COLOR_BLACK)
+                # TODO Base X coord for name on length of name
+                pyxel.text(82, 70, str(self.attacked_settlement.name), self.attacked_settlement_owner.colour)
+                pyxel.blt(90, 78, 0, 0, 28, 8, 8)
+                pyxel.text(100, 80, str(self.attacked_settlement.strength), pyxel.COLOR_WHITE)
+                pyxel.text(68, 95, "Attack",
+                           pyxel.COLOR_RED
+                           if self.setl_attack_opt is SettlementAttackType.ATTACK else pyxel.COLOR_WHITE)
+                pyxel.text(110, 95, "Besiege",
+                           pyxel.COLOR_RED
+                           if self.setl_attack_opt is SettlementAttackType.BESIEGE else pyxel.COLOR_WHITE)
+                pyxel.text(90, 115, "Cancel", pyxel.COLOR_RED if self.setl_attack_opt is None else pyxel.COLOR_WHITE)
 
     def toggle_standard(self, turn: int):
         if OverlayType.STANDARD in self.showing:
@@ -566,3 +589,23 @@ class Overlay:
 
     def is_attack(self):
         return OverlayType.ATTACK in self.showing
+
+    def toggle_setl_attack(self, att_setl: typing.Optional[Settlement], owner: typing.Optional[Player]):
+        if OverlayType.SETL_ATTACK in self.showing:
+            self.showing.remove(OverlayType.SETL_ATTACK)
+        else:
+            self.showing.append(OverlayType.SETL_ATTACK)
+            self.setl_attack_opt = SettlementAttackType.ATTACK
+            self.attacked_settlement = att_setl
+            self.attacked_settlement_owner = owner
+
+    def navigate_setl_attack(self, left: bool = False, right: bool = False, up: bool = False, down: bool = False):
+        if down:
+            self.setl_attack_opt = None
+        elif up or left:
+            self.setl_attack_opt = SettlementAttackType.ATTACK
+        elif right:
+            self.setl_attack_opt = SettlementAttackType.BESIEGE
+
+    def is_setl_attack(self) -> bool:
+        return OverlayType.SETL_ATTACK in self.showing

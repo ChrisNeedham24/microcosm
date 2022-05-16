@@ -6,7 +6,7 @@ from enum import Enum
 import pyxel
 
 from board import Board
-from calculator import clamp, attack, get_player_totals, get_setl_totals, complete_construction
+from calculator import clamp, attack, get_player_totals, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
     get_settlement_name, get_default_unit, get_unlockable_units, get_unlockable_improvements
 from menu import Menu, MenuOption
@@ -19,9 +19,17 @@ from music_player import MusicPlayer
 # TODO FF Victory conditions - one for each resource type (harvest, wealth, etc.)
 # TODO FF Some sort of fog of war would be cool
 # TODO FF Pause screen for saving and exiting (also controls)
-# TODO FF Add Wiki on main menu
-# TODO FF Game setup screen with number of players and colours, also biome clustering on/off
-# TODO F Add siegeing/attacking of settlements
+# TODO F Add Wiki on main menu
+# TODO F Game setup screen with number of players and colours, also biome clustering on/off
+# TODO Add siegeing/attacking of settlements
+# TODO Implement special settlement attack overlay
+# TODO Add AI settlement attacks and sieges (+ responses to real player settlement attacks and sieges [should mostly be
+#  handled already])
+# TODO Show that a unit is besieging and that a settlement is besieged
+# TODO Warn players if they try to leave a siege
+# TODO Seems like units can move into other settlements after attacking
+from overlay import SettlementAttackType
+
 
 class Game:
     def __init__(self):
@@ -33,7 +41,9 @@ class Game:
             Player("Test", pyxel.COLOR_RED, 0, [], [], []),
             Player("NPC1", pyxel.COLOR_GREEN, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
             Player("NPC2", pyxel.COLOR_PURPLE, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
-            Player("NPC3", pyxel.COLOR_CYAN, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle)))
+            Player("NPC3", pyxel.COLOR_CYAN, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
+            Player("NPC4", pyxel.COLOR_GRAY, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
+            Player("NPC5", pyxel.COLOR_PINK, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle)))
         ]
         self.heathens: typing.List[Heathen] = []
 
@@ -75,6 +85,8 @@ class Game:
                     self.board.overlay.navigate_constructions(down=True)
                 elif self.board.overlay.is_blessing():
                     self.board.overlay.navigate_blessings(down=True)
+                elif self.board.overlay.is_setl_attack():
+                    self.board.overlay.navigate_setl_attack(down=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
@@ -86,6 +98,8 @@ class Game:
                     self.board.overlay.navigate_constructions(down=False)
                 elif self.board.overlay.is_standard():
                     self.board.overlay.navigate_blessings(down=False)
+                elif self.board.overlay.is_setl_attack():
+                    self.board.overlay.navigate_setl_attack(up=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
@@ -94,15 +108,21 @@ class Game:
                 self.board.overlay.constructing_improvement = True
                 self.board.overlay.selected_construction = self.board.overlay.available_constructions[0]
             elif self.game_started:
-                self.board.overlay.remove_warning_if_possible()
-                self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
+                if self.board.overlay.is_setl_attack():
+                    self.board.overlay.navigate_setl_attack(left=True)
+                else:
+                    self.board.overlay.remove_warning_if_possible()
+                    self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RIGHT):
             if self.game_started and self.board.overlay.is_constructing():
                 self.board.overlay.constructing_improvement = False
                 self.board.overlay.selected_construction = self.board.overlay.available_unit_plans[0]
             elif self.game_started:
-                self.board.overlay.remove_warning_if_possible()
-                self.map_pos = clamp(self.map_pos[0] + 1, -1, 77), self.map_pos[1]
+                if self.board.overlay.is_setl_attack():
+                    self.board.overlay.navigate_setl_attack(right=True)
+                else:
+                    self.board.overlay.remove_warning_if_possible()
+                    self.map_pos = clamp(self.map_pos[0] + 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RETURN):
             if self.on_menu:
                 if self.menu.menu_option is MenuOption.NEW_GAME:
@@ -124,6 +144,27 @@ class Game:
                 if self.board.overlay.selected_blessing is not None:
                     self.players[0].ongoing_blessing = OngoingBlessing(self.board.overlay.selected_blessing)
                 self.board.overlay.toggle_blessing([])
+            elif self.game_started and self.board.overlay.is_setl_attack():
+                if self.board.overlay.setl_attack_opt is SettlementAttackType.ATTACK:
+                    data = attack_setl(self.board.selected_unit, self.board.overlay.attacked_settlement, False)
+                    if data.attacker_was_killed:
+                        self.players[0].units.remove(self.board.selected_unit)
+                        self.board.selected_unit = None
+                        self.board.overlay.toggle_unit(None)
+                    elif data.setl_was_taken:
+                        self.players[0].settlements.append(data.settlement)
+                        for p in self.players:
+                            if data.settlement in p.settlements:
+                                p.settlements.remove(data.settlement)
+                                break
+                        # TODO Toggle overlay and time bank here
+                    self.board.overlay.toggle_setl_attack(None, None)
+                elif self.board.overlay.setl_attack_opt is SettlementAttackType.BESIEGE:
+                    self.board.selected_unit.sieging = True
+                    self.board.overlay.attacked_settlement.under_siege = True
+                    self.board.overlay.toggle_setl_attack(None, None)
+                else:
+                    self.board.overlay.toggle_setl_attack(None, None)
             elif self.game_started and not self.board.overlay.is_tutorial():
                 self.board.overlay.update_turn(self.turn)
                 self.end_turn()
@@ -135,11 +176,14 @@ class Game:
                 self.board.process_right_click(pyxel.mouse_x, pyxel.mouse_y, self.map_pos)
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             if self.game_started:
+                other_setls = []
+                for i in range(1, len(self.players)):
+                    other_setls.extend(self.players[i].settlements)
                 self.board.overlay.remove_warning_if_possible()
                 self.board.process_left_click(pyxel.mouse_x, pyxel.mouse_y,
                                               len(self.players[0].settlements) > 0,
                                               self.players[0], self.map_pos, self.heathens, all_units,
-                                              self.players)
+                                              self.players, other_setls)
         elif pyxel.btnp(pyxel.KEY_SHIFT):
             if self.game_started and not self.board.overlay.is_tutorial():
                 self.board.overlay.remove_warning_if_possible()
@@ -278,6 +322,12 @@ class Game:
 
                 total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(setl)
 
+                if setl.under_siege:
+                    setl.strength -= setl.max_strength * 0.1
+                else:
+                    if setl.strength < setl.max_strength:
+                        setl.strength = min(setl.strength + setl.max_strength * 0.1, setl.max_strength)
+
                 if total_harvest < setl.level * 3:
                     setl.satisfaction -= 0.5
                 elif total_harvest >= setl.level * 6:
@@ -301,7 +351,7 @@ class Game:
             for unit in player.units:
                 unit.remaining_stamina = unit.plan.total_stamina
                 if unit.health < unit.plan.max_health:
-                    unit.health = min(unit.health + unit.plan.max_health * 0.1, 100)
+                    unit.health = min(unit.health + unit.plan.max_health * 0.1, unit.plan.max_health)
                 unit.has_attacked = False
                 if not unit.garrisoned:
                     total_wealth -= unit.plan.cost / 25
@@ -375,9 +425,9 @@ class Game:
                 setl_coords = random.randint(0, 89), random.randint(0, 99)
                 quad_biome = self.board.quads[setl_coords[0]][setl_coords[1]].biome
                 setl_name = get_settlement_name(quad_biome)
-                new_settl = Settlement(setl_name, [], 100, 50, setl_coords,
+                new_settl = Settlement(setl_name, setl_coords, [],
                                        [self.board.quads[setl_coords[0]][setl_coords[1]]],
-                                       [get_default_unit(setl_coords)], None)
+                                       [get_default_unit(setl_coords)])
                 player.settlements.append(new_settl)
 
     def process_ais(self):

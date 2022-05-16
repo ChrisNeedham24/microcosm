@@ -192,9 +192,8 @@ class MoveMaker:
             if far_enough:
                 quad_biome = self.board_ref.quads[unit.location[1]][unit.location[0]].biome
                 setl_name = get_settlement_name(quad_biome)
-                new_settl = Settlement(setl_name, [], 100, 50, unit.location,
-                                       [self.board_ref.quads[unit.location[1]][unit.location[0]]],
-                                       [], None)
+                new_settl = Settlement(setl_name, unit.location, [],
+                                       [self.board_ref.quads[unit.location[1]][unit.location[0]]], [])
                 player.settlements.append(new_settl)
                 player.units.remove(unit)
         else:

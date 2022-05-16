@@ -26,7 +26,7 @@ def get_settlement_name(biome: Biome) -> str:
     SETL_NAMES[biome].remove(name)
     return name
 
-# TODO FF Put descriptions of blessings and improvements in the wiki
+# TODO F Put descriptions of blessings and improvements in the wiki
 
 BLESSINGS = {
     "beg_spl": Blessing("Beginner Spells", "Everyone has to start somewhere, right?", 100),
@@ -49,7 +49,7 @@ BLESSINGS = {
     "brd_fan": Blessing("Broad Fanaticism", "Maybe I can do no wrong.", 2500)
 }
 
-# TODO F Should be able to expand a settlement somehow probably
+# TODO FF Should be able to expand a settlement somehow probably
 
 IMPROVEMENTS = [
     Improvement(ImprovementType.MAGICAL, 30, "Melting Pot", "A starting pot to conduct concoctions.",

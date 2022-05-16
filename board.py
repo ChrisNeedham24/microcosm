@@ -212,7 +212,8 @@ class Board:
 
     def process_left_click(self, mouse_x: int, mouse_y: int, settled: bool,
                            player: Player, map_pos: (int, int), heathens: typing.List[Heathen],
-                           all_units: typing.List[Unit], all_players: typing.List[Player]):
+                           all_units: typing.List[Unit], all_players: typing.List[Player],
+                           other_setls: typing.List[Settlement]):
         if self.quad_selected is not None:
             self.quad_selected.selected = False
             self.quad_selected = None
@@ -223,8 +224,8 @@ class Board:
                 if not settled:
                     quad_biome = self.quads[adj_y][adj_x].biome
                     setl_name = get_settlement_name(quad_biome)
-                    new_settl = Settlement(setl_name, [], 100, 50, (adj_x, adj_y), [self.quads[adj_y][adj_x]],
-                                           [get_default_unit((adj_x, adj_y))], None)
+                    new_settl = Settlement(setl_name, (adj_x, adj_y), [], [self.quads[adj_y][adj_x]],
+                                           [get_default_unit((adj_x, adj_y))])
                     player.settlements.append(new_settl)
                     self.overlay.toggle_tutorial()
                     self.selected_settlement = new_settl
@@ -285,6 +286,14 @@ class Board:
                                             break
                             self.overlay.toggle_attack(data)
                             self.attack_time_bank = 0
+                    elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
+                            self.selected_unit in player.units and not self.selected_unit.has_attacked and \
+                            any((to_attack := setl).location == (adj_x, adj_y) for setl in other_setls):
+                        if abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
+                           abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
+                            for p in all_players:
+                                if to_attack in p.settlements:
+                                    self.overlay.toggle_setl_attack(to_attack, p)
                     elif self.selected_unit is None and \
                              any((to_select := unit).location == (adj_x, adj_y) for unit in all_units):
                         self.selected_unit = to_select
@@ -314,9 +323,8 @@ class Board:
         if can_settle:
             quad_biome = self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]].biome
             setl_name = get_settlement_name(quad_biome)
-            new_settl = Settlement(setl_name, [], 100, 50, self.selected_unit.location,
-                                   [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]],
-                                   [], None)
+            new_settl = Settlement(setl_name, self.selected_unit.location, [],
+                                   [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]], [])
             player.settlements.append(new_settl)
             player.units.remove(self.selected_unit)
             self.selected_unit = None
