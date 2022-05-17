@@ -112,13 +112,18 @@ class Board:
                         setl_x = 24
                     base_x_pos = (settlement.location[0] - map_pos[0]) * 8
                     base_y_pos = (settlement.location[1] - map_pos[1]) * 8
-                    pyxel.blt(base_x_pos + 4, base_y_pos + 4, 0, setl_x, 4, 8, 8)
+                    pyxel.blt(base_x_pos + 4, base_y_pos + 4, 0, setl_x,
+                              68 if settlement.under_siege_by is not None else 4, 8, 8)
                     if self.selected_settlement is not settlement:
                         name_len = len(settlement.name)
                         x_offset = 11 - name_len
-                        pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10, pyxel.COLOR_BLACK)
-                        pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
-                        pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
+                        if settlement.under_siege_by is not None:
+                            pyxel.rect(base_x_pos - 17, base_y_pos - 8, 52, 10, pyxel.COLOR_BLACK)
+                            pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, player.colour)
+                        else:
+                            pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10, pyxel.COLOR_BLACK)
+                            pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
+                            pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
                     else:
                         pyxel.rectb((settlement.location[0] - map_pos[0]) * 8 + 4,
                                     (settlement.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
@@ -169,10 +174,13 @@ class Board:
             elif self.current_help is HelpOption.END_TURN:
                 self.current_help = HelpOption.SETTLEMENT
             self.help_time_bank = 0
-        if self.overlay.is_attack():
+        if self.overlay.is_attack() or self.overlay.is_setl_attack():
             self.attack_time_bank += elapsed_time
             if self.attack_time_bank > 3:
-                self.overlay.toggle_attack(None)
+                if self.overlay.is_attack():
+                    self.overlay.toggle_attack(None)
+                else:
+                    self.overlay.toggle_setl_attack(None)
                 self.attack_time_bank = 0
 
     def generate_quads(self):
@@ -293,7 +301,7 @@ class Board:
                            abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
                             for p in all_players:
                                 if to_attack in p.settlements:
-                                    self.overlay.toggle_setl_attack(to_attack, p)
+                                    self.overlay.toggle_setl_click(to_attack, p)
                     elif self.selected_unit is None and \
                              any((to_select := unit).location == (adj_x, adj_y) for unit in all_units):
                         self.selected_unit = to_select
@@ -302,10 +310,16 @@ class Board:
                             not any(heathen.location == (adj_x, adj_y) for heathen in heathens) and \
                             self.selected_unit in player.units and \
                             not any(unit.location == (adj_x, adj_y) for unit in all_units) and \
+                            not any(setl.location == (adj_x, adj_y) for setl in other_setls) and \
                             self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
                             self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
                             self.selected_unit.location[1] + self.selected_unit.remaining_stamina:
+                        if self.selected_unit.sieging:
+                            self.selected_unit.sieging = False
+                            for setl in other_setls:
+                                if setl.under_siege_by is self.selected_unit:
+                                    setl.under_siege_by = None
                         initial = self.selected_unit.location
                         distance_travelled = max(abs(initial[0] - adj_x), abs(initial[1] - adj_y))
                         self.selected_unit.remaining_stamina -= distance_travelled

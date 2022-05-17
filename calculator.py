@@ -49,13 +49,14 @@ def attack(attacker: typing.Union[Unit, Heathen], defender: typing.Union[Unit, H
     return AttackData(attacker, defender, defender_dmg, attacker_dmg, not ai, attacker.health < 0, defender.health < 0)
 
 
-def attack_setl(attacker: Unit, setl: Settlement, ai=True) -> SetlAttackData:
+def attack_setl(attacker: Unit, setl: Settlement, setl_owner: Player, ai=True) -> SetlAttackData:
     attacker_dmg = attacker.plan.power * 0.1
     setl_dmg = setl.strength / 2
     attacker.health -= setl_dmg
     setl.strength -= attacker_dmg
     attacker.has_attacked = True
-    return SetlAttackData(attacker, setl, setl_dmg, attacker_dmg, not ai, attacker.health < 0, setl.strength < 0)
+    return SetlAttackData(attacker, setl, setl_owner, setl_dmg, attacker_dmg, not ai,
+                          attacker.health < 0, setl.strength < 0)
 
 
 def get_player_totals(player: Player) -> (float, float, float, float):
@@ -86,7 +87,7 @@ def get_setl_totals(setl: Settlement, strict: bool = False) -> (float, float, fl
     total_harvest = max(sum(quad.harvest for quad in setl.quads) +
                         sum(imp.effect.harvest for imp in setl.improvements), 0)
     total_harvest += (setl.level - 1) * 0.25 * total_harvest
-    if setl.harvest_status is HarvestStatus.POOR or setl.under_siege:
+    if setl.harvest_status is HarvestStatus.POOR or setl.under_siege_by is not None:
         total_harvest = 0
     elif setl.harvest_status is HarvestStatus.PLENTIFUL:
         total_harvest *= 1.5

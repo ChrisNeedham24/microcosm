@@ -22,12 +22,8 @@ from music_player import MusicPlayer
 # TODO F Add Wiki on main menu
 # TODO F Game setup screen with number of players and colours, also biome clustering on/off
 # TODO Add siegeing/attacking of settlements
-# TODO Implement special settlement attack overlay
 # TODO Add AI settlement attacks and sieges (+ responses to real player settlement attacks and sieges [should mostly be
 #  handled already])
-# TODO Show that a unit is besieging and that a settlement is besieged
-# TODO Warn players if they try to leave a siege
-# TODO Seems like units can move into other settlements after attacking
 from overlay import SettlementAttackType
 
 
@@ -43,7 +39,9 @@ class Game:
             Player("NPC2", pyxel.COLOR_PURPLE, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
             Player("NPC3", pyxel.COLOR_CYAN, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
             Player("NPC4", pyxel.COLOR_GRAY, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
-            Player("NPC5", pyxel.COLOR_PINK, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle)))
+            Player("NPC5", pyxel.COLOR_PINK, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
+            Player("NPC6", pyxel.COLOR_YELLOW, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
+            Player("NPC7", pyxel.COLOR_NAVY, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle)))
         ]
         self.heathens: typing.List[Heathen] = []
 
@@ -85,8 +83,8 @@ class Game:
                     self.board.overlay.navigate_constructions(down=True)
                 elif self.board.overlay.is_blessing():
                     self.board.overlay.navigate_blessings(down=True)
-                elif self.board.overlay.is_setl_attack():
-                    self.board.overlay.navigate_setl_attack(down=True)
+                elif self.board.overlay.is_setl_click():
+                    self.board.overlay.navigate_setl_click(down=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
@@ -98,8 +96,8 @@ class Game:
                     self.board.overlay.navigate_constructions(down=False)
                 elif self.board.overlay.is_standard():
                     self.board.overlay.navigate_blessings(down=False)
-                elif self.board.overlay.is_setl_attack():
-                    self.board.overlay.navigate_setl_attack(up=True)
+                elif self.board.overlay.is_setl_click():
+                    self.board.overlay.navigate_setl_click(up=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
@@ -108,8 +106,8 @@ class Game:
                 self.board.overlay.constructing_improvement = True
                 self.board.overlay.selected_construction = self.board.overlay.available_constructions[0]
             elif self.game_started:
-                if self.board.overlay.is_setl_attack():
-                    self.board.overlay.navigate_setl_attack(left=True)
+                if self.board.overlay.is_setl_click():
+                    self.board.overlay.navigate_setl_click(left=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
@@ -118,8 +116,8 @@ class Game:
                 self.board.overlay.constructing_improvement = False
                 self.board.overlay.selected_construction = self.board.overlay.available_unit_plans[0]
             elif self.game_started:
-                if self.board.overlay.is_setl_attack():
-                    self.board.overlay.navigate_setl_attack(right=True)
+                if self.board.overlay.is_setl_click():
+                    self.board.overlay.navigate_setl_click(right=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     self.map_pos = clamp(self.map_pos[0] + 1, -1, 77), self.map_pos[1]
@@ -144,9 +142,10 @@ class Game:
                 if self.board.overlay.selected_blessing is not None:
                     self.players[0].ongoing_blessing = OngoingBlessing(self.board.overlay.selected_blessing)
                 self.board.overlay.toggle_blessing([])
-            elif self.game_started and self.board.overlay.is_setl_attack():
+            elif self.game_started and self.board.overlay.is_setl_click():
                 if self.board.overlay.setl_attack_opt is SettlementAttackType.ATTACK:
-                    data = attack_setl(self.board.selected_unit, self.board.overlay.attacked_settlement, False)
+                    data = attack_setl(self.board.selected_unit, self.board.overlay.attacked_settlement,
+                                       self.board.overlay.attacked_settlement_owner, False)
                     if data.attacker_was_killed:
                         self.players[0].units.remove(self.board.selected_unit)
                         self.board.selected_unit = None
@@ -157,14 +156,15 @@ class Game:
                             if data.settlement in p.settlements:
                                 p.settlements.remove(data.settlement)
                                 break
-                        # TODO Toggle overlay and time bank here
-                    self.board.overlay.toggle_setl_attack(None, None)
+                    self.board.overlay.toggle_setl_attack(data)
+                    self.board.attack_time_bank = 0
+                    self.board.overlay.toggle_setl_click(None, None)
                 elif self.board.overlay.setl_attack_opt is SettlementAttackType.BESIEGE:
                     self.board.selected_unit.sieging = True
-                    self.board.overlay.attacked_settlement.under_siege = True
-                    self.board.overlay.toggle_setl_attack(None, None)
+                    self.board.overlay.attacked_settlement.under_siege_by = self.board.selected_unit
+                    self.board.overlay.toggle_setl_click(None, None)
                 else:
-                    self.board.overlay.toggle_setl_attack(None, None)
+                    self.board.overlay.toggle_setl_click(None, None)
             elif self.game_started and not self.board.overlay.is_tutorial():
                 self.board.overlay.update_turn(self.turn)
                 self.end_turn()
@@ -322,7 +322,7 @@ class Game:
 
                 total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(setl)
 
-                if setl.under_siege:
+                if setl.under_siege_by is not None:
                     setl.strength -= setl.max_strength * 0.1
                 else:
                     if setl.strength < setl.max_strength:

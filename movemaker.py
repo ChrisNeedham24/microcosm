@@ -177,6 +177,7 @@ class MoveMaker:
                 setl.current_work = Construction(ideal)
 
     def move_unit(self, player: Player, unit: Unit, all_units: typing.List[Unit], all_players: typing.List[Player]):
+        # TODO Shouldn't be able to move inside their own settlements without being garrisoned
         if unit.plan.can_settle:
             x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
             rem_movement = unit.remaining_stamina - abs(x_movement)

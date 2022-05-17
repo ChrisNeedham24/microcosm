@@ -7,7 +7,7 @@ import pyxel
 from calculator import get_setl_totals
 from catalogue import get_unlockable_improvements, get_all_unlockable
 from models import Settlement, Player, Improvement, Unit, Blessing, ImprovementType, CompletedConstruction, UnitPlan, \
-    EconomicStatus, HarvestStatus, Heathen, AttackData
+    EconomicStatus, HarvestStatus, Heathen, AttackData, SetlAttackData
 
 
 class OverlayType(Enum):
@@ -23,7 +23,8 @@ class OverlayType(Enum):
     CONSTR_NOTIF = "CONSTR_NOTIF",
     LEVEL_NOTIF = "LEVEL_NOTIF",
     ATTACK = "ATTACK",
-    SETL_ATTACK = "SETL_ATTACK"
+    SETL_ATTACK = "SETL_ATTACK",
+    SETL_CLICK = "SETL_CLICK"
 
 
 class SettlementAttackType(Enum):
@@ -54,6 +55,7 @@ class Overlay:
         self.completed_constructions: typing.List[CompletedConstruction] = []
         self.levelled_up_settlements: typing.List[Settlement] = []
         self.attack_data: typing.Optional[AttackData] = None
+        self.setl_attack_data: typing.Optional[SetlAttackData] = None
         self.setl_attack_opt: typing.Optional[SettlementAttackType] = None
         self.attacked_settlement: typing.Optional[Settlement] = None
         self.attacked_settlement_owner: typing.Optional[Player] = None
@@ -81,6 +83,20 @@ class Overlay:
                 pyxel.text(32, 15, f"Your {def_name} (-{def_dmg}) was attacked by", pyxel.COLOR_WHITE)
             pyxel.text(72, 25, f"a {def_name if self.attack_data.player_attack else att_name} "
                                f"(-{def_dmg if self.attack_data.player_attack else att_dmg})", pyxel.COLOR_WHITE)
+        if OverlayType.SETL_ATTACK in self.showing:
+            pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
+            att_name = self.setl_attack_data.attacker.plan.name
+            att_dmg = round(self.setl_attack_data.damage_to_attacker)
+            setl_name = self.setl_attack_data.settlement.name
+            setl_dmg = round(self.setl_attack_data.damage_to_setl)
+            if self.setl_attack_data.attacker_was_killed:
+                pyxel.text(35, 15, f"Your {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
+            elif self.setl_attack_data.setl_was_taken:
+                pyxel.text(50, 15, f"Your {att_name} (-{att_dmg}) sacked", pyxel.COLOR_WHITE)
+            else:
+                pyxel.text(46, 15, f"Your {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
+            pyxel.text(72, 25, f"{setl_name} (-{setl_dmg})", self.setl_attack_data.setl_owner.colour)
         if OverlayType.TUTORIAL in self.showing:
             pyxel.rectb(8, 140, 184, 25, pyxel.COLOR_WHITE)
             pyxel.rect(9, 141, 182, 23, pyxel.COLOR_BLACK)
@@ -278,6 +294,11 @@ class Overlay:
                 pyxel.text(20, 114, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
                 if self.selected_unit.plan.can_settle:
                     pyxel.blt(55, 113, 0, 24, 36, 8, 8)
+                if self.selected_unit.sieging:
+                    pyxel.blt(55, 113, 0, 32, 36, 8, 8)
+                    pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
+                    pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
+                    pyxel.text(18, 14, "Remember: the siege will end if you move!", pyxel.COLOR_RED)
                 pyxel.blt(20, 120, 0, 8, 36, 8, 8)
                 pyxel.text(30, 122, str(self.selected_unit.health), pyxel.COLOR_WHITE)
                 pyxel.blt(20, 130, 0, 0, 36, 8, 8)
@@ -380,11 +401,12 @@ class Overlay:
                                 uv_coords = 8, 28
                             pyxel.blt(65 + type_idx * 10, 41 + adj_idx * 18, 0, uv_coords[0], uv_coords[1], 8, 8)
                 pyxel.text(90, 150, "Cancel", pyxel.COLOR_RED if self.selected_blessing is None else pyxel.COLOR_WHITE)
-            if OverlayType.SETL_ATTACK in self.showing:
+            if OverlayType.SETL_CLICK in self.showing:
                 pyxel.rectb(50, 60, 100, 70, pyxel.COLOR_WHITE)
                 pyxel.rect(51, 61, 98, 68, pyxel.COLOR_BLACK)
-                # TODO Base X coord for name on length of name
-                pyxel.text(82, 70, str(self.attacked_settlement.name), self.attacked_settlement_owner.colour)
+                name_len = len(self.attacked_settlement.name)
+                x_offset = 11 - name_len
+                pyxel.text(82 + x_offset, 70, str(self.attacked_settlement.name), self.attacked_settlement_owner.colour)
                 pyxel.blt(90, 78, 0, 0, 28, 8, 8)
                 pyxel.text(100, 80, str(self.attacked_settlement.strength), pyxel.COLOR_WHITE)
                 pyxel.text(68, 95, "Attack",
@@ -590,16 +612,29 @@ class Overlay:
     def is_attack(self):
         return OverlayType.ATTACK in self.showing
 
-    def toggle_setl_attack(self, att_setl: typing.Optional[Settlement], owner: typing.Optional[Player]):
+    def toggle_setl_attack(self, attack_data: typing.Optional[SetlAttackData]):
         if OverlayType.SETL_ATTACK in self.showing:
-            self.showing.remove(OverlayType.SETL_ATTACK)
+            if attack_data is None:
+                self.showing.remove(OverlayType.SETL_ATTACK)
+            else:
+                self.setl_attack_data = attack_data
         else:
             self.showing.append(OverlayType.SETL_ATTACK)
+            self.setl_attack_data = attack_data
+
+    def is_setl_attack(self):
+        return OverlayType.SETL_ATTACK in self.showing
+
+    def toggle_setl_click(self, att_setl: typing.Optional[Settlement], owner: typing.Optional[Player]):
+        if OverlayType.SETL_CLICK in self.showing:
+            self.showing.remove(OverlayType.SETL_CLICK)
+        else:
+            self.showing.append(OverlayType.SETL_CLICK)
             self.setl_attack_opt = SettlementAttackType.ATTACK
             self.attacked_settlement = att_setl
             self.attacked_settlement_owner = owner
 
-    def navigate_setl_attack(self, left: bool = False, right: bool = False, up: bool = False, down: bool = False):
+    def navigate_setl_click(self, left: bool = False, right: bool = False, up: bool = False, down: bool = False):
         if down:
             self.setl_attack_opt = None
         elif up or left:
@@ -607,5 +642,5 @@ class Overlay:
         elif right:
             self.setl_attack_opt = SettlementAttackType.BESIEGE
 
-    def is_setl_attack(self) -> bool:
-        return OverlayType.SETL_ATTACK in self.showing
+    def is_setl_click(self) -> bool:
+        return OverlayType.SETL_CLICK in self.showing

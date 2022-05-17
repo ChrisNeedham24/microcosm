@@ -147,7 +147,7 @@ class Settlement:
     harvest_status: HarvestStatus = HarvestStatus.STANDARD
     economic_status: EconomicStatus = EconomicStatus.STANDARD
     produced_settler = False
-    under_siege = False
+    under_siege_by: typing.Optional[Unit] = None
 
 
 @dataclass
@@ -183,6 +183,7 @@ class AttackData:
 class SetlAttackData:
     attacker: Unit
     settlement: Settlement
+    setl_owner: Player
     damage_to_attacker: float
     damage_to_setl: float
     player_attack: bool
