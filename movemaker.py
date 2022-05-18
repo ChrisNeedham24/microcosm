@@ -2,7 +2,7 @@ import random
 import typing
 
 from board import Board
-from calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp
+from calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, attack_setl
 from catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, get_settlement_name
 from models import Player, Blessing, AIPlaystyle, OngoingBlessing, Settlement, Improvement, UnitPlan, Construction, Unit
@@ -14,6 +14,9 @@ class MoveMaker:
         self.board_ref = board
 
     def make_move(self, player: Player, all_players: typing.List[Player]):
+        all_setls = []
+        for pl in all_players:
+            all_setls.extend(pl.settlements)
         player_totals = get_player_totals(player)
         if player.ongoing_blessing is None:
             self.set_blessing(player, player_totals)
@@ -31,25 +34,24 @@ class MoveMaker:
                         unit.location = setl.location[0], setl.location[1] + 1
                         player.units.append(unit)
                         setl.garrison.remove(unit)
-            if len(setl.garrison) > 0 and player.ai_playstyle is not AIPlaystyle.DEFENSIVE:
-                deployed = setl.garrison.pop()
-                deployed.garrisoned = False
-                deployed.location = setl.location[0], setl.location[1] + 1
-                player.units.append(deployed)
-            elif len(setl.garrison) > 3:
+            if (len(setl.garrison) > 0 and
+                (player.ai_playstyle is not AIPlaystyle.DEFENSIVE or setl.under_siege_by is not None
+                 or setl.strength < setl.max_strength / 2)) or \
+                    len(setl.garrison) > 3:
                 deployed = setl.garrison.pop()
                 deployed.garrisoned = False
                 deployed.location = setl.location[0], setl.location[1] + 1
                 player.units.append(deployed)
         all_units = []
-        for player in all_players:
-            for unit in player.units:
-                all_units.append(unit)
+        for p in all_players:
+            if p is not player:
+                for unit in p.units:
+                    all_units.append(unit)
         min_pow_health: (float, Unit) = 9999, None  # 999 is arbitrary, but no unit will ever have this.
         for unit in player.units:
             if pow_health := (unit.health + unit.plan.power) < min_pow_health[0]:
                 min_pow_health = pow_health, unit
-            self.move_unit(player, unit, all_units, all_players)
+            self.move_unit(player, unit, all_units, all_players, all_setls)
         if player.wealth + player_totals[0] < 0:
             player.wealth += min_pow_health[1].plan.cost
             player.units.remove(min_pow_health[1])
@@ -176,8 +178,8 @@ class MoveMaker:
             else:
                 setl.current_work = Construction(ideal)
 
-    def move_unit(self, player: Player, unit: Unit, all_units: typing.List[Unit], all_players: typing.List[Player]):
-        # TODO Shouldn't be able to move inside their own settlements without being garrisoned
+    def move_unit(self, player: Player, unit: Unit, other_units: typing.List[Unit], all_players: typing.List[Player],
+                  all_setls: typing.List[Settlement]):
         if unit.plan.can_settle:
             x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
             rem_movement = unit.remaining_stamina - abs(x_movement)
@@ -198,32 +200,89 @@ class MoveMaker:
                 player.settlements.append(new_settl)
                 player.units.remove(unit)
         else:
-            within_range: typing.Optional[Unit] = None
-            for other_u in all_units:
-                could_attack: bool = player.ai_playstyle is AIPlaystyle.AGGRESSIVE or \
+            attack_over_siege = True  # If False, the unit will siege the settlement.
+            within_range: typing.Optional[typing.Union[Unit, Settlement]] = None
+            for other_u in other_units:
+                could_attack: bool = any(setl.under_siege_by is not None or setl.strength < setl.max_strength / 2
+                                         for setl in player.settlements) or \
+                                     player.ai_playstyle is AIPlaystyle.AGGRESSIVE or \
                                      (player.ai_playstyle is AIPlaystyle.NEUTRAL and unit.health >= other_u.health * 2)
                 if max(abs(unit.location[0] - other_u.location[0]),
                        abs(unit.location[1] - other_u.location[1])) <= unit.remaining_stamina and could_attack and \
                         other_u is not unit:
                     within_range = other_u
                     break
+            if within_range is None:
+                for other_setl in all_setls:
+                    if other_setl not in player.settlements:
+                        could_attack: bool = (player.ai_playstyle is AIPlaystyle.AGGRESSIVE and
+                                             unit.health >= other_setl.strength * 2) or \
+                                             (player.ai_playstyle is AIPlaystyle.NEUTRAL and
+                                              unit.health >= other_setl.strength * 10) or \
+                                             (player.ai_playstyle is AIPlaystyle.DEFENSIVE and other_setl.strength == 0)
+                        if could_attack:
+                            if max(abs(unit.location[0] - other_setl.location[0]),
+                                   abs(unit.location[1] - other_setl.location[1])) <= unit.remaining_stamina:
+                                within_range = other_setl
+                                break
+                        else:
+                            could_siege: bool = player.ai_playstyle is AIPlaystyle.AGGRESSIVE or \
+                                     (player.ai_playstyle is AIPlaystyle.NEUTRAL and unit.health >= other_setl.strength * 2)
+                            if could_siege:
+                                if max(abs(unit.location[0] - other_setl.location[0]),
+                                       abs(unit.location[1] - other_setl.location[1])) <= unit.remaining_stamina:
+                                    within_range = other_setl
+                                    attack_over_siege = False
+                                    break
             if within_range is not None:
+                first_resort: (int, int)
+                second_resort = within_range.location[0], within_range.location[1] + 1
+                third_resort = within_range.location[0], within_range.location[1] - 1
                 if within_range.location[0] - unit.location[0] < 0:
-                    unit.location = within_range.location[0] + 1, within_range.location[1]
+                    first_resort = within_range.location[0] + 1, within_range.location[1]
                 else:
-                    unit.location = within_range.location[0] - 1, within_range.location[1]
+                    first_resort = within_range.location[0] - 1, within_range.location[1]
+                found_valid_loc = False
+                for loc in [first_resort, second_resort, third_resort]:
+                    if not any(u.location == loc for u in player.units) and \
+                            not any(other_u.location == loc for other_u in other_units) and \
+                            not any(setl.location == loc for setl in all_setls):
+                        unit.location = loc
+                        found_valid_loc = True
+                        break
                 unit.remaining_stamina = 0
-                data = attack(unit, within_range)
+                if found_valid_loc:
+                    if attack_over_siege:
+                        if isinstance(within_range, Unit):
+                            data = attack(unit, within_range)
 
-                if within_range in all_players[0].units:
-                    self.board_ref.overlay.toggle_attack(data)
-                if within_range.health < 0:
-                    for p in all_players:
-                        if within_range in p.units:
-                            p.units.remove(within_range)
-                            break
-                if unit.health < 0:
-                    player.units.remove(unit)
+                            if within_range in all_players[0].units:
+                                self.board_ref.overlay.toggle_attack(data)
+                            if within_range.health <= 0:
+                                for p in all_players:
+                                    if within_range in p.units:
+                                        p.units.remove(within_range)
+                                        break
+                            if unit.health <= 0:
+                                player.units.remove(unit)
+                        else:
+                            setl_owner = None
+                            for pl in all_players:
+                                if within_range in pl.settlements:
+                                    setl_owner = pl
+                            data = attack_setl(unit, within_range, setl_owner)
+
+                            if within_range in all_players[0].settlements:
+                                self.board_ref.overlay.toggle_setl_attack(data)
+                            if data.attacker_was_killed:
+                                player.units.remove(data.attacker)
+                            elif data.setl_was_taken:
+                                data.settlement.under_siege_by = None
+                                player.settlements.append(data.settlement)
+                                setl_owner.settlements.remove(data.settlement)
+                    else:
+                        unit.sieging = True
+                        within_range.under_siege_by = unit
             else:
                 x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
                 rem_movement = unit.remaining_stamina - abs(x_movement)

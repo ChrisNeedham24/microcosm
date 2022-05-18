@@ -110,23 +110,27 @@ class Board:
                         setl_x = 16
                     elif quad.biome is Biome.MOUNTAIN:
                         setl_x = 24
+                    pyxel.blt((settlement.location[0] - map_pos[0]) * 8 + 4,
+                              (settlement.location[1] - map_pos[1]) * 8 + 4, 0, setl_x,
+                              68 if settlement.under_siege_by is not None else 4, 8, 8)
+
+        for player in players:
+            for settlement in player.settlements:
+                if self.selected_settlement is not settlement:
+                    name_len = len(settlement.name)
+                    x_offset = 11 - name_len
                     base_x_pos = (settlement.location[0] - map_pos[0]) * 8
                     base_y_pos = (settlement.location[1] - map_pos[1]) * 8
-                    pyxel.blt(base_x_pos + 4, base_y_pos + 4, 0, setl_x,
-                              68 if settlement.under_siege_by is not None else 4, 8, 8)
-                    if self.selected_settlement is not settlement:
-                        name_len = len(settlement.name)
-                        x_offset = 11 - name_len
-                        if settlement.under_siege_by is not None:
-                            pyxel.rect(base_x_pos - 17, base_y_pos - 8, 52, 10, pyxel.COLOR_BLACK)
-                            pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, player.colour)
-                        else:
-                            pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10, pyxel.COLOR_BLACK)
-                            pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
-                            pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
+                    if settlement.under_siege_by is not None:
+                        pyxel.rect(base_x_pos - 17, base_y_pos - 8, 52, 10, pyxel.COLOR_BLACK)
+                        pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, player.colour)
                     else:
-                        pyxel.rectb((settlement.location[0] - map_pos[0]) * 8 + 4,
-                                    (settlement.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
+                        pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10, pyxel.COLOR_BLACK)
+                        pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
+                        pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
+                else:
+                    pyxel.rectb((settlement.location[0] - map_pos[0]) * 8 + 4,
+                                (settlement.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
 
         if self.quad_selected is not None and selected_quad_coords is not None:
             x_offset = 30 if selected_quad_coords[0] - map_pos[0] <= 8 else 0
@@ -280,11 +284,11 @@ class Board:
                                 abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
                                 abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
                             data = attack(self.selected_unit, to_attack, ai=False)
-                            if self.selected_unit.health < 0:
+                            if self.selected_unit.health <= 0:
                                 player.units.remove(self.selected_unit)
                                 self.selected_unit = None
                                 self.overlay.toggle_unit(None)
-                            if to_attack.health < 0:
+                            if to_attack.health <= 0:
                                 if to_attack in heathens:
                                     heathens.remove(to_attack)
                                 else:

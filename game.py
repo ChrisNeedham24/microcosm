@@ -21,9 +21,7 @@ from music_player import MusicPlayer
 # TODO FF Pause screen for saving and exiting (also controls)
 # TODO F Add Wiki on main menu
 # TODO F Game setup screen with number of players and colours, also biome clustering on/off
-# TODO Add siegeing/attacking of settlements
-# TODO Add AI settlement attacks and sieges (+ responses to real player settlement attacks and sieges [should mostly be
-#  handled already])
+# TODO Game over when a player runs out of settlements and settlers
 from overlay import SettlementAttackType
 
 
@@ -151,6 +149,7 @@ class Game:
                         self.board.selected_unit = None
                         self.board.overlay.toggle_unit(None)
                     elif data.setl_was_taken:
+                        data.settlement.under_siege_by = None
                         self.players[0].settlements.append(data.settlement)
                         for p in self.players:
                             if data.settlement in p.settlements:
@@ -167,9 +166,9 @@ class Game:
                     self.board.overlay.toggle_setl_click(None, None)
             elif self.game_started and not self.board.overlay.is_tutorial():
                 self.board.overlay.update_turn(self.turn)
-                self.end_turn()
-                self.process_heathens()
-                self.process_ais()
+                if self.end_turn():
+                    self.process_heathens()
+                    self.process_ais()
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
             if self.game_started:
                 self.board.overlay.remove_warning_if_possible()
@@ -274,7 +273,7 @@ class Game:
         elif self.game_started:
             self.board.draw(self.players, self.map_pos, self.turn, self.heathens)
 
-    def end_turn(self):
+    def end_turn(self) -> bool:
         # First make sure the player hasn't ended their turn without a construction or blessing.
         problematic_settlements = []
         total_wealth = 0
@@ -296,7 +295,7 @@ class Game:
         if not self.board.overlay.is_warning() and \
                 (len(problematic_settlements) > 0 or has_no_blessing or will_have_negative_wealth):
             self.board.overlay.toggle_warning(problematic_settlements, has_no_blessing, will_have_negative_wealth)
-            return
+            return False
 
         for player in self.players:
             total_fortune = 0
@@ -323,7 +322,10 @@ class Game:
                 total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(setl)
 
                 if setl.under_siege_by is not None:
-                    setl.strength -= setl.max_strength * 0.1
+                    if setl.under_siege_by.health <= 0:
+                        setl.under_siege_by = None
+                    else:
+                        setl.strength -= setl.max_strength * 0.1
                 else:
                     if setl.strength < setl.max_strength:
                         setl.strength = min(setl.strength + setl.max_strength * 0.1, setl.max_strength)
@@ -378,6 +380,7 @@ class Game:
 
         self.board.overlay.remove_warning_if_possible()
         self.turn += 1
+        return True
 
     def process_heathens(self):
         all_units = []
@@ -399,7 +402,7 @@ class Game:
                     heathen.location = within_range.location[0] - 1, within_range.location[1]
                 heathen.remaining_stamina = 0
                 data = attack(heathen, within_range)
-                if within_range.health < 0:
+                if within_range.health <= 0:
                     for player in self.players:
                         if within_range in player.units:
                             player.units.remove(within_range)
@@ -407,7 +410,7 @@ class Game:
                     if self.board.selected_unit is within_range:
                         self.board.selected_unit = None
                         self.board.overlay.toggle_unit(None)
-                if heathen.health < 0:
+                if heathen.health <= 0:
                     self.heathens.remove(heathen)
                 if within_range in self.players[0].units:
                     self.board.overlay.toggle_attack(data)

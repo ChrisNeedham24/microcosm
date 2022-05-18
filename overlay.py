@@ -90,6 +90,7 @@ class Overlay:
             att_dmg = round(self.setl_attack_data.damage_to_attacker)
             setl_name = self.setl_attack_data.settlement.name
             setl_dmg = round(self.setl_attack_data.damage_to_setl)
+            # TODO This text is not correct for AI attacks
             if self.setl_attack_data.attacker_was_killed:
                 pyxel.text(35, 15, f"Your {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
             elif self.setl_attack_data.setl_was_taken:
@@ -294,7 +295,7 @@ class Overlay:
                 pyxel.text(20, 114, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
                 if self.selected_unit.plan.can_settle:
                     pyxel.blt(55, 113, 0, 24, 36, 8, 8)
-                if self.selected_unit.sieging:
+                if self.selected_unit.sieging and self.selected_unit in self.current_player.units:
                     pyxel.blt(55, 113, 0, 32, 36, 8, 8)
                     pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
                     pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
