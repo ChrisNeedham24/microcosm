@@ -26,7 +26,6 @@ def get_settlement_name(biome: Biome) -> str:
     SETL_NAMES[biome].remove(name)
     return name
 
-# TODO F Put descriptions of blessings and improvements in the wiki
 
 BLESSINGS = {
     "beg_spl": Blessing("Beginner Spells", "Everyone has to start somewhere, right?", 100),
@@ -128,7 +127,7 @@ IMPROVEMENTS = [
 
 UNIT_PLANS = [
     UnitPlan(100, 100, 3, "Warrior", None, 25),
-    UnitPlan(125, 50, 5, "Archer", None, 25),
+    UnitPlan(125, 50, 5, "Bowman", None, 25),
     UnitPlan(25, 25, 6, "Settler", None, 50, can_settle=True),
     UnitPlan(150, 75, 4, "Mage", BLESSINGS["beg_spl"], 50),
     UnitPlan(200, 40, 2, "Grenadier", BLESSINGS["rud_exp"], 75),

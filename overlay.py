@@ -24,7 +24,9 @@ class OverlayType(Enum):
     LEVEL_NOTIF = "LEVEL_NOTIF",
     ATTACK = "ATTACK",
     SETL_ATTACK = "SETL_ATTACK",
-    SETL_CLICK = "SETL_CLICK"
+    SETL_CLICK = "SETL_CLICK",
+    SIEGE_NOTIF = "SIEGE_NOTIF",
+    GAME_OVER = "GAME_OVER"
 
 
 class SettlementAttackType(Enum):
@@ -59,6 +61,8 @@ class Overlay:
         self.setl_attack_opt: typing.Optional[SettlementAttackType] = None
         self.attacked_settlement: typing.Optional[Settlement] = None
         self.attacked_settlement_owner: typing.Optional[Player] = None
+        self.sieged_settlement: typing.Optional[Settlement] = None
+        self.sieger_of_settlement: typing.Optional[Player] = None
 
     def display(self):
         pyxel.load("resources/sprites.pyxres")
@@ -90,14 +94,29 @@ class Overlay:
             att_dmg = round(self.setl_attack_data.damage_to_attacker)
             setl_name = self.setl_attack_data.settlement.name
             setl_dmg = round(self.setl_attack_data.damage_to_setl)
-            # TODO This text is not correct for AI attacks
             if self.setl_attack_data.attacker_was_killed:
                 pyxel.text(35, 15, f"Your {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
-            elif self.setl_attack_data.setl_was_taken:
+            elif self.setl_attack_data.setl_was_taken and self.setl_attack_data.player_attack:
                 pyxel.text(50, 15, f"Your {att_name} (-{att_dmg}) sacked", pyxel.COLOR_WHITE)
-            else:
+            elif self.setl_attack_data.setl_was_taken:
+                pyxel.text(70, 15, f"A {att_name} sacked", pyxel.COLOR_WHITE)
+            elif self.setl_attack_data.player_attack:
                 pyxel.text(46, 15, f"Your {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
+            else:
+                pyxel.text(54, 15, f"A {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
             pyxel.text(72, 25, f"{setl_name} (-{setl_dmg})", self.setl_attack_data.setl_owner.colour)
+        if OverlayType.SIEGE_NOTIF in self.showing:
+            pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
+            att_name = self.sieger_of_settlement.name
+            setl_name = self.sieged_settlement.name
+            pyxel.text(22, 15, f"{setl_name} was placed under siege by {att_name}", pyxel.COLOR_RED)
+        if OverlayType.GAME_OVER in self.showing:
+            pyxel.rectb(12, 60, 176, 38, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 61, 174, 36, pyxel.COLOR_BLACK)
+            pyxel.text(82, 65, "Game Over!", pyxel.COLOR_RED)
+            pyxel.text(32, 75, "Defeat has arrived at your doorstep.", pyxel.COLOR_WHITE)
+            pyxel.text(35, 85, "Press ENTER to return to the menu.", pyxel.COLOR_WHITE)
         if OverlayType.TUTORIAL in self.showing:
             pyxel.rectb(8, 140, 184, 25, pyxel.COLOR_WHITE)
             pyxel.rect(9, 141, 182, 23, pyxel.COLOR_BLACK)
@@ -625,6 +644,23 @@ class Overlay:
 
     def is_setl_attack(self):
         return OverlayType.SETL_ATTACK in self.showing
+
+    def toggle_siege_notif(self, sieged: typing.Optional[Settlement], sieger: typing.Optional[Player]):
+        if OverlayType.SIEGE_NOTIF in self.showing:
+            self.showing.remove(OverlayType.SIEGE_NOTIF)
+        else:
+            self.showing.append(OverlayType.SIEGE_NOTIF)
+            self.sieged_settlement = sieged
+            self.sieger_of_settlement = sieger
+
+    def is_siege_notif(self):
+        return OverlayType.SIEGE_NOTIF in self.showing
+
+    def toggle_game_over(self):
+        self.showing.append(OverlayType.GAME_OVER)
+
+    def is_game_over(self):
+        return OverlayType.GAME_OVER in self.showing
 
     def toggle_setl_click(self, att_setl: typing.Optional[Settlement], owner: typing.Optional[Player]):
         if OverlayType.SETL_CLICK in self.showing:

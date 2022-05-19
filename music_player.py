@@ -18,19 +18,28 @@ class MusicPlayer:
         self.current_idx = 0
 
     def play_menu_music(self):
+        self.menu_player.audio_set_volume(70)
         self.menu_player.play()
 
     def stop_menu_music(self):
         for vol in range(70, 0, -10):
             sleep(0.08)
             self.menu_player.audio_set_volume(vol)
-        self.menu_player.stop()
+        self.menu_player.pause()
 
     def play_game_music(self):
+        self.game_players[self.current_idx].audio_set_volume(70)
+        self.game_players[self.current_idx].set_position(0)
         self.game_players[self.current_idx].play()
 
+    def stop_game_music(self):
+        for vol in range(70, 0, -10):
+            sleep(0.08)
+            self.game_players[self.current_idx].audio_set_volume(vol)
+        self.game_players[self.current_idx].pause()
+
     def next_song(self):
-        self.game_players[self.current_idx].stop()
+        self.game_players[self.current_idx].pause()
         if self.current_idx < len(self.game_players) - 1:
             self.current_idx += 1
         else:

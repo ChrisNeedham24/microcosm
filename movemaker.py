@@ -10,8 +10,8 @@ from overlay import Overlay
 
 
 class MoveMaker:
-    def __init__(self, board: Board):
-        self.board_ref = board
+    def __init__(self):
+        self.board_ref = None
 
     def make_move(self, player: Player, all_players: typing.List[Player]):
         all_setls = []
@@ -280,9 +280,11 @@ class MoveMaker:
                                 data.settlement.under_siege_by = None
                                 player.settlements.append(data.settlement)
                                 setl_owner.settlements.remove(data.settlement)
-                    else:
+                    elif not unit.sieging:
                         unit.sieging = True
                         within_range.under_siege_by = unit
+                        if within_range in all_players[0].settlements:
+                            self.board_ref.overlay.toggle_siege_notif(within_range, player)
             else:
                 x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
                 rem_movement = unit.remaining_stamina - abs(x_movement)

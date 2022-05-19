@@ -7,7 +7,7 @@ import pyxel
 
 from calculator import calculate_yield_for_quad, attack
 from catalogue import get_default_unit, SETL_NAMES, get_settlement_name
-from models import Player, Quad, Biome, Settlement, Unit, Heathen
+from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig
 from overlay import Overlay
 
 
@@ -19,14 +19,15 @@ class HelpOption(Enum):
 
 
 class Board:
-    def __init__(self):
+    def __init__(self, cfg: GameConfig):
         self.current_help = HelpOption.SETTLEMENT
         self.help_time_bank = 0
         self.attack_time_bank = 0
+        self.siege_time_bank = 0
 
         self.quads: typing.List[typing.List[typing.Optional[Quad]]] = [[None] * 100 for _ in range(90)]
         random.seed()
-        self.generate_quads()
+        self.generate_quads(cfg.biome_clustering)
 
         self.quad_selected: typing.Optional[Quad] = None
 
@@ -186,26 +187,34 @@ class Board:
                 else:
                     self.overlay.toggle_setl_attack(None)
                 self.attack_time_bank = 0
+        if self.overlay.is_siege_notif():
+            self.siege_time_bank += elapsed_time
+            if self.siege_time_bank > 3:
+                self.overlay.toggle_siege_notif(None, None)
+                self.siege_time_bank = 0
 
-    def generate_quads(self):
+    def generate_quads(self, biome_clustering: bool):
         for i in range(90):
             for j in range(100):
-                surrounding_biomes = []
-                if i > 0:
+                if biome_clustering:
+                    surrounding_biomes = []
+                    if i > 0:
+                        if j > 0:
+                            surrounding_biomes.append(self.quads[i - 1][j - 1].biome)
+                        surrounding_biomes.append(self.quads[i - 1][j].biome)
+                        if j < 99:
+                            surrounding_biomes.append(self.quads[i - 1][j + 1].biome)
                     if j > 0:
-                        surrounding_biomes.append(self.quads[i - 1][j - 1].biome)
-                    surrounding_biomes.append(self.quads[i - 1][j].biome)
-                    if j < 99:
-                        surrounding_biomes.append(self.quads[i - 1][j + 1].biome)
-                if j > 0:
-                    surrounding_biomes.append(self.quads[i][j - 1].biome)
-                if len(surrounding_biomes) > 0:
-                    biome_ctr = Counter(surrounding_biomes)
-                    max_rate: Biome = max(biome_ctr, key=biome_ctr.get)
-                    biome: Biome
-                    rand = random.random()
-                    if rand < 0.4:
-                        biome = max_rate
+                        surrounding_biomes.append(self.quads[i][j - 1].biome)
+                    if len(surrounding_biomes) > 0:
+                        biome_ctr = Counter(surrounding_biomes)
+                        max_rate: Biome = max(biome_ctr, key=biome_ctr.get)
+                        biome: Biome
+                        rand = random.random()
+                        if rand < 0.4:
+                            biome = max_rate
+                        else:
+                            biome = random.choice(list(Biome))
                     else:
                         biome = random.choice(list(Biome))
                 else:

@@ -189,3 +189,10 @@ class SetlAttackData:
     player_attack: bool
     attacker_was_killed: bool
     setl_was_taken: bool
+
+
+@dataclass
+class GameConfig:
+    player_count: int
+    player_colour: int  # Refers to pyxel's colours, which resolve to integers.
+    biome_clustering: bool = True

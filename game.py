@@ -9,9 +9,9 @@ from board import Board
 from calculator import clamp, attack, get_player_totals, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
     get_settlement_name, get_default_unit, get_unlockable_units, get_unlockable_improvements
-from menu import Menu, MenuOption
+from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, \
-    UnitPlan, HarvestStatus, EconomicStatus, Heathen, AIPlaystyle, Blessing
+    UnitPlan, HarvestStatus, EconomicStatus, Heathen, AIPlaystyle, Blessing, GameConfig
 from movemaker import MoveMaker
 from music_player import MusicPlayer
 
@@ -19,9 +19,7 @@ from music_player import MusicPlayer
 # TODO FF Victory conditions - one for each resource type (harvest, wealth, etc.)
 # TODO FF Some sort of fog of war would be cool
 # TODO FF Pause screen for saving and exiting (also controls)
-# TODO F Add Wiki on main menu
-# TODO F Game setup screen with number of players and colours, also biome clustering on/off
-# TODO Game over when a player runs out of settlements and settlers
+# TODO FF Add Wiki on main menu - Blessings/Improvements/Units/Victories/Controls
 from overlay import SettlementAttackType
 
 
@@ -30,17 +28,8 @@ class Game:
         pyxel.init(200, 200, title="Microcosm")
 
         self.menu = Menu()
-        self.board = Board()
-        self.players: typing.List[Player] = [
-            Player("Test", pyxel.COLOR_RED, 0, [], [], []),
-            Player("NPC1", pyxel.COLOR_GREEN, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
-            Player("NPC2", pyxel.COLOR_PURPLE, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
-            Player("NPC3", pyxel.COLOR_CYAN, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
-            Player("NPC4", pyxel.COLOR_GRAY, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
-            Player("NPC5", pyxel.COLOR_PINK, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
-            Player("NPC6", pyxel.COLOR_YELLOW, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))),
-            Player("NPC7", pyxel.COLOR_NAVY, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle)))
-        ]
+        self.board: typing.Optional[Board] = None
+        self.players: typing.List[Player] = []
         self.heathens: typing.List[Heathen] = []
 
         self.on_menu = True
@@ -54,8 +43,7 @@ class Game:
         self.music_player = MusicPlayer()
         self.music_player.play_menu_music()
 
-        self.move_maker = MoveMaker(self.board)
-        self.initialise_ais()
+        self.move_maker = MoveMaker()
 
         pyxel.run(self.on_update, self.draw)
 
@@ -63,7 +51,8 @@ class Game:
         time_elapsed = time.time() - self.last_time
         self.last_time = time.time()
 
-        self.board.update(time_elapsed)
+        if self.board is not None:
+            self.board.update(time_elapsed)
 
         if not self.on_menu and not self.music_player.is_playing():
             self.music_player.next_song()
@@ -75,7 +64,7 @@ class Game:
 
         if pyxel.btnp(pyxel.KEY_DOWN):
             if self.on_menu:
-                self.menu.navigate(True)
+                self.menu.navigate(down=True)
             elif self.game_started:
                 if self.board.overlay.is_constructing():
                     self.board.overlay.navigate_constructions(down=True)
@@ -88,7 +77,7 @@ class Game:
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_UP):
             if self.on_menu:
-                self.menu.navigate(False)
+                self.menu.navigate(up=True)
             elif self.game_started:
                 if self.board.overlay.is_constructing():
                     self.board.overlay.navigate_constructions(down=False)
@@ -100,6 +89,8 @@ class Game:
                     self.board.overlay.remove_warning_if_possible()
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_LEFT):
+            if self.on_menu:
+                self.menu.navigate(left=True)
             if self.game_started and self.board.overlay.is_constructing():
                 self.board.overlay.constructing_improvement = True
                 self.board.overlay.selected_construction = self.board.overlay.available_constructions[0]
@@ -110,6 +101,8 @@ class Game:
                     self.board.overlay.remove_warning_if_possible()
                     self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RIGHT):
+            if self.on_menu:
+                self.menu.navigate(right=True)
             if self.game_started and self.board.overlay.is_constructing():
                 self.board.overlay.constructing_improvement = False
                 self.board.overlay.selected_construction = self.board.overlay.available_unit_plans[0]
@@ -121,17 +114,30 @@ class Game:
                     self.map_pos = clamp(self.map_pos[0] + 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RETURN):
             if self.on_menu:
-                if self.menu.menu_option is MenuOption.NEW_GAME:
+                if self.menu.in_game_setup and self.menu.setup_option is SetupOption.START_GAME:
                     pyxel.mouse(visible=True)
                     self.game_started = True
                     self.on_menu = False
+                    cfg: GameConfig = self.menu.get_game_config()
+                    self.gen_players(cfg)
+                    self.board = Board(cfg)
+                    self.move_maker.board_ref = self.board
+                    self.initialise_ais()
                     self.music_player.stop_menu_music()
                     self.music_player.play_game_music()
-                elif self.menu.menu_option is MenuOption.LOAD_GAME:
-                    # TODO FF Saving and loading
-                    print("Unsupported for now.")
-                elif self.menu.menu_option is MenuOption.EXIT:
-                    pyxel.quit()
+                else:
+                    if self.menu.menu_option is MenuOption.NEW_GAME:
+                        self.menu.in_game_setup = True
+                    elif self.menu.menu_option is MenuOption.LOAD_GAME:
+                        # TODO FF Saving and loading
+                        print("Unsupported for now.")
+                    elif self.menu.menu_option is MenuOption.EXIT:
+                        pyxel.quit()
+            elif self.game_started and self.board.overlay.is_game_over():
+                self.game_started = False
+                self.on_menu = True
+                self.music_player.stop_game_music()
+                self.music_player.play_menu_music()
             elif self.game_started and self.board.overlay.is_constructing():
                 if self.board.overlay.selected_construction is not None:
                     self.board.selected_settlement.current_work = Construction(self.board.overlay.selected_construction)
@@ -273,7 +279,21 @@ class Game:
         elif self.game_started:
             self.board.draw(self.players, self.map_pos, self.turn, self.heathens)
 
+    def gen_players(self, cfg: GameConfig):
+        self.players = [Player("The Chosen One", cfg.player_colour, 0, [], [], [])]
+        colours = [pyxel.COLOR_NAVY, pyxel.COLOR_PURPLE, pyxel.COLOR_GREEN, pyxel.COLOR_BROWN, pyxel.COLOR_DARK_BLUE,
+                   pyxel.COLOR_LIGHT_BLUE, pyxel.COLOR_RED, pyxel.COLOR_ORANGE, pyxel.COLOR_YELLOW, pyxel.COLOR_LIME,
+                   pyxel.COLOR_CYAN, pyxel.COLOR_GRAY, pyxel.COLOR_PINK, pyxel.COLOR_PEACH]
+        for i in range(1, cfg.player_count):
+            colour = random.choice(colours)
+            colours.remove(colour)
+            self.players.append(Player(f"NPC{i}", colour, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))))
+
     def end_turn(self) -> bool:
+        if len(self.players[0].settlements) == 0 and not any(unit.plan.can_settle for unit in self.players[0].units):
+            self.board.overlay.toggle_game_over()
+            return False
+
         # First make sure the player hasn't ended their turn without a construction or blessing.
         problematic_settlements = []
         total_wealth = 0
