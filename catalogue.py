@@ -48,7 +48,7 @@ BLESSINGS = {
     "brd_fan": Blessing("Broad Fanaticism", "Maybe I can do no wrong.", 2500)
 }
 
-# TODO FF Should be able to expand a settlement somehow probably
+# TODO FF Should be able to expand a settlement somehow probably - make this an issue
 
 IMPROVEMENTS = [
     Improvement(ImprovementType.MAGICAL, 30, "Melting Pot", "A starting pot to conduct concoctions.",

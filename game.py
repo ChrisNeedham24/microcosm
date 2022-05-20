@@ -1,7 +1,13 @@
+import datetime
+import json
+import os
+import pickle
 import random
 import time
 import typing
+from collections import namedtuple
 from enum import Enum
+from itertools import chain
 
 import pyxel
 
@@ -11,16 +17,16 @@ from catalogue import get_available_improvements, get_available_blessings, get_a
     get_settlement_name, get_default_unit, get_unlockable_units, get_unlockable_improvements
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, \
-    UnitPlan, HarvestStatus, EconomicStatus, Heathen, AIPlaystyle, Blessing, GameConfig
+    UnitPlan, HarvestStatus, EconomicStatus, Heathen, AIPlaystyle, Blessing, GameConfig, SaveFile, Biome
 from movemaker import MoveMaker
 from music_player import MusicPlayer
 
 
 # TODO FF Victory conditions - one for each resource type (harvest, wealth, etc.)
-# TODO FF Some sort of fog of war would be cool
 # TODO FF Pause screen for saving and exiting (also controls)
 # TODO FF Add Wiki on main menu - Blessings/Improvements/Units/Victories/Controls
 from overlay import SettlementAttackType
+from save_encoder import SaveEncoder, ObjectConverter
 
 
 class Game:
@@ -122,15 +128,22 @@ class Game:
                     self.gen_players(cfg)
                     self.board = Board(cfg)
                     self.move_maker.board_ref = self.board
+                    self.board.overlay.toggle_tutorial()
                     self.initialise_ais()
                     self.music_player.stop_menu_music()
                     self.music_player.play_game_music()
+                elif self.menu.loading_game:
+                    if self.menu.save_idx == -1:
+                        self.menu.loading_game = False
+                    else:
+                        self.load_game(self.menu.save_idx)
                 else:
                     if self.menu.menu_option is MenuOption.NEW_GAME:
                         self.menu.in_game_setup = True
                     elif self.menu.menu_option is MenuOption.LOAD_GAME:
-                        # TODO FF Saving and loading
-                        print("Unsupported for now.")
+                        # TODO ONG Saving and loading
+                        self.menu.loading_game = True
+                        self.get_saves()
                     elif self.menu.menu_option is MenuOption.EXIT:
                         pyxel.quit()
             elif self.game_started and self.board.overlay.is_game_over():
@@ -272,6 +285,8 @@ class Game:
                     ])
                     complete_construction(self.board.selected_settlement)
                     self.players[0].wealth -= remaining_work
+        elif pyxel.btnp(pyxel.KEY_Q):
+            self.save_game()
 
     def draw(self):
         if self.on_menu:
@@ -280,14 +295,15 @@ class Game:
             self.board.draw(self.players, self.map_pos, self.turn, self.heathens)
 
     def gen_players(self, cfg: GameConfig):
-        self.players = [Player("The Chosen One", cfg.player_colour, 0, [], [], [])]
+        self.players = [Player("The Chosen One", cfg.player_colour, 0, [], [], [], set())]
         colours = [pyxel.COLOR_NAVY, pyxel.COLOR_PURPLE, pyxel.COLOR_GREEN, pyxel.COLOR_BROWN, pyxel.COLOR_DARK_BLUE,
                    pyxel.COLOR_LIGHT_BLUE, pyxel.COLOR_RED, pyxel.COLOR_ORANGE, pyxel.COLOR_YELLOW, pyxel.COLOR_LIME,
                    pyxel.COLOR_CYAN, pyxel.COLOR_GRAY, pyxel.COLOR_PINK, pyxel.COLOR_PEACH]
+        colours.remove(cfg.player_colour)
         for i in range(1, cfg.player_count):
             colour = random.choice(colours)
             colours.remove(colour)
-            self.players.append(Player(f"NPC{i}", colour, 0, [], [], [], ai_playstyle=random.choice(list(AIPlaystyle))))
+            self.players.append(Player(f"NPC{i}", colour, 0, [], [], [], set(), ai_playstyle=random.choice(list(AIPlaystyle))))
 
     def end_turn(self) -> bool:
         if len(self.players[0].settlements) == 0 and not any(unit.plan.can_settle for unit in self.players[0].units):
@@ -386,6 +402,9 @@ class Game:
                     player.ongoing_blessing = None
             while player.wealth + total_wealth < 0:
                 sold_unit = player.units.pop()
+                if self.board.selected_unit is sold_unit:
+                    self.board.selected_unit = None
+                    self.board.overlay.toggle_unit(None)
                 player.wealth += sold_unit.plan.cost
             player.wealth = max(player.wealth + total_wealth, 0)
 
@@ -456,6 +475,66 @@ class Game:
     def process_ais(self):
         for player in self.players:
             if player.ai_playstyle is not None:
-                # print(player)
                 self.move_maker.make_move(player, self.players)
+
+    def save_game(self):
+        with open(f"saves/save-{datetime.datetime.now().isoformat(timespec='seconds')}.json", "w") as save_file:
+            save = {
+                "quads": list(chain.from_iterable(self.board.quads)),
+                "players": self.players,
+                "heathens": self.heathens,
+                "turn": self.turn,
+                "cfg": self.board.game_config
+            }
+            save_file.write(json.dumps(save, cls=SaveEncoder))
+        save_file.close()
+
+    def load_game(self, save_idx: int):
+        saves = list(filter(lambda file: not file == "README.md", os.listdir("saves")))
+        saves.sort()
+        saves.reverse()
+        with open(f"saves/{saves[save_idx]}", "r") as save_file:
+            save = json.loads(save_file.read(), object_hook=ObjectConverter)
+            quads = [[None] * 100 for _ in range(90)]
+            for i in range(90):
+                for j in range(100):
+                    quads[i][j] = save.quads[i * 100 + j]
+                    quads[i][j].biome = Biome[quads[i][j].biome]
+            self.players = save.players
+            for i in range(len(self.players[0].quads_seen)):
+                self.players[0].quads_seen[i] = (self.players[0].quads_seen[i][0], self.players[0].quads_seen[i][1])
+            self.players[0].quads_seen = set(self.players[0].quads_seen)
+            for p in self.players:
+                for u in p.units:
+                    u.location = (u.location[0], u.location[1])
+                for s in p.settlements:
+                    s.location = (s.location[0], s.location[1])
+                if p.ai_playstyle is not None:
+                    p.ai_playstyle = AIPlaystyle[p.ai_playstyle]
+            for i in range(1, len(self.players)):
+                self.players[i].quads_seen = set()
+
+            self.heathens = save.heathens
+            for h in self.heathens:
+                h.location = (h.location[0], h.location[1])
+
+            self.turn = save.turn
+            game_cfg = save.cfg
+        save_file.close()
+        pyxel.mouse(visible=True)
+        self.game_started = True
+        self.on_menu = False
+        self.board = Board(game_cfg, quads)
+        self.move_maker.board_ref = self.board
+        self.map_pos = (clamp(self.players[0].settlements[0].location[0] - 12, -1, 77),
+                        clamp(self.players[0].settlements[0].location[1] - 11, -1, 69))
+        self.initialise_ais()
+        self.music_player.stop_menu_music()
+        self.music_player.play_game_music()
+
+    def get_saves(self):
+        self.menu.saves = []
+        for file in os.listdir("saves/"):
+            if file.endswith(".json"):
+                self.menu.saves.append(file)
 

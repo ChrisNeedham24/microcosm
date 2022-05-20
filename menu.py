@@ -1,4 +1,5 @@
 import random
+import typing
 from enum import Enum
 
 import pyxel
@@ -17,6 +18,7 @@ class SetupOption(Enum):
     PLAYER_COLOUR = "COLOUR",
     PLAYER_COUNT = "COUNT",
     BIOME_CLUSTERING = "BIOME",
+    FOG_OF_WAR = "FOG",
     START_GAME = "START"
 
 
@@ -44,10 +46,14 @@ class Menu:
         random.seed()
         self.image = random.randint(0, 3)
         self.in_game_setup = False
+        self.loading_game = False
+        self.saves: typing.List[str] = []
+        self.save_idx: typing.Optional[int] = 0
         self.setup_option = SetupOption.PLAYER_COLOUR
         self.colour_idx = 0
         self.player_count = 2
         self.biome_clustering_enabled = True
+        self.fog_of_war_enabled = True
 
     def draw(self):
         if self.image < 3:
@@ -86,8 +92,22 @@ class Menu:
                 pyxel.text(125, 80, "<- Enabled", pyxel.COLOR_GREEN)
             else:
                 pyxel.text(125, 80, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 100, "Fog of War",
+                       pyxel.COLOR_RED if self.setup_option is SetupOption.FOG_OF_WAR else pyxel.COLOR_WHITE)
+            if self.fog_of_war_enabled:
+                pyxel.text(125, 100, "<- Enabled", pyxel.COLOR_GREEN)
+            else:
+                pyxel.text(125, 100, "Disabled ->", pyxel.COLOR_RED)
             pyxel.text(81, 150, "Start Game",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.START_GAME else pyxel.COLOR_WHITE)
+        elif self.loading_game:
+            pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
+            pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
+            pyxel.text(81, 25, "Load Game", pyxel.COLOR_WHITE)
+            for idx, save in enumerate(self.saves):
+                pyxel.text(25, 35 + idx * 10, save, pyxel.COLOR_WHITE)
+                pyxel.text(150, 35 + idx * 10, "Load", pyxel.COLOR_RED if self.save_idx is idx else pyxel.COLOR_WHITE)
+            pyxel.text(85, 150, "Cancel", pyxel.COLOR_RED if self.save_idx == -1 else pyxel.COLOR_WHITE)
         else:
             pyxel.rectb(75, 120, 50, 60, pyxel.COLOR_WHITE)
             pyxel.rect(76, 121, 48, 58, pyxel.COLOR_BLACK)
@@ -107,7 +127,14 @@ class Menu:
                 elif self.setup_option is SetupOption.PLAYER_COUNT:
                     self.setup_option = SetupOption.BIOME_CLUSTERING
                 elif self.setup_option is SetupOption.BIOME_CLUSTERING:
+                    self.setup_option = SetupOption.FOG_OF_WAR
+                elif self.setup_option is SetupOption.FOG_OF_WAR:
                     self.setup_option = SetupOption.START_GAME
+            elif self.loading_game:
+                if 0 <= self.save_idx < len(self.saves) - 1:
+                    self.save_idx += 1
+                elif self.save_idx == len(self.saves) - 1:
+                    self.save_idx = -1
             else:
                 if self.menu_option is MenuOption.NEW_GAME:
                     self.menu_option = MenuOption.LOAD_GAME
@@ -119,8 +146,15 @@ class Menu:
                     self.setup_option = SetupOption.PLAYER_COLOUR
                 elif self.setup_option is SetupOption.BIOME_CLUSTERING:
                     self.setup_option = SetupOption.PLAYER_COUNT
-                elif self.setup_option is SetupOption.START_GAME:
+                elif self.setup_option is SetupOption.FOG_OF_WAR:
                     self.setup_option = SetupOption.BIOME_CLUSTERING
+                elif self.setup_option is SetupOption.START_GAME:
+                    self.setup_option = SetupOption.FOG_OF_WAR
+            elif self.loading_game:
+                if self.save_idx == -1:
+                    self.save_idx = len(self.saves) - 1
+                elif self.save_idx > 0:
+                    self.save_idx -= 1
             else:
                 if self.menu_option is MenuOption.LOAD_GAME:
                     self.menu_option = MenuOption.NEW_GAME
@@ -133,6 +167,8 @@ class Menu:
                 self.player_count = max(2, self.player_count - 1)
             elif self.setup_option is SetupOption.BIOME_CLUSTERING:
                 self.biome_clustering_enabled = False
+            elif self.setup_option is SetupOption.FOG_OF_WAR:
+                self.fog_of_war_enabled = False
         if right:
             if self.setup_option is SetupOption.PLAYER_COLOUR:
                 self.colour_idx = clamp(self.colour_idx + 1, 0, len(AVAILABLE_COLOURS) - 1)
@@ -140,6 +176,9 @@ class Menu:
                 self.player_count = min(14, self.player_count + 1)
             elif self.setup_option is SetupOption.BIOME_CLUSTERING:
                 self.biome_clustering_enabled = True
+            elif self.setup_option is SetupOption.FOG_OF_WAR:
+                self.fog_of_war_enabled = True
 
     def get_game_config(self) -> GameConfig:
-        return GameConfig(self.player_count, AVAILABLE_COLOURS[self.colour_idx][1], self.biome_clustering_enabled)
+        return GameConfig(self.player_count, AVAILABLE_COLOURS[self.colour_idx][1], self.biome_clustering_enabled,
+                          self.fog_of_war_enabled)

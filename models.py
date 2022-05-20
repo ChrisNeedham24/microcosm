@@ -4,14 +4,14 @@ from dataclasses import dataclass
 from enum import Enum
 
 
-class Biome(Enum):
+class Biome(str, Enum):
     DESERT = "DESERT",
     FOREST = "FOREST",
     SEA = "SEA",
     MOUNTAIN = "MOUNTAIN"
 
 
-class ImprovementType(Enum):
+class ImprovementType(str, Enum):
     INDUSTRIAL = "INDUSTRIAL",
     MAGICAL = "MAGICAL",
     ECONOMICAL = "ECONOMICAL",
@@ -20,19 +20,19 @@ class ImprovementType(Enum):
     PANDERING = "PANDERING"
 
 
-class HarvestStatus(Enum):
+class HarvestStatus(str, Enum):
     POOR = "POOR",
     STANDARD = "STANDARD",
     PLENTIFUL = "PLENTIFUL"
 
 
-class EconomicStatus(Enum):
+class EconomicStatus(str, Enum):
     RECESSION = "RECESSION",
     STANDARD = "STANDARD",
     BOOM = "BOOM"
 
 
-class AIPlaystyle(Enum):
+class AIPlaystyle(str, Enum):
     AGGRESSIVE = "AGGRESSIVE",
     DEFENSIVE = "DEFENSIVE",
     NEUTRAL = "NEUTRAL"
@@ -146,7 +146,7 @@ class Settlement:
     harvest_reserves: float = 0.0
     harvest_status: HarvestStatus = HarvestStatus.STANDARD
     economic_status: EconomicStatus = EconomicStatus.STANDARD
-    produced_settler = False
+    produced_settler: bool = False
     under_siege_by: typing.Optional[Unit] = None
 
 
@@ -164,6 +164,7 @@ class Player:
     settlements: typing.List[Settlement]
     units: typing.List[Unit]
     blessings: typing.List[Blessing]
+    quads_seen: typing.Set[typing.Tuple[int, int]]
     ongoing_blessing: typing.Optional[OngoingBlessing] = None
     ai_playstyle: typing.Optional[AIPlaystyle] = None
 
@@ -195,4 +196,14 @@ class SetlAttackData:
 class GameConfig:
     player_count: int
     player_colour: int  # Refers to pyxel's colours, which resolve to integers.
-    biome_clustering: bool = True
+    biome_clustering: bool
+    fog_of_war: bool
+
+
+@dataclass
+class SaveFile:
+    quads: typing.List[Quad]
+    players: typing.List[Player]
+    heathens: typing.List[Heathen]
+    turn: int
+    cfg: GameConfig

@@ -36,7 +36,7 @@ class SettlementAttackType(Enum):
 
 class Overlay:
     def __init__(self):
-        self.showing: typing.List[OverlayType] = [OverlayType.TUTORIAL]
+        self.showing: typing.List[OverlayType] = []
         self.current_turn: int = 0
         self.current_settlement: typing.Optional[Settlement] = None
         self.current_player: typing.Optional[Player] = None
@@ -548,7 +548,10 @@ class Overlay:
             self.selected_unit = unit
 
     def toggle_tutorial(self):
-        self.showing.pop()
+        if OverlayType.TUTORIAL in self.showing:
+            self.showing.remove(OverlayType.TUTORIAL)
+        else:
+            self.showing.append(OverlayType.TUTORIAL)
 
     def is_tutorial(self) -> bool:
         return OverlayType.TUTORIAL in self.showing
