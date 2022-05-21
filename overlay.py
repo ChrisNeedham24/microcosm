@@ -26,12 +26,20 @@ class OverlayType(Enum):
     SETL_ATTACK = "SETL_ATTACK",
     SETL_CLICK = "SETL_CLICK",
     SIEGE_NOTIF = "SIEGE_NOTIF",
-    GAME_OVER = "GAME_OVER"
+    GAME_OVER = "GAME_OVER",
+    PAUSE = "PAUSE"
 
 
 class SettlementAttackType(Enum):
     ATTACK = "ATTACK",
     BESIEGE = "BESIEGE"
+
+
+class PauseOption(Enum):
+    RESUME = "RESUME",
+    SAVE = "SAVE",
+    CONTROLS = "CONTROLS"
+    QUIT = "QUIT"
 
 
 class Overlay:
@@ -63,6 +71,7 @@ class Overlay:
         self.attacked_settlement_owner: typing.Optional[Player] = None
         self.sieged_settlement: typing.Optional[Settlement] = None
         self.sieger_of_settlement: typing.Optional[Player] = None
+        self.pause_option = PauseOption.RESUME
 
     def display(self):
         pyxel.load("resources/sprites.pyxres")
@@ -117,6 +126,16 @@ class Overlay:
             pyxel.text(82, 65, "Game Over!", pyxel.COLOR_RED)
             pyxel.text(32, 75, "Defeat has arrived at your doorstep.", pyxel.COLOR_WHITE)
             pyxel.text(35, 85, "Press ENTER to return to the menu.", pyxel.COLOR_WHITE)
+        if OverlayType.PAUSE in self.showing:
+            pyxel.rectb(52, 60, 96, 63, pyxel.COLOR_WHITE)
+            pyxel.rect(53, 61, 94, 61, pyxel.COLOR_BLACK)
+            pyxel.text(80, 68, "Game paused", pyxel.COLOR_WHITE)
+            pyxel.text(88, 80, "Resume", pyxel.COLOR_RED if self.pause_option is PauseOption.RESUME else pyxel.COLOR_WHITE)
+            pyxel.text(90, 90, "Save", pyxel.COLOR_RED if self.pause_option is PauseOption.SAVE else pyxel.COLOR_WHITE)
+            pyxel.text(84, 100, "Controls",
+                       pyxel.COLOR_RED if self.pause_option is PauseOption.CONTROLS else pyxel.COLOR_WHITE)
+            pyxel.text(90, 110, "Quit",
+                       pyxel.COLOR_RED if self.pause_option is PauseOption.QUIT else pyxel.COLOR_WHITE)
         if OverlayType.TUTORIAL in self.showing:
             pyxel.rectb(8, 140, 184, 25, pyxel.COLOR_WHITE)
             pyxel.rect(9, 141, 182, 23, pyxel.COLOR_BLACK)
@@ -684,3 +703,29 @@ class Overlay:
 
     def is_setl_click(self) -> bool:
         return OverlayType.SETL_CLICK in self.showing
+
+    def toggle_pause(self):
+        if OverlayType.PAUSE in self.showing:
+            self.showing.remove(OverlayType.PAUSE)
+        else:
+            self.showing.append(OverlayType.PAUSE)
+            self.pause_option = PauseOption.RESUME
+
+    def navigate_pause(self, down: bool):
+        if down:
+            if self.pause_option is PauseOption.RESUME:
+                self.pause_option = PauseOption.SAVE
+            elif self.pause_option is PauseOption.SAVE:
+                self.pause_option = PauseOption.CONTROLS
+            elif self.pause_option is PauseOption.CONTROLS:
+                self.pause_option = PauseOption.QUIT
+        else:
+            if self.pause_option is PauseOption.SAVE:
+                self.pause_option = PauseOption.RESUME
+            elif self.pause_option is PauseOption.CONTROLS:
+                self.pause_option = PauseOption.SAVE
+            elif self.pause_option is PauseOption.QUIT:
+                self.pause_option = PauseOption.CONTROLS
+
+    def is_pause(self) -> bool:
+        return OverlayType.PAUSE in self.showing

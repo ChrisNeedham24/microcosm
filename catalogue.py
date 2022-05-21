@@ -197,3 +197,11 @@ def get_unlockable_improvements(blessing: Blessing) -> typing.List[Improvement]:
 
 def get_unlockable_units(blessing: Blessing) -> typing.List[UnitPlan]:
     return [up for up in UNIT_PLANS if up.prereq is blessing]
+
+
+def get_improvement(name: str) -> Improvement:
+    return next(imp for imp in IMPROVEMENTS if imp.name == name)
+
+
+def get_blessing(name: str) -> Blessing:
+    return next(bls for bls in BLESSINGS.values() if bls.name == name)

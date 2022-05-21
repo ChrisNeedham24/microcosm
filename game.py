@@ -14,7 +14,8 @@ import pyxel
 from board import Board
 from calculator import clamp, attack, get_player_totals, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
-    get_settlement_name, get_default_unit, get_unlockable_units, get_unlockable_improvements
+    get_settlement_name, get_default_unit, get_unlockable_units, get_unlockable_improvements, get_improvement, \
+    get_blessing
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, \
     UnitPlan, HarvestStatus, EconomicStatus, Heathen, AIPlaystyle, Blessing, GameConfig, SaveFile, Biome
@@ -23,9 +24,10 @@ from music_player import MusicPlayer
 
 
 # TODO FF Victory conditions - one for each resource type (harvest, wealth, etc.)
-# TODO FF Pause screen for saving and exiting (also controls)
+# TODO ONG Pause screen for saving and exiting (also controls)
 # TODO FF Add Wiki on main menu - Blessings/Improvements/Units/Victories/Controls
-from overlay import SettlementAttackType
+# TODO FF Allow save naming - make this an issue
+from overlay import SettlementAttackType, PauseOption
 from save_encoder import SaveEncoder, ObjectConverter
 
 
@@ -78,6 +80,8 @@ class Game:
                     self.board.overlay.navigate_blessings(down=True)
                 elif self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(down=True)
+                elif self.board.overlay.is_pause():
+                    self.board.overlay.navigate_pause(down=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
@@ -91,6 +95,8 @@ class Game:
                     self.board.overlay.navigate_blessings(down=False)
                 elif self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(up=True)
+                elif self.board.overlay.is_pause():
+                    self.board.overlay.navigate_pause(down=False)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
@@ -141,7 +147,6 @@ class Game:
                     if self.menu.menu_option is MenuOption.NEW_GAME:
                         self.menu.in_game_setup = True
                     elif self.menu.menu_option is MenuOption.LOAD_GAME:
-                        # TODO ONG Saving and loading
                         self.menu.loading_game = True
                         self.get_saves()
                     elif self.menu.menu_option is MenuOption.EXIT:
@@ -183,6 +188,19 @@ class Game:
                     self.board.overlay.toggle_setl_click(None, None)
                 else:
                     self.board.overlay.toggle_setl_click(None, None)
+            elif self.game_started and self.board.overlay.is_pause():
+                if self.board.overlay.pause_option is PauseOption.RESUME:
+                    self.board.overlay.toggle_pause()
+                elif self.board.overlay.pause_option is PauseOption.SAVE:
+                    self.save_game()
+                elif self.board.overlay.pause_option is PauseOption.QUIT:
+                    self.game_started = False
+                    self.on_menu = True
+                    self.menu.loading_game = False
+                    self.menu.in_game_setup = False
+                    self.menu.menu_option = MenuOption.NEW_GAME
+                    self.music_player.stop_game_music()
+                    self.music_player.play_menu_music()
             elif self.game_started and not self.board.overlay.is_tutorial():
                 self.board.overlay.update_turn(self.turn)
                 if self.end_turn():
@@ -285,8 +303,9 @@ class Game:
                     ])
                     complete_construction(self.board.selected_settlement)
                     self.players[0].wealth -= remaining_work
-        elif pyxel.btnp(pyxel.KEY_Q):
-            self.save_game()
+        elif pyxel.btnp(pyxel.KEY_P):
+            if self.game_started:
+                self.board.overlay.toggle_pause()
 
     def draw(self):
         if self.on_menu:
@@ -509,6 +528,10 @@ class Game:
                     u.location = (u.location[0], u.location[1])
                 for s in p.settlements:
                     s.location = (s.location[0], s.location[1])
+                    for idx, imp in enumerate(s.improvements):
+                        s.improvements[idx] = get_improvement(imp.name)
+                for idx, bls in enumerate(p.blessings):
+                    p.blessings[idx] = get_blessing(bls.name)
                 if p.ai_playstyle is not None:
                     p.ai_playstyle = AIPlaystyle[p.ai_playstyle]
             for i in range(1, len(self.players)):
@@ -528,13 +551,16 @@ class Game:
         self.move_maker.board_ref = self.board
         self.map_pos = (clamp(self.players[0].settlements[0].location[0] - 12, -1, 77),
                         clamp(self.players[0].settlements[0].location[1] - 11, -1, 69))
+        self.board.overlay.current_player = self.players[0]
         self.initialise_ais()
         self.music_player.stop_menu_music()
         self.music_player.play_game_music()
 
     def get_saves(self):
         self.menu.saves = []
-        for file in os.listdir("saves/"):
-            if file.endswith(".json"):
-                self.menu.saves.append(file)
+        saves = list(filter(lambda f: not f == "README.md", os.listdir("saves")))
+        saves.sort()
+        saves.reverse()
+        for f in saves:
+            self.menu.saves.append(f[5:-5].replace("T", " "))
 
