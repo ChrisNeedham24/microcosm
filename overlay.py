@@ -27,7 +27,8 @@ class OverlayType(Enum):
     SETL_CLICK = "SETL_CLICK",
     SIEGE_NOTIF = "SIEGE_NOTIF",
     GAME_OVER = "GAME_OVER",
-    PAUSE = "PAUSE"
+    PAUSE = "PAUSE",
+    CONTROLS = "CONTROLS"
 
 
 class SettlementAttackType(Enum):
@@ -136,6 +137,27 @@ class Overlay:
                        pyxel.COLOR_RED if self.pause_option is PauseOption.CONTROLS else pyxel.COLOR_WHITE)
             pyxel.text(90, 110, "Quit",
                        pyxel.COLOR_RED if self.pause_option is PauseOption.QUIT else pyxel.COLOR_WHITE)
+        if OverlayType.CONTROLS in self.showing:
+            pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
+            pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
+            pyxel.text(85, 30, "Controls", pyxel.COLOR_WHITE)
+            pyxel.text(30, 45, "ARROWS", pyxel.COLOR_WHITE)
+            pyxel.text(65, 45, "Navigate menus/pan map", pyxel.COLOR_WHITE)
+            pyxel.text(30, 55, "R CLICK", pyxel.COLOR_WHITE)
+            pyxel.text(65, 55, "Show quad yield", pyxel.COLOR_WHITE)
+            pyxel.text(30, 65, "L CLICK", pyxel.COLOR_WHITE)
+            pyxel.text(65, 65, "Move/select/attack units", pyxel.COLOR_WHITE)
+            pyxel.text(30, 75, "C", pyxel.COLOR_WHITE)
+            pyxel.text(65, 75, "Add/change construction", pyxel.COLOR_WHITE)
+            pyxel.text(30, 85, "F", pyxel.COLOR_WHITE)
+            pyxel.text(65, 85, "Add/change blessing", pyxel.COLOR_WHITE)
+            pyxel.text(30, 95, "D", pyxel.COLOR_WHITE)
+            pyxel.text(65, 95, "Deploy/disband unit", pyxel.COLOR_WHITE)
+            pyxel.text(30, 105, "N", pyxel.COLOR_WHITE)
+            pyxel.text(65, 105, "Next song", pyxel.COLOR_WHITE)
+            pyxel.text(30, 115, "B", pyxel.COLOR_WHITE)
+            pyxel.text(65, 115, "Buyout construction", pyxel.COLOR_WHITE)
+            pyxel.text(56, 150, "Press SPACE to go back.", pyxel.COLOR_WHITE)
         if OverlayType.TUTORIAL in self.showing:
             pyxel.rectb(8, 140, 184, 25, pyxel.COLOR_WHITE)
             pyxel.rect(9, 141, 182, 23, pyxel.COLOR_BLACK)
@@ -729,3 +751,12 @@ class Overlay:
 
     def is_pause(self) -> bool:
         return OverlayType.PAUSE in self.showing
+
+    def toggle_controls(self):
+        if OverlayType.CONTROLS in self.showing:
+            self.showing.remove(OverlayType.CONTROLS)
+        else:
+            self.showing.append(OverlayType.CONTROLS)
+
+    def is_controls(self) -> bool:
+        return OverlayType.CONTROLS in self.showing

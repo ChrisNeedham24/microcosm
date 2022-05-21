@@ -15,6 +15,7 @@ class HelpOption(Enum):
     SETTLEMENT = "TAB: Next settlement"
     UNIT = "SPACE: Next unit"
     OVERLAY = "SHIFT: Show status overlay"
+    PAUSE = "P: Pause"
     END_TURN = "ENTER: End turn"
 
 
@@ -190,6 +191,8 @@ class Board:
             elif self.current_help is HelpOption.UNIT:
                 self.current_help = HelpOption.OVERLAY
             elif self.current_help is HelpOption.OVERLAY:
+                self.current_help = HelpOption.PAUSE
+            elif self.current_help is HelpOption.PAUSE:
                 self.current_help = HelpOption.END_TURN
             elif self.current_help is HelpOption.END_TURN:
                 self.current_help = HelpOption.SETTLEMENT

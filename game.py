@@ -24,7 +24,6 @@ from music_player import MusicPlayer
 
 
 # TODO FF Victory conditions - one for each resource type (harvest, wealth, etc.)
-# TODO ONG Pause screen for saving and exiting (also controls)
 # TODO FF Add Wiki on main menu - Blessings/Improvements/Units/Victories/Controls
 # TODO FF Allow save naming - make this an issue
 from overlay import SettlementAttackType, PauseOption
@@ -193,6 +192,8 @@ class Game:
                     self.board.overlay.toggle_pause()
                 elif self.board.overlay.pause_option is PauseOption.SAVE:
                     self.save_game()
+                elif self.board.overlay.pause_option is PauseOption.CONTROLS:
+                    self.board.overlay.toggle_controls()
                 elif self.board.overlay.pause_option is PauseOption.QUIT:
                     self.game_started = False
                     self.on_menu = True
@@ -268,6 +269,8 @@ class Game:
                 self.board.overlay.toggle_construction_notification(None)
             elif self.game_started and self.board.overlay.is_lvl_notif():
                 self.board.overlay.toggle_level_up_notification(None)
+            elif self.game_started and self.board.overlay.is_controls():
+                self.board.overlay.toggle_controls()
             elif self.game_started and self.board.overlay.can_iter_settlements_units() and \
                     len(self.players[0].units) > 0:
                 self.board.overlay.remove_warning_if_possible()
