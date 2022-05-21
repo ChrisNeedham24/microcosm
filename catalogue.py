@@ -45,7 +45,11 @@ BLESSINGS = {
     "psy_sup": Blessing("Psychic Supervision", "I won't do what you tell me.", 2500),
     "grt_goo": Blessing("The Greater Good", "The benefit of helping others.", 100),
     "ref_prc": Blessing("Reformist Principles", "Maybe another system could be better.", 500),
-    "brd_fan": Blessing("Broad Fanaticism", "Maybe I can do no wrong.", 2500)
+    "brd_fan": Blessing("Broad Fanaticism", "Maybe I can do no wrong.", 2500),
+    "anc_his": Blessing("Ancient History", "Guide us to the light.", 2500),
+    "ard_one": Blessing("Piece of Strength", "The mighty will prevail.", 12500),
+    "ard_two": Blessing("Piece of Passion", "Only the passionate will remain.", 12500),
+    "ard_three": Blessing("Piece of Divinity", "Everything is revealed.", 12500)
 }
 
 # TODO FF Should be able to expand a settlement somehow probably - make this an issue
@@ -122,7 +126,9 @@ IMPROVEMENTS = [
     Improvement(ImprovementType.PANDERING, 1080, "Infinite Entertainment", "Where the robots are the stars.",
                 Effect(zeal=2, fortune=-1, satisfaction=12), BLESSINGS["rob_exp"]),
     Improvement(ImprovementType.PANDERING, 1080, "Free Expression", "Say what we know you'll say.",
-                Effect(satisfaction=15), BLESSINGS["brd_fan"])
+                Effect(satisfaction=15), BLESSINGS["brd_fan"]),
+    Improvement(ImprovementType.INDUSTRIAL, 6480, "Holy Sanctum", "To converse with the holy ones.",
+                Effect(), BLESSINGS["anc_his"])
 ]
 
 UNIT_PLANS = [
@@ -205,3 +211,7 @@ def get_improvement(name: str) -> Improvement:
 
 def get_blessing(name: str) -> Blessing:
     return next(bls for bls in BLESSINGS.values() if bls.name == name)
+
+
+def get_unit_plan(name: str) -> UnitPlan:
+    return next(up for up in UNIT_PLANS if up.name == name)

@@ -167,6 +167,7 @@ class Player:
     quads_seen: typing.Set[typing.Tuple[int, int]]
     ongoing_blessing: typing.Optional[OngoingBlessing] = None
     ai_playstyle: typing.Optional[AIPlaystyle] = None
+    jubilation_ctr: int = 0
 
 
 @dataclass

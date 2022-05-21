@@ -435,32 +435,38 @@ class Overlay:
                         imps = get_unlockable_improvements(blessing)
                         pyxel.text(30, 42 + adj_idx * 18, "Unlocks:", pyxel.COLOR_WHITE)
                         types_unlockable: typing.List[ImprovementType] = []
-                        for imp in imps:
-                            if imp.effect.wealth > 0:
-                                types_unlockable.append(ImprovementType.ECONOMICAL)
-                            if imp.effect.harvest > 0:
-                                types_unlockable.append(ImprovementType.BOUNTIFUL)
-                            if imp.effect.zeal > 0:
-                                types_unlockable.append(ImprovementType.INDUSTRIAL)
-                            if imp.effect.fortune > 0:
-                                types_unlockable.append(ImprovementType.MAGICAL)
-                            if imp.effect.strength > 0:
-                                types_unlockable.append(ImprovementType.INTIMIDATORY)
-                            if imp.effect.satisfaction > 0:
-                                types_unlockable.append(ImprovementType.PANDERING)
-                        for type_idx, unl_type in enumerate(set(types_unlockable)):
-                            uv_coords: (int, int) = 0, 44
-                            if unl_type is ImprovementType.BOUNTIFUL:
-                                uv_coords = 8, 44
-                            elif unl_type is ImprovementType.INDUSTRIAL:
-                                uv_coords = 16, 44
-                            elif unl_type is ImprovementType.MAGICAL:
-                                uv_coords = 24, 44
-                            elif unl_type is ImprovementType.INTIMIDATORY:
-                                uv_coords = 0, 28
-                            elif unl_type is ImprovementType.PANDERING:
-                                uv_coords = 8, 28
-                            pyxel.blt(65 + type_idx * 10, 41 + adj_idx * 18, 0, uv_coords[0], uv_coords[1], 8, 8)
+                        if len(imps) > 0:
+                            for imp in imps:
+                                if imp.effect.wealth > 0:
+                                    types_unlockable.append(ImprovementType.ECONOMICAL)
+                                if imp.effect.harvest > 0:
+                                    types_unlockable.append(ImprovementType.BOUNTIFUL)
+                                if imp.effect.zeal > 0:
+                                    types_unlockable.append(ImprovementType.INDUSTRIAL)
+                                if imp.effect.fortune > 0:
+                                    types_unlockable.append(ImprovementType.MAGICAL)
+                                if imp.effect.strength > 0:
+                                    types_unlockable.append(ImprovementType.INTIMIDATORY)
+                                if imp.effect.satisfaction > 0:
+                                    types_unlockable.append(ImprovementType.PANDERING)
+                            if len(types_unlockable) > 0:
+                                for type_idx, unl_type in enumerate(set(types_unlockable)):
+                                    uv_coords: (int, int) = 0, 44
+                                    if unl_type is ImprovementType.BOUNTIFUL:
+                                        uv_coords = 8, 44
+                                    elif unl_type is ImprovementType.INDUSTRIAL:
+                                        uv_coords = 16, 44
+                                    elif unl_type is ImprovementType.MAGICAL:
+                                        uv_coords = 24, 44
+                                    elif unl_type is ImprovementType.INTIMIDATORY:
+                                        uv_coords = 0, 28
+                                    elif unl_type is ImprovementType.PANDERING:
+                                        uv_coords = 8, 28
+                                    pyxel.blt(65 + type_idx * 10, 41 + adj_idx * 18, 0, uv_coords[0], uv_coords[1], 8, 8)
+                            else:
+                                pyxel.text(65, 41 + adj_idx * 18, "victory", pyxel.COLOR_GREEN)
+                        else:
+                            pyxel.text(65, 41 + adj_idx * 18, "victory", pyxel.COLOR_GREEN)
                 pyxel.text(90, 150, "Cancel", pyxel.COLOR_RED if self.selected_blessing is None else pyxel.COLOR_WHITE)
             if OverlayType.SETL_CLICK in self.showing:
                 pyxel.rectb(50, 60, 100, 70, pyxel.COLOR_WHITE)

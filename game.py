@@ -15,7 +15,7 @@ from board import Board
 from calculator import clamp, attack, get_player_totals, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
     get_settlement_name, get_default_unit, get_unlockable_units, get_unlockable_improvements, get_improvement, \
-    get_blessing
+    get_blessing, HEATHEN_UNIT_PLAN, get_unit_plan
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, \
     UnitPlan, HarvestStatus, EconomicStatus, Heathen, AIPlaystyle, Blessing, GameConfig, SaveFile, Biome
@@ -23,9 +23,21 @@ from movemaker import MoveMaker
 from music_player import MusicPlayer
 
 
-# TODO FF Victory conditions - one for each resource type (harvest, wealth, etc.)
+# TODO ONG Victory conditions - one for each resource type (harvest, wealth, etc.)
+"""
+Plan
+Victory types
+- Elimination: all settlements belong to the player
+- Jubilation: maintain 100% satisfaction in at least 5 settlements for 25 turns
+- Gluttony: reach level 10 in at least 10 settlements
+- Affluence: accumulate 50k wealth over the course of the game
+- Vigour: construct the holy sanctum in a settlement
+- Serendipity: research the three pieces of ardour
+"""
+# TODO FF Add notifications for being close to victory - make this an issue
 # TODO FF Add Wiki on main menu - Blessings/Improvements/Units/Victories/Controls
 # TODO FF Allow save naming - make this an issue
+# TODO FF Scale heathen strength based on turn - make this an issue
 from overlay import SettlementAttackType, PauseOption
 from save_encoder import SaveEncoder, ObjectConverter
 
@@ -441,7 +453,30 @@ class Game:
 
         self.board.overlay.remove_warning_if_possible()
         self.turn += 1
-        return True
+
+        return self.check_for_victory() is None
+
+    def check_for_victory(self) -> typing.Optional[Player]:
+        players_with_setls = 0
+        for p in self.players:
+            if len(p.settlements) > 0:
+                jubilated_setls = 0
+                players_with_setls += 1
+                for s in p.settlements:
+                    if s.satisfaction == 100:
+                        jubilated_setls += 1
+                if jubilated_setls >= 5:
+                    p.jubilation_ctr += 1
+                else:
+                    p.jubilation_ctr = 0
+            if p.jubilation_ctr == 25:
+                return p
+
+        if players_with_setls == 1:
+            return next(player for player in self.players if len(player.settlements) > 0)
+
+
+        return None
 
     def process_heathens(self):
         all_units = []
@@ -531,8 +566,14 @@ class Game:
                     u.location = (u.location[0], u.location[1])
                 for s in p.settlements:
                     s.location = (s.location[0], s.location[1])
+                    if s.current_work is not None:
+                        if s.current_work.construction.type is not None:
+                            s.current_work.construction = get_improvement(s.current_work.construction.name)
+                        else:
+                            s.current_work.construction = get_unit_plan(s.current_work.construction.name)
                     for idx, imp in enumerate(s.improvements):
                         s.improvements[idx] = get_improvement(imp.name)
+                p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
                 for idx, bls in enumerate(p.blessings):
                     p.blessings[idx] = get_blessing(bls.name)
                 if p.ai_playstyle is not None:
@@ -540,9 +581,10 @@ class Game:
             for i in range(1, len(self.players)):
                 self.players[i].quads_seen = set()
 
-            self.heathens = save.heathens
-            for h in self.heathens:
-                h.location = (h.location[0], h.location[1])
+            self.heathens = []
+            for h in save.heathens:
+                self.heathens.append(Heathen(h.health, h.remaining_stamina, (h.location[0], h.location[1]),
+                                             HEATHEN_UNIT_PLAN, h.has_attacked))
 
             self.turn = save.turn
             game_cfg = save.cfg
