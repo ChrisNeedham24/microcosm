@@ -264,7 +264,7 @@ class Board:
                     quad_biome = self.quads[adj_y][adj_x].biome
                     setl_name = get_settlement_name(quad_biome)
                     new_settl = Settlement(setl_name, (adj_x, adj_y), [], [self.quads[adj_y][adj_x]],
-                                           [get_default_unit((adj_x, adj_y))])
+                                           [get_default_unit((adj_x, adj_y)) for _ in range(10)])
                     player.settlements.append(new_settl)
                     for i in range(adj_y - 5, adj_y + 6):
                         for j in range(adj_x - 5, adj_x + 6):
@@ -281,6 +281,7 @@ class Board:
                             any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
                         self.selected_settlement = to_select
                         self.overlay.toggle_settlement(to_select, player)
+                    # TODO Can't garrison from anywhere
                     elif self.selected_unit is not None and self.selected_unit in player.units and \
                             self.selected_settlement is None and \
                             any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):

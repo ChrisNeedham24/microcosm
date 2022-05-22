@@ -7,8 +7,19 @@ import pyxel
 from calculator import get_setl_totals
 from catalogue import get_unlockable_improvements, get_all_unlockable
 from models import Settlement, Player, Improvement, Unit, Blessing, ImprovementType, CompletedConstruction, UnitPlan, \
-    EconomicStatus, HarvestStatus, Heathen, AttackData, SetlAttackData
+    EconomicStatus, HarvestStatus, Heathen, AttackData, SetlAttackData, Victory, VictoryType
 
+
+"""
+VICTORY!
+CONTROLS
+PAUSE
+DEPLOYMENT! = TUTORIAL = WARNING! = BLESS_NOTIF! = CONSTR_NOTIF! = LEVEL_NOTIF!
+BLESSING
+STANDARD = CONSTRUCTION = SETL_CLICK
+SETTLEMENT = UNIT
+ATTACK = SETL_ATTACK = SIEGE_NOTIF
+"""
 
 class OverlayType(Enum):
     STANDARD = "STANDARD",
@@ -26,9 +37,9 @@ class OverlayType(Enum):
     SETL_ATTACK = "SETL_ATTACK",
     SETL_CLICK = "SETL_CLICK",
     SIEGE_NOTIF = "SIEGE_NOTIF",
-    GAME_OVER = "GAME_OVER",
     PAUSE = "PAUSE",
-    CONTROLS = "CONTROLS"
+    CONTROLS = "CONTROLS",
+    VICTORY = "VICTORY"
 
 
 class SettlementAttackType(Enum):
@@ -72,101 +83,65 @@ class Overlay:
         self.attacked_settlement_owner: typing.Optional[Player] = None
         self.sieged_settlement: typing.Optional[Settlement] = None
         self.sieger_of_settlement: typing.Optional[Player] = None
-        self.pause_option = PauseOption.RESUME
+        self.pause_option: PauseOption = PauseOption.RESUME
+        self.current_victory: typing.Optional[Victory] = None
 
     def display(self):
         pyxel.load("resources/sprites.pyxres")
-        if OverlayType.ATTACK in self.showing:
-            pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
-            pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
-            att_name = self.attack_data.attacker.plan.name
-            att_dmg = round(self.attack_data.damage_to_attacker)
-            def_name = self.attack_data.defender.plan.name
-            def_dmg = round(self.attack_data.damage_to_defender)
-            if self.attack_data.attacker_was_killed and self.attack_data.player_attack:
-                pyxel.text(35, 15, f"Your {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
-            elif self.attack_data.defender_was_killed and not self.attack_data.player_attack:
-                pyxel.text(35, 15, f"Your {def_name} (-{def_dmg}) was killed by", pyxel.COLOR_WHITE)
-            elif self.attack_data.attacker_was_killed and not self.attack_data.player_attack:
-                pyxel.text(50, 15, f"Your {def_name} (-{def_dmg}) killed", pyxel.COLOR_WHITE)
-            elif self.attack_data.defender_was_killed and self.attack_data.player_attack:
-                pyxel.text(50, 15, f"Your {att_name} (-{att_dmg}) killed", pyxel.COLOR_WHITE)
-            elif self.attack_data.player_attack:
-                pyxel.text(46, 15, f"Your {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
-            else:
-                pyxel.text(32, 15, f"Your {def_name} (-{def_dmg}) was attacked by", pyxel.COLOR_WHITE)
-            pyxel.text(72, 25, f"a {def_name if self.attack_data.player_attack else att_name} "
-                               f"(-{def_dmg if self.attack_data.player_attack else att_dmg})", pyxel.COLOR_WHITE)
-        if OverlayType.SETL_ATTACK in self.showing:
-            pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
-            pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
-            att_name = self.setl_attack_data.attacker.plan.name
-            att_dmg = round(self.setl_attack_data.damage_to_attacker)
-            setl_name = self.setl_attack_data.settlement.name
-            setl_dmg = round(self.setl_attack_data.damage_to_setl)
-            if self.setl_attack_data.attacker_was_killed:
-                pyxel.text(35, 15, f"Your {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
-            elif self.setl_attack_data.setl_was_taken and self.setl_attack_data.player_attack:
-                pyxel.text(50, 15, f"Your {att_name} (-{att_dmg}) sacked", pyxel.COLOR_WHITE)
-            elif self.setl_attack_data.setl_was_taken:
-                pyxel.text(70, 15, f"A {att_name} sacked", pyxel.COLOR_WHITE)
-            elif self.setl_attack_data.player_attack:
-                pyxel.text(46, 15, f"Your {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
-            else:
-                pyxel.text(54, 15, f"A {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
-            pyxel.text(72, 25, f"{setl_name} (-{setl_dmg})", self.setl_attack_data.setl_owner.colour)
-        if OverlayType.SIEGE_NOTIF in self.showing:
-            pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
-            pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
-            att_name = self.sieger_of_settlement.name
-            setl_name = self.sieged_settlement.name
-            pyxel.text(22, 15, f"{setl_name} was placed under siege by {att_name}", pyxel.COLOR_RED)
-        if OverlayType.GAME_OVER in self.showing:
+        if OverlayType.VICTORY in self.showing:
             pyxel.rectb(12, 60, 176, 38, pyxel.COLOR_WHITE)
             pyxel.rect(13, 61, 174, 36, pyxel.COLOR_BLACK)
-            pyxel.text(82, 65, "Game Over!", pyxel.COLOR_RED)
-            pyxel.text(32, 75, "Defeat has arrived at your doorstep.", pyxel.COLOR_WHITE)
+            if self.current_victory.player is self.current_player:
+                beginning = "You have"
+                pyxel.text(82, 65, "Victory!", pyxel.COLOR_GREEN)
+            else:
+                beginning = f"{self.current_victory.player.name} has"
+                pyxel.text(82, 65, "Game over!", pyxel.COLOR_RED)
+
+            if self.current_victory.type is VictoryType.ELIMINATION:
+                pyxel.text(22, 75, f"{beginning} achieved an ELIMINATION victory.", pyxel.COLOR_RED)
+            elif self.current_victory.type is VictoryType.JUBILATION or self.current_victory.type is VictoryType.GLUTTONY:
+                pyxel.text(22, 75, f"{beginning} achieved a {self.current_victory.type} victory.", pyxel.COLOR_GREEN)
+            elif self.current_victory.type is VictoryType.AFFLUENCE:
+                pyxel.text(22, 75, f"{beginning} achieved an AFFLUENCE victory.", pyxel.COLOR_YELLOW)
+            elif self.current_victory.type is VictoryType.VIGOUR:
+                pyxel.text(22, 75, f"{beginning} achieved a VIGOUR victory.", pyxel.COLOR_ORANGE)
+            else:
+                pyxel.text(22, 75, f"{beginning} achieved a SERENDIPITY victory.", pyxel.COLOR_PURPLE)
+
             pyxel.text(35, 85, "Press ENTER to return to the menu.", pyxel.COLOR_WHITE)
-        if OverlayType.PAUSE in self.showing:
-            pyxel.rectb(52, 60, 96, 63, pyxel.COLOR_WHITE)
-            pyxel.rect(53, 61, 94, 61, pyxel.COLOR_BLACK)
-            pyxel.text(80, 68, "Game paused", pyxel.COLOR_WHITE)
-            pyxel.text(88, 80, "Resume", pyxel.COLOR_RED if self.pause_option is PauseOption.RESUME else pyxel.COLOR_WHITE)
-            pyxel.text(90, 90, "Save", pyxel.COLOR_RED if self.pause_option is PauseOption.SAVE else pyxel.COLOR_WHITE)
-            pyxel.text(84, 100, "Controls",
-                       pyxel.COLOR_RED if self.pause_option is PauseOption.CONTROLS else pyxel.COLOR_WHITE)
-            pyxel.text(90, 110, "Quit",
-                       pyxel.COLOR_RED if self.pause_option is PauseOption.QUIT else pyxel.COLOR_WHITE)
-        if OverlayType.CONTROLS in self.showing:
-            pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
-            pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
-            pyxel.text(85, 30, "Controls", pyxel.COLOR_WHITE)
-            pyxel.text(30, 45, "ARROWS", pyxel.COLOR_WHITE)
-            pyxel.text(65, 45, "Navigate menus/pan map", pyxel.COLOR_WHITE)
-            pyxel.text(30, 55, "R CLICK", pyxel.COLOR_WHITE)
-            pyxel.text(65, 55, "Show quad yield", pyxel.COLOR_WHITE)
-            pyxel.text(30, 65, "L CLICK", pyxel.COLOR_WHITE)
-            pyxel.text(65, 65, "Move/select/attack units", pyxel.COLOR_WHITE)
-            pyxel.text(30, 75, "C", pyxel.COLOR_WHITE)
-            pyxel.text(65, 75, "Add/change construction", pyxel.COLOR_WHITE)
-            pyxel.text(30, 85, "F", pyxel.COLOR_WHITE)
-            pyxel.text(65, 85, "Add/change blessing", pyxel.COLOR_WHITE)
-            pyxel.text(30, 95, "D", pyxel.COLOR_WHITE)
-            pyxel.text(65, 95, "Deploy/disband unit", pyxel.COLOR_WHITE)
-            pyxel.text(30, 105, "N", pyxel.COLOR_WHITE)
-            pyxel.text(65, 105, "Next song", pyxel.COLOR_WHITE)
-            pyxel.text(30, 115, "B", pyxel.COLOR_WHITE)
-            pyxel.text(65, 115, "Buyout construction", pyxel.COLOR_WHITE)
-            pyxel.text(56, 150, "Press SPACE to go back.", pyxel.COLOR_WHITE)
-        if OverlayType.TUTORIAL in self.showing:
-            pyxel.rectb(8, 140, 184, 25, pyxel.COLOR_WHITE)
-            pyxel.rect(9, 141, 182, 23, pyxel.COLOR_BLACK)
-            pyxel.text(60, 143, "Welcome to Microcosm!", pyxel.COLOR_WHITE)
-            pyxel.text(12, 153, "Click a quad to found your first settlement.", pyxel.COLOR_WHITE)
         elif OverlayType.DEPLOYMENT in self.showing:
             pyxel.rectb(12, 150, 176, 15, pyxel.COLOR_WHITE)
             pyxel.rect(13, 151, 174, 13, pyxel.COLOR_BLACK)
             pyxel.text(15, 153, "Click a quad in the white square to deploy!", pyxel.COLOR_WHITE)
+        elif OverlayType.LEVEL_NOTIF in self.showing:
+            pyxel.rectb(12, 60, 176, 25 + len(self.levelled_up_settlements) * 20, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 61, 174, 23 + len(self.levelled_up_settlements) * 20, pyxel.COLOR_BLACK)
+            pluralisation = "s" if len(self.levelled_up_settlements) > 1 else ""
+            pyxel.text(60, 63, f"Settlement{pluralisation} level up!", pyxel.COLOR_WHITE)
+            for idx, setl in enumerate(self.levelled_up_settlements):
+                pyxel.text(20, 73 + idx * 20, setl.name, pyxel.COLOR_WHITE)
+                pyxel.text(25, 83 + idx * 20, f"{setl.level - 1} -> {setl.level}", pyxel.COLOR_WHITE)
+            pyxel.text(70, 73 + len(self.levelled_up_settlements) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+        elif OverlayType.CONSTR_NOTIF in self.showing:
+            pyxel.rectb(12, 60, 176, 25 + len(self.completed_constructions) * 20, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 61, 174, 23 + len(self.completed_constructions) * 20, pyxel.COLOR_BLACK)
+            pluralisation = "s" if len(self.completed_constructions) > 1 else ""
+            pyxel.text(60, 63, f"Construction{pluralisation} completed!", pyxel.COLOR_RED)
+            for idx, constr in enumerate(self.completed_constructions):
+                pyxel.text(20, 73 + idx * 20, constr.settlement.name, pyxel.COLOR_WHITE)
+                pyxel.text(25, 83 + idx * 20, constr.construction.name, pyxel.COLOR_RED)
+            pyxel.text(70, 73 + len(self.completed_constructions) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+        elif OverlayType.BLESS_NOTIF in self.showing:
+            unlocked = get_all_unlockable(self.completed_blessing)
+            pyxel.rectb(12, 60, 176, 45 + len(unlocked) * 10, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 61, 174, 43 + len(unlocked) * 10, pyxel.COLOR_BLACK)
+            pyxel.text(60, 63, "Blessing completed!", pyxel.COLOR_PURPLE)
+            pyxel.text(20, 73, self.completed_blessing.name, pyxel.COLOR_WHITE)
+            pyxel.text(20, 83, "Unlocks:", pyxel.COLOR_WHITE)
+            for idx, imp in enumerate(unlocked):
+                pyxel.text(25, 93 + idx * 10, imp.name, pyxel.COLOR_RED)
+            pyxel.text(70, 93 + len(unlocked) * 10, "SPACE: Dismiss", pyxel.COLOR_WHITE)
         elif OverlayType.WARNING in self.showing:
             extension = 0
             if self.will_have_negative_wealth:
@@ -192,35 +167,52 @@ class Overlay:
                 for setl in self.problematic_settlements:
                     pyxel.text(80, 73 + offset, setl.name, pyxel.COLOR_WHITE)
                     offset += 10
-        elif OverlayType.BLESS_NOTIF in self.showing:
-            unlocked = get_all_unlockable(self.completed_blessing)
-            pyxel.rectb(12, 60, 176, 45 + len(unlocked) * 10, pyxel.COLOR_WHITE)
-            pyxel.rect(13, 61, 174, 43 + len(unlocked) * 10, pyxel.COLOR_BLACK)
-            pyxel.text(60, 63, "Blessing completed!", pyxel.COLOR_PURPLE)
-            pyxel.text(20, 73, self.completed_blessing.name, pyxel.COLOR_WHITE)
-            pyxel.text(20, 83, "Unlocks:", pyxel.COLOR_WHITE)
-            for idx, imp in enumerate(unlocked):
-                pyxel.text(25, 93 + idx * 10, imp.name, pyxel.COLOR_RED)
-            pyxel.text(70, 93 + len(unlocked) * 10, "SPACE: Dismiss", pyxel.COLOR_WHITE)
-        elif OverlayType.CONSTR_NOTIF in self.showing:
-            pyxel.rectb(12, 60, 176, 25 + len(self.completed_constructions) * 20, pyxel.COLOR_WHITE)
-            pyxel.rect(13, 61, 174, 23 + len(self.completed_constructions) * 20, pyxel.COLOR_BLACK)
-            pluralisation = "s" if len(self.completed_constructions) > 1 else ""
-            pyxel.text(60, 63, f"Construction{pluralisation} completed!", pyxel.COLOR_RED)
-            for idx, constr in enumerate(self.completed_constructions):
-                pyxel.text(20, 73 + idx * 20, constr.settlement.name, pyxel.COLOR_WHITE)
-                pyxel.text(25, 83 + idx * 20, constr.construction.name, pyxel.COLOR_RED)
-            pyxel.text(70, 73 + len(self.completed_constructions) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
-        elif OverlayType.LEVEL_NOTIF in self.showing:
-            pyxel.rectb(12, 60, 176, 25 + len(self.levelled_up_settlements) * 20, pyxel.COLOR_WHITE)
-            pyxel.rect(13, 61, 174, 23 + len(self.levelled_up_settlements) * 20, pyxel.COLOR_BLACK)
-            pluralisation = "s" if len(self.levelled_up_settlements) > 1 else ""
-            pyxel.text(60, 63, f"Settlement{pluralisation} level up!", pyxel.COLOR_WHITE)
-            for idx, setl in enumerate(self.levelled_up_settlements):
-                pyxel.text(20, 73 + idx * 20, setl.name, pyxel.COLOR_WHITE)
-                pyxel.text(25, 83 + idx * 20, f"{setl.level - 1} -> {setl.level}", pyxel.COLOR_WHITE)
-            pyxel.text(70, 73 + len(self.levelled_up_settlements) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
         else:
+            if OverlayType.ATTACK in self.showing:
+                pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
+                pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
+                att_name = self.attack_data.attacker.plan.name
+                att_dmg = round(self.attack_data.damage_to_attacker)
+                def_name = self.attack_data.defender.plan.name
+                def_dmg = round(self.attack_data.damage_to_defender)
+                if self.attack_data.attacker_was_killed and self.attack_data.player_attack:
+                    pyxel.text(35, 15, f"Your {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
+                elif self.attack_data.defender_was_killed and not self.attack_data.player_attack:
+                    pyxel.text(35, 15, f"Your {def_name} (-{def_dmg}) was killed by", pyxel.COLOR_WHITE)
+                elif self.attack_data.attacker_was_killed and not self.attack_data.player_attack:
+                    pyxel.text(50, 15, f"Your {def_name} (-{def_dmg}) killed", pyxel.COLOR_WHITE)
+                elif self.attack_data.defender_was_killed and self.attack_data.player_attack:
+                    pyxel.text(50, 15, f"Your {att_name} (-{att_dmg}) killed", pyxel.COLOR_WHITE)
+                elif self.attack_data.player_attack:
+                    pyxel.text(46, 15, f"Your {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
+                else:
+                    pyxel.text(32, 15, f"Your {def_name} (-{def_dmg}) was attacked by", pyxel.COLOR_WHITE)
+                pyxel.text(72, 25, f"a {def_name if self.attack_data.player_attack else att_name} "
+                                   f"(-{def_dmg if self.attack_data.player_attack else att_dmg})", pyxel.COLOR_WHITE)
+            if OverlayType.SETL_ATTACK in self.showing:
+                pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
+                pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
+                att_name = self.setl_attack_data.attacker.plan.name
+                att_dmg = round(self.setl_attack_data.damage_to_attacker)
+                setl_name = self.setl_attack_data.settlement.name
+                setl_dmg = round(self.setl_attack_data.damage_to_setl)
+                if self.setl_attack_data.attacker_was_killed:
+                    pyxel.text(35, 15, f"Your {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
+                elif self.setl_attack_data.setl_was_taken and self.setl_attack_data.player_attack:
+                    pyxel.text(50, 15, f"Your {att_name} (-{att_dmg}) sacked", pyxel.COLOR_WHITE)
+                elif self.setl_attack_data.setl_was_taken:
+                    pyxel.text(70, 15, f"A {att_name} sacked", pyxel.COLOR_WHITE)
+                elif self.setl_attack_data.player_attack:
+                    pyxel.text(46, 15, f"Your {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
+                else:
+                    pyxel.text(54, 15, f"A {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
+                pyxel.text(72, 25, f"{setl_name} (-{setl_dmg})", self.setl_attack_data.setl_owner.colour)
+            if OverlayType.SIEGE_NOTIF in self.showing:
+                pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
+                pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
+                att_name = self.sieger_of_settlement.name
+                setl_name = self.sieged_settlement.name
+                pyxel.text(22, 15, f"{setl_name} was placed under siege by {att_name}", pyxel.COLOR_RED)
             if OverlayType.SETTLEMENT in self.showing:
                 pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
                 pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
@@ -276,6 +268,29 @@ class Overlay:
                     pyxel.text(110, 155 - y_offset, "Press D to deploy!", pyxel.COLOR_WHITE)
                 else:
                     pyxel.text(110, 145 - y_offset, "No units.", pyxel.COLOR_RED)
+            if OverlayType.UNIT in self.showing:
+                pyxel.rectb(12, 110, 56, 60, pyxel.COLOR_WHITE)
+                pyxel.rect(13, 111, 54, 58, pyxel.COLOR_BLACK)
+                pyxel.text(20, 114, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
+                if self.selected_unit.plan.can_settle:
+                    pyxel.blt(55, 113, 0, 24, 36, 8, 8)
+                if self.selected_unit.sieging and self.selected_unit in self.current_player.units:
+                    pyxel.blt(55, 113, 0, 32, 36, 8, 8)
+                    pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
+                    pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
+                    pyxel.text(18, 14, "Remember: the siege will end if you move!", pyxel.COLOR_RED)
+                pyxel.blt(20, 120, 0, 8, 36, 8, 8)
+                pyxel.text(30, 122, str(self.selected_unit.health), pyxel.COLOR_WHITE)
+                pyxel.blt(20, 130, 0, 0, 36, 8, 8)
+                pyxel.text(30, 132, str(self.selected_unit.plan.power), pyxel.COLOR_WHITE)
+                pyxel.blt(20, 140, 0, 16, 36, 8, 8)
+                pyxel.text(30, 142, f"{self.selected_unit.remaining_stamina}/{self.selected_unit.plan.total_stamina}",
+                           pyxel.COLOR_WHITE)
+                pyxel.blt(20, 150, 0, 0, 44, 8, 8)
+                pyxel.text(30, 152, f"{self.selected_unit.plan.cost} (-{round(self.selected_unit.plan.cost / 25)}/T)",
+                           pyxel.COLOR_WHITE)
+                pyxel.blt(20, 160, 0, 8, 52, 8, 8)
+                pyxel.text(30, 162, "Disb. (D)", pyxel.COLOR_RED)
             if OverlayType.CONSTRUCTION in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -349,29 +364,6 @@ class Overlay:
                     pyxel.text(140, 150, "Units ->", pyxel.COLOR_WHITE)
                 else:
                     pyxel.text(25, 150, "<- Improvements", pyxel.COLOR_WHITE)
-            if OverlayType.UNIT in self.showing:
-                pyxel.rectb(12, 110, 56, 60, pyxel.COLOR_WHITE)
-                pyxel.rect(13, 111, 54, 58, pyxel.COLOR_BLACK)
-                pyxel.text(20, 114, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
-                if self.selected_unit.plan.can_settle:
-                    pyxel.blt(55, 113, 0, 24, 36, 8, 8)
-                if self.selected_unit.sieging and self.selected_unit in self.current_player.units:
-                    pyxel.blt(55, 113, 0, 32, 36, 8, 8)
-                    pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
-                    pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
-                    pyxel.text(18, 14, "Remember: the siege will end if you move!", pyxel.COLOR_RED)
-                pyxel.blt(20, 120, 0, 8, 36, 8, 8)
-                pyxel.text(30, 122, str(self.selected_unit.health), pyxel.COLOR_WHITE)
-                pyxel.blt(20, 130, 0, 0, 36, 8, 8)
-                pyxel.text(30, 132, str(self.selected_unit.plan.power), pyxel.COLOR_WHITE)
-                pyxel.blt(20, 140, 0, 16, 36, 8, 8)
-                pyxel.text(30, 142, f"{self.selected_unit.remaining_stamina}/{self.selected_unit.plan.total_stamina}",
-                           pyxel.COLOR_WHITE)
-                pyxel.blt(20, 150, 0, 0, 44, 8, 8)
-                pyxel.text(30, 152, f"{self.selected_unit.plan.cost} (-{round(self.selected_unit.plan.cost / 25)}/T)",
-                           pyxel.COLOR_WHITE)
-                pyxel.blt(20, 160, 0, 8, 52, 8, 8)
-                pyxel.text(30, 162, "Disb. (D)", pyxel.COLOR_RED)
             if OverlayType.STANDARD in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -413,6 +405,21 @@ class Overlay:
                 pyxel.text(30, 90,
                            f"{round(self.current_player.wealth)} ({sign}{abs(round(wealth_per_turn, 2))})",
                            pyxel.COLOR_WHITE)
+            if OverlayType.SETL_CLICK in self.showing:
+                pyxel.rectb(50, 60, 100, 70, pyxel.COLOR_WHITE)
+                pyxel.rect(51, 61, 98, 68, pyxel.COLOR_BLACK)
+                name_len = len(self.attacked_settlement.name)
+                x_offset = 11 - name_len
+                pyxel.text(82 + x_offset, 70, str(self.attacked_settlement.name), self.attacked_settlement_owner.colour)
+                pyxel.blt(90, 78, 0, 0, 28, 8, 8)
+                pyxel.text(100, 80, str(self.attacked_settlement.strength), pyxel.COLOR_WHITE)
+                pyxel.text(68, 95, "Attack",
+                           pyxel.COLOR_RED
+                           if self.setl_attack_opt is SettlementAttackType.ATTACK else pyxel.COLOR_WHITE)
+                pyxel.text(110, 95, "Besiege",
+                           pyxel.COLOR_RED
+                           if self.setl_attack_opt is SettlementAttackType.BESIEGE else pyxel.COLOR_WHITE)
+                pyxel.text(90, 115, "Cancel", pyxel.COLOR_RED if self.setl_attack_opt is None else pyxel.COLOR_WHITE)
             if OverlayType.BLESSING in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -468,34 +475,59 @@ class Overlay:
                         else:
                             pyxel.text(65, 41 + adj_idx * 18, "victory", pyxel.COLOR_GREEN)
                 pyxel.text(90, 150, "Cancel", pyxel.COLOR_RED if self.selected_blessing is None else pyxel.COLOR_WHITE)
-            if OverlayType.SETL_CLICK in self.showing:
-                pyxel.rectb(50, 60, 100, 70, pyxel.COLOR_WHITE)
-                pyxel.rect(51, 61, 98, 68, pyxel.COLOR_BLACK)
-                name_len = len(self.attacked_settlement.name)
-                x_offset = 11 - name_len
-                pyxel.text(82 + x_offset, 70, str(self.attacked_settlement.name), self.attacked_settlement_owner.colour)
-                pyxel.blt(90, 78, 0, 0, 28, 8, 8)
-                pyxel.text(100, 80, str(self.attacked_settlement.strength), pyxel.COLOR_WHITE)
-                pyxel.text(68, 95, "Attack",
-                           pyxel.COLOR_RED
-                           if self.setl_attack_opt is SettlementAttackType.ATTACK else pyxel.COLOR_WHITE)
-                pyxel.text(110, 95, "Besiege",
-                           pyxel.COLOR_RED
-                           if self.setl_attack_opt is SettlementAttackType.BESIEGE else pyxel.COLOR_WHITE)
-                pyxel.text(90, 115, "Cancel", pyxel.COLOR_RED if self.setl_attack_opt is None else pyxel.COLOR_WHITE)
+            if OverlayType.TUTORIAL in self.showing:
+                pyxel.rectb(8, 140, 184, 25, pyxel.COLOR_WHITE)
+                pyxel.rect(9, 141, 182, 23, pyxel.COLOR_BLACK)
+                pyxel.text(60, 143, "Welcome to Microcosm!", pyxel.COLOR_WHITE)
+                pyxel.text(12, 153, "Click a quad to found your first settlement.", pyxel.COLOR_WHITE)
+            if OverlayType.PAUSE in self.showing:
+                pyxel.rectb(52, 60, 96, 63, pyxel.COLOR_WHITE)
+                pyxel.rect(53, 61, 94, 61, pyxel.COLOR_BLACK)
+                pyxel.text(80, 68, "Game paused", pyxel.COLOR_WHITE)
+                pyxel.text(88, 80, "Resume", pyxel.COLOR_RED if self.pause_option is PauseOption.RESUME else pyxel.COLOR_WHITE)
+                pyxel.text(90, 90, "Save", pyxel.COLOR_RED if self.pause_option is PauseOption.SAVE else pyxel.COLOR_WHITE)
+                pyxel.text(84, 100, "Controls",
+                           pyxel.COLOR_RED if self.pause_option is PauseOption.CONTROLS else pyxel.COLOR_WHITE)
+                pyxel.text(90, 110, "Quit",
+                           pyxel.COLOR_RED if self.pause_option is PauseOption.QUIT else pyxel.COLOR_WHITE)
+            if OverlayType.CONTROLS in self.showing:
+                pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
+                pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
+                pyxel.text(85, 30, "Controls", pyxel.COLOR_WHITE)
+                pyxel.text(30, 45, "ARROWS", pyxel.COLOR_WHITE)
+                pyxel.text(65, 45, "Navigate menus/pan map", pyxel.COLOR_WHITE)
+                pyxel.text(30, 55, "R CLICK", pyxel.COLOR_WHITE)
+                pyxel.text(65, 55, "Show quad yield", pyxel.COLOR_WHITE)
+                pyxel.text(30, 65, "L CLICK", pyxel.COLOR_WHITE)
+                pyxel.text(65, 65, "Move/select/attack units", pyxel.COLOR_WHITE)
+                pyxel.text(30, 75, "C", pyxel.COLOR_WHITE)
+                pyxel.text(65, 75, "Add/change construction", pyxel.COLOR_WHITE)
+                pyxel.text(30, 85, "F", pyxel.COLOR_WHITE)
+                pyxel.text(65, 85, "Add/change blessing", pyxel.COLOR_WHITE)
+                pyxel.text(30, 95, "D", pyxel.COLOR_WHITE)
+                pyxel.text(65, 95, "Deploy/disband unit", pyxel.COLOR_WHITE)
+                pyxel.text(30, 105, "N", pyxel.COLOR_WHITE)
+                pyxel.text(65, 105, "Next song", pyxel.COLOR_WHITE)
+                pyxel.text(30, 115, "B", pyxel.COLOR_WHITE)
+                pyxel.text(65, 115, "Buyout construction", pyxel.COLOR_WHITE)
+                pyxel.text(56, 150, "Press SPACE to go back.", pyxel.COLOR_WHITE)
 
     def toggle_standard(self, turn: int):
         if OverlayType.STANDARD in self.showing:
             self.showing.remove(OverlayType.STANDARD)
-        else:
+        elif not self.is_tutorial() and not self.is_lvl_notif() and not self.is_constr_notif() and \
+                not self.is_bless_notif() and not self.is_deployment() and not self.is_warning() and \
+                not self.is_pause() and not self.is_controls() and not self.is_victory() and not self.is_constructing():
             self.showing.append(OverlayType.STANDARD)
             self.current_turn = turn
 
     def toggle_construction(self, available_constructions: typing.List[Improvement],
                             available_unit_plans: typing.List[UnitPlan]):
-        if OverlayType.CONSTRUCTION in self.showing and OverlayType.STANDARD not in self.showing:
+        if OverlayType.CONSTRUCTION in self.showing:
             self.showing.remove(OverlayType.CONSTRUCTION)
-        elif OverlayType.STANDARD not in self.showing:
+        elif not self.is_standard() and not self.is_blessing() and not self.is_lvl_notif() and \
+                not self.is_constr_notif() and not self.is_bless_notif() and not self.is_warning() and \
+                not self.is_deployment() and not self.is_pause() and not self.is_controls() and not self.is_victory():
             self.showing.append(OverlayType.CONSTRUCTION)
             self.available_constructions = available_constructions
             self.available_unit_plans = available_unit_plans
@@ -536,7 +568,9 @@ class Overlay:
     def toggle_blessing(self, available_blessings: typing.List[Blessing]):
         if OverlayType.BLESSING in self.showing:
             self.showing.remove(OverlayType.BLESSING)
-        else:
+        elif not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_bless_notif() and \
+                not self.is_deployment() and not self.is_warning() and not self.is_pause() and \
+                not self.is_controls() and not self.is_victory():
             self.showing.append(OverlayType.BLESSING)
             self.available_blessings = available_blessings
             self.selected_blessing = self.available_blessings[0]
@@ -568,9 +602,12 @@ class Overlay:
         return OverlayType.BLESSING in self.showing
 
     def toggle_settlement(self, settlement: typing.Optional[Settlement], player: Player):
-        if OverlayType.SETTLEMENT in self.showing and len(self.showing) == 1:
-            self.showing = []
-        elif len(self.showing) == 0:
+        if OverlayType.SETTLEMENT in self.showing:
+            self.showing.remove(OverlayType.SETTLEMENT)
+        elif not self.is_unit() and not self.is_standard() and not self.is_setl_click() and not self.is_blessing() and \
+                 not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_deployment() and \
+                 not self.is_warning() and not self.is_bless_notif() and not self.is_pause() and \
+                 not self.is_controls() and not self.is_victory():
             self.showing.append(OverlayType.SETTLEMENT)
             self.current_settlement = settlement
             self.current_player = player
@@ -584,13 +621,20 @@ class Overlay:
     def toggle_deployment(self):
         if OverlayType.DEPLOYMENT in self.showing:
             self.showing.remove(OverlayType.DEPLOYMENT)
-        else:
+        elif not self.is_warning() and not self.is_bless_notif() and not self.is_constr_notif() and \
+                not self.is_lvl_notif() and not self.is_pause() and not self.is_controls() and not self.is_victory():
             self.showing.append(OverlayType.DEPLOYMENT)
+
+    def is_deployment(self):
+        return OverlayType.DEPLOYMENT in self.showing
 
     def toggle_unit(self, unit: typing.Optional[typing.Union[Unit, Heathen]]):
         if OverlayType.UNIT in self.showing:
             self.showing.remove(OverlayType.UNIT)
-        else:
+        elif not self.is_setl() and not self.is_standard() and not self.is_setl_click() and not self.is_blessing() and \
+                 not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_deployment() and \
+                 not self.is_warning() and not self.is_bless_notif() and not self.is_pause() and \
+                 not self.is_controls() and not self.is_victory():
             self.showing.append(OverlayType.UNIT)
             self.selected_unit = unit
 
@@ -706,16 +750,20 @@ class Overlay:
     def is_siege_notif(self):
         return OverlayType.SIEGE_NOTIF in self.showing
 
-    def toggle_game_over(self):
-        self.showing.append(OverlayType.GAME_OVER)
+    def toggle_victory(self, victory: Victory):
+        self.showing.append(OverlayType.VICTORY)
+        self.current_victory = victory
 
-    def is_game_over(self):
-        return OverlayType.GAME_OVER in self.showing
+    def is_victory(self):
+        return OverlayType.VICTORY in self.showing
 
     def toggle_setl_click(self, att_setl: typing.Optional[Settlement], owner: typing.Optional[Player]):
         if OverlayType.SETL_CLICK in self.showing:
             self.showing.remove(OverlayType.SETL_CLICK)
-        else:
+        elif not self.is_standard() and not self.is_constructing() and not self.is_blessing() and \
+                not self.is_deployment() and not self.is_tutorial() and not self.is_warning() and \
+                not self.is_bless_notif() and not self.is_constr_notif() and not self.is_lvl_notif() and \
+                not self.is_pause() and not self.is_controls() and not self.is_victory():
             self.showing.append(OverlayType.SETL_CLICK)
             self.setl_attack_opt = SettlementAttackType.ATTACK
             self.attacked_settlement = att_setl
@@ -735,7 +783,7 @@ class Overlay:
     def toggle_pause(self):
         if OverlayType.PAUSE in self.showing:
             self.showing.remove(OverlayType.PAUSE)
-        else:
+        elif not self.is_victory():
             self.showing.append(OverlayType.PAUSE)
             self.pause_option = PauseOption.RESUME
 
@@ -761,7 +809,7 @@ class Overlay:
     def toggle_controls(self):
         if OverlayType.CONTROLS in self.showing:
             self.showing.remove(OverlayType.CONTROLS)
-        else:
+        elif not self.is_victory():
             self.showing.append(OverlayType.CONTROLS)
 
     def is_controls(self) -> bool:

@@ -38,6 +38,15 @@ class AIPlaystyle(str, Enum):
     NEUTRAL = "NEUTRAL"
 
 
+class VictoryType(Enum):
+    ELIMINATION = "ELIMINATION",
+    JUBILATION = "JUBILATION",
+    GLUTTONY = "GLUTTONY",
+    AFFLUENCE = "AFFLUENCE",
+    VIGOUR = "VIGOUR",
+    SERENDIPITY = "SERENDIPITY"
+
+
 @dataclass
 class Quad:
     biome: Biome
@@ -168,6 +177,7 @@ class Player:
     ongoing_blessing: typing.Optional[OngoingBlessing] = None
     ai_playstyle: typing.Optional[AIPlaystyle] = None
     jubilation_ctr: int = 0
+    accumulated_wealth: float = 0.0
 
 
 @dataclass
@@ -208,3 +218,9 @@ class SaveFile:
     heathens: typing.List[Heathen]
     turn: int
     cfg: GameConfig
+
+
+@dataclass
+class Victory:
+    player: Player
+    type: VictoryType

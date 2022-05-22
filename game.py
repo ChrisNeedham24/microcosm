@@ -18,7 +18,8 @@ from catalogue import get_available_improvements, get_available_blessings, get_a
     get_blessing, HEATHEN_UNIT_PLAN, get_unit_plan
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, \
-    UnitPlan, HarvestStatus, EconomicStatus, Heathen, AIPlaystyle, Blessing, GameConfig, SaveFile, Biome
+    UnitPlan, HarvestStatus, EconomicStatus, Heathen, AIPlaystyle, Blessing, GameConfig, SaveFile, Biome, Victory, \
+    VictoryType
 from movemaker import MoveMaker
 from music_player import MusicPlayer
 
@@ -162,9 +163,12 @@ class Game:
                         self.get_saves()
                     elif self.menu.menu_option is MenuOption.EXIT:
                         pyxel.quit()
-            elif self.game_started and self.board.overlay.is_game_over():
+            elif self.game_started and self.board.overlay.is_victory():
                 self.game_started = False
                 self.on_menu = True
+                self.menu.loading_game = False
+                self.menu.in_game_setup = False
+                self.menu.menu_option = MenuOption.NEW_GAME
                 self.music_player.stop_game_music()
                 self.music_player.play_menu_music()
             elif self.game_started and self.board.overlay.is_constructing():
@@ -186,8 +190,8 @@ class Game:
                     elif data.setl_was_taken:
                         data.settlement.under_siege_by = None
                         self.players[0].settlements.append(data.settlement)
-                        for p in self.players:
-                            if data.settlement in p.settlements:
+                        for idx, p in enumerate(self.players):
+                            if data.settlement in p.settlements and idx != 0:
                                 p.settlements.remove(data.settlement)
                                 break
                     self.board.overlay.toggle_setl_attack(data)
@@ -234,7 +238,7 @@ class Game:
                                               self.players[0], self.map_pos, self.heathens, all_units,
                                               self.players, other_setls)
         elif pyxel.btnp(pyxel.KEY_SHIFT):
-            if self.game_started and not self.board.overlay.is_tutorial():
+            if self.game_started:
                 self.board.overlay.remove_warning_if_possible()
                 self.board.overlay.toggle_standard(self.turn)
         elif pyxel.btnp(pyxel.KEY_C):
@@ -319,7 +323,7 @@ class Game:
                     complete_construction(self.board.selected_settlement)
                     self.players[0].wealth -= remaining_work
         elif pyxel.btnp(pyxel.KEY_P):
-            if self.game_started:
+            if self.game_started and not self.board.overlay.is_victory():
                 self.board.overlay.toggle_pause()
 
     def draw(self):
@@ -340,10 +344,6 @@ class Game:
             self.players.append(Player(f"NPC{i}", colour, 0, [], [], [], set(), ai_playstyle=random.choice(list(AIPlaystyle))))
 
     def end_turn(self) -> bool:
-        if len(self.players[0].settlements) == 0 and not any(unit.plan.can_settle for unit in self.players[0].units):
-            self.board.overlay.toggle_game_over()
-            return False
-
         # First make sure the player hasn't ended their turn without a construction or blessing.
         problematic_settlements = []
         total_wealth = 0
@@ -441,6 +441,7 @@ class Game:
                     self.board.overlay.toggle_unit(None)
                 player.wealth += sold_unit.plan.cost
             player.wealth = max(player.wealth + total_wealth, 0)
+            player.accumulated_wealth += total_wealth
 
         if self.turn % 5 == 0:
             heathen_loc = random.randint(0, 89), random.randint(0, 99)
@@ -454,27 +455,49 @@ class Game:
         self.board.overlay.remove_warning_if_possible()
         self.turn += 1
 
-        return self.check_for_victory() is None
+        possible_victory = self.check_for_victory()
+        if possible_victory is not None:
+            self.board.overlay.toggle_victory(possible_victory)
+            return False
+        else:
+            return True
 
-    def check_for_victory(self) -> typing.Optional[Player]:
+    def check_for_victory(self) -> typing.Optional[Victory]:
         players_with_setls = 0
         for p in self.players:
             if len(p.settlements) > 0:
                 jubilated_setls = 0
+                lvl_ten_setls = 0
+                constructed_sanctum = False
+
                 players_with_setls += 1
                 for s in p.settlements:
                     if s.satisfaction == 100:
                         jubilated_setls += 1
+                    if s.level == 10:
+                        lvl_ten_setls += 1
+                    if any(imp.name == "Holy Sanctum" for imp in s.improvements):
+                        constructed_sanctum = True
                 if jubilated_setls >= 5:
                     p.jubilation_ctr += 1
                 else:
                     p.jubilation_ctr = 0
-            if p.jubilation_ctr == 25:
-                return p
+                if p.jubilation_ctr == 25:
+                    return Victory(p, VictoryType.JUBILATION)
+                if lvl_ten_setls >= 10:
+                    return Victory(p, VictoryType.GLUTTONY)
+                if constructed_sanctum:
+                    return Victory(p, VictoryType.VIGOUR)
+            elif any(unit.plan.can_settle for unit in self.players[0].units):
+                players_with_setls += 1
+            if p.accumulated_wealth >= 50000:
+                return Victory(p, VictoryType.AFFLUENCE)
+            if len([bls for bls in p.blessings if "Piece of" in bls.name]) == 3:
+                return Victory(p, VictoryType.SERENDIPITY)
 
         if players_with_setls == 1:
-            return next(player for player in self.players if len(player.settlements) > 0)
-
+            return Victory(next(player for player in self.players if len(player.settlements) > 0),
+                           VictoryType.ELIMINATION)
 
         return None
 
@@ -528,6 +551,9 @@ class Game:
                                        [self.board.quads[setl_coords[0]][setl_coords[1]]],
                                        [get_default_unit(setl_coords)])
                 player.settlements.append(new_settl)
+                # TODO REMOVE
+                self.map_pos = (clamp(new_settl.location[0] - 12, -1, 77),
+                                clamp(new_settl.location[1] - 11, -1, 69))
 
     def process_ais(self):
         for player in self.players:
