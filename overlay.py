@@ -22,34 +22,34 @@ ATTACK = SETL_ATTACK = SIEGE_NOTIF
 """
 
 class OverlayType(Enum):
-    STANDARD = "STANDARD",
-    SETTLEMENT = "SETTLEMENT",
-    CONSTRUCTION = "CONSTRUCTION",
-    BLESSING = "BLESSING",
-    DEPLOYMENT = "DEPLOYMENT",
-    UNIT = "UNIT",
-    TUTORIAL = "TUTORIAL",
-    WARNING = "WARNING",
-    BLESS_NOTIF = "BLESS_NOTIF",
-    CONSTR_NOTIF = "CONSTR_NOTIF",
-    LEVEL_NOTIF = "LEVEL_NOTIF",
-    ATTACK = "ATTACK",
-    SETL_ATTACK = "SETL_ATTACK",
-    SETL_CLICK = "SETL_CLICK",
-    SIEGE_NOTIF = "SIEGE_NOTIF",
-    PAUSE = "PAUSE",
-    CONTROLS = "CONTROLS",
+    STANDARD = "STANDARD"
+    SETTLEMENT = "SETTLEMENT"
+    CONSTRUCTION = "CONSTRUCTION"
+    BLESSING = "BLESSING"
+    DEPLOYMENT = "DEPLOYMENT"
+    UNIT = "UNIT"
+    TUTORIAL = "TUTORIAL"
+    WARNING = "WARNING"
+    BLESS_NOTIF = "BLESS_NOTIF"
+    CONSTR_NOTIF = "CONSTR_NOTIF"
+    LEVEL_NOTIF = "LEVEL_NOTIF"
+    ATTACK = "ATTACK"
+    SETL_ATTACK = "SETL_ATTACK"
+    SETL_CLICK = "SETL_CLICK"
+    SIEGE_NOTIF = "SIEGE_NOTIF"
+    PAUSE = "PAUSE"
+    CONTROLS = "CONTROLS"
     VICTORY = "VICTORY"
 
 
 class SettlementAttackType(Enum):
-    ATTACK = "ATTACK",
+    ATTACK = "ATTACK"
     BESIEGE = "BESIEGE"
 
 
 class PauseOption(Enum):
-    RESUME = "RESUME",
-    SAVE = "SAVE",
+    RESUME = "RESUME"
+    SAVE = "SAVE"
     CONTROLS = "CONTROLS"
     QUIT = "QUIT"
 
@@ -101,7 +101,7 @@ class Overlay:
             if self.current_victory.type is VictoryType.ELIMINATION:
                 pyxel.text(22, 75, f"{beginning} achieved an ELIMINATION victory.", pyxel.COLOR_RED)
             elif self.current_victory.type is VictoryType.JUBILATION or self.current_victory.type is VictoryType.GLUTTONY:
-                pyxel.text(22, 75, f"{beginning} achieved a {self.current_victory.type} victory.", pyxel.COLOR_GREEN)
+                pyxel.text(22, 75, f"{beginning} achieved a {self.current_victory.type.value} victory.", pyxel.COLOR_GREEN)
             elif self.current_victory.type is VictoryType.AFFLUENCE:
                 pyxel.text(22, 75, f"{beginning} achieved an AFFLUENCE victory.", pyxel.COLOR_YELLOW)
             elif self.current_victory.type is VictoryType.VIGOUR:
@@ -114,24 +114,6 @@ class Overlay:
             pyxel.rectb(12, 150, 176, 15, pyxel.COLOR_WHITE)
             pyxel.rect(13, 151, 174, 13, pyxel.COLOR_BLACK)
             pyxel.text(15, 153, "Click a quad in the white square to deploy!", pyxel.COLOR_WHITE)
-        elif OverlayType.LEVEL_NOTIF in self.showing:
-            pyxel.rectb(12, 60, 176, 25 + len(self.levelled_up_settlements) * 20, pyxel.COLOR_WHITE)
-            pyxel.rect(13, 61, 174, 23 + len(self.levelled_up_settlements) * 20, pyxel.COLOR_BLACK)
-            pluralisation = "s" if len(self.levelled_up_settlements) > 1 else ""
-            pyxel.text(60, 63, f"Settlement{pluralisation} level up!", pyxel.COLOR_WHITE)
-            for idx, setl in enumerate(self.levelled_up_settlements):
-                pyxel.text(20, 73 + idx * 20, setl.name, pyxel.COLOR_WHITE)
-                pyxel.text(25, 83 + idx * 20, f"{setl.level - 1} -> {setl.level}", pyxel.COLOR_WHITE)
-            pyxel.text(70, 73 + len(self.levelled_up_settlements) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
-        elif OverlayType.CONSTR_NOTIF in self.showing:
-            pyxel.rectb(12, 60, 176, 25 + len(self.completed_constructions) * 20, pyxel.COLOR_WHITE)
-            pyxel.rect(13, 61, 174, 23 + len(self.completed_constructions) * 20, pyxel.COLOR_BLACK)
-            pluralisation = "s" if len(self.completed_constructions) > 1 else ""
-            pyxel.text(60, 63, f"Construction{pluralisation} completed!", pyxel.COLOR_RED)
-            for idx, constr in enumerate(self.completed_constructions):
-                pyxel.text(20, 73 + idx * 20, constr.settlement.name, pyxel.COLOR_WHITE)
-                pyxel.text(25, 83 + idx * 20, constr.construction.name, pyxel.COLOR_RED)
-            pyxel.text(70, 73 + len(self.completed_constructions) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
         elif OverlayType.BLESS_NOTIF in self.showing:
             unlocked = get_all_unlockable(self.completed_blessing)
             pyxel.rectb(12, 60, 176, 45 + len(unlocked) * 10, pyxel.COLOR_WHITE)
@@ -142,6 +124,24 @@ class Overlay:
             for idx, imp in enumerate(unlocked):
                 pyxel.text(25, 93 + idx * 10, imp.name, pyxel.COLOR_RED)
             pyxel.text(70, 93 + len(unlocked) * 10, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+        elif OverlayType.CONSTR_NOTIF in self.showing:
+            pyxel.rectb(12, 60, 176, 25 + len(self.completed_constructions) * 20, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 61, 174, 23 + len(self.completed_constructions) * 20, pyxel.COLOR_BLACK)
+            pluralisation = "s" if len(self.completed_constructions) > 1 else ""
+            pyxel.text(60, 63, f"Construction{pluralisation} completed!", pyxel.COLOR_RED)
+            for idx, constr in enumerate(self.completed_constructions):
+                pyxel.text(20, 73 + idx * 20, constr.settlement.name, pyxel.COLOR_WHITE)
+                pyxel.text(25, 83 + idx * 20, constr.construction.name, pyxel.COLOR_RED)
+            pyxel.text(70, 73 + len(self.completed_constructions) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+        elif OverlayType.LEVEL_NOTIF in self.showing:
+            pyxel.rectb(12, 60, 176, 25 + len(self.levelled_up_settlements) * 20, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 61, 174, 23 + len(self.levelled_up_settlements) * 20, pyxel.COLOR_BLACK)
+            pluralisation = "s" if len(self.levelled_up_settlements) > 1 else ""
+            pyxel.text(60, 63, f"Settlement{pluralisation} level up!", pyxel.COLOR_WHITE)
+            for idx, setl in enumerate(self.levelled_up_settlements):
+                pyxel.text(20, 73 + idx * 20, setl.name, pyxel.COLOR_WHITE)
+                pyxel.text(25, 83 + idx * 20, f"{setl.level - 1} -> {setl.level}", pyxel.COLOR_WHITE)
+            pyxel.text(70, 73 + len(self.levelled_up_settlements) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
         elif OverlayType.WARNING in self.showing:
             extension = 0
             if self.will_have_negative_wealth:
@@ -256,7 +256,7 @@ class Overlay:
                         pyxel.text(30, 155, "Buyout:", pyxel.COLOR_WHITE)
                         pyxel.blt(60, 153, 0, 0, 44, 8, 8)
                         pyxel.text(70, 155, str(round(remaining_work)), pyxel.COLOR_WHITE)
-                        pyxel.text(83, 155, "(B)", pyxel.COLOR_WHITE)
+                        pyxel.text(87, 155, "(B)", pyxel.COLOR_WHITE)
                 else:
                     pyxel.text(20, 145 - y_offset, "None", pyxel.COLOR_RED)
                     pyxel.text(20, 155 - y_offset, "Press C to add one!", pyxel.COLOR_WHITE)
@@ -654,15 +654,10 @@ class Overlay:
         return OverlayType.UNIT in self.showing
 
     def can_iter_settlements_units(self) -> bool:
-        if len(self.showing) == 0:
-            return True
-        elif len(self.showing) == 1:
-            if self.showing[0] is OverlayType.SETTLEMENT or self.showing[0] is OverlayType.UNIT:
-                return True
-            else:
-                return False
-        else:
-            return False
+        return not self.is_victory() and not self.is_controls() and not self.is_pause() and \
+            not self.is_deployment() and not self.is_warning() and not self.is_bless_notif() and \
+               not self.is_constr_notif() and not self.is_lvl_notif() and not self.is_blessing() and \
+            not self.is_standard() and not self.is_constructing() and not self.is_setl_click()
 
     def is_setl(self):
         return OverlayType.SETTLEMENT in self.showing

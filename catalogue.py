@@ -5,18 +5,23 @@ from models import Player, Improvement, ImprovementType, Effect, Blessing, Settl
 
 SETL_NAMES = {
     Biome.DESERT: [
-        "Enfu", "Saknoten", "Despemar", "Khasolzum", "Nekpesir", "Akhtamar", "Absai", "Khanomhat", "Sharrisir", "Kisri"
+        "Enfu", "Saknoten", "Despemar", "Khasolzum", "Nekpesir", "Akhtamar", "Absai", "Khanomhat", "Sharrisir", "Kisri",
+        "Kervapet", "Khefupet", "Djesy", "Quri", "Sakmusa", "Khasru", "Farvaru", "Kiteru", "Setmeris", "Qulno"
     ],
     Biome.FOREST: [
         "Kalshara", "Mora Caelora", "Yam Ennore", "Uyla Themar", "Nelrenqua", "Caranlian", "Osaenamel", "Elhamel",
-        "Allenrion", "Nilathaes"
+        "Allenrion", "Nilathaes", "Osna Thalas", "Mytebel", "Ifoqua", "Amsanas", "Effa Dorei", "Aff Tirion",
+        "Wamalenor", "Thaihona", "Illmelion", "Naallume"
     ],
     Biome.SEA: [
-        "Natanas", "Tempetia", "Leviarey", "Atlalis", "Neptulean", "Oceacada", "Naurus", "Hylore", "Expathis", "Liquasa"
+        "Natanas", "Tempetia", "Leviarey", "Atlalis", "Neptulean", "Oceacada", "Naurus", "Hylore", "Expathis",
+        "Liquasa", "Navanoch", "Flulean", "Calaril", "Njomon", "Jutumari", "Atlalora", "Abystin", "Vapolina",
+        "Watamari", "Pacirius"
     ],
     Biome.MOUNTAIN: [
-        "Nem Tarhir", "Dharnturm", "Hun Thurum", "Vil Tarum", "Khurn Kuldihr", "Hildarim", "Gog Daruhl", "Vogguruhm",
-        "Dhighthiod", "Malwihr"
+        "Nem Tarhir", "Dharnturm", "Hun Thurum", "Vil Tarum", "Kha Kuldihr", "Hildarim", "Gog Daruhl", "Vogguruhm",
+        "Dhighthiod", "Malwihr", "Mil Boldar", "Hunfuhn", "Dunulur", "Kagria", "Meltorum", "Gol Darohm", "Beghrihm",
+        "Heltorhm", "Kor Olihm", "Nilgron"
     ]
 }
 
@@ -25,6 +30,10 @@ def get_settlement_name(biome: Biome) -> str:
     name = random.choice(SETL_NAMES[biome])
     SETL_NAMES[biome].remove(name)
     return name
+
+
+def remove_settlement_name(name: str, biome: Biome):
+    SETL_NAMES[biome].remove(name)
 
 
 BLESSINGS = {
@@ -121,9 +130,9 @@ IMPROVEMENTS = [
                 Effect(wealth=-1, zeal=2, fortune=2, satisfaction=6), BLESSINGS["grt_goo"]),
     Improvement(ImprovementType.PANDERING, 180, "Puppet Shows", "Putting those spells to use.",
                 Effect(wealth=1, zeal=-1, fortune=1, satisfaction=6), BLESSINGS["beg_spl"]),
-    Improvement(ImprovementType.PANDERING, 1080, "Universal Basic Income", "Utopian in more ways than one.",
+    Improvement(ImprovementType.PANDERING, 1080, "Common Chief Yield", "Utopian in more ways than one.",
                 Effect(wealth=-5, harvest=2, zeal=2, fortune=2, strength=2, satisfaction=10), BLESSINGS["ref_prc"]),
-    Improvement(ImprovementType.PANDERING, 1080, "Infinite Entertainment", "Where the robots are the stars.",
+    Improvement(ImprovementType.PANDERING, 1080, "Infinite Disport", "Where the robots are the stars.",
                 Effect(zeal=2, fortune=-1, satisfaction=12), BLESSINGS["rob_exp"]),
     Improvement(ImprovementType.PANDERING, 1080, "Free Expression", "Say what we know you'll say.",
                 Effect(satisfaction=15), BLESSINGS["brd_fan"]),

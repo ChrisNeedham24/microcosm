@@ -108,6 +108,10 @@ def complete_construction(setl: Settlement):
             setl.strength += setl.current_work.construction.effect.strength
         if setl.current_work.construction.effect.satisfaction != 0:
             setl.satisfaction += setl.current_work.construction.effect.satisfaction
+            if setl.satisfaction < 0:
+                setl.satisfaction = 0
+            elif setl.satisfaction > 100:
+                setl.satisfaction = 100
     else:
         plan: UnitPlan = setl.current_work.construction
         if plan.can_settle:

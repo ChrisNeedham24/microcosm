@@ -15,7 +15,7 @@ from board import Board
 from calculator import clamp, attack, get_player_totals, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
     get_settlement_name, get_default_unit, get_unlockable_units, get_unlockable_improvements, get_improvement, \
-    get_blessing, HEATHEN_UNIT_PLAN, get_unit_plan
+    get_blessing, HEATHEN_UNIT_PLAN, get_unit_plan, remove_settlement_name
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, \
     UnitPlan, HarvestStatus, EconomicStatus, Heathen, AIPlaystyle, Blessing, GameConfig, SaveFile, Biome, Victory, \
@@ -28,17 +28,18 @@ from music_player import MusicPlayer
 """
 Plan
 Victory types
-- Elimination: all settlements belong to the player
-- Jubilation: maintain 100% satisfaction in at least 5 settlements for 25 turns
-- Gluttony: reach level 10 in at least 10 settlements
-- Affluence: accumulate 50k wealth over the course of the game
+- Elimination: all settlements belong to the player VIABLE
+- Jubilation: maintain 100% satisfaction in at least 5 settlements for 25 turns VIABLE
+- Gluttony: reach level 10 in at least 10 settlements VIABLE
+- Affluence: accumulate 100k wealth over the course of the game
 - Vigour: construct the holy sanctum in a settlement
 - Serendipity: research the three pieces of ardour
 """
 # TODO FF Add notifications for being close to victory - make this an issue
-# TODO FF Add Wiki on main menu - Blessings/Improvements/Units/Victories/Controls
+# TODO Add Wiki on main menu - Blessings/Improvements/Units/Victories/Controls
 # TODO FF Allow save naming - make this an issue
 # TODO FF Scale heathen strength based on turn - make this an issue
+# TODO FF Show that a save is successful - make this an issue
 from overlay import SettlementAttackType, PauseOption
 from save_encoder import SaveEncoder, ObjectConverter
 
@@ -368,8 +369,8 @@ class Game:
             return False
 
         for player in self.players:
-            total_fortune = 0
-            total_wealth = 0
+            overall_fortune = 0
+            overall_wealth = 0
             completed_constructions: typing.List[CompletedConstruction] = []
             levelled_up_settlements: typing.List[Settlement] = []
             for setl in player.settlements:
@@ -390,6 +391,8 @@ class Game:
                     setl.economic_status = EconomicStatus.BOOM
 
                 total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(setl)
+                overall_fortune += total_fortune
+                overall_wealth += total_wealth
 
                 if setl.under_siege_by is not None:
                     if setl.under_siege_by.health <= 0:
@@ -426,22 +429,22 @@ class Game:
                     unit.health = min(unit.health + unit.plan.max_health * 0.1, unit.plan.max_health)
                 unit.has_attacked = False
                 if not unit.garrisoned:
-                    total_wealth -= unit.plan.cost / 25
+                    overall_wealth -= unit.plan.cost / 25
             if player.ongoing_blessing is not None:
-                player.ongoing_blessing.fortune_consumed += total_fortune
+                player.ongoing_blessing.fortune_consumed += overall_fortune
                 if player.ongoing_blessing.fortune_consumed >= player.ongoing_blessing.blessing.cost:
                     player.blessings.append(player.ongoing_blessing.blessing)
                     if player.ai_playstyle is None:
                         self.board.overlay.toggle_blessing_notification(player.ongoing_blessing.blessing)
                     player.ongoing_blessing = None
-            while player.wealth + total_wealth < 0:
+            while player.wealth + overall_wealth < 0:
                 sold_unit = player.units.pop()
                 if self.board.selected_unit is sold_unit:
                     self.board.selected_unit = None
                     self.board.overlay.toggle_unit(None)
                 player.wealth += sold_unit.plan.cost
-            player.wealth = max(player.wealth + total_wealth, 0)
-            player.accumulated_wealth += total_wealth
+            player.wealth = max(player.wealth + overall_wealth, 0)
+            player.accumulated_wealth += overall_wealth
 
         if self.turn % 5 == 0:
             heathen_loc = random.randint(0, 89), random.randint(0, 99)
@@ -490,7 +493,7 @@ class Game:
                     return Victory(p, VictoryType.VIGOUR)
             elif any(unit.plan.can_settle for unit in self.players[0].units):
                 players_with_setls += 1
-            if p.accumulated_wealth >= 50000:
+            if p.accumulated_wealth >= 100000:
                 return Victory(p, VictoryType.AFFLUENCE)
             if len([bls for bls in p.blessings if "Piece of" in bls.name]) == 3:
                 return Victory(p, VictoryType.SERENDIPITY)
@@ -551,9 +554,6 @@ class Game:
                                        [self.board.quads[setl_coords[0]][setl_coords[1]]],
                                        [get_default_unit(setl_coords)])
                 player.settlements.append(new_settl)
-                # TODO REMOVE
-                self.map_pos = (clamp(new_settl.location[0] - 12, -1, 77),
-                                clamp(new_settl.location[1] - 11, -1, 69))
 
     def process_ais(self):
         for player in self.players:
@@ -591,9 +591,10 @@ class Game:
                 for u in p.units:
                     u.location = (u.location[0], u.location[1])
                 for s in p.settlements:
+                    remove_settlement_name(s.name, s.quads[0].biome)
                     s.location = (s.location[0], s.location[1])
                     if s.current_work is not None:
-                        if s.current_work.construction.type is not None:
+                        if hasattr(s.current_work.construction, "type"):
                             s.current_work.construction = get_improvement(s.current_work.construction.name)
                         else:
                             s.current_work.construction = get_unit_plan(s.current_work.construction.name)

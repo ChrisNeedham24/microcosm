@@ -264,7 +264,7 @@ class Board:
                     quad_biome = self.quads[adj_y][adj_x].biome
                     setl_name = get_settlement_name(quad_biome)
                     new_settl = Settlement(setl_name, (adj_x, adj_y), [], [self.quads[adj_y][adj_x]],
-                                           [get_default_unit((adj_x, adj_y)) for _ in range(10)])
+                                           [get_default_unit((adj_x, adj_y))])
                     player.settlements.append(new_settl)
                     for i in range(adj_y - 5, adj_y + 6):
                         for j in range(adj_x - 5, adj_x + 6):
@@ -281,10 +281,13 @@ class Board:
                             any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
                         self.selected_settlement = to_select
                         self.overlay.toggle_settlement(to_select, player)
-                    # TODO Can't garrison from anywhere
                     elif self.selected_unit is not None and self.selected_unit in player.units and \
                             self.selected_settlement is None and \
-                            any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
+                            any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements) and \
+                            self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
+                            self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
+                            self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
+                            self.selected_unit.location[1] + self.selected_unit.remaining_stamina:
                         self.selected_unit.garrisoned = True
                         to_select.garrison.append(self.selected_unit)
                         player.units.remove(self.selected_unit)
@@ -313,8 +316,8 @@ class Board:
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
                             self.selected_unit in player.units and not self.selected_unit.has_attacked and \
                             (any((to_attack := heathen).location == (adj_x, adj_y) for heathen in heathens) or
-                            any((to_attack := enemy).location == (adj_x, adj_y) for enemy in all_units)):
-                        if self.selected_unit is not to_attack and \
+                            any((to_attack := unit).location == (adj_x, adj_y) for unit in all_units)):
+                        if self.selected_unit is not to_attack and to_attack not in player.units and \
                                 abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
                                 abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
                             data = attack(self.selected_unit, to_attack, ai=False)
@@ -332,6 +335,9 @@ class Board:
                                             break
                             self.overlay.toggle_attack(data)
                             self.attack_time_bank = 0
+                        elif to_attack in player.units:
+                            self.selected_unit = to_attack
+                            self.overlay.update_unit(to_attack)
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
                             self.selected_unit in player.units and not self.selected_unit.has_attacked and \
                             any((to_attack := setl).location == (adj_x, adj_y) for setl in other_setls):

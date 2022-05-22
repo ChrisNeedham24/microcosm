@@ -254,6 +254,11 @@ class MoveMaker:
                 if found_valid_loc:
                     if attack_over_siege:
                         if isinstance(within_range, Unit):
+                            unit.sieging = False
+                            for p in all_players:
+                                for s in p.settlements:
+                                    if s.under_siege_by is unit:
+                                        s.under_siege_by = None
                             data = attack(unit, within_range)
 
                             if within_range in all_players[0].units:

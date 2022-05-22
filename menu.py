@@ -15,10 +15,10 @@ class MenuOption(Enum):
 
 
 class SetupOption(Enum):
-    PLAYER_COLOUR = "COLOUR",
-    PLAYER_COUNT = "COUNT",
-    BIOME_CLUSTERING = "BIOME",
-    FOG_OF_WAR = "FOG",
+    PLAYER_COLOUR = "COLOUR"
+    PLAYER_COUNT = "COUNT"
+    BIOME_CLUSTERING = "BIOME"
+    FOG_OF_WAR = "FOG"
     START_GAME = "START"
 
 
