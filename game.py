@@ -31,7 +31,7 @@ Victory types
 - Elimination: all settlements belong to the player VIABLE
 - Jubilation: maintain 100% satisfaction in at least 5 settlements for 25 turns VIABLE
 - Gluttony: reach level 10 in at least 10 settlements VIABLE
-- Affluence: accumulate 100k wealth over the course of the game
+- Affluence: accumulate 100k wealth over the course of the game VIABLE
 - Vigour: construct the holy sanctum in a settlement
 - Serendipity: research the three pieces of ardour
 """
@@ -395,18 +395,32 @@ class Game:
                 overall_wealth += total_wealth
 
                 if setl.under_siege_by is not None:
-                    if setl.under_siege_by.health <= 0:
+                    found_unit = False
+                    for p in self.players:
+                        if setl.under_siege_by in p.units:
+                            found_unit = True
+                            break
+                    if not found_unit:
                         setl.under_siege_by = None
                     else:
-                        setl.strength -= setl.max_strength * 0.1
+                        if setl.under_siege_by.health <= 0:
+                            setl.under_siege_by = None
+                        else:
+                            setl.strength -= setl.max_strength * 0.1
                 else:
                     if setl.strength < setl.max_strength:
                         setl.strength = min(setl.strength + setl.max_strength * 0.1, setl.max_strength)
 
-                if total_harvest < setl.level * 3:
+                for g in setl.garrison:
+                    g.has_attacked = False
+                    g.remaining_stamina = g.plan.total_stamina
+                    if g.health < g.plan.max_health:
+                        g.health = min(g.health + g.plan.max_health * 0.1, g.plan.max_health)
+
+                if total_harvest < setl.level * 4:
                     setl.satisfaction -= 0.5
-                elif total_harvest >= setl.level * 6:
-                    setl.satisfaction += 0.5
+                elif total_harvest >= setl.level * 8:
+                    setl.satisfaction += 0.25
                 setl.satisfaction = clamp(setl.satisfaction, 0, 100)
 
                 setl.harvest_reserves += total_harvest
@@ -428,8 +442,7 @@ class Game:
                 if unit.health < unit.plan.max_health:
                     unit.health = min(unit.health + unit.plan.max_health * 0.1, unit.plan.max_health)
                 unit.has_attacked = False
-                if not unit.garrisoned:
-                    overall_wealth -= unit.plan.cost / 25
+                overall_wealth -= unit.plan.cost / 25
             if player.ongoing_blessing is not None:
                 player.ongoing_blessing.fortune_consumed += overall_fortune
                 if player.ongoing_blessing.fortune_consumed >= player.ongoing_blessing.blessing.cost:
@@ -588,8 +601,9 @@ class Game:
                 self.players[0].quads_seen[i] = (self.players[0].quads_seen[i][0], self.players[0].quads_seen[i][1])
             self.players[0].quads_seen = set(self.players[0].quads_seen)
             for p in self.players:
-                for u in p.units:
-                    u.location = (u.location[0], u.location[1])
+                for idx, u in enumerate(p.units):
+                    p.units[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]), u.garrisoned,
+                             u.plan, u.has_attacked, u.sieging)
                 for s in p.settlements:
                     remove_settlement_name(s.name, s.quads[0].biome)
                     s.location = (s.location[0], s.location[1])
@@ -600,7 +614,8 @@ class Game:
                             s.current_work.construction = get_unit_plan(s.current_work.construction.name)
                     for idx, imp in enumerate(s.improvements):
                         s.improvements[idx] = get_improvement(imp.name)
-                p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
+                if p.ongoing_blessing:
+                    p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
                 for idx, bls in enumerate(p.blessings):
                     p.blessings[idx] = get_blessing(bls.name)
                 if p.ai_playstyle is not None:

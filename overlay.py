@@ -105,7 +105,7 @@ class Overlay:
             elif self.current_victory.type is VictoryType.AFFLUENCE:
                 pyxel.text(22, 75, f"{beginning} achieved an AFFLUENCE victory.", pyxel.COLOR_YELLOW)
             elif self.current_victory.type is VictoryType.VIGOUR:
-                pyxel.text(22, 75, f"{beginning} achieved a VIGOUR victory.", pyxel.COLOR_ORANGE)
+                pyxel.text(30, 75, f"{beginning} achieved a VIGOUR victory.", pyxel.COLOR_ORANGE)
             else:
                 pyxel.text(22, 75, f"{beginning} achieved a SERENDIPITY victory.", pyxel.COLOR_PURPLE)
 
@@ -219,7 +219,7 @@ class Overlay:
                 pyxel.text(20, 14, f"{self.current_settlement.name} ({self.current_settlement.level})",
                            self.current_player.colour)
                 pyxel.blt(80, 12, 0, 0, 28, 8, 8)
-                pyxel.text(90, 14, str(self.current_settlement.strength), pyxel.COLOR_WHITE)
+                pyxel.text(90, 14, str(round(self.current_settlement.strength)), pyxel.COLOR_WHITE)
                 satisfaction_u = 8 if self.current_settlement.satisfaction >= 50 else 16
                 pyxel.blt(105, 12, 0, satisfaction_u, 28, 8, 8)
                 pyxel.text(115, 14, str(round(self.current_settlement.satisfaction)), pyxel.COLOR_WHITE)
@@ -274,7 +274,8 @@ class Overlay:
                 pyxel.text(20, 114, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
                 if self.selected_unit.plan.can_settle:
                     pyxel.blt(55, 113, 0, 24, 36, 8, 8)
-                if self.selected_unit.sieging and self.selected_unit in self.current_player.units:
+                if not isinstance(self.selected_unit, Heathen) and self.selected_unit.sieging and \
+                        self.selected_unit in self.current_player.units:
                     pyxel.blt(55, 113, 0, 32, 36, 8, 8)
                     pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
                     pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
@@ -546,9 +547,14 @@ class Overlay:
             current_index = list_to_use.index(self.selected_construction)
             if current_index != len(list_to_use) - 1:
                 self.selected_construction = list_to_use[current_index + 1]
-                if current_index == self.construction_boundaries[1]:
-                    self.construction_boundaries = \
-                        self.construction_boundaries[0] + 1, self.construction_boundaries[1] + 1
+                if self.constructing_improvement:
+                    if current_index == self.construction_boundaries[1]:
+                        self.construction_boundaries = \
+                            self.construction_boundaries[0] + 1, self.construction_boundaries[1] + 1
+                else:
+                    if current_index == self.unit_plan_boundaries[1]:
+                        self.unit_plan_boundaries = \
+                            self.unit_plan_boundaries[0] + 1, self.unit_plan_boundaries[1] + 1
             else:
                 self.selected_construction = None
         elif not down:
@@ -558,9 +564,14 @@ class Overlay:
                 current_index = list_to_use.index(self.selected_construction)
                 if current_index != 0:
                     self.selected_construction = list_to_use[current_index - 1]
-                    if current_index == self.construction_boundaries[0]:
-                        self.construction_boundaries = \
-                            self.construction_boundaries[0] - 1, self.construction_boundaries[1] - 1
+                    if self.constructing_improvement:
+                        if current_index == self.construction_boundaries[0]:
+                            self.construction_boundaries = \
+                                self.construction_boundaries[0] - 1, self.construction_boundaries[1] - 1
+                    else:
+                        if current_index == self.unit_plan_boundaries[0]:
+                            self.unit_plan_boundaries = \
+                                self.unit_plan_boundaries[0] - 1, self.unit_plan_boundaries[1] - 1
 
     def is_constructing(self) -> bool:
         return OverlayType.CONSTRUCTION in self.showing

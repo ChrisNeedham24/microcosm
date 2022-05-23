@@ -55,7 +55,7 @@ BLESSINGS = {
     "grt_goo": Blessing("The Greater Good", "The benefit of helping others.", 100),
     "ref_prc": Blessing("Reformist Principles", "Maybe another system could be better.", 500),
     "brd_fan": Blessing("Broad Fanaticism", "Maybe I can do no wrong.", 2500),
-    "anc_his": Blessing("Ancient History", "Guide us to the light.", 2500),
+    "anc_his": Blessing("Ancient History", "Guide us to the light.", 6250),
     "ard_one": Blessing("Piece of Strength", "The mighty will prevail.", 12500),
     "ard_two": Blessing("Piece of Passion", "Only the passionate will remain.", 12500),
     "ard_three": Blessing("Piece of Divinity", "Everything is revealed.", 12500)
@@ -136,7 +136,7 @@ IMPROVEMENTS = [
                 Effect(zeal=2, fortune=-1, satisfaction=12), BLESSINGS["rob_exp"]),
     Improvement(ImprovementType.PANDERING, 1080, "Free Expression", "Say what we know you'll say.",
                 Effect(satisfaction=15), BLESSINGS["brd_fan"]),
-    Improvement(ImprovementType.INDUSTRIAL, 6480, "Holy Sanctum", "To converse with the holy ones.",
+    Improvement(ImprovementType.INDUSTRIAL, 15000, "Holy Sanctum", "To converse with the holy ones.",
                 Effect(), BLESSINGS["anc_his"])
 ]
 
@@ -145,10 +145,10 @@ UNIT_PLANS = [
     UnitPlan(125, 50, 5, "Bowman", None, 25),
     UnitPlan(25, 25, 6, "Settler", None, 50, can_settle=True),
     UnitPlan(150, 75, 4, "Mage", BLESSINGS["beg_spl"], 50),
-    UnitPlan(200, 40, 2, "Grenadier", BLESSINGS["rud_exp"], 75),
-    UnitPlan(150, 150, 5, "Drone", BLESSINGS["rob_exp"], 125),
-    UnitPlan(50, 200, 2, "Flagellant", BLESSINGS["tor_tec"], 80),
-    UnitPlan(150, 125, 3, "Sniper", BLESSINGS["apr_ref"], 100),
+    UnitPlan(200, 40, 2, "Grenadier", BLESSINGS["rud_exp"], 100),
+    UnitPlan(150, 150, 5, "Drone", BLESSINGS["rob_exp"], 800),
+    UnitPlan(50, 200, 2, "Flagellant", BLESSINGS["tor_tec"], 200),
+    UnitPlan(150, 125, 3, "Sniper", BLESSINGS["apr_ref"], 400),
 ]
 
 
