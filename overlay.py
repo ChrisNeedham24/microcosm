@@ -121,9 +121,12 @@ class Overlay:
             pyxel.text(60, 63, "Blessing completed!", pyxel.COLOR_PURPLE)
             pyxel.text(20, 73, self.completed_blessing.name, pyxel.COLOR_WHITE)
             pyxel.text(20, 83, "Unlocks:", pyxel.COLOR_WHITE)
-            for idx, imp in enumerate(unlocked):
-                pyxel.text(25, 93 + idx * 10, imp.name, pyxel.COLOR_RED)
-            pyxel.text(70, 93 + len(unlocked) * 10, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+            if len(unlocked) > 0:
+                for idx, imp in enumerate(unlocked):
+                    pyxel.text(25, 93 + idx * 10, imp.name, pyxel.COLOR_RED)
+            else:
+                pyxel.text(25, 93, "victory", pyxel.COLOR_GREEN)
+            pyxel.text(70, 93 + max(1, len(unlocked)) * 10, "SPACE: Dismiss", pyxel.COLOR_WHITE)
         elif OverlayType.CONSTR_NOTIF in self.showing:
             pyxel.rectb(12, 60, 176, 25 + len(self.completed_constructions) * 20, pyxel.COLOR_WHITE)
             pyxel.rect(13, 61, 174, 23 + len(self.completed_constructions) * 20, pyxel.COLOR_BLACK)
@@ -363,7 +366,7 @@ class Overlay:
                            pyxel.COLOR_RED if self.selected_construction is None else pyxel.COLOR_WHITE)
                 if self.constructing_improvement:
                     pyxel.text(140, 150, "Units ->", pyxel.COLOR_WHITE)
-                else:
+                elif len(self.available_constructions) > 0:
                     pyxel.text(25, 150, "<- Improvements", pyxel.COLOR_WHITE)
             if OverlayType.STANDARD in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)

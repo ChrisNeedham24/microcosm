@@ -24,7 +24,6 @@ from movemaker import MoveMaker
 from music_player import MusicPlayer
 
 
-# TODO ONG Victory conditions - one for each resource type (harvest, wealth, etc.)
 """
 Plan
 Victory types
@@ -32,8 +31,8 @@ Victory types
 - Jubilation: maintain 100% satisfaction in at least 5 settlements for 25 turns VIABLE
 - Gluttony: reach level 10 in at least 10 settlements VIABLE
 - Affluence: accumulate 100k wealth over the course of the game VIABLE
-- Vigour: construct the holy sanctum in a settlement
-- Serendipity: research the three pieces of ardour
+- Vigour: construct the holy sanctum in a settlement VIABLE
+- Serendipity: research the three pieces of ardour VIABLE
 """
 # TODO FF Add notifications for being close to victory - make this an issue
 # TODO Add Wiki on main menu - Blessings/Improvements/Units/Victories/Controls
@@ -116,7 +115,8 @@ class Game:
         elif pyxel.btnp(pyxel.KEY_LEFT):
             if self.on_menu:
                 self.menu.navigate(left=True)
-            if self.game_started and self.board.overlay.is_constructing():
+            if self.game_started and self.board.overlay.is_constructing() and \
+                    len(self.board.overlay.available_constructions) > 0:
                 self.board.overlay.constructing_improvement = True
                 self.board.overlay.selected_construction = self.board.overlay.available_constructions[0]
             elif self.game_started:
@@ -142,6 +142,7 @@ class Game:
                 if self.menu.in_game_setup and self.menu.setup_option is SetupOption.START_GAME:
                     pyxel.mouse(visible=True)
                     self.game_started = True
+                    self.turn = 1
                     self.on_menu = False
                     cfg: GameConfig = self.menu.get_game_config()
                     self.gen_players(cfg)
@@ -307,7 +308,7 @@ class Game:
                 self.map_pos = (clamp(self.board.selected_unit.location[0] - 12, -1, 77),
                                 clamp(self.board.selected_unit.location[1] - 11, -1, 69))
         elif pyxel.btnp(pyxel.KEY_S):
-            if self.game_started and self.board.selected_unit.plan.can_settle:
+            if self.game_started and self.board.selected_unit is not None and self.board.selected_unit.plan.can_settle:
                 self.board.handle_new_settlement(self.players[0])
         elif pyxel.btnp(pyxel.KEY_N):
             if self.game_started:
