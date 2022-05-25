@@ -35,7 +35,7 @@ Victory types
 - Serendipity: research the three pieces of ardour VIABLE
 """
 # TODO FF Add notifications for being close to victory - make this an issue
-# TODO Add Wiki on main menu - Blessings/Improvements/Units/Victories/Controls
+# TODO ONG Add Wiki on main menu - Blessings/Improvements/Units/Victories
 # TODO FF Allow save naming - make this an issue
 # TODO FF Scale heathen strength based on turn - make this an issue
 # TODO FF Show that a save is successful - make this an issue
@@ -157,12 +157,19 @@ class Game:
                         self.menu.loading_game = False
                     else:
                         self.load_game(self.menu.save_idx)
+                elif self.menu.in_wiki:
+                    if self.menu.wiki_option is None:
+                        self.menu.in_wiki = False
+                    else:
+                        self.menu.wiki_showing = self.menu.wiki_option
                 else:
                     if self.menu.menu_option is MenuOption.NEW_GAME:
                         self.menu.in_game_setup = True
                     elif self.menu.menu_option is MenuOption.LOAD_GAME:
                         self.menu.loading_game = True
                         self.get_saves()
+                    elif self.menu.menu_option is MenuOption.WIKI:
+                        self.menu.in_wiki = True
                     elif self.menu.menu_option is MenuOption.EXIT:
                         pyxel.quit()
             elif self.game_started and self.board.overlay.is_victory():
@@ -281,6 +288,8 @@ class Game:
                 self.map_pos = (clamp(self.board.selected_settlement.location[0] - 12, -1, 77),
                                 clamp(self.board.selected_settlement.location[1] - 11, -1, 69))
         elif pyxel.btnp(pyxel.KEY_SPACE):
+            if self.on_menu and self.menu.in_wiki and self.menu.wiki_showing is not None:
+                self.menu.wiki_showing = None
             if self.game_started and self.board.overlay.is_bless_notif():
                 self.board.overlay.toggle_blessing_notification(None)
             elif self.game_started and self.board.overlay.is_constr_notif():
