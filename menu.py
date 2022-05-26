@@ -60,7 +60,7 @@ class Menu:
         self.wiki_option = WikiOption.VICTORIES
         self.wiki_showing = None
         self.victory_type = VictoryType.ELIMINATION
-        self.blessing_boundaries = 0, 5
+        self.blessing_boundaries = 0, 3
         self.saves: typing.List[str] = []
         self.save_idx: typing.Optional[int] = 0
         self.setup_option = SetupOption.PLAYER_COLOUR
@@ -254,21 +254,21 @@ class Menu:
                 for idx, blessing in enumerate(BLESSINGS.values()):
                     if self.blessing_boundaries[0] <= idx <= self.blessing_boundaries[1]:
                         adj_idx = idx - self.blessing_boundaries[0]
-                        pyxel.text(20, 50 + adj_idx * 18, str(blessing.name), pyxel.COLOR_WHITE)
-                        pyxel.text(160, 50 + adj_idx * 18, str(blessing.cost), pyxel.COLOR_WHITE)
-                        # TODO Add descriptions
+                        pyxel.text(20, 50 + adj_idx * 25, str(blessing.name), pyxel.COLOR_WHITE)
+                        pyxel.text(160, 50 + adj_idx * 25, str(blessing.cost), pyxel.COLOR_WHITE)
+                        pyxel.text(20, 57 + adj_idx * 25, str(blessing.description), pyxel.COLOR_WHITE)
                         imps = get_unlockable_improvements(blessing)
-                        pyxel.text(20, 57 + adj_idx * 18, "U:", pyxel.COLOR_WHITE)
+                        pyxel.text(20, 64 + adj_idx * 25, "U:", pyxel.COLOR_WHITE)
                         unlocked_names: typing.List[str] = []
                         if len(imps) > 0:
                             for imp in imps:
                                 unlocked_names.append(imp.name)
                             if len(unlocked_names) > 0:
-                                pyxel.text(28, 57 + adj_idx * 18, ", ".join(unlocked_names), pyxel.COLOR_WHITE)
+                                pyxel.text(28, 64 + adj_idx * 25, ", ".join(unlocked_names), pyxel.COLOR_WHITE)
                             else:
-                                pyxel.text(28, 56 + adj_idx * 18, "victory", pyxel.COLOR_GREEN)
+                                pyxel.text(28, 63 + adj_idx * 25, "victory", pyxel.COLOR_GREEN)
                         else:
-                            pyxel.text(28, 56 + adj_idx * 18, "victory", pyxel.COLOR_GREEN)
+                            pyxel.text(28, 63 + adj_idx * 25, "victory", pyxel.COLOR_GREEN)
                 pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                 if self.blessing_boundaries[1] != len(BLESSINGS) - 1:
                     pyxel.text(152, 155, "More", pyxel.COLOR_WHITE)
