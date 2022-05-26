@@ -5,6 +5,7 @@ from enum import Enum
 import pyxel
 
 from calculator import clamp
+from catalogue import BLESSINGS, get_unlockable_improvements
 from models import GameConfig, VictoryType
 
 
@@ -59,6 +60,7 @@ class Menu:
         self.wiki_option = WikiOption.VICTORIES
         self.wiki_showing = None
         self.victory_type = VictoryType.ELIMINATION
+        self.blessing_boundaries = 0, 5
         self.saves: typing.List[str] = []
         self.save_idx: typing.Optional[int] = 0
         self.setup_option = SetupOption.PLAYER_COLOUR
@@ -202,7 +204,22 @@ class Menu:
                     pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
                 elif self.victory_type is VictoryType.VIGOUR:
                     pyxel.text(88, 40, "VIGOUR", pyxel.COLOR_ORANGE)
-                    pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 45, "Objectives:", pyxel.COLOR_WHITE)
+                    pyxel.text(30, 55, "Undergo the Ancient History blessing", pyxel.COLOR_WHITE)
+                    pyxel.text(30, 65, "Construct the holy sanctum in a", pyxel.COLOR_WHITE)
+                    pyxel.text(30, 71, "settlement", pyxel.COLOR_WHITE)
+                    pyxel.line(24, 77, 175, 77, pyxel.COLOR_GRAY)
+                    pyxel.text(25, 80, "You have always been fascinated with", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 86, "the bygone times of your empire and", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 92, "its rich history. There is never a", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 98, "better time than the present to devote", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 104, "some time to your studies. Your", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 110, "advisors tell you that the educated", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 116, "among your subjects have been doing", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 122, "some research recently, and have", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 128, "unearthed the plans for some form", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 134, "of Holy Sanctum. You make it your", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "mission to construct said sanctum.", pyxel.COLOR_WHITE)
                     pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                     pyxel.blt(35, 150, 0, 0, 44, 8, 8)
                     pyxel.blt(158, 151, 0, 24, 44, 8, 8)
@@ -210,8 +227,53 @@ class Menu:
                 elif self.victory_type is VictoryType.SERENDIPITY:
                     pyxel.text(78, 40, "SERENDIPITY", pyxel.COLOR_PURPLE)
                     pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
+                    pyxel.text(30, 60, "Undergo the three blessings of", pyxel.COLOR_WHITE)
+                    pyxel.text(30, 66, "ardour: the pieces of strength,", pyxel.COLOR_WHITE)
+                    pyxel.text(30, 72, "passion, and divinity.", pyxel.COLOR_WHITE)
+                    pyxel.line(24, 82, 175, 82, pyxel.COLOR_GRAY)
+                    pyxel.text(25, 87, "Local folklore has always said that", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 93, "a man of the passions was a man", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 99, "unparalleled amongst his peers. You", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 105, "have long aspired to be such a man,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 111, "and such a leader. You consult your", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 117, "local sects and are informed that you", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 123, "are now ready to make the arduous", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 129, "journey of enlightenment and", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 135, "fulfillment. You grasp the opportunity", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 141, "with two hands, as a blessed man.", pyxel.COLOR_WHITE)
                     pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                     pyxel.blt(35, 150, 0, 16, 44, 8, 8)
+            elif self.wiki_showing is WikiOption.BLESSINGS:
+                pyxel.load("resources/sprites.pyxres")
+                pyxel.rectb(10, 20, 180, 154, pyxel.COLOR_WHITE)
+                pyxel.rect(11, 21, 178, 152, pyxel.COLOR_BLACK)
+                pyxel.text(82, 30, "Blessings", pyxel.COLOR_PURPLE)
+                pyxel.text(20, 40, "Name", pyxel.COLOR_WHITE)
+                pyxel.text(155, 40, "Cost", pyxel.COLOR_WHITE)
+                pyxel.blt(173, 39, 0, 24, 44, 8, 8)
+                for idx, blessing in enumerate(BLESSINGS.values()):
+                    if self.blessing_boundaries[0] <= idx <= self.blessing_boundaries[1]:
+                        adj_idx = idx - self.blessing_boundaries[0]
+                        pyxel.text(20, 50 + adj_idx * 18, str(blessing.name), pyxel.COLOR_WHITE)
+                        pyxel.text(160, 50 + adj_idx * 18, str(blessing.cost), pyxel.COLOR_WHITE)
+                        # TODO Add descriptions
+                        imps = get_unlockable_improvements(blessing)
+                        pyxel.text(20, 57 + adj_idx * 18, "U:", pyxel.COLOR_WHITE)
+                        unlocked_names: typing.List[str] = []
+                        if len(imps) > 0:
+                            for imp in imps:
+                                unlocked_names.append(imp.name)
+                            if len(unlocked_names) > 0:
+                                pyxel.text(28, 57 + adj_idx * 18, ", ".join(unlocked_names), pyxel.COLOR_WHITE)
+                            else:
+                                pyxel.text(28, 56 + adj_idx * 18, "victory", pyxel.COLOR_GREEN)
+                        else:
+                            pyxel.text(28, 56 + adj_idx * 18, "victory", pyxel.COLOR_GREEN)
+                pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
+                if self.blessing_boundaries[1] != len(BLESSINGS) - 1:
+                    pyxel.text(152, 155, "More", pyxel.COLOR_WHITE)
+                    pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
+                    pyxel.blt(172, 156, 0, 0, 76, 8, 8)
             elif self.wiki_showing is None:
                 pyxel.rectb(60, 60, 80, 80, pyxel.COLOR_WHITE)
                 pyxel.rect(61, 61, 78, 78, pyxel.COLOR_BLACK)
@@ -255,14 +317,18 @@ class Menu:
                 elif self.save_idx == len(self.saves) - 1:
                     self.save_idx = -1
             elif self.in_wiki:
-                if self.wiki_option is WikiOption.VICTORIES:
-                    self.wiki_option = WikiOption.BLESSINGS
-                elif self.wiki_option is WikiOption.BLESSINGS:
-                    self.wiki_option = WikiOption.IMPROVEMENTS
-                elif self.wiki_option is WikiOption.IMPROVEMENTS:
-                    self.wiki_option = WikiOption.UNITS
-                elif self.wiki_option is WikiOption.UNITS:
-                    self.wiki_option = None
+                if self.wiki_showing is WikiOption.BLESSINGS:
+                    if self.blessing_boundaries[1] < len(BLESSINGS) - 1:
+                        self.blessing_boundaries = self.blessing_boundaries[0] + 1, self.blessing_boundaries[1] + 1
+                else:
+                    if self.wiki_option is WikiOption.VICTORIES:
+                        self.wiki_option = WikiOption.BLESSINGS
+                    elif self.wiki_option is WikiOption.BLESSINGS:
+                        self.wiki_option = WikiOption.IMPROVEMENTS
+                    elif self.wiki_option is WikiOption.IMPROVEMENTS:
+                        self.wiki_option = WikiOption.UNITS
+                    elif self.wiki_option is WikiOption.UNITS:
+                        self.wiki_option = None
             else:
                 if self.menu_option is MenuOption.NEW_GAME:
                     self.menu_option = MenuOption.LOAD_GAME
@@ -286,14 +352,18 @@ class Menu:
                 elif self.save_idx > 0:
                     self.save_idx -= 1
             elif self.in_wiki:
-                if self.wiki_option is WikiOption.BLESSINGS:
-                    self.wiki_option = WikiOption.VICTORIES
-                elif self.wiki_option is WikiOption.IMPROVEMENTS:
-                    self.wiki_option = WikiOption.BLESSINGS
-                elif self.wiki_option is WikiOption.UNITS:
-                    self.wiki_option = WikiOption.IMPROVEMENTS
-                elif self.wiki_option is None:
-                    self.wiki_option = WikiOption.UNITS
+                if self.wiki_showing is WikiOption.BLESSINGS:
+                    if self.blessing_boundaries[0] > 0:
+                        self.blessing_boundaries = self.blessing_boundaries[0] - 1, self.blessing_boundaries[1] - 1
+                else:
+                    if self.wiki_option is WikiOption.BLESSINGS:
+                        self.wiki_option = WikiOption.VICTORIES
+                    elif self.wiki_option is WikiOption.IMPROVEMENTS:
+                        self.wiki_option = WikiOption.BLESSINGS
+                    elif self.wiki_option is WikiOption.UNITS:
+                        self.wiki_option = WikiOption.IMPROVEMENTS
+                    elif self.wiki_option is None:
+                        self.wiki_option = WikiOption.UNITS
             else:
                 if self.menu_option is MenuOption.LOAD_GAME:
                     self.menu_option = MenuOption.NEW_GAME
