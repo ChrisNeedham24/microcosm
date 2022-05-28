@@ -3,8 +3,10 @@ import typing
 
 from calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, attack_setl
 from catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
-    get_available_improvements, get_available_unit_plans, get_settlement_name
+    get_available_improvements, get_available_unit_plans, Namer
 from models import Player, Blessing, AIPlaystyle, OngoingBlessing, Settlement, Improvement, UnitPlan, Construction, Unit
+
+# TODO Continue comments from here.
 
 
 def set_blessing(player: Player, player_totals: (float, float, float, float)):
@@ -131,7 +133,8 @@ def set_construction(player: Player, setl: Settlement):
 
 
 class MoveMaker:
-    def __init__(self):
+    def __init__(self, namer: Namer):
+        self.namer: Namer = namer
         self.board_ref = None
 
     def make_move(self, player: Player, all_players: typing.List[Player]):
@@ -194,7 +197,7 @@ class MoveMaker:
                     far_enough = False
             if far_enough:
                 quad_biome = self.board_ref.quads[unit.location[1]][unit.location[0]].biome
-                setl_name = get_settlement_name(quad_biome)
+                setl_name = self.namer.get_settlement_name(quad_biome)
                 new_settl = Settlement(setl_name, unit.location, [],
                                        [self.board_ref.quads[unit.location[1]][unit.location[0]]], [])
                 player.settlements.append(new_settl)

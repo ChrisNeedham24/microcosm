@@ -4,6 +4,9 @@ from enum import Enum
 
 
 class Biome(str, Enum):
+    """
+    The four biomes a quad can be of.
+    """
     DESERT = "DESERT"
     FOREST = "FOREST"
     SEA = "SEA"
@@ -11,6 +14,9 @@ class Biome(str, Enum):
 
 
 class ImprovementType(str, Enum):
+    """
+    The six types that an improvement can be of.
+    """
     INDUSTRIAL = "INDUSTRIAL"
     MAGICAL = "MAGICAL"
     ECONOMICAL = "ECONOMICAL"
@@ -20,24 +26,43 @@ class ImprovementType(str, Enum):
 
 
 class HarvestStatus(str, Enum):
+    """
+    The three harvest statuses that are used to regulate harvest levels in a settlement.
+    """
     POOR = "POOR"
     STANDARD = "STANDARD"
     PLENTIFUL = "PLENTIFUL"
 
 
 class EconomicStatus(str, Enum):
+    """
+    The three economic statuses that are used to regulate wealth levels in a settlement.
+    """
     RECESSION = "RECESSION"
     STANDARD = "STANDARD"
     BOOM = "BOOM"
 
 
 class AIPlaystyle(str, Enum):
+    """
+    The three AI playstyles; aggressive AIs essentially attack at every opportunity, defensive will almost never attack,
+    and neutral AIs are in between.
+    """
     AGGRESSIVE = "AGGRESSIVE"
     DEFENSIVE = "DEFENSIVE"
     NEUTRAL = "NEUTRAL"
 
 
 class VictoryType(Enum):
+    """
+    The six different victory types. Their criteria for victory are below:
+    - Elimination: all settlements belong to the player
+    - Jubilation: maintain 100% satisfaction in at least 5 settlements for 25 turns
+    - Gluttony: reach level 10 in at least 10 settlements
+    - Affluence: accumulate 100k wealth over the course of the game
+    - Vigour: construct the holy sanctum in a settlement
+    - Serendipity: research the three pieces of ardour
+    """
     ELIMINATION = "ELIMINATION"
     JUBILATION = "JUBILATION"
     GLUTTONY = "GLUTTONY"
@@ -48,6 +73,9 @@ class VictoryType(Enum):
 
 @dataclass
 class Quad:
+    """
+    A quad on the board. Has a biome, yield, and whether it is selected.
+    """
     biome: Biome
     wealth: float
     harvest: float
@@ -58,6 +86,9 @@ class Quad:
 
 @dataclass
 class Effect:
+    """
+    An effect that is generated on a settlement upon the completion of the construction of an improvement.
+    """
     wealth: float = 0.0
     harvest: float = 0.0
     zeal: float = 0.0
@@ -68,15 +99,21 @@ class Effect:
 
 @dataclass
 class Blessing:
+    """
+    A blessing that may be undergone to unlock improvements, unit plans, or achieve victory criteria.
+    """
     name: str
     description: str
-    cost: float
+    cost: float  # Measured in fortune.
 
 
 @dataclass
 class Improvement:
-    type: ImprovementType
-    cost: float
+    """
+    An improvement that may be constructed in a settlement.
+    """
+    type: ImprovementType  # Corresponds to the highest yield in its effect.
+    cost: float  # Measured in zeal.
     name: str
     description: str
     effect: Effect
@@ -85,58 +122,77 @@ class Improvement:
 
 @dataclass
 class UnitPlan:
-    power: float
+    """
+    The plan for a unit that may be recruited.
+    """
+    power: float  # Used in attacks.
     max_health: float
     total_stamina: int
     name: str
     prereq: typing.Optional[Blessing]
-    cost: float
+    cost: float  # Measured in zeal.
     can_settle: bool = False
 
 
 @dataclass
 class Unit:
+    """
+    The actual instance of a unit, based on a UnitPlan.
+    """
     health: float
     remaining_stamina: int
     location: (float, float)
     garrisoned: bool
     plan: UnitPlan
-    has_attacked: bool = False
+    has_attacked: bool = False  # Units can only attack once per turn.
     sieging: bool = False
 
 
 @dataclass
 class Heathen:
+    """
+    A roaming unit that doesn't belong to any player that will attack any unit it sees.
+    """
     health: float
     remaining_stamina: int
     location: (float, float)
     plan: UnitPlan
-    has_attacked: bool = False
+    has_attacked: bool = False  # Heathens can also only attack once per turn.
 
 
 @dataclass
 class Construction:
+    """
+    An improvement being constructed or a unit being recruited currently in a settlement.
+    """
     construction: typing.Union[Improvement, UnitPlan]
     zeal_consumed: float = 0.0
 
 
 @dataclass
 class OngoingBlessing:
+    """
+    A blessing being currently undergone.
+    """
     blessing: Blessing
     fortune_consumed: float = 0.0
 
 
 @dataclass
 class Settlement:
+    """
+    A settlement belonging to a player.
+    """
     name: str
     location: (int, int)
     improvements: typing.List[Improvement]
-    quads: typing.List[Quad]
+    quads: typing.List[Quad]  # Currently, settlements only have a single quad. But this may be expanded in future.
     garrison: typing.List[Unit]
     strength: float = 100
     max_strength: float = 100
     satisfaction: float = 50
     current_work: typing.Optional[Construction] = None
+    level: int = 1
     """
     The harvest reserves required for each upgrade is as below:
     Threshold = (current_level ^ 2) * 25
@@ -150,22 +206,27 @@ class Settlement:
     Level 8 -> 9 = 1600
     Level 9 -> 10 = 2025
     """
-    level: int = 1
     harvest_reserves: float = 0.0
     harvest_status: HarvestStatus = HarvestStatus.STANDARD
     economic_status: EconomicStatus = EconomicStatus.STANDARD
-    produced_settler: bool = False
+    produced_settler: bool = False  # Used for AI players so that settlements don't get stuck producing settlers.
     under_siege_by: typing.Optional[Unit] = None
 
 
 @dataclass
 class CompletedConstruction:
+    """
+    An improvement or unit plan construction that has been completed.
+    """
     construction: typing.Union[Improvement, UnitPlan]
     settlement: Settlement
 
 
 @dataclass
 class Player:
+    """
+    A player of Microcosm.
+    """
     name: str
     colour: int  # Refers to pyxel's colours, which resolve to integers.
     wealth: float
@@ -175,12 +236,15 @@ class Player:
     quads_seen: typing.Set[typing.Tuple[int, int]]
     ongoing_blessing: typing.Optional[OngoingBlessing] = None
     ai_playstyle: typing.Optional[AIPlaystyle] = None
-    jubilation_ctr: int = 0
+    jubilation_ctr: int = 0  # How many turns the player has had 5 settlements at 100% satisfaction.
     accumulated_wealth: float = 0.0
 
 
 @dataclass
 class AttackData:
+    """
+    The data from an attack that has occurred.
+    """
     attacker: typing.Union[Unit, Heathen]
     defender: typing.Union[Unit, Heathen]
     damage_to_attacker: float
@@ -192,6 +256,9 @@ class AttackData:
 
 @dataclass
 class SetlAttackData:
+    """
+    The data from an attack on a settlement that has occurred.
+    """
     attacker: Unit
     settlement: Settlement
     setl_owner: Player
@@ -204,6 +271,9 @@ class SetlAttackData:
 
 @dataclass
 class GameConfig:
+    """
+    The configuration for a game of Microcosm.
+    """
     player_count: int
     player_colour: int  # Refers to pyxel's colours, which resolve to integers.
     biome_clustering: bool
@@ -211,15 +281,9 @@ class GameConfig:
 
 
 @dataclass
-class SaveFile:
-    quads: typing.List[Quad]
-    players: typing.List[Player]
-    heathens: typing.List[Heathen]
-    turn: int
-    cfg: GameConfig
-
-
-@dataclass
 class Victory:
+    """
+    A victory achieved by a player.
+    """
     player: Player
     type: VictoryType

@@ -6,7 +6,7 @@ from enum import Enum
 import pyxel
 
 from calculator import calculate_yield_for_quad, attack
-from catalogue import get_default_unit, get_settlement_name
+from catalogue import get_default_unit, Namer
 from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig
 from overlay import Overlay
 
@@ -26,7 +26,7 @@ class Board:
     """
     The class responsible for drawing everything in-game (i.e. not on menu).
     """
-    def __init__(self, cfg: GameConfig, quads: typing.List[typing.List[Quad]] = None):
+    def __init__(self, cfg: GameConfig, namer: Namer, quads: typing.List[typing.List[Quad]] = None):
         """
         Initialises the board with the given config and quads, if supplied.
         :param cfg: The game config.
@@ -38,6 +38,7 @@ class Board:
         self.siege_time_bank = 0
 
         self.game_config: GameConfig = cfg
+        self.namer: Namer = namer
 
         # We allow quads to be supplied here in load game cases.
         if quads is not None:
@@ -336,7 +337,7 @@ class Board:
                     # If the player has not founded a settlement yet, then this first click denotes where their first
                     # settlement will be.
                     quad_biome = self.quads[adj_y][adj_x].biome
-                    setl_name = get_settlement_name(quad_biome)
+                    setl_name = self.namer.get_settlement_name(quad_biome)
                     new_settl = Settlement(setl_name, (adj_x, adj_y), [], [self.quads[adj_y][adj_x]],
                                            [get_default_unit((adj_x, adj_y))])
                     player.settlements.append(new_settl)
@@ -492,7 +493,7 @@ class Board:
                 break
         if can_settle:
             quad_biome = self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]].biome
-            setl_name = get_settlement_name(quad_biome)
+            setl_name = self.namer.get_settlement_name(quad_biome)
             new_settl = Settlement(setl_name, self.selected_unit.location, [],
                                    [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]], [])
             player.settlements.append(new_settl)

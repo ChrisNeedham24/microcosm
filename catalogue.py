@@ -1,5 +1,6 @@
 import random
 import typing
+from copy import deepcopy
 
 from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome, Heathen
 
@@ -27,25 +28,39 @@ SETL_NAMES = {
 }
 
 
-def get_settlement_name(biome: Biome) -> str:
+class Namer:
     """
-    Returns a settlement name for the given biome.
-    :param biome: The biome of the settlement-to-be.
-    :return: A settlement name.
+    The class responsible for giving settlements names. Needs to be a class for cases in which the player quits their
+    current game and loads another (or the same) immediately, without exiting the application. This is a problem due to
+    the fact that, in that case, SETL_NAMES will not be reset, as it is on application start.
     """
-    name = random.choice(SETL_NAMES[biome])
-    # Note that we remove the settlement name to avoid duplicates.
-    SETL_NAMES[biome].remove(name)
-    return name
+    def __init__(self):
+        self.names = deepcopy(SETL_NAMES)
 
+    def get_settlement_name(self, biome: Biome) -> str:
+        """
+        Returns a settlement name for the given biome.
+        :param biome: The biome of the settlement-to-be.
+        :return: A settlement name.
+        """
+        name = random.choice(self.names[biome])
+        # Note that we remove the settlement name to avoid duplicates.
+        self.names[biome].remove(name)
+        return name
 
-def remove_settlement_name(name: str, biome: Biome):
-    """
-    Removes a settlement name from the list. Used in loaded game cases.
-    :param name: The settlement name to remove.
-    :param biome: The biome of the settlement. Used to locate the name in the dictionary.
-    """
-    SETL_NAMES[biome].remove(name)
+    def remove_settlement_name(self, name: str, biome: Biome):
+        """
+        Removes a settlement name from the list. Used in loaded game cases.
+        :param name: The settlement name to remove.
+        :param biome: The biome of the settlement. Used to locate the name in the dictionary.
+        """
+        self.names[biome].remove(name)
+
+    def reset(self):
+        """
+        Resets the available names.
+        """
+        self.names = deepcopy(SETL_NAMES)
 
 
 # The list of blessings that can be undergone.
@@ -163,7 +178,6 @@ UNIT_PLANS = [
     UnitPlan(50, 200, 2, "Flagellant", BLESSINGS["tor_tec"], 200),
     UnitPlan(150, 125, 3, "Sniper", BLESSINGS["apr_ref"], 400),
 ]
-
 
 # The unit plan for the heathens.
 HEATHEN_UNIT_PLAN = UnitPlan(80, 80, 2, "Heathen", None, 0)

@@ -10,6 +10,9 @@ from models import GameConfig, VictoryType
 
 
 class MenuOption(Enum):
+    """
+    Represents the options the player can choose from the main menu.
+    """
     NEW_GAME = "New Game"
     LOAD_GAME = "Load Game"
     WIKI = "Wiki"
@@ -17,6 +20,9 @@ class MenuOption(Enum):
 
 
 class SetupOption(Enum):
+    """
+    Represents the options the player can choose from the game setup screen.
+    """
     PLAYER_COLOUR = "COLOUR"
     PLAYER_COUNT = "COUNT"
     BIOME_CLUSTERING = "BIOME"
@@ -25,12 +31,16 @@ class SetupOption(Enum):
 
 
 class WikiOption(Enum):
+    """
+    Represents the options the player can choose from the wiki.
+    """
     VICTORIES = "VIC"
     BLESSINGS = "BLS"
     IMPROVEMENTS = "IMP"
     UNITS = "UNITS"
 
 
+# A convenient list of all available colours. Deliberately excludes black and white.
 AVAILABLE_COLOURS = [
     ("Navy", pyxel.COLOR_NAVY),
     ("Purple", pyxel.COLOR_PURPLE),
@@ -50,7 +60,13 @@ AVAILABLE_COLOURS = [
 
 
 class Menu:
+    """
+    The class responsible for drawing and navigating the menu.
+    """
     def __init__(self):
+        """
+        Initialise the menu with a random background image on the main menu.
+        """
         self.menu_option = MenuOption.NEW_GAME
         random.seed()
         self.image = random.randint(0, 3)
@@ -71,6 +87,10 @@ class Menu:
         self.fog_of_war_enabled = True
 
     def draw(self):
+        """
+        Draws the menu, based on where we are in it.
+        """
+        # Draw the background.
         if self.image < 3:
             pyxel.load("resources/background.pyxres")
             pyxel.blt(0, 0, self.image, 0, 0, 200, 200)
@@ -372,6 +392,13 @@ class Menu:
                        pyxel.COLOR_RED if self.menu_option is MenuOption.EXIT else pyxel.COLOR_WHITE)
 
     def navigate(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
+        """
+        Navigate the menu based on the given arrow key pressed.
+        :param up: Whether the up arrow key was pressed.
+        :param down: Whether the down arrow key was pressed.
+        :param left: Whether the left arrow key was pressed.
+        :param right: Whether the right arrow key was pressed.
+        """
         if down:
             if self.in_game_setup:
                 if self.setup_option is SetupOption.PLAYER_COLOUR:
@@ -494,5 +521,9 @@ class Menu:
                     self.victory_type = VictoryType.SERENDIPITY
 
     def get_game_config(self) -> GameConfig:
+        """
+        Returns the game config based on the setup screen selections.
+        :return: The appropriate GameConfig object.
+        """
         return GameConfig(self.player_count, AVAILABLE_COLOURS[self.colour_idx][1], self.biome_clustering_enabled,
                           self.fog_of_war_enabled)

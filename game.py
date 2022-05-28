@@ -11,8 +11,7 @@ import pyxel
 from board import Board
 from calculator import clamp, attack, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
-    get_settlement_name, get_default_unit, get_improvement, get_blessing, HEATHEN_UNIT_PLAN, get_unit_plan, \
-    remove_settlement_name
+    get_default_unit, get_improvement, get_blessing, HEATHEN_UNIT_PLAN, get_unit_plan, Namer
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
     EconomicStatus, Heathen, AIPlaystyle, GameConfig, Biome, Victory, VictoryType
@@ -49,7 +48,8 @@ class Game:
         self.music_player = MusicPlayer()
         self.music_player.play_menu_music()
 
-        self.move_maker = MoveMaker()
+        self.namer = Namer()
+        self.move_maker = MoveMaker(self.namer)
 
         pyxel.run(self.on_update, self.draw)
 
@@ -140,7 +140,7 @@ class Game:
                     self.on_menu = False
                     cfg: GameConfig = self.menu.get_game_config()
                     self.gen_players(cfg)
-                    self.board = Board(cfg)
+                    self.board = Board(cfg, self.namer)
                     self.move_maker.board_ref = self.board
                     self.board.overlay.toggle_tutorial()
                     self.initialise_ais()
@@ -588,19 +588,20 @@ class Game:
         return None
 
     def process_heathens(self):
-        # TODO Continue doco from here.
         all_units = []
         for player in self.players:
             for unit in player.units:
                 all_units.append(unit)
         for heathen in self.heathens:
             within_range: typing.Optional[Unit] = None
+            # Check if any player unit is within range of the heathen.
             for unit in all_units:
                 if max(abs(unit.location[0] - heathen.location[0]),
                        abs(unit.location[1] - heathen.location[1])) <= heathen.remaining_stamina and \
                         heathen.health >= unit.health / 2:
                     within_range = unit
                     break
+            # If there is a unit within range, move next to it and attack it.
             if within_range is not None:
                 if within_range.location[0] - heathen.location[0] < 0:
                     heathen.location = within_range.location[0] + 1, within_range.location[1]
@@ -618,9 +619,11 @@ class Game:
                         self.board.overlay.toggle_unit(None)
                 if heathen.health <= 0:
                     self.heathens.remove(heathen)
+                # Only show the attack overlay if the unit attacked was the non-AI player's.
                 if within_range in self.players[0].units:
                     self.board.overlay.toggle_attack(data)
             else:
+                # If there are no units within range, just move randomly.
                 x_movement = random.randint(-heathen.remaining_stamina, heathen.remaining_stamina)
                 rem_movement = heathen.remaining_stamina - abs(x_movement)
                 y_movement = random.choice([-rem_movement, rem_movement])
@@ -628,24 +631,33 @@ class Game:
                 heathen.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
     def initialise_ais(self):
+        """
+        Initialise the AI players by adding their first settlement in a random location.
+        """
         for player in self.players:
             if player.ai_playstyle is not None:
-                # Add their settlement.
                 setl_coords = random.randint(0, 89), random.randint(0, 99)
                 quad_biome = self.board.quads[setl_coords[0]][setl_coords[1]].biome
-                setl_name = get_settlement_name(quad_biome)
+                setl_name = self.namer.get_settlement_name(quad_biome)
                 new_settl = Settlement(setl_name, setl_coords, [],
                                        [self.board.quads[setl_coords[0]][setl_coords[1]]],
                                        [get_default_unit(setl_coords)])
                 player.settlements.append(new_settl)
 
     def process_ais(self):
+        """
+        Process the moves for each AI player.
+        """
         for player in self.players:
             if player.ai_playstyle is not None:
                 self.move_maker.make_move(player, self.players)
 
     def save_game(self):
+        """
+        Saves the current game with the current timestamp as the file name.
+        """
         with open(f"saves/save-{datetime.datetime.now().isoformat(timespec='seconds')}.json", "w") as save_file:
+            # We use chain.from_iterable() here because the quads array is 2D.
             save = {
                 "quads": list(chain.from_iterable(self.board.quads)),
                 "players": self.players,
@@ -653,71 +665,99 @@ class Game:
                 "turn": self.turn,
                 "cfg": self.board.game_config
             }
+            # Note that we use the SaveEncoder here for custom encoding for some classes.
             save_file.write(json.dumps(save, cls=SaveEncoder))
         save_file.close()
 
     def load_game(self, save_idx: int):
+        """
+        Loads the game with the given index from the saves/ directory.
+        :param save_idx: The index of the save file to load. Determined from the list of saves chosen from on the menu.
+        """
+        # Reset the namer so that we have our original set of names again.
+        self.namer.reset()
+        # Filter out the README, plus sort and reverse the list so that the most recent are first.
         saves = list(filter(lambda file: not file == "README.md", os.listdir("saves")))
         saves.sort()
         saves.reverse()
         with open(f"saves/{saves[save_idx]}", "r") as save_file:
+            # Use a custom object hook when loading the JSON so that the resulting objects have attribute access.
             save = json.loads(save_file.read(), object_hook=ObjectConverter)
+            # Load in the quads.
             quads = [[None] * 100 for _ in range(90)]
             for i in range(90):
                 for j in range(100):
                     quads[i][j] = save.quads[i * 100 + j]
+                    # The biomes require special loading.
                     quads[i][j].biome = Biome[quads[i][j].biome]
             self.players = save.players
+            # The list of tuples that is quads_seen needs special loading, as do a few other of the same type, because
+            # tuples do not exist in JSON, so they are represented as arrays, which will clearly not work.
             for i in range(len(self.players[0].quads_seen)):
                 self.players[0].quads_seen[i] = (self.players[0].quads_seen[i][0], self.players[0].quads_seen[i][1])
             self.players[0].quads_seen = set(self.players[0].quads_seen)
             for p in self.players:
                 for idx, u in enumerate(p.units):
+                    # We can do a direct conversion to a Unit object for units.
                     p.units[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]), u.garrisoned,
                                         u.plan, u.has_attacked, u.sieging)
                 for s in p.settlements:
-                    remove_settlement_name(s.name, s.quads[0].biome)
+                    # Make sure we remove the settlement's name so that we don't get duplicates.
+                    self.namer.remove_settlement_name(s.name, s.quads[0].biome)
+                    # Another tuple-array fix.
                     s.location = (s.location[0], s.location[1])
                     if s.current_work is not None:
+                        # Get the actual Improvement or UnitPlan objects for the current work. We use hasattr() because
+                        # improvements have a type and unit plans do not.
                         if hasattr(s.current_work.construction, "type"):
                             s.current_work.construction = get_improvement(s.current_work.construction.name)
                         else:
                             s.current_work.construction = get_unit_plan(s.current_work.construction.name)
                     for idx, imp in enumerate(s.improvements):
+                        # Do another direct conversion for improvements.
                         s.improvements[idx] = get_improvement(imp.name)
+                # We also do direct conversions to Blessing objects for the ongoing one, if there is one, as well as any
+                # previously-completed ones.
                 if p.ongoing_blessing:
                     p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
                 for idx, bls in enumerate(p.blessings):
                     p.blessings[idx] = get_blessing(bls.name)
                 if p.ai_playstyle is not None:
                     p.ai_playstyle = AIPlaystyle[p.ai_playstyle]
+            # For the AI players, we can just make quads_seen an empty set, as it's not used.
             for i in range(1, len(self.players)):
                 self.players[i].quads_seen = set()
 
             self.heathens = []
             for h in save.heathens:
+                # Do another direct conversion for the heathens.
                 self.heathens.append(Heathen(h.health, h.remaining_stamina, (h.location[0], h.location[1]),
                                              HEATHEN_UNIT_PLAN, h.has_attacked))
 
             self.turn = save.turn
             game_cfg = save.cfg
         save_file.close()
+        # Now do all the same logic we do when starting a game.
         pyxel.mouse(visible=True)
         self.game_started = True
         self.on_menu = False
-        self.board = Board(game_cfg, quads)
+        self.board = Board(game_cfg, self.namer, quads)
         self.move_maker.board_ref = self.board
+        # Initialise the map position to the player's first settlement.
         self.map_pos = (clamp(self.players[0].settlements[0].location[0] - 12, -1, 77),
                         clamp(self.players[0].settlements[0].location[1] - 11, -1, 69))
         self.board.overlay.current_player = self.players[0]
-        self.initialise_ais()
         self.music_player.stop_menu_music()
         self.music_player.play_game_music()
 
     def get_saves(self):
+        """
+        Get the prettified file names of each save file in the saves/ directory and pass them to the menu.
+        """
         self.menu.saves = []
         saves = list(filter(lambda file_name: not file_name == "README.md", os.listdir("saves")))
         saves.sort()
         saves.reverse()
         for f in saves:
+            # Just show the date and time.
             self.menu.saves.append(f[5:-5].replace("T", " "))
