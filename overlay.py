@@ -7,19 +7,8 @@ import pyxel
 from calculator import get_setl_totals
 from catalogue import get_unlockable_improvements, get_all_unlockable
 from models import Settlement, Player, Improvement, Unit, Blessing, ImprovementType, CompletedConstruction, UnitPlan, \
-    EconomicStatus, HarvestStatus, Heathen, AttackData, SetlAttackData, Victory, VictoryType
+    EconomicStatus, Heathen, AttackData, SetlAttackData, Victory, VictoryType
 
-
-"""
-VICTORY!
-CONTROLS
-PAUSE
-DEPLOYMENT! = TUTORIAL = WARNING! = BLESS_NOTIF! = CONSTR_NOTIF! = LEVEL_NOTIF!
-BLESSING
-STANDARD = CONSTRUCTION = SETL_CLICK
-SETTLEMENT = UNIT
-ATTACK = SETL_ATTACK = SIEGE_NOTIF
-"""
 
 class OverlayType(Enum):
     STANDARD = "STANDARD"
@@ -100,8 +89,10 @@ class Overlay:
 
             if self.current_victory.type is VictoryType.ELIMINATION:
                 pyxel.text(22, 75, f"{beginning} achieved an ELIMINATION victory.", pyxel.COLOR_RED)
-            elif self.current_victory.type is VictoryType.JUBILATION or self.current_victory.type is VictoryType.GLUTTONY:
-                pyxel.text(22, 75, f"{beginning} achieved a {self.current_victory.type.value} victory.", pyxel.COLOR_GREEN)
+            elif self.current_victory.type is VictoryType.JUBILATION or \
+                    self.current_victory.type is VictoryType.GLUTTONY:
+                pyxel.text(22, 75, f"{beginning} achieved a {self.current_victory.type.value} victory.",
+                           pyxel.COLOR_GREEN)
             elif self.current_victory.type is VictoryType.AFFLUENCE:
                 pyxel.text(22, 75, f"{beginning} achieved an AFFLUENCE victory.", pyxel.COLOR_YELLOW)
             elif self.current_victory.type is VictoryType.VIGOUR:
@@ -237,9 +228,9 @@ class Overlay:
 
                 y_offset = 0
                 if self.current_settlement.current_work is not None and \
-                    self.current_player.wealth >= \
-                    (self.current_settlement.current_work.construction.cost -
-                     self.current_settlement.current_work.zeal_consumed):
+                        self.current_player.wealth >= \
+                        (self.current_settlement.current_work.construction.cost -
+                         self.current_settlement.current_work.zeal_consumed):
                     y_offset = 10
                 pyxel.rectb(12, 130 - y_offset, 176, 40 + y_offset, pyxel.COLOR_WHITE)
                 pyxel.rect(13, 131 - y_offset, 174, 38 + y_offset, pyxel.COLOR_BLACK)
@@ -249,7 +240,7 @@ class Overlay:
                     current_work = self.current_settlement.current_work
                     remaining_work = current_work.construction.cost - current_work.zeal_consumed
                     total_zeal = max(sum(quad.zeal for quad in self.current_settlement.quads) +
-                                                sum(imp.effect.zeal for imp in self.current_settlement.improvements), 0.5)
+                                     sum(imp.effect.zeal for imp in self.current_settlement.improvements), 0.5)
                     total_zeal += (self.current_settlement.level - 1) * 0.25 * total_zeal
                     remaining_turns = math.ceil(remaining_work / total_zeal)
                     pyxel.text(20, 145 - y_offset, current_work.construction.name, pyxel.COLOR_WHITE)
@@ -311,7 +302,8 @@ class Overlay:
                                        f"{construction.name} ({math.ceil(construction.cost / total_zeal)})",
                                        pyxel.COLOR_WHITE)
                             pyxel.text(150, 35 + adj_idx * 18, "Build",
-                                       pyxel.COLOR_RED if self.selected_construction is construction else pyxel.COLOR_WHITE)
+                                       pyxel.COLOR_RED if self.selected_construction is construction
+                                       else pyxel.COLOR_WHITE)
                             effects = 0
                             if construction.effect.wealth != 0:
                                 sign = "+" if construction.effect.wealth > 0 else "-"
@@ -353,7 +345,8 @@ class Overlay:
                                        f"{unit_plan.name} ({math.ceil(unit_plan.cost / total_zeal)})",
                                        pyxel.COLOR_WHITE)
                             pyxel.text(146, 35 + adj_idx * 18, "Recruit",
-                                       pyxel.COLOR_RED if self.selected_construction is unit_plan else pyxel.COLOR_WHITE)
+                                       pyxel.COLOR_RED if self.selected_construction is unit_plan
+                                       else pyxel.COLOR_WHITE)
                             pyxel.blt(30, 42 + adj_idx * 18, 0, 8, 36, 8, 8)
                             pyxel.text(45, 42 + adj_idx * 18, str(unit_plan.max_health), pyxel.COLOR_WHITE)
                             pyxel.blt(60, 42 + adj_idx * 18, 0, 0, 36, 8, 8)
@@ -473,7 +466,8 @@ class Overlay:
                                         uv_coords = 0, 28
                                     elif unl_type is ImprovementType.PANDERING:
                                         uv_coords = 8, 28
-                                    pyxel.blt(65 + type_idx * 10, 41 + adj_idx * 18, 0, uv_coords[0], uv_coords[1], 8, 8)
+                                    pyxel.blt(65 + type_idx * 10, 41 + adj_idx * 18, 0, uv_coords[0], uv_coords[1], 8,
+                                              8)
                             else:
                                 pyxel.text(65, 41 + adj_idx * 18, "victory", pyxel.COLOR_GREEN)
                         else:
@@ -488,8 +482,10 @@ class Overlay:
                 pyxel.rectb(52, 60, 96, 63, pyxel.COLOR_WHITE)
                 pyxel.rect(53, 61, 94, 61, pyxel.COLOR_BLACK)
                 pyxel.text(80, 68, "Game paused", pyxel.COLOR_WHITE)
-                pyxel.text(88, 80, "Resume", pyxel.COLOR_RED if self.pause_option is PauseOption.RESUME else pyxel.COLOR_WHITE)
-                pyxel.text(90, 90, "Save", pyxel.COLOR_RED if self.pause_option is PauseOption.SAVE else pyxel.COLOR_WHITE)
+                pyxel.text(88, 80, "Resume",
+                           pyxel.COLOR_RED if self.pause_option is PauseOption.RESUME else pyxel.COLOR_WHITE)
+                pyxel.text(90, 90, "Save",
+                           pyxel.COLOR_RED if self.pause_option is PauseOption.SAVE else pyxel.COLOR_WHITE)
                 pyxel.text(84, 100, "Controls",
                            pyxel.COLOR_RED if self.pause_option is PauseOption.CONTROLS else pyxel.COLOR_WHITE)
                 pyxel.text(90, 110, "Quit",
@@ -619,9 +615,9 @@ class Overlay:
         if OverlayType.SETTLEMENT in self.showing:
             self.showing.remove(OverlayType.SETTLEMENT)
         elif not self.is_unit() and not self.is_standard() and not self.is_setl_click() and not self.is_blessing() and \
-                 not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_deployment() and \
-                 not self.is_warning() and not self.is_bless_notif() and not self.is_pause() and \
-                 not self.is_controls() and not self.is_victory():
+                not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_deployment() and \
+                not self.is_warning() and not self.is_bless_notif() and not self.is_pause() and \
+                not self.is_controls() and not self.is_victory():
             self.showing.append(OverlayType.SETTLEMENT)
             self.current_settlement = settlement
             self.current_player = player
@@ -646,9 +642,9 @@ class Overlay:
         if OverlayType.UNIT in self.showing:
             self.showing.remove(OverlayType.UNIT)
         elif not self.is_setl() and not self.is_standard() and not self.is_setl_click() and not self.is_blessing() and \
-                 not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_deployment() and \
-                 not self.is_warning() and not self.is_bless_notif() and not self.is_pause() and \
-                 not self.is_controls() and not self.is_victory():
+                not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_deployment() and \
+                not self.is_warning() and not self.is_bless_notif() and not self.is_pause() and \
+                not self.is_controls() and not self.is_victory():
             self.showing.append(OverlayType.UNIT)
             self.selected_unit = unit
 
@@ -669,9 +665,9 @@ class Overlay:
 
     def can_iter_settlements_units(self) -> bool:
         return not self.is_victory() and not self.is_controls() and not self.is_pause() and \
-            not self.is_deployment() and not self.is_warning() and not self.is_bless_notif() and \
+               not self.is_deployment() and not self.is_warning() and not self.is_bless_notif() and \
                not self.is_constr_notif() and not self.is_lvl_notif() and not self.is_blessing() and \
-            not self.is_standard() and not self.is_constructing() and not self.is_setl_click()
+               not self.is_standard() and not self.is_constructing() and not self.is_setl_click()
 
     def is_setl(self):
         return OverlayType.SETTLEMENT in self.showing

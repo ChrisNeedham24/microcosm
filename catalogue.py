@@ -61,8 +61,6 @@ BLESSINGS = {
     "ard_three": Blessing("Piece of Divinity", "Everything is revealed.", 12500)
 }
 
-# TODO FF Should be able to expand a settlement somehow probably - make this an issue
-
 IMPROVEMENTS = [
     Improvement(ImprovementType.MAGICAL, 30, "Melting Pot", "A starting pot to conduct concoctions.",
                 Effect(fortune=5, satisfaction=2), None),

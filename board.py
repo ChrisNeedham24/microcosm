@@ -6,7 +6,7 @@ from enum import Enum
 import pyxel
 
 from calculator import calculate_yield_for_quad, attack
-from catalogue import get_default_unit, SETL_NAMES, get_settlement_name
+from catalogue import get_default_unit, get_settlement_name
 from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig
 from overlay import Overlay
 
@@ -274,7 +274,8 @@ class Board:
                     self.overlay.toggle_settlement(new_settl, player)
                 else:
                     if not self.deploying_army and \
-                            self.selected_settlement is not None and self.selected_settlement.location != (adj_x, adj_y):
+                            self.selected_settlement is not None and \
+                            self.selected_settlement.location != (adj_x, adj_y):
                         self.selected_settlement = None
                         self.overlay.toggle_settlement(None, player)
                     elif self.selected_unit is None and self.selected_settlement is None and \
@@ -294,8 +295,10 @@ class Board:
                         self.selected_unit = None
                         self.overlay.toggle_unit(None)
                     elif self.deploying_army and \
-                            self.selected_settlement.location[0] - 1 <= adj_x <= self.selected_settlement.location[0] + 1 and \
-                            self.selected_settlement.location[1] - 1 <= adj_y <= self.selected_settlement.location[1] + 1:
+                            self.selected_settlement.location[0] - 1 <= adj_x <= \
+                            self.selected_settlement.location[0] + 1 and \
+                            self.selected_settlement.location[1] - 1 <= adj_y <= \
+                            self.selected_settlement.location[1] + 1:
                         deployed = self.selected_settlement.garrison.pop()
                         deployed.garrisoned = False
                         deployed.location = adj_x, adj_y
@@ -310,13 +313,13 @@ class Board:
                         self.overlay.toggle_settlement(None, player)
                         self.overlay.toggle_unit(deployed)
                     elif self.selected_unit is None and \
-                             any((to_select := heathen).location == (adj_x, adj_y) for heathen in heathens):
+                            any((to_select := heathen).location == (adj_x, adj_y) for heathen in heathens):
                         self.selected_unit = to_select
                         self.overlay.toggle_unit(to_select)
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
                             self.selected_unit in player.units and not self.selected_unit.has_attacked and \
                             (any((to_attack := heathen).location == (adj_x, adj_y) for heathen in heathens) or
-                            any((to_attack := unit).location == (adj_x, adj_y) for unit in all_units)):
+                             any((to_attack := unit).location == (adj_x, adj_y) for unit in all_units)):
                         if self.selected_unit is not to_attack and to_attack not in player.units and \
                                 abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
                                 abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
@@ -342,12 +345,12 @@ class Board:
                             self.selected_unit in player.units and not self.selected_unit.has_attacked and \
                             any((to_attack := setl).location == (adj_x, adj_y) for setl in other_setls):
                         if abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
-                           abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
+                                abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
                             for p in all_players:
                                 if to_attack in p.settlements:
                                     self.overlay.toggle_setl_click(to_attack, p)
                     elif self.selected_unit is None and \
-                             any((to_select := unit).location == (adj_x, adj_y) for unit in all_units):
+                            any((to_select := unit).location == (adj_x, adj_y) for unit in all_units):
                         self.selected_unit = to_select
                         self.overlay.toggle_unit(to_select)
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \

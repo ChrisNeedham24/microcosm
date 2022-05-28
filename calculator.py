@@ -46,7 +46,8 @@ def attack(attacker: typing.Union[Unit, Heathen], defender: typing.Union[Unit, H
     defender.health -= attacker_dmg
     attacker.health -= defender_dmg
     attacker.has_attacked = True
-    return AttackData(attacker, defender, defender_dmg, attacker_dmg, not ai, attacker.health <= 0, defender.health <= 0)
+    return AttackData(attacker, defender, defender_dmg, attacker_dmg, not ai,
+                      attacker.health <= 0, defender.health <= 0)
 
 
 def attack_setl(attacker: Unit, setl: Settlement, setl_owner: Player, ai=True) -> SetlAttackData:

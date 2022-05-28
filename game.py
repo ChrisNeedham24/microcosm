@@ -1,43 +1,23 @@
 import datetime
 import json
 import os
-import pickle
 import random
 import time
 import typing
-from collections import namedtuple
-from enum import Enum
 from itertools import chain
 
 import pyxel
 
 from board import Board
-from calculator import clamp, attack, get_player_totals, get_setl_totals, complete_construction, attack_setl
+from calculator import clamp, attack, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
-    get_settlement_name, get_default_unit, get_unlockable_units, get_unlockable_improvements, get_improvement, \
-    get_blessing, HEATHEN_UNIT_PLAN, get_unit_plan, remove_settlement_name
+    get_settlement_name, get_default_unit, get_improvement, get_blessing, HEATHEN_UNIT_PLAN, get_unit_plan, \
+    remove_settlement_name
 from menu import Menu, MenuOption, SetupOption
-from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Improvement, Unit, \
-    UnitPlan, HarvestStatus, EconomicStatus, Heathen, AIPlaystyle, Blessing, GameConfig, SaveFile, Biome, Victory, \
-    VictoryType
+from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
+    EconomicStatus, Heathen, AIPlaystyle, GameConfig, Biome, Victory, VictoryType
 from movemaker import MoveMaker
 from music_player import MusicPlayer
-
-
-"""
-Plan
-Victory types
-- Elimination: all settlements belong to the player VIABLE
-- Jubilation: maintain 100% satisfaction in at least 5 settlements for 25 turns VIABLE
-- Gluttony: reach level 10 in at least 10 settlements VIABLE
-- Affluence: accumulate 100k wealth over the course of the game VIABLE
-- Vigour: construct the holy sanctum in a settlement VIABLE
-- Serendipity: research the three pieces of ardour VIABLE
-"""
-# TODO FF Add notifications for being close to victory - make this an issue
-# TODO FF Allow save naming - make this an issue
-# TODO FF Scale heathen strength based on turn - make this an issue
-# TODO FF Show that a save is successful - make this an issue
 from overlay import SettlementAttackType, PauseOption
 from save_encoder import SaveEncoder, ObjectConverter
 
@@ -351,7 +331,8 @@ class Game:
         for i in range(1, cfg.player_count):
             colour = random.choice(colours)
             colours.remove(colour)
-            self.players.append(Player(f"NPC{i}", colour, 0, [], [], [], set(), ai_playstyle=random.choice(list(AIPlaystyle))))
+            self.players.append(Player(f"NPC{i}", colour, 0, [], [], [], set(),
+                                       ai_playstyle=random.choice(list(AIPlaystyle))))
 
     def end_turn(self) -> bool:
         # First make sure the player hasn't ended their turn without a construction or blessing.
@@ -612,7 +593,7 @@ class Game:
             for p in self.players:
                 for idx, u in enumerate(p.units):
                     p.units[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]), u.garrisoned,
-                             u.plan, u.has_attacked, u.sieging)
+                                        u.plan, u.has_attacked, u.sieging)
                 for s in p.settlements:
                     remove_settlement_name(s.name, s.quads[0].biome)
                     s.location = (s.location[0], s.location[1])
@@ -654,9 +635,8 @@ class Game:
 
     def get_saves(self):
         self.menu.saves = []
-        saves = list(filter(lambda f: not f == "README.md", os.listdir("saves")))
+        saves = list(filter(lambda file_name: not file_name == "README.md", os.listdir("saves")))
         saves.sort()
         saves.reverse()
         for f in saves:
             self.menu.saves.append(f[5:-5].replace("T", " "))
-

@@ -1,12 +1,133 @@
 import random
 import typing
 
-from board import Board
 from calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, attack_setl
 from catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, get_settlement_name
 from models import Player, Blessing, AIPlaystyle, OngoingBlessing, Settlement, Improvement, UnitPlan, Construction, Unit
-from overlay import Overlay
+
+
+def set_blessing(player: Player, player_totals: (float, float, float, float)):
+    avail_bless = get_available_blessings(player)
+    if len(avail_bless) > 0:
+        ideal: Blessing = avail_bless[0]
+        lowest = player_totals.index(min(player_totals))
+        if lowest == 0:
+            highest_wealth: (float, Blessing) = 0, avail_bless[0]
+            for bless in avail_bless:
+                cumulative_wealth: float = 0
+                for imp in get_unlockable_improvements(bless):
+                    cumulative_wealth += imp.effect.wealth
+                if cumulative_wealth > highest_wealth[0]:
+                    highest_wealth = cumulative_wealth, bless
+            ideal = highest_wealth[1]
+        if lowest == 1:
+            highest_harvest: (float, Blessing) = 0, avail_bless[0]
+            for bless in avail_bless:
+                cumulative_harvest: float = 0
+                for imp in get_unlockable_improvements(bless):
+                    cumulative_harvest += imp.effect.harvest
+                if cumulative_harvest > highest_harvest[0]:
+                    highest_harvest = cumulative_harvest, bless
+            ideal = highest_harvest[1]
+        if lowest == 2:
+            highest_zeal: (float, Blessing) = 0, avail_bless[0]
+            for bless in avail_bless:
+                cumulative_zeal: float = 0
+                for imp in get_unlockable_improvements(bless):
+                    cumulative_zeal += imp.effect.zeal
+                if cumulative_zeal > highest_zeal[0]:
+                    highest_zeal = cumulative_zeal, bless
+            ideal = highest_zeal[1]
+        if lowest == 3:
+            highest_fortune: (float, Blessing) = 0, avail_bless[0]
+            for bless in avail_bless:
+                cumulative_fortune: float = 0
+                for imp in get_unlockable_improvements(bless):
+                    cumulative_fortune += imp.effect.fortune
+                if cumulative_fortune > highest_fortune[0]:
+                    highest_fortune = cumulative_fortune, bless
+            ideal = highest_fortune[1]
+        if player.ai_playstyle is AIPlaystyle.AGGRESSIVE:
+            for bless in avail_bless:
+                unlockable = get_unlockable_units(bless)
+                if len(unlockable) > 0:
+                    player.ongoing_blessing = OngoingBlessing(bless)
+                    break
+            if player.ongoing_blessing is None:
+                player.ongoing_blessing = OngoingBlessing(ideal)
+        elif player.ai_playstyle is AIPlaystyle.DEFENSIVE:
+            for bless in avail_bless:
+                unlockable = get_unlockable_improvements(bless)
+                if len([imp for imp in unlockable if imp.effect.strength > 0]) > 0:
+                    player.ongoing_blessing = OngoingBlessing(bless)
+                    break
+            if player.ongoing_blessing is None:
+                player.ongoing_blessing = OngoingBlessing(ideal)
+        else:
+            player.ongoing_blessing = OngoingBlessing(ideal)
+
+
+def set_construction(player: Player, setl: Settlement):
+    avail_imps = get_available_improvements(player, setl)
+    avail_units = get_available_unit_plans(player, setl.level)
+    settler_units = [settler for settler in avail_units if settler.can_settle]
+    ideal: typing.Union[Improvement, UnitPlan] = avail_imps[0] if len(avail_imps) > 0 else avail_units[0]
+    if len(player.units) == 0 and len(setl.garrison) == 0:
+        setl.current_work = Construction(avail_units[0])
+    elif setl.level >= 3 and not setl.produced_settler:
+        setl.current_work = Construction(settler_units[0])
+    else:
+        if len(avail_imps) > 0:
+            totals = get_setl_totals(setl)
+            lowest = totals.index(min(totals))
+            if lowest == 0:
+                highest_wealth: (float, Improvement) = avail_imps[0].effect.wealth, avail_imps[0]
+                for imp in avail_imps:
+                    if imp.effect.wealth > highest_wealth[0]:
+                        highest_wealth = imp.effect.wealth, imp
+                ideal = highest_wealth[1]
+            if lowest == 1:
+                highest_harvest: (float, Improvement) = avail_imps[0].effect.harvest, avail_imps[0]
+                for imp in avail_imps:
+                    if imp.effect.harvest > highest_harvest[0]:
+                        highest_harvest = imp.effect.harvest, imp
+                ideal = highest_harvest[1]
+            if lowest == 2:
+                highest_zeal: (float, Improvement) = avail_imps[0].effect.zeal, avail_imps[0]
+                for imp in avail_imps:
+                    if imp.effect.zeal > highest_zeal[0]:
+                        highest_zeal = imp.effect.zeal, imp
+                ideal = highest_zeal[1]
+            if lowest == 3:
+                highest_fortune: (float, Improvement) = avail_imps[0].effect.fortune, avail_imps[0]
+                for imp in avail_imps:
+                    if imp.effect.fortune > highest_fortune[0]:
+                        highest_fortune = imp.effect.fortune, imp
+                ideal = highest_fortune[1]
+
+        if player.ai_playstyle is AIPlaystyle.AGGRESSIVE:
+            if len(player.units) < setl.level:
+                most_power: (float, UnitPlan) = avail_units[0].power, avail_units[0]
+                for up in avail_units:
+                    if up.power >= most_power[0]:
+                        most_power = up.power, up
+                setl.current_work = Construction(most_power[1])
+            else:
+                setl.current_work = Construction(ideal)
+        elif player.ai_playstyle is AIPlaystyle.DEFENSIVE:
+            if len(player.units) * 2 < setl.level:
+                most_health: (float, UnitPlan) = avail_units[0].max_health, avail_units[0]
+                for up in avail_units:
+                    if up.max_health >= most_health[0]:
+                        most_health = up.max_health, up
+                setl.current_work = Construction(most_health[1])
+            elif len(strength_imps := [imp for imp in avail_imps if imp.effect.strength > 0]) > 0:
+                setl.current_work = Construction(strength_imps[0])
+            else:
+                setl.current_work = Construction(ideal)
+        else:
+            setl.current_work = Construction(ideal)
 
 
 class MoveMaker:
@@ -19,12 +140,13 @@ class MoveMaker:
             all_setls.extend(pl.settlements)
         player_totals = get_player_totals(player)
         if player.ongoing_blessing is None:
-            self.set_blessing(player, player_totals)
+            set_blessing(player, player_totals)
         for setl in player.settlements:
             if setl.current_work is None:
-                self.set_construction(player, setl)
+                set_construction(player, setl)
             else:
-                if rem_work := (setl.current_work.construction.cost - setl.current_work.zeal_consumed) < player.wealth / 3:
+                if rem_work := (setl.current_work.construction.cost - setl.current_work.zeal_consumed) < \
+                               player.wealth / 3:
                     complete_construction(setl)
                     player.wealth -= rem_work
             if len([unit for unit in setl.garrison if unit.plan.can_settle]) > 0:
@@ -55,128 +177,6 @@ class MoveMaker:
         if player.wealth + player_totals[0] < 0:
             player.wealth += min_pow_health[1].plan.cost
             player.units.remove(min_pow_health[1])
-
-
-    def set_blessing(self, player: Player, player_totals: (float, float, float, float)):
-        avail_bless = get_available_blessings(player)
-        if len(avail_bless) > 0:
-            ideal: Blessing = avail_bless[0]
-            lowest = player_totals.index(min(player_totals))
-            if lowest == 0:
-                highest_wealth: (float, Blessing) = 0, avail_bless[0]
-                for bless in avail_bless:
-                    cumulative_wealth: float = 0
-                    for imp in get_unlockable_improvements(bless):
-                        cumulative_wealth += imp.effect.wealth
-                    if cumulative_wealth > highest_wealth[0]:
-                        highest_wealth = cumulative_wealth, bless
-                ideal = highest_wealth[1]
-            if lowest == 1:
-                highest_harvest: (float, Blessing) = 0, avail_bless[0]
-                for bless in avail_bless:
-                    cumulative_harvest: float = 0
-                    for imp in get_unlockable_improvements(bless):
-                        cumulative_harvest += imp.effect.harvest
-                    if cumulative_harvest > highest_harvest[0]:
-                        highest_harvest = cumulative_harvest, bless
-                ideal = highest_harvest[1]
-            if lowest == 2:
-                highest_zeal: (float, Blessing) = 0, avail_bless[0]
-                for bless in avail_bless:
-                    cumulative_zeal: float = 0
-                    for imp in get_unlockable_improvements(bless):
-                        cumulative_zeal += imp.effect.zeal
-                    if cumulative_zeal > highest_zeal[0]:
-                        highest_zeal = cumulative_zeal, bless
-                ideal = highest_zeal[1]
-            if lowest == 3:
-                highest_fortune: (float, Blessing) = 0, avail_bless[0]
-                for bless in avail_bless:
-                    cumulative_fortune: float = 0
-                    for imp in get_unlockable_improvements(bless):
-                        cumulative_fortune += imp.effect.fortune
-                    if cumulative_fortune > highest_fortune[0]:
-                        highest_fortune = cumulative_fortune, bless
-                ideal = highest_fortune[1]
-            if player.ai_playstyle is AIPlaystyle.AGGRESSIVE:
-                for bless in avail_bless:
-                    unlockable = get_unlockable_units(bless)
-                    if len(unlockable) > 0:
-                        player.ongoing_blessing = OngoingBlessing(bless)
-                        break
-                if player.ongoing_blessing is None:
-                    player.ongoing_blessing = OngoingBlessing(ideal)
-            elif player.ai_playstyle is AIPlaystyle.DEFENSIVE:
-                for bless in avail_bless:
-                    unlockable = get_unlockable_improvements(bless)
-                    if len([imp for imp in unlockable if imp.effect.strength > 0]) > 0:
-                        player.ongoing_blessing = OngoingBlessing(bless)
-                        break
-                if player.ongoing_blessing is None:
-                    player.ongoing_blessing = OngoingBlessing(ideal)
-            else:
-                player.ongoing_blessing = OngoingBlessing(ideal)
-
-    def set_construction(self, player: Player, setl: Settlement):
-        avail_imps = get_available_improvements(player, setl)
-        avail_units = get_available_unit_plans(player, setl.level)
-        settler_units = [settler for settler in avail_units if settler.can_settle]
-        ideal: typing.Union[Improvement, UnitPlan] = avail_imps[0] if len(avail_imps) > 0 else avail_units[0]
-        if len(player.units) == 0 and len(setl.garrison) == 0:
-            setl.current_work = Construction(avail_units[0])
-        elif setl.level >= 3 and not setl.produced_settler:
-            setl.current_work = Construction(settler_units[0])
-        else:
-            if len(avail_imps) > 0:
-                totals = get_setl_totals(setl)
-                lowest = totals.index(min(totals))
-                if lowest == 0:
-                    highest_wealth: (float, Improvement) = avail_imps[0].effect.wealth, avail_imps[0]
-                    for imp in avail_imps:
-                        if imp.effect.wealth > highest_wealth[0]:
-                            highest_wealth = imp.effect.wealth, imp
-                    ideal = highest_wealth[1]
-                if lowest == 1:
-                    highest_harvest: (float, Improvement) = avail_imps[0].effect.harvest, avail_imps[0]
-                    for imp in avail_imps:
-                        if imp.effect.harvest > highest_harvest[0]:
-                            highest_harvest = imp.effect.harvest, imp
-                    ideal = highest_harvest[1]
-                if lowest == 2:
-                    highest_zeal: (float, Improvement) = avail_imps[0].effect.zeal, avail_imps[0]
-                    for imp in avail_imps:
-                        if imp.effect.zeal > highest_zeal[0]:
-                            highest_zeal = imp.effect.zeal, imp
-                    ideal = highest_zeal[1]
-                if lowest == 3:
-                    highest_fortune: (float, Improvement) = avail_imps[0].effect.fortune, avail_imps[0]
-                    for imp in avail_imps:
-                        if imp.effect.fortune > highest_fortune[0]:
-                            highest_fortune = imp.effect.fortune, imp
-                    ideal = highest_fortune[1]
-
-            if player.ai_playstyle is AIPlaystyle.AGGRESSIVE:
-                if len(player.units) < setl.level:
-                    most_power: (float, UnitPlan) = avail_units[0].power, avail_units[0]
-                    for up in avail_units:
-                        if up.power >= most_power[0]:
-                            most_power = up.power, up
-                    setl.current_work = Construction(most_power[1])
-                else:
-                    setl.current_work = Construction(ideal)
-            elif player.ai_playstyle is AIPlaystyle.DEFENSIVE:
-                if len(player.units) * 2 < setl.level:
-                    most_health: (float, UnitPlan) = avail_units[0].max_health, avail_units[0]
-                    for up in avail_units:
-                        if up.max_health >= most_health[0]:
-                            most_health = up.max_health, up
-                    setl.current_work = Construction(most_health[1])
-                elif len(strength_imps := [imp for imp in avail_imps if imp.effect.strength > 0]) > 0:
-                    setl.current_work = Construction(strength_imps[0])
-                else:
-                    setl.current_work = Construction(ideal)
-            else:
-                setl.current_work = Construction(ideal)
 
     def move_unit(self, player: Player, unit: Unit, other_units: typing.List[Unit], all_players: typing.List[Player],
                   all_setls: typing.List[Settlement]):
@@ -216,7 +216,7 @@ class MoveMaker:
                 for other_setl in all_setls:
                     if other_setl not in player.settlements:
                         could_attack: bool = (player.ai_playstyle is AIPlaystyle.AGGRESSIVE and
-                                             unit.health >= other_setl.strength * 2) or \
+                                              unit.health >= other_setl.strength * 2) or \
                                              (player.ai_playstyle is AIPlaystyle.NEUTRAL and
                                               unit.health >= other_setl.strength * 10) or \
                                              (player.ai_playstyle is AIPlaystyle.DEFENSIVE and other_setl.strength == 0)
@@ -227,7 +227,8 @@ class MoveMaker:
                                 break
                         else:
                             could_siege: bool = player.ai_playstyle is AIPlaystyle.AGGRESSIVE or \
-                                     (player.ai_playstyle is AIPlaystyle.NEUTRAL and unit.health >= other_setl.strength * 2)
+                                                (player.ai_playstyle is AIPlaystyle.NEUTRAL and
+                                                 unit.health >= other_setl.strength * 2)
                             if could_siege:
                                 if max(abs(unit.location[0] - other_setl.location[0]),
                                        abs(unit.location[1] - other_setl.location[1])) <= unit.remaining_stamina:
