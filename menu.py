@@ -5,7 +5,7 @@ from enum import Enum
 import pyxel
 
 from calculator import clamp
-from catalogue import BLESSINGS, get_unlockable_improvements
+from catalogue import BLESSINGS, get_unlockable_improvements, IMPROVEMENTS, UNIT_PLANS
 from models import GameConfig, VictoryType
 
 
@@ -61,6 +61,7 @@ class Menu:
         self.wiki_showing = None
         self.victory_type = VictoryType.ELIMINATION
         self.blessing_boundaries = 0, 3
+        self.improvement_boundaries = 0, 3
         self.saves: typing.List[str] = []
         self.save_idx: typing.Optional[int] = 0
         self.setup_option = SetupOption.PLAYER_COLOUR
@@ -274,6 +275,76 @@ class Menu:
                     pyxel.text(152, 155, "More", pyxel.COLOR_WHITE)
                     pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
                     pyxel.blt(172, 156, 0, 0, 76, 8, 8)
+            elif self.wiki_showing is WikiOption.IMPROVEMENTS:
+                pyxel.load("resources/sprites.pyxres")
+                pyxel.rectb(10, 20, 180, 154, pyxel.COLOR_WHITE)
+                pyxel.rect(11, 21, 178, 152, pyxel.COLOR_BLACK)
+                pyxel.text(78, 30, "Improvements", pyxel.COLOR_ORANGE)
+                pyxel.text(20, 40, "Name", pyxel.COLOR_WHITE)
+                pyxel.text(155, 40, "Cost", pyxel.COLOR_WHITE)
+                pyxel.blt(173, 39, 0, 16, 44, 8, 8)
+                for idx, imp in enumerate(IMPROVEMENTS):
+                    if self.improvement_boundaries[0] <= idx <= self.improvement_boundaries[1]:
+                        adj_idx = idx - self.improvement_boundaries[0]
+                        pyxel.text(20, 50 + adj_idx * 25, str(imp.name), pyxel.COLOR_WHITE)
+                        pyxel.text(160, 50 + adj_idx * 25, str(imp.cost), pyxel.COLOR_WHITE)
+                        pyxel.text(20, 57 + adj_idx * 25, str(imp.description), pyxel.COLOR_WHITE)
+                        effects = 0
+                        if imp.effect.wealth != 0:
+                            sign = "+" if imp.effect.wealth > 0 else "-"
+                            pyxel.text(20 + effects * 25, 64 + adj_idx * 25,
+                                       f"{sign}{abs(imp.effect.wealth)}", pyxel.COLOR_YELLOW)
+                            effects += 1
+                        if imp.effect.harvest != 0:
+                            sign = "+" if imp.effect.harvest > 0 else "-"
+                            pyxel.text(20 + effects * 25, 64 + adj_idx * 25,
+                                       f"{sign}{abs(imp.effect.harvest)}", pyxel.COLOR_GREEN)
+                            effects += 1
+                        if imp.effect.zeal != 0:
+                            sign = "+" if imp.effect.zeal > 0 else "-"
+                            pyxel.text(20 + effects * 25, 64 + adj_idx * 25,
+                                       f"{sign}{abs(imp.effect.zeal)}", pyxel.COLOR_RED)
+                            effects += 1
+                        if imp.effect.fortune != 0:
+                            sign = "+" if imp.effect.fortune > 0 else "-"
+                            pyxel.text(20 + effects * 25, 64 + adj_idx * 25,
+                                       f"{sign}{abs(imp.effect.fortune)}", pyxel.COLOR_PURPLE)
+                            effects += 1
+                        if imp.effect.strength != 0:
+                            sign = "+" if imp.effect.strength > 0 else "-"
+                            pyxel.blt(20 + effects * 25, 64 + adj_idx * 25, 0, 0, 28, 8, 8)
+                            pyxel.text(30 + effects * 25, 64 + adj_idx * 25,
+                                       f"{sign}{abs(imp.effect.strength)}", pyxel.COLOR_WHITE)
+                            effects += 1
+                        if imp.effect.satisfaction != 0:
+                            sign = "+" if imp.effect.satisfaction > 0 else "-"
+                            satisfaction_u = 8 if imp.effect.satisfaction >= 0 else 16
+                            pyxel.blt(20 + effects * 25, 64 + adj_idx * 25, 0, satisfaction_u, 28, 8, 8)
+                            pyxel.text(30 + effects * 25, 64 + adj_idx * 25,
+                                       f"{sign}{abs(imp.effect.satisfaction)}", pyxel.COLOR_WHITE)
+                pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
+                if self.improvement_boundaries[1] != len(IMPROVEMENTS) - 1:
+                    pyxel.text(152, 155, "More", pyxel.COLOR_WHITE)
+                    pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
+                    pyxel.blt(172, 156, 0, 0, 76, 8, 8)
+            elif self.wiki_showing is WikiOption.UNITS:
+                pyxel.load("resources/sprites.pyxres")
+                pyxel.rectb(10, 20, 180, 154, pyxel.COLOR_WHITE)
+                pyxel.rect(11, 21, 178, 152, pyxel.COLOR_BLACK)
+                pyxel.text(90, 30, "Units", pyxel.COLOR_WHITE)
+                pyxel.text(20, 40, "Name", pyxel.COLOR_WHITE)
+                pyxel.blt(90, 39, 0, 8, 36, 8, 8)
+                pyxel.blt(110, 39, 0, 0, 36, 8, 8)
+                pyxel.blt(130, 39, 0, 16, 36, 8, 8)
+                pyxel.text(155, 40, "Cost", pyxel.COLOR_WHITE)
+                pyxel.blt(173, 39, 0, 16, 44, 8, 8)
+                for idx, unit in enumerate(UNIT_PLANS):
+                    pyxel.text(20, 50 + idx * 10, str(unit.name), pyxel.COLOR_WHITE)
+                    pyxel.text(160, 50 + idx * 10, str(unit.cost), pyxel.COLOR_WHITE)
+                    pyxel.text(88, 50 + idx * 10, str(unit.max_health), pyxel.COLOR_WHITE)
+                    pyxel.text(108, 50 + idx * 10, str(unit.power), pyxel.COLOR_WHITE)
+                    pyxel.text(132, 50 + idx * 10, str(unit.total_stamina), pyxel.COLOR_WHITE)
+                pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
             elif self.wiki_showing is None:
                 pyxel.rectb(60, 60, 80, 80, pyxel.COLOR_WHITE)
                 pyxel.rect(61, 61, 78, 78, pyxel.COLOR_BLACK)
@@ -320,6 +391,10 @@ class Menu:
                 if self.wiki_showing is WikiOption.BLESSINGS:
                     if self.blessing_boundaries[1] < len(BLESSINGS) - 1:
                         self.blessing_boundaries = self.blessing_boundaries[0] + 1, self.blessing_boundaries[1] + 1
+                elif self.wiki_showing is WikiOption.IMPROVEMENTS:
+                    if self.improvement_boundaries[1] < len(IMPROVEMENTS) - 1:
+                        self.improvement_boundaries = \
+                            self.improvement_boundaries[0] + 1, self.improvement_boundaries[1] + 1
                 else:
                     if self.wiki_option is WikiOption.VICTORIES:
                         self.wiki_option = WikiOption.BLESSINGS
@@ -355,6 +430,10 @@ class Menu:
                 if self.wiki_showing is WikiOption.BLESSINGS:
                     if self.blessing_boundaries[0] > 0:
                         self.blessing_boundaries = self.blessing_boundaries[0] - 1, self.blessing_boundaries[1] - 1
+                elif self.wiki_showing is WikiOption.IMPROVEMENTS:
+                    if self.improvement_boundaries[0] > 0:
+                        self.improvement_boundaries = \
+                            self.improvement_boundaries[0] - 1, self.improvement_boundaries[1] - 1
                 else:
                     if self.wiki_option is WikiOption.BLESSINGS:
                         self.wiki_option = WikiOption.VICTORIES

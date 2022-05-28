@@ -35,7 +35,6 @@ Victory types
 - Serendipity: research the three pieces of ardour VIABLE
 """
 # TODO FF Add notifications for being close to victory - make this an issue
-# TODO ONG Add Wiki on main menu - Blessings/Improvements/Units/Victories
 # TODO FF Allow save naming - make this an issue
 # TODO FF Scale heathen strength based on turn - make this an issue
 # TODO FF Show that a save is successful - make this an issue
