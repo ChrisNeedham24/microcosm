@@ -6,7 +6,11 @@ from models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, Har
 
 
 def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
-    # Returns tuple with wealth, harvest, zeal, and fortune.
+    """
+    Given the supplied biome, generate a random yield to be used for a quad.
+    :param biome: The biome of the quad-to-be.
+    :return: A tuple of wealth, harvest, zeal, and fortune.
+    """
     wealth: float = 0
     harvest: float = 0
     zeal: float = 0
@@ -37,10 +41,25 @@ def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
 
 
 def clamp(number: int, min_val: int, max_val: int) -> int:
+    """
+    Clamp the supplied number to the supplied minimum and maximum values.
+    :param number: The number to clamp.
+    :param min_val: The minimum value.
+    :param max_val: The maximum value.
+    :return: The clamped number.
+    """
     return max(min(max_val, number), min_val)
 
 
 def attack(attacker: typing.Union[Unit, Heathen], defender: typing.Union[Unit, Heathen], ai=True) -> AttackData:
+    """
+    Execute an attack between the two supplied units.
+    :param attacker: The unit initiating the attack.
+    :param defender: The unit defending the attack.
+    :param ai: Whether the attack was by an AI player.
+    :return: An AttackData object summarising the results of the attack.
+    """
+    # Attackers get a damage bonus.
     attacker_dmg = attacker.plan.power * 0.25 * 1.2
     defender_dmg = defender.plan.power * 0.25
     defender.health -= attacker_dmg
@@ -51,6 +70,16 @@ def attack(attacker: typing.Union[Unit, Heathen], defender: typing.Union[Unit, H
 
 
 def attack_setl(attacker: Unit, setl: Settlement, setl_owner: Player, ai=True) -> SetlAttackData:
+    """
+    Execute an attack by the supplied unit on the supplied settlement.
+    :param attacker: The unit initiating the attack.
+    :param setl: The settlement being attacked.
+    :param setl_owner: The owner of the settlement under attack.
+    :param ai: Whether the attack was by an AI player.
+    :return: A SetlAttackData object summarising the results of the attack.
+    """
+    # Naturally, attacking units do a fraction of their usual damage to settlements. Conversely, settlements do
+    # significantly more damage to units in comparison to another unit.
     attacker_dmg = attacker.plan.power * 0.1
     setl_dmg = setl.strength / 2
     attacker.health -= setl_dmg
@@ -61,16 +90,22 @@ def attack_setl(attacker: Unit, setl: Settlement, setl_owner: Player, ai=True) -
 
 
 def get_player_totals(player: Player) -> (float, float, float, float):
-    overall_harvest = 0
+    """
+    Get the wealth, harvest, zeal, and fortune totals for the given player.
+    :param player: The player to calculate totals for.
+    :return: A tuple containing the player's wealth, harvest, zeal, and fortune.
+    """
     overall_wealth = 0
+    overall_harvest = 0
     overall_zeal = 0
     overall_fortune = 0
-    
+
+    # Just add together the stats for each of the player's settlements.
     for setl in player.settlements:
         setl_totals = get_setl_totals(setl)
 
-        overall_harvest += setl_totals[0]
-        overall_wealth += setl_totals[1]
+        overall_wealth += setl_totals[0]
+        overall_harvest += setl_totals[1]
         overall_zeal += setl_totals[2]
         overall_fortune += setl_totals[3]
 
@@ -78,6 +113,22 @@ def get_player_totals(player: Player) -> (float, float, float, float):
 
 
 def get_setl_totals(setl: Settlement, strict: bool = False) -> (float, float, float, float):
+    """
+    Get the wealth, harvest, zeal, and fortune totals for the given Settlement.
+    :param setl: The settlement to calculate totals for.
+    :param strict: Whether the total should be 0 as opposed to 0.5 in situations where the total would be negative.
+    Only used for the settlement overlay, as we want users to make progress even if their zeal/fortune is 0.
+    :return: A tuple containing the settlement's wealth, harvest, zeal, and fortune.
+    """
+
+    # For each of the four categories, add together the values for all of the settlement's quads and improvements. If
+    # negative, return 0 for wealth and harvest, and 0.5 for zeal and fortune. Also, use the settlement's level to add
+    # to each of the four categories. For example, a level 5 settlement with 10 total wealth will have its wealth
+    # doubled to 20. Similarly, a level 10 settlement with 10 total wealth will have its wealth increased to 32.5. Also
+    # note that wealth and harvest are special because they have additional conditions applied relating to the
+    # satisfaction of the settlement. Essentially, settlements with low satisfaction will yield no wealth/harvest, and
+    # settlements with high satisfaction will yield 1.5 times the wealth and harvest.
+
     total_wealth = max(sum(quad.wealth for quad in setl.quads) +
                        sum(imp.effect.wealth for imp in setl.improvements), 0)
     total_wealth += (setl.level - 1) * 0.25 * total_wealth
@@ -103,6 +154,12 @@ def get_setl_totals(setl: Settlement, strict: bool = False) -> (float, float, fl
 
 
 def complete_construction(setl: Settlement):
+    """
+    Completes the current construction for the given settlement.
+    :param setl: The settlement having its construction completed.
+    """
+    # If an improvement is being completed, add it to the settlement, and adjust the settlement's strength and
+    # satisfaction.
     if isinstance(setl.current_work.construction, Improvement):
         setl.improvements.append(setl.current_work.construction)
         if setl.current_work.construction.effect.strength > 0:
@@ -114,6 +171,7 @@ def complete_construction(setl: Settlement):
                 setl.satisfaction = 0
             elif setl.satisfaction > 100:
                 setl.satisfaction = 100
+    # If a unit is being completed, add it to the garrison, and reduce the settlement's level if it was a settler.
     else:
         plan: UnitPlan = setl.current_work.construction
         if plan.can_settle:

@@ -3,6 +3,7 @@ import typing
 
 from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome, Heathen
 
+# The list of settlement names, for each biome.
 SETL_NAMES = {
     Biome.DESERT: [
         "Enfu", "Saknoten", "Despemar", "Khasolzum", "Nekpesir", "Akhtamar", "Absai", "Khanomhat", "Sharrisir", "Kisri",
@@ -27,15 +28,27 @@ SETL_NAMES = {
 
 
 def get_settlement_name(biome: Biome) -> str:
+    """
+    Returns a settlement name for the given biome.
+    :param biome: The biome of the settlement-to-be.
+    :return: A settlement name.
+    """
     name = random.choice(SETL_NAMES[biome])
+    # Note that we remove the settlement name to avoid duplicates.
     SETL_NAMES[biome].remove(name)
     return name
 
 
 def remove_settlement_name(name: str, biome: Biome):
+    """
+    Removes a settlement name from the list. Used in loaded game cases.
+    :param name: The settlement name to remove.
+    :param biome: The biome of the settlement. Used to locate the name in the dictionary.
+    """
     SETL_NAMES[biome].remove(name)
 
 
+# The list of blessings that can be undergone.
 BLESSINGS = {
     "beg_spl": Blessing("Beginner Spells", "Everyone has to start somewhere, right?", 100),
     "div_arc": Blessing("Divine Architecture", "As the holy ones intended.", 500),
@@ -61,6 +74,7 @@ BLESSINGS = {
     "ard_three": Blessing("Piece of Divinity", "Everything is revealed.", 12500)
 }
 
+# The list of improvements that can be built.
 IMPROVEMENTS = [
     Improvement(ImprovementType.MAGICAL, 30, "Melting Pot", "A starting pot to conduct concoctions.",
                 Effect(fortune=5, satisfaction=2), None),
@@ -138,6 +152,7 @@ IMPROVEMENTS = [
                 Effect(), BLESSINGS["anc_his"])
 ]
 
+# The list of unit plans that units can be recruited according to.
 UNIT_PLANS = [
     UnitPlan(100, 100, 3, "Warrior", None, 25),
     UnitPlan(125, 50, 5, "Bowman", None, 25),
@@ -150,32 +165,60 @@ UNIT_PLANS = [
 ]
 
 
+# The unit plan for the heathens.
 HEATHEN_UNIT_PLAN = UnitPlan(80, 80, 2, "Heathen", None, 0)
 
 
 def get_heathen(location: (int, int)) -> Heathen:
+    """
+    Creates a heathen at the given location.
+    :param location: The location for the heathen-to-be.
+    :return: The created Heathen object.
+    """
     return Heathen(HEATHEN_UNIT_PLAN.max_health, HEATHEN_UNIT_PLAN.total_stamina, location, HEATHEN_UNIT_PLAN)
 
 
 def get_default_unit(location: (int, int)) -> Unit:
+    """
+    Creates the default unit for each player in their first settlement, which is a Warrior.
+    :param location: The location for the unit. Largely irrelevant due to the fact that it is garrisoned.
+    :return: The created Unit object.
+    """
     return Unit(UNIT_PLANS[0].max_health, UNIT_PLANS[0].total_stamina, location, True, UNIT_PLANS[0])
 
 
 def get_available_improvements(player: Player, settlement: Settlement) -> typing.List[Improvement]:
+    """
+    Retrieves the available improvements for the given player's settlement.
+    :param player: The owner of the given settlement.
+    :param settlement: The settlement to retrieve improvements for.
+    :return: A list of available improvements.
+    """
+    # An improvement is available if the improvement has not been built in this settlement yet and either the player has
+    # satisfied the improvement's pre-requisite or the improvement does not have one.
     imps = [imp for imp in IMPROVEMENTS if (imp.prereq in player.blessings or imp.prereq is None)
             and imp not in settlement.improvements]
 
     def get_cost(imp: Improvement) -> float:
         return imp.cost
 
+    # Sort improvements by cost.
     imps.sort(key=get_cost)
     return imps
 
 
 def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitPlan]:
+    """
+    Retrieves the available unit plans for the given player and settlement level.
+    :param player: The player viewing the available units.
+    :param setl_lvl: The level of the settlement the player is viewing units in.
+    :return: A list of available units.
+    """
     unit_plans = []
     for unit_plan in UNIT_PLANS:
+        # A unit plan is available if the unit plan's pre-requisite has been satisfied, or it is non-existent.
         if unit_plan.prereq is None or unit_plan.prereq in player.blessings:
+            # Note that settlers can only be recruited in settlements of at least level 2.
             if unit_plan.can_settle and setl_lvl > 1:
                 unit_plans.append(unit_plan)
             elif not unit_plan.can_settle:
@@ -184,41 +227,78 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
     def get_cost(up: UnitPlan) -> float:
         return up.cost
 
+    # Sort unit plans by cost.
     unit_plans.sort(key=get_cost)
     return unit_plans
 
 
 def get_available_blessings(player: Player) -> typing.List[Blessing]:
+    """
+    Retrieves the available blessings for the given player.
+    :param player: The player viewing the available blessings.
+    :return: A list of available blessings.
+    """
     blessings = [bls for bls in BLESSINGS.values() if bls not in player.blessings]
 
     def get_cost(blessing: Blessing) -> float:
         return blessing.cost
 
+    # Sort blessings by cost.
     blessings.sort(key=get_cost)
     return blessings
 
 
 def get_all_unlockable(blessing: Blessing) -> typing.List[typing.Union[Improvement, UnitPlan]]:
+    """
+    Retrieves all unlockable improvements and unit plans for the given blessing.
+    :param blessing: The blessing to search pre-requisites for.
+    :return: A list of unlockable improvements and unit plans.
+    """
     unlockable = [imp for imp in IMPROVEMENTS if imp.prereq is blessing]
     unlockable.extend([up for up in UNIT_PLANS if up.prereq is blessing])
     return unlockable
 
 
 def get_unlockable_improvements(blessing: Blessing) -> typing.List[Improvement]:
+    """
+    Retrieves all unlockable improvements for the given blessing.
+    :param blessing: The blessing to search pre-requisites for.
+    :return: A list of unlockable improvements.
+    """
     return [imp for imp in IMPROVEMENTS if imp.prereq is blessing]
 
 
 def get_unlockable_units(blessing: Blessing) -> typing.List[UnitPlan]:
+    """
+    Retrieves all unlockable unit plans for the given blessing.
+    :param blessing: The blessing to search pre-requisites for.
+    :return: A list of unlockable unit plans.
+    """
     return [up for up in UNIT_PLANS if up.prereq is blessing]
 
 
 def get_improvement(name: str) -> Improvement:
+    """
+    Get the improvement with the given name. Used when loading games.
+    :param name: The name of the improvement.
+    :return: The Improvement with the given name.
+    """
     return next(imp for imp in IMPROVEMENTS if imp.name == name)
 
 
 def get_blessing(name: str) -> Blessing:
+    """
+    Get the blessing with the given name. Used when loading games.
+    :param name: The name of the blessing.
+    :return: The Blessing with the given name.
+    """
     return next(bls for bls in BLESSINGS.values() if bls.name == name)
 
 
 def get_unit_plan(name: str) -> UnitPlan:
+    """
+    Get the unit plan with the given name. Used when loading games.
+    :param name: The name of the unit plan.
+    :return: The UnitPlan with the given name.
+    """
     return next(up for up in UNIT_PLANS if up.name == name)

@@ -23,7 +23,13 @@ from save_encoder import SaveEncoder, ObjectConverter
 
 
 class Game:
+    """
+    The main class for the game. Contains the majority of business logic, and none of the drawing.
+    """
     def __init__(self):
+        """
+        Initialises the game.
+        """
         pyxel.init(200, 200, title="Microcosm")
 
         self.menu = Menu()
@@ -36,6 +42,7 @@ class Game:
 
         self.last_time = time.time()
 
+        # The map begins at a random position.
         self.map_pos: (int, int) = random.randint(0, 76), random.randint(0, 68)
         self.turn = 1
 
@@ -47,6 +54,9 @@ class Game:
         pyxel.run(self.on_update, self.draw)
 
     def on_update(self):
+        """
+        On every update, calculate the elapsed time, manage music, and respond to key presses.
+        """
         time_elapsed = time.time() - self.last_time
         self.last_time = time.time()
 
@@ -75,6 +85,7 @@ class Game:
                     self.board.overlay.navigate_pause(down=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
+                    # If we're not on a menu, pan the map when you press down.
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_UP):
             if self.on_menu:
@@ -90,6 +101,7 @@ class Game:
                     self.board.overlay.navigate_pause(down=False)
                 else:
                     self.board.overlay.remove_warning_if_possible()
+                    # If we're not on a menu, pan the map when you press up.
                     self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_LEFT):
             if self.on_menu:
@@ -103,6 +115,7 @@ class Game:
                     self.board.overlay.navigate_setl_click(left=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
+                    # If we're not on a menu, pan the map when you press left.
                     self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RIGHT):
             if self.on_menu:
@@ -115,10 +128,12 @@ class Game:
                     self.board.overlay.navigate_setl_click(right=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
+                    # If we're not on a menu, pan the map when you press right.
                     self.map_pos = clamp(self.map_pos[0] + 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RETURN):
             if self.on_menu:
                 if self.menu.in_game_setup and self.menu.setup_option is SetupOption.START_GAME:
+                    # If the player has pressed enter to start the game, generate the players, board, and AI players.
                     pyxel.mouse(visible=True)
                     self.game_started = True
                     self.turn = 1
@@ -152,6 +167,7 @@ class Game:
                     elif self.menu.menu_option is MenuOption.EXIT:
                         pyxel.quit()
             elif self.game_started and self.board.overlay.is_victory():
+                # If the player has won the game, enter will take them back to the menu.
                 self.game_started = False
                 self.on_menu = True
                 self.menu.loading_game = False
@@ -159,6 +175,7 @@ class Game:
                 self.menu.menu_option = MenuOption.NEW_GAME
                 self.music_player.stop_game_music()
                 self.music_player.play_menu_music()
+            # If the player is choosing a blessing or construction, enter will select it.
             elif self.game_started and self.board.overlay.is_constructing():
                 if self.board.overlay.selected_construction is not None:
                     self.board.selected_settlement.current_work = Construction(self.board.overlay.selected_construction)
@@ -168,14 +185,17 @@ class Game:
                     self.players[0].ongoing_blessing = OngoingBlessing(self.board.overlay.selected_blessing)
                 self.board.overlay.toggle_blessing([])
             elif self.game_started and self.board.overlay.is_setl_click():
+                # If the player has chosen to attack a settlement, execute the attack.
                 if self.board.overlay.setl_attack_opt is SettlementAttackType.ATTACK:
                     data = attack_setl(self.board.selected_unit, self.board.overlay.attacked_settlement,
                                        self.board.overlay.attacked_settlement_owner, False)
                     if data.attacker_was_killed:
+                        # If the player's unit died, destroy and deselect it.
                         self.players[0].units.remove(self.board.selected_unit)
                         self.board.selected_unit = None
                         self.board.overlay.toggle_unit(None)
                     elif data.setl_was_taken:
+                        # If the settlement was taken, transfer it to the player.
                         data.settlement.under_siege_by = None
                         self.players[0].settlements.append(data.settlement)
                         for idx, p in enumerate(self.players):
@@ -186,6 +206,7 @@ class Game:
                     self.board.attack_time_bank = 0
                     self.board.overlay.toggle_setl_click(None, None)
                 elif self.board.overlay.setl_attack_opt is SettlementAttackType.BESIEGE:
+                    # Alternatively, begin a siege on the settlement.
                     self.board.selected_unit.sieging = True
                     self.board.overlay.attacked_settlement.under_siege_by = self.board.selected_unit
                     self.board.overlay.toggle_setl_click(None, None)
@@ -207,10 +228,12 @@ class Game:
                     self.music_player.stop_game_music()
                     self.music_player.play_menu_music()
             elif self.game_started and not self.board.overlay.is_tutorial():
+                # If we are not in any of the above situations, end the turn.
                 self.board.overlay.update_turn(self.turn)
                 if self.end_turn():
                     self.process_heathens()
                     self.process_ais()
+        # Mouse clicks are forwarded to the Board for processing.
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
             if self.game_started:
                 self.board.overlay.remove_warning_if_possible()
@@ -228,15 +251,18 @@ class Game:
         elif pyxel.btnp(pyxel.KEY_SHIFT):
             if self.game_started:
                 self.board.overlay.remove_warning_if_possible()
+                # Display the standard overlay.
                 self.board.overlay.toggle_standard(self.turn)
         elif pyxel.btnp(pyxel.KEY_C):
             if self.game_started and self.board.selected_settlement is not None:
+                # Pick a construction.
                 self.board.overlay.toggle_construction(get_available_improvements(self.players[0],
                                                                                   self.board.selected_settlement),
                                                        get_available_unit_plans(self.players[0],
                                                                                 self.board.selected_settlement.level))
         elif pyxel.btnp(pyxel.KEY_F):
             if self.game_started and self.board.overlay.is_standard():
+                # Pick a blessing.
                 self.board.overlay.toggle_blessing(get_available_blessings(self.players[0]))
         elif pyxel.btnp(pyxel.KEY_D):
             if self.game_started and self.board.selected_settlement is not None and \
@@ -244,11 +270,14 @@ class Game:
                 self.board.deploying_army = True
                 self.board.overlay.toggle_deployment()
             elif self.game_started and self.board.selected_unit is not None:
+                # If a unit is selected rather than a settlement, pressing D disbands the army, destroying the unit and
+                # adding to the player's wealth.
                 self.players[0].wealth += self.board.selected_unit.plan.cost
                 self.players[0].units.remove(self.board.selected_unit)
                 self.board.selected_unit = None
                 self.board.overlay.toggle_unit(None)
         elif pyxel.btnp(pyxel.KEY_TAB):
+            # Pressing tab iterates through the player's settlements, centreing on each one.
             if self.game_started and self.board.overlay.can_iter_settlements_units():
                 self.board.overlay.remove_warning_if_possible()
                 if self.board.overlay.is_unit():
@@ -267,6 +296,7 @@ class Game:
                 self.map_pos = (clamp(self.board.selected_settlement.location[0] - 12, -1, 77),
                                 clamp(self.board.selected_settlement.location[1] - 11, -1, 69))
         elif pyxel.btnp(pyxel.KEY_SPACE):
+            # Pressing space either dismisses the current overlay or iterates through the player's units.
             if self.on_menu and self.menu.in_wiki and self.menu.wiki_showing is not None:
                 self.menu.wiki_showing = None
             if self.game_started and self.board.overlay.is_bless_notif():
@@ -297,12 +327,14 @@ class Game:
                                 clamp(self.board.selected_unit.location[1] - 11, -1, 69))
         elif pyxel.btnp(pyxel.KEY_S):
             if self.game_started and self.board.selected_unit is not None and self.board.selected_unit.plan.can_settle:
+                # Units that can settle can found new settlements when S is pressed.
                 self.board.handle_new_settlement(self.players[0])
         elif pyxel.btnp(pyxel.KEY_N):
             if self.game_started:
                 self.music_player.next_song()
         elif pyxel.btnp(pyxel.KEY_B):
             if self.game_started and self.board.selected_settlement is not None:
+                # Pressing B will buyout the remaining cost of the settlement's current construction.
                 current_work = self.board.selected_settlement.current_work
                 remaining_work = current_work.construction.cost - current_work.zeal_consumed
                 if self.players[0].wealth >= remaining_work:
@@ -317,16 +349,24 @@ class Game:
                 self.board.overlay.toggle_pause()
 
     def draw(self):
+        """
+        Draws the game to the screen.
+        """
         if self.on_menu:
             self.menu.draw()
         elif self.game_started:
             self.board.draw(self.players, self.map_pos, self.turn, self.heathens)
 
     def gen_players(self, cfg: GameConfig):
+        """
+        Generates the players for the game based on the supplied config.
+        :param cfg: The game config.
+        """
         self.players = [Player("The Chosen One", cfg.player_colour, 0, [], [], [], set())]
         colours = [pyxel.COLOR_NAVY, pyxel.COLOR_PURPLE, pyxel.COLOR_GREEN, pyxel.COLOR_BROWN, pyxel.COLOR_DARK_BLUE,
                    pyxel.COLOR_LIGHT_BLUE, pyxel.COLOR_RED, pyxel.COLOR_ORANGE, pyxel.COLOR_YELLOW, pyxel.COLOR_LIME,
                    pyxel.COLOR_CYAN, pyxel.COLOR_GRAY, pyxel.COLOR_PINK, pyxel.COLOR_PEACH]
+        # Ensure that an AI player doesn't choose the same colour as the player.
         colours.remove(cfg.player_colour)
         for i in range(1, cfg.player_count):
             colour = random.choice(colours)
@@ -335,6 +375,11 @@ class Game:
                                        ai_playstyle=random.choice(list(AIPlaystyle))))
 
     def end_turn(self) -> bool:
+        """
+        Ends the current game turn, processing settlements, blessings, and units.
+        :return: Whether the turn was successfully ended. Will be False in cases where a warning is generated, or the
+        game ends.
+        """
         # First make sure the player hasn't ended their turn without a construction or blessing.
         problematic_settlements = []
         total_wealth = 0
@@ -364,6 +409,10 @@ class Game:
             completed_constructions: typing.List[CompletedConstruction] = []
             levelled_up_settlements: typing.List[Settlement] = []
             for setl in player.settlements:
+                # Based on the settlement's satisfaction, place the settlement in a specific state of wealth and
+                # harvest. More specifically, a satisfaction of less than 20 will yield 0 wealth and 0 harvest, a
+                # satisfaction of [20, 40) will yield 0 harvest, a satisfaction of [60, 80) will yield 150% harvest,
+                # and a satisfaction of 80 or more will yield 150% wealth and 150% harvest.
                 if setl.satisfaction < 20:
                     setl.harvest_status = HarvestStatus.POOR
                     setl.economic_status = EconomicStatus.RECESSION
@@ -384,6 +433,8 @@ class Game:
                 overall_fortune += total_fortune
                 overall_wealth += total_wealth
 
+                # If the settlement is under siege, decrease its strength, ensuring that the sieging unit is still
+                # alive.
                 if setl.under_siege_by is not None:
                     found_unit = False
                     for p in self.players:
@@ -398,15 +449,19 @@ class Game:
                         else:
                             setl.strength -= setl.max_strength * 0.1
                 else:
+                    # Otherwise, increase the settlement's strength if it was recently under siege and is not at full
+                    # strength.
                     if setl.strength < setl.max_strength:
                         setl.strength = min(setl.strength + setl.max_strength * 0.1, setl.max_strength)
 
+                # Reset all units in the garrison in case any were garrisoned this turn.
                 for g in setl.garrison:
                     g.has_attacked = False
                     g.remaining_stamina = g.plan.total_stamina
                     if g.health < g.plan.max_health:
                         g.health = min(g.health + g.plan.max_health * 0.1, g.plan.max_health)
 
+                # Settlement satisfaction is regulated by the amount of harvest generated against the level.
                 if total_harvest < setl.level * 4:
                     setl.satisfaction -= 0.5
                 elif total_harvest >= setl.level * 8:
@@ -414,45 +469,58 @@ class Game:
                 setl.satisfaction = clamp(setl.satisfaction, 0, 100)
 
                 setl.harvest_reserves += total_harvest
+                # Settlement levels are increased if the settlement's harvest reserves exceed a certain level (specified
+                # in models.py).
                 if setl.harvest_reserves >= pow(setl.level, 2) * 25 and setl.level < 10:
                     setl.level += 1
                     levelled_up_settlements.append(setl)
 
+                # Process the current construction, completing it if it has been finished.
                 if setl.current_work is not None:
                     setl.current_work.zeal_consumed += total_zeal
                     if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
                         completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
                         complete_construction(setl)
+            # Show notifications if the player's constructions have completed or one of their settlements has levelled
+            # up.
             if player.ai_playstyle is None and len(completed_constructions) > 0:
                 self.board.overlay.toggle_construction_notification(completed_constructions)
             if player.ai_playstyle is None and len(levelled_up_settlements) > 0:
                 self.board.overlay.toggle_level_up_notification(levelled_up_settlements)
+            # Reset all units.
             for unit in player.units:
                 unit.remaining_stamina = unit.plan.total_stamina
+                # Heal the unit.
                 if unit.health < unit.plan.max_health:
                     unit.health = min(unit.health + unit.plan.max_health * 0.1, unit.plan.max_health)
                 unit.has_attacked = False
                 overall_wealth -= unit.plan.cost / 25
+            # Process the current blessing, completing it if it was finished.
             if player.ongoing_blessing is not None:
                 player.ongoing_blessing.fortune_consumed += overall_fortune
                 if player.ongoing_blessing.fortune_consumed >= player.ongoing_blessing.blessing.cost:
                     player.blessings.append(player.ongoing_blessing.blessing)
+                    # Show a notification if the player is non-AI.
                     if player.ai_playstyle is None:
                         self.board.overlay.toggle_blessing_notification(player.ongoing_blessing.blessing)
                     player.ongoing_blessing = None
+            # If the player's wealth will go into the negative this turn, sell their units until it's above 0 again.
             while player.wealth + overall_wealth < 0:
                 sold_unit = player.units.pop()
                 if self.board.selected_unit is sold_unit:
                     self.board.selected_unit = None
                     self.board.overlay.toggle_unit(None)
                 player.wealth += sold_unit.plan.cost
+            # Update the player's wealth.
             player.wealth = max(player.wealth + overall_wealth, 0)
             player.accumulated_wealth += overall_wealth
 
+        # Spawn a heathen every 5 turns.
         if self.turn % 5 == 0:
             heathen_loc = random.randint(0, 89), random.randint(0, 99)
             self.heathens.append(get_heathen(heathen_loc))
 
+        # Reset all heathens.
         for heathen in self.heathens:
             heathen.remaining_stamina = heathen.plan.total_stamina
             if heathen.health < heathen.plan.max_health:
@@ -469,6 +537,10 @@ class Game:
             return True
 
     def check_for_victory(self) -> typing.Optional[Victory]:
+        """
+        Check if any of the six victories have been achieved by any of the players.
+        :return: A Victory, if one has been achieved.
+        """
         players_with_setls = 0
         for p in self.players:
             if len(p.settlements) > 0:
@@ -488,26 +560,35 @@ class Game:
                     p.jubilation_ctr += 1
                 else:
                     p.jubilation_ctr = 0
+                # If the player has maintained 5 settlements at 100% satisfaction for 25 turns, they have achieved a
+                # JUBILATION victory.
                 if p.jubilation_ctr == 25:
                     return Victory(p, VictoryType.JUBILATION)
+                # If the player has at least 10 settlements of level 10, they have achieved a GLUTTONY victory.
                 if lvl_ten_setls >= 10:
                     return Victory(p, VictoryType.GLUTTONY)
+                # If the player has constructed the Holy Sanctum, they have achieved a VIGOUR victory.
                 if constructed_sanctum:
                     return Victory(p, VictoryType.VIGOUR)
             elif any(unit.plan.can_settle for unit in self.players[0].units):
                 players_with_setls += 1
+            # If the player has accumulated at least 100k wealth over the game, they have achieved an AFFLUENCE victory.
             if p.accumulated_wealth >= 100000:
                 return Victory(p, VictoryType.AFFLUENCE)
+            # If the player has undergone the blessings for all three pieces of ardour, they have achieved a
+            # SERENDIPITY victory.
             if len([bls for bls in p.blessings if "Piece of" in bls.name]) == 3:
                 return Victory(p, VictoryType.SERENDIPITY)
 
         if players_with_setls == 1:
+            # If there is only one player with settlements, they have achieved an ELIMINATION victory.
             return Victory(next(player for player in self.players if len(player.settlements) > 0),
                            VictoryType.ELIMINATION)
 
         return None
 
     def process_heathens(self):
+        # TODO Continue doco from here.
         all_units = []
         for player in self.players:
             for unit in player.units:
