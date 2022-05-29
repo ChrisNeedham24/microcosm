@@ -534,8 +534,7 @@ class Game:
         if possible_victory is not None:
             self.board.overlay.toggle_victory(possible_victory)
             return False
-        else:
-            return True
+        return True
 
     def check_for_victory(self) -> typing.Optional[Victory]:
         """
@@ -589,6 +588,9 @@ class Game:
         return None
 
     def process_heathens(self):
+        """
+        Process the turns for each of the heathens.
+        """
         all_units = []
         for player in self.players:
             for unit in player.units:
@@ -657,7 +659,8 @@ class Game:
         """
         Saves the current game with the current timestamp as the file name.
         """
-        with open(f"saves/save-{datetime.datetime.now().isoformat(timespec='seconds')}.json", "w") as save_file:
+        with open(f"saves/save-{datetime.datetime.now().isoformat(timespec='seconds')}.json", "w", encoding="utf-8") \
+                as save_file:
             # We use chain.from_iterable() here because the quads array is 2D.
             save = {
                 "quads": list(chain.from_iterable(self.board.quads)),
@@ -681,7 +684,7 @@ class Game:
         saves = list(filter(lambda file: not file == "README.md", os.listdir("saves")))
         saves.sort()
         saves.reverse()
-        with open(f"saves/{saves[save_idx]}", "r") as save_file:
+        with open(f"saves/{saves[save_idx]}", "r", encoding="utf-8") as save_file:
             # Use a custom object hook when loading the JSON so that the resulting objects have attribute access.
             save = json.loads(save_file.read(), object_hook=ObjectConverter)
             # Load in the quads.

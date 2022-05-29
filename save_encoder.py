@@ -16,17 +16,17 @@ class SaveEncoder(JSONEncoder):
         if dataclasses.is_dataclass(o):
             return dataclasses.asdict(o)
         # Sets must be represented as lists, no real difference anyway.
-        elif isinstance(o, set):
+        if isinstance(o, set):
             return list(o)
         # ObjectConvertors, which are defined below, are essentially dicts with attributes anyway, so just return their
         # dict.
-        elif isinstance(o, ObjectConverter):
+        if isinstance(o, ObjectConverter):
             return o.__dict__
         # Otherwise, let the standard JSONEncoder handle it.
         return super().default(o)
 
 
-class ObjectConverter(object):
+class ObjectConverter:
     """
     A convenience class that allows attribute access to dictionary objects.
     """

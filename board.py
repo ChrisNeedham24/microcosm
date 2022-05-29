@@ -304,7 +304,7 @@ class Board:
             # Work out which quad they've clicked, and select it.
             adj_x = int((mouse_x - 4) / 8) + map_pos[0]
             adj_y = int((mouse_y - 4) / 8) + map_pos[1]
-            self.quads[adj_y][adj_x].selected = True if not self.quads[adj_y][adj_x].selected else False
+            self.quads[adj_y][adj_x].selected = not self.quads[adj_y][adj_x].selected
             if self.quad_selected is not None:
                 self.quad_selected.selected = False
             self.quad_selected = self.quads[adj_y][adj_x]

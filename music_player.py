@@ -72,4 +72,4 @@ class MusicPlayer:
         Returns whether any in-game song is playing. Used to skip to the next track if the current one has finished.
         :return: Whether an in-game song is playing.
         """
-        return any([mp.is_playing() for mp in self.game_players])
+        return any(mp.is_playing() for mp in self.game_players)
