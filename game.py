@@ -123,6 +123,7 @@ class Game:
             if self.game_started and self.board.overlay.is_constructing():
                 self.board.overlay.constructing_improvement = False
                 self.board.overlay.selected_construction = self.board.overlay.available_unit_plans[0]
+                self.board.overlay.unit_plan_boundaries = 0, 5
             elif self.game_started:
                 if self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(right=True)
