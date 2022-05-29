@@ -30,6 +30,7 @@ class Board:
         """
         Initialises the board with the given config and quads, if supplied.
         :param cfg: The game config.
+        :param namer: The Namer instance to use for settlement names.
         :param quads: The quads loaded in, if we are loading a game.
         """
         self.current_help = HelpOption.SETTLEMENT

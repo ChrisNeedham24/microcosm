@@ -11,6 +11,9 @@ from models import Settlement, Player, Improvement, Unit, Blessing, ImprovementT
 
 
 class OverlayType(Enum):
+    """
+    The various overlay types that may be displayed.
+    """
     STANDARD = "STANDARD"
     SETTLEMENT = "SETTLEMENT"
     CONSTRUCTION = "CONSTRUCTION"
@@ -32,11 +35,17 @@ class OverlayType(Enum):
 
 
 class SettlementAttackType(Enum):
+    """
+    The two types of attack on a settlement that a unit can execute.
+    """
     ATTACK = "ATTACK"
     BESIEGE = "BESIEGE"
 
 
 class PauseOption(Enum):
+    """
+    The four pause options available to the player.
+    """
     RESUME = "RESUME"
     SAVE = "SAVE"
     CONTROLS = "CONTROLS"
@@ -44,39 +53,55 @@ class PauseOption(Enum):
 
 
 class Overlay:
+    """
+    The class responsible for displaying the overlay menus in-game.
+    """
+
     def __init__(self):
-        self.showing: typing.List[OverlayType] = []
+        """
+        Initialise the many variables used by the overlay to keep track of game state.
+        """
+        self.showing: typing.List[OverlayType] = []  # What the overlay is currently displaying.
         self.current_turn: int = 0
         self.current_settlement: typing.Optional[Settlement] = None
-        self.current_player: typing.Optional[Player] = None
+        self.current_player: typing.Optional[Player] = None  # Will always be the non-AI player.
         self.available_constructions: typing.List[Improvement] = []
         self.available_unit_plans: typing.List[UnitPlan] = []
         self.selected_construction: typing.Optional[typing.Union[Improvement, UnitPlan]] = None
+        # These boundaries are used to keep track of which improvements/units/blessings are currently displayed. This is
+        # for scrolling functionality to work.
         self.construction_boundaries: typing.Tuple[int, int] = 0, 5
         self.unit_plan_boundaries: typing.Tuple[int, int] = 0, 5
-        self.constructing_improvement: bool = True
+        self.constructing_improvement: bool = True  # Whether we are on the improvements or units side.
         self.selected_unit: typing.Optional[typing.Union[Unit, Heathen]] = None
         self.available_blessings: typing.List[Blessing] = []
         self.selected_blessing: typing.Optional[Blessing] = None
         self.blessing_boundaries: typing.Tuple[int, int] = 0, 5
-        self.problematic_settlements: typing.List[Settlement] = []
-        self.has_no_blessing: bool = False
-        self.will_have_negative_wealth = False
+        self.problematic_settlements: typing.List[Settlement] = []  # Settlements with no construction.
+        self.has_no_blessing: bool = False  # Whether the player is not undergoing a blessing currently.
+        self.will_have_negative_wealth = False  # If the player will go into negative wealth if they end their turn.
+        # Any blessings or constructions that have just completed, or any settlements that have levelled up.
         self.completed_blessing: typing.Optional[Blessing] = None
         self.completed_constructions: typing.List[CompletedConstruction] = []
         self.levelled_up_settlements: typing.List[Settlement] = []
+        # Data to display from attacks.
         self.attack_data: typing.Optional[AttackData] = None
         self.setl_attack_data: typing.Optional[SetlAttackData] = None
+        # The option that the player has selected when attacking a settlement.
         self.setl_attack_opt: typing.Optional[SettlementAttackType] = None
         self.attacked_settlement: typing.Optional[Settlement] = None
         self.attacked_settlement_owner: typing.Optional[Player] = None
         self.sieged_settlement: typing.Optional[Settlement] = None
         self.sieger_of_settlement: typing.Optional[Player] = None
         self.pause_option: PauseOption = PauseOption.RESUME
-        self.current_victory: typing.Optional[Victory] = None
+        self.current_victory: typing.Optional[Victory] = None  # Victory data, if one has been achieved.
 
     def display(self):
+        """
+        Display the current overlay to the screen.
+        """
         pyxel.load("resources/sprites.pyxres")
+        # The victory overlay displays the player who achieved the victory, as well as the type.
         if OverlayType.VICTORY in self.showing:
             pyxel.rectb(12, 60, 176, 38, pyxel.COLOR_WHITE)
             pyxel.rect(13, 61, 174, 36, pyxel.COLOR_BLACK)
@@ -101,10 +126,13 @@ class Overlay:
                 pyxel.text(22, 75, f"{beginning} achieved a SERENDIPITY victory.", pyxel.COLOR_PURPLE)
 
             pyxel.text(35, 85, "Press ENTER to return to the menu.", pyxel.COLOR_WHITE)
+        # The deployment overlay displays a message instructing the player.
         elif OverlayType.DEPLOYMENT in self.showing:
             pyxel.rectb(12, 150, 176, 15, pyxel.COLOR_WHITE)
             pyxel.rect(13, 151, 174, 13, pyxel.COLOR_BLACK)
             pyxel.text(15, 153, "Click a quad in the white square to deploy!", pyxel.COLOR_WHITE)
+        # The blessing notification overlay displays any blessing completed by the player in the last turn, and what has
+        # been unlocked as a result.
         elif OverlayType.BLESS_NOTIF in self.showing:
             unlocked = get_all_unlockable(self.completed_blessing)
             pyxel.rectb(12, 60, 176, 45 + len(unlocked) * 10, pyxel.COLOR_WHITE)
@@ -115,9 +143,12 @@ class Overlay:
             if len(unlocked) > 0:
                 for idx, imp in enumerate(unlocked):
                     pyxel.text(25, 93 + idx * 10, imp.name, pyxel.COLOR_RED)
+            # Blessings that do not unlock any improvements are for meeting victory criteria.
             else:
                 pyxel.text(25, 93, "victory", pyxel.COLOR_GREEN)
             pyxel.text(70, 93 + max(1, len(unlocked)) * 10, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+        # The construction notification overlay displays any constructions completed by the player in the last turn, and
+        # the settlements they were constructed in.
         elif OverlayType.CONSTR_NOTIF in self.showing:
             pyxel.rectb(12, 60, 176, 25 + len(self.completed_constructions) * 20, pyxel.COLOR_WHITE)
             pyxel.rect(13, 61, 174, 23 + len(self.completed_constructions) * 20, pyxel.COLOR_BLACK)
@@ -127,6 +158,7 @@ class Overlay:
                 pyxel.text(20, 73 + idx * 20, constr.settlement.name, pyxel.COLOR_WHITE)
                 pyxel.text(25, 83 + idx * 20, constr.construction.name, pyxel.COLOR_RED)
             pyxel.text(70, 73 + len(self.completed_constructions) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+        # The level up notification overlay displays any player settlements that levelled up in the last turn.
         elif OverlayType.LEVEL_NOTIF in self.showing:
             pyxel.rectb(12, 60, 176, 25 + len(self.levelled_up_settlements) * 20, pyxel.COLOR_WHITE)
             pyxel.rect(13, 61, 174, 23 + len(self.levelled_up_settlements) * 20, pyxel.COLOR_BLACK)
@@ -136,6 +168,8 @@ class Overlay:
                 pyxel.text(20, 73 + idx * 20, setl.name, pyxel.COLOR_WHITE)
                 pyxel.text(25, 83 + idx * 20, f"{setl.level - 1} -> {setl.level}", pyxel.COLOR_WHITE)
             pyxel.text(70, 73 + len(self.levelled_up_settlements) * 20, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+        # The warning overlay displays if the player is not undergoing a blessing, has any settlements without a
+        # current construction, or if the player's wealth will be depleted.
         elif OverlayType.WARNING in self.showing:
             extension = 0
             if self.will_have_negative_wealth:
@@ -162,6 +196,8 @@ class Overlay:
                     pyxel.text(80, 73 + offset, setl.name, pyxel.COLOR_WHITE)
                     offset += 10
         else:
+            # The attack overlay displays the results of an attack that occurred involving one of the player's units,
+            # whether player-initiated or not.
             if OverlayType.ATTACK in self.showing:
                 pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
                 pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
@@ -183,6 +219,8 @@ class Overlay:
                     pyxel.text(32, 15, f"Your {def_name} (-{def_dmg}) was attacked by", pyxel.COLOR_WHITE)
                 pyxel.text(72, 25, f"a {def_name if self.attack_data.player_attack else att_name} "
                                    f"(-{def_dmg if self.attack_data.player_attack else att_dmg})", pyxel.COLOR_WHITE)
+            # The settlement attack overlay displays the results of an attack on one of the player's settlements, or on
+            # a settlement that has been attacked by the player.
             if OverlayType.SETL_ATTACK in self.showing:
                 pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
                 pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
@@ -201,12 +239,16 @@ class Overlay:
                 else:
                     pyxel.text(54, 15, f"A {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
                 pyxel.text(72, 25, f"{setl_name} (-{setl_dmg})", self.setl_attack_data.setl_owner.colour)
+            # The siege notification overlay notifies the player that one of their settlements has been placed under
+            # siege by an AI player.
             if OverlayType.SIEGE_NOTIF in self.showing:
                 pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
                 pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
                 att_name = self.sieger_of_settlement.name
                 setl_name = self.sieged_settlement.name
                 pyxel.text(22, 15, f"{setl_name} was placed under siege by {att_name}", pyxel.COLOR_RED)
+            # The settlement overlay displays the currently-selected settlements name, statistics, current construction,
+            # and garrison.
             if OverlayType.SETTLEMENT in self.showing:
                 pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
                 pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
@@ -262,6 +304,8 @@ class Overlay:
                     pyxel.text(110, 155 - y_offset, "Press D to deploy!", pyxel.COLOR_WHITE)
                 else:
                     pyxel.text(110, 145 - y_offset, "No units.", pyxel.COLOR_RED)
+            # The unit overlay displays the statistics for the selected unit, along with a notification if the selected
+            # unit is the player's and they are currently placing an enemy settlement under siege.
             if OverlayType.UNIT in self.showing:
                 pyxel.rectb(12, 110, 56, 60, pyxel.COLOR_WHITE)
                 pyxel.rect(13, 111, 54, 58, pyxel.COLOR_BLACK)
@@ -286,6 +330,8 @@ class Overlay:
                            pyxel.COLOR_WHITE)
                 pyxel.blt(20, 160, 0, 8, 52, 8, 8)
                 pyxel.text(30, 162, "Disb. (D)", pyxel.COLOR_RED)
+            # The construction overlay displays the available improvements and unit plans available for construction in
+            # the currently-selected settlement, along with their effects.
             if OverlayType.CONSTRUCTION in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -361,6 +407,7 @@ class Overlay:
                     pyxel.text(140, 150, "Units ->", pyxel.COLOR_WHITE)
                 elif len(self.available_constructions) > 0:
                     pyxel.text(25, 150, "<- Improvements", pyxel.COLOR_WHITE)
+            # The standard overlay displays the current turn, ongoing blessing, and player wealth.
             if OverlayType.STANDARD in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -402,6 +449,8 @@ class Overlay:
                 pyxel.text(30, 90,
                            f"{round(self.current_player.wealth)} ({sign}{abs(round(wealth_per_turn, 2))})",
                            pyxel.COLOR_WHITE)
+            # The settlement click overlay displays the two options available to the player when interacting with an
+            # enemy settlement: attack or besiege.
             if OverlayType.SETL_CLICK in self.showing:
                 pyxel.rectb(50, 60, 100, 70, pyxel.COLOR_WHITE)
                 pyxel.rect(51, 61, 98, 68, pyxel.COLOR_BLACK)
@@ -417,6 +466,8 @@ class Overlay:
                            pyxel.COLOR_RED
                            if self.setl_attack_opt is SettlementAttackType.BESIEGE else pyxel.COLOR_WHITE)
                 pyxel.text(90, 115, "Cancel", pyxel.COLOR_RED if self.setl_attack_opt is None else pyxel.COLOR_WHITE)
+            # The blessing overlay displays the available blessings that the player can undergo, along with the types of
+            # improvements that they unlock.
             if OverlayType.BLESSING in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -473,11 +524,14 @@ class Overlay:
                         else:
                             pyxel.text(65, 41 + adj_idx * 18, "victory", pyxel.COLOR_GREEN)
                 pyxel.text(90, 150, "Cancel", pyxel.COLOR_RED if self.selected_blessing is None else pyxel.COLOR_WHITE)
+            # The tutorial overlay displays an instructional message to the player w.r.t. founding their first
+            # settlement.
             if OverlayType.TUTORIAL in self.showing:
                 pyxel.rectb(8, 140, 184, 25, pyxel.COLOR_WHITE)
                 pyxel.rect(9, 141, 182, 23, pyxel.COLOR_BLACK)
                 pyxel.text(60, 143, "Welcome to Microcosm!", pyxel.COLOR_WHITE)
                 pyxel.text(12, 153, "Click a quad to found your first settlement.", pyxel.COLOR_WHITE)
+            # The pause overlay displays the available pause options for the player to select.
             if OverlayType.PAUSE in self.showing:
                 pyxel.rectb(52, 60, 96, 63, pyxel.COLOR_WHITE)
                 pyxel.rect(53, 61, 94, 61, pyxel.COLOR_BLACK)
@@ -490,6 +544,7 @@ class Overlay:
                            pyxel.COLOR_RED if self.pause_option is PauseOption.CONTROLS else pyxel.COLOR_WHITE)
                 pyxel.text(90, 110, "Quit",
                            pyxel.COLOR_RED if self.pause_option is PauseOption.QUIT else pyxel.COLOR_WHITE)
+            # The controls overlay displays the controls that are not permanent fixtures at the bottom of the screen.
             if OverlayType.CONTROLS in self.showing:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -512,7 +567,16 @@ class Overlay:
                 pyxel.text(65, 115, "Buyout construction", pyxel.COLOR_WHITE)
                 pyxel.text(56, 150, "Press SPACE to go back.", pyxel.COLOR_WHITE)
 
+    """
+    Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
+    displayed along with which other overlays.
+    """
+
     def toggle_standard(self, turn: int):
+        """
+        Toggle the standard overlay.
+        :param turn: The current turn.
+        """
         if OverlayType.STANDARD in self.showing:
             self.showing.remove(OverlayType.STANDARD)
         elif not self.is_tutorial() and not self.is_lvl_notif() and not self.is_constr_notif() and \
@@ -523,6 +587,11 @@ class Overlay:
 
     def toggle_construction(self, available_constructions: typing.List[Improvement],
                             available_unit_plans: typing.List[UnitPlan]):
+        """
+        Toggle the construction overlay.
+        :param available_constructions: The available improvements that the player can select from.
+        :param available_unit_plans: The available units that the player may recruit from.
+        """
         if OverlayType.CONSTRUCTION in self.showing:
             self.showing.remove(OverlayType.CONSTRUCTION)
         elif not self.is_standard() and not self.is_blessing() and not self.is_lvl_notif() and \
@@ -535,13 +604,19 @@ class Overlay:
                 self.constructing_improvement = True
                 self.selected_construction = self.available_constructions[0]
                 self.construction_boundaries = 0, 5
+            # If there are no available improvements, display the units instead.
             else:
                 self.constructing_improvement = False
                 self.selected_construction = self.available_unit_plans[0]
                 self.unit_plan_boundaries = 0, 5
 
     def navigate_constructions(self, down: bool):
+        """
+        Navigate the constructions overlay.
+        :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
+        """
         list_to_use = self.available_constructions if self.constructing_improvement else self.available_unit_plans
+        # Scroll up/down the improvements/units list, ensuring not to exceed the bounds in either direction.
         if down and self.selected_construction is not None:
             current_index = list_to_use.index(self.selected_construction)
             if current_index != len(list_to_use) - 1:
@@ -573,9 +648,17 @@ class Overlay:
                                 self.unit_plan_boundaries[0] - 1, self.unit_plan_boundaries[1] - 1
 
     def is_constructing(self) -> bool:
+        """
+        Returns whether the construction overlay is currently being displayed.
+        :return: Whether the construction overlay is being displayed.
+        """
         return OverlayType.CONSTRUCTION in self.showing
 
     def toggle_blessing(self, available_blessings: typing.List[Blessing]):
+        """
+        Toggle the blessings overlay.
+        :param available_blessings: The available blessings for the player to select from.
+        """
         if OverlayType.BLESSING in self.showing:
             self.showing.remove(OverlayType.BLESSING)
         elif not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_bless_notif() and \
@@ -587,6 +670,11 @@ class Overlay:
             self.blessing_boundaries = 0, 5
 
     def navigate_blessings(self, down: bool):
+        """
+        Navigate the blessings overlay.
+        :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
+        """
+        # Scroll up/down the blessings list, ensuring not to exceed the bounds in either direction.
         if down and self.selected_blessing is not None:
             current_index = self.available_blessings.index(self.selected_blessing)
             if current_index != len(self.available_blessings) - 1:
@@ -606,12 +694,25 @@ class Overlay:
                         self.blessing_boundaries = self.blessing_boundaries[0] - 1, self.blessing_boundaries[1] - 1
 
     def is_standard(self) -> bool:
+        """
+        Returns whether the standard overlay is currently being displayed.
+        :return: Whether the standard overlay is being displayed.
+        """
         return OverlayType.STANDARD in self.showing
 
     def is_blessing(self) -> bool:
+        """
+        Returns whether the blessings overlay is currently being displayed.
+        :return: Whether the blessings overlay is being displayed.
+        """
         return OverlayType.BLESSING in self.showing
 
     def toggle_settlement(self, settlement: typing.Optional[Settlement], player: Player):
+        """
+        Toggle the settlement overlay.
+        :param settlement: The selected settlement to display.
+        :param player: The current player. Will always be the non-AI player.
+        """
         if OverlayType.SETTLEMENT in self.showing:
             self.showing.remove(OverlayType.SETTLEMENT)
         elif not self.is_unit() and not self.is_standard() and not self.is_setl_click() and not self.is_blessing() and \
@@ -623,12 +724,25 @@ class Overlay:
             self.current_player = player
 
     def update_settlement(self, settlement: Settlement):
+        """
+        Updates the currently-displayed settlement in the settlement overlay. Used in cases where the player is
+        iterating through their settlements with the TAB key.
+        :param settlement: The new settlement to display.
+        """
         self.current_settlement = settlement
 
     def update_unit(self, unit: Unit):
+        """
+        Updates the currently-displayed unit in the unit overlay. Used in cases where the player is iterating through
+        their units with the SPACE key.
+        :param unit: The new unit to display.
+        """
         self.selected_unit = unit
 
     def toggle_deployment(self):
+        """
+        Toggle the deployment overlay.
+        """
         if OverlayType.DEPLOYMENT in self.showing:
             self.showing.remove(OverlayType.DEPLOYMENT)
         elif not self.is_warning() and not self.is_bless_notif() and not self.is_constr_notif() and \
@@ -636,9 +750,17 @@ class Overlay:
             self.showing.append(OverlayType.DEPLOYMENT)
 
     def is_deployment(self):
+        """
+        Returns whether the deployment overlay is currently being displayed.
+        :return: Whether the deployment overlay is being displayed.
+        """
         return OverlayType.DEPLOYMENT in self.showing
 
     def toggle_unit(self, unit: typing.Optional[typing.Union[Unit, Heathen]]):
+        """
+        Toggle the unit overlay.
+        :param unit: The currently-selected unit to display in the overlay.
+        """
         if OverlayType.UNIT in self.showing:
             self.showing.remove(OverlayType.UNIT)
         elif not self.is_setl() and not self.is_standard() and not self.is_setl_click() and not self.is_blessing() and \
@@ -649,30 +771,55 @@ class Overlay:
             self.selected_unit = unit
 
     def toggle_tutorial(self):
+        """
+        Toggle the tutorial overlay.
+        """
         if OverlayType.TUTORIAL in self.showing:
             self.showing.remove(OverlayType.TUTORIAL)
         else:
             self.showing.append(OverlayType.TUTORIAL)
 
     def is_tutorial(self) -> bool:
+        """
+        Returns whether the tutorial overlay is currently being displayed.
+        :return: Whether the tutorial overlay is being displayed.
+        """
         return OverlayType.TUTORIAL in self.showing
 
     def update_turn(self, turn: int):
+        """
+        Updates the turn to be displayed in the standard overlay. Necessary for cases in which the player ends their
+        turn while viewing the standard overlay.
+        :param turn: The new turn to display.
+        """
         self.current_turn = turn
 
     def is_unit(self):
+        """
+        Returns whether the unit overlay is currently being displayed.
+        :return: Whether the unit overlay is being displayed.
+        """
         return OverlayType.UNIT in self.showing
 
     def can_iter_settlements_units(self) -> bool:
+        """
+        Returns whether the player can iterate through either their settlements or units.
+        :return: Whether player settlement/unit iteration is permitted.
+        """
         return not self.is_victory() and not self.is_controls() and not self.is_pause() and \
                not self.is_deployment() and not self.is_warning() and not self.is_bless_notif() and \
                not self.is_constr_notif() and not self.is_lvl_notif() and not self.is_blessing() and \
                not self.is_standard() and not self.is_constructing() and not self.is_setl_click()
 
     def is_setl(self):
+        """
+        Returns whether the settlement overlay is currently being displayed.
+        :return: Whether the settlement overlay is being displayed.
+        """
         return OverlayType.SETTLEMENT in self.showing
 
     def toggle_warning(self, settlements: typing.List[Settlement], no_blessing: bool, will_have_negative_wealth: bool):
+        # TODO Continue doco from here.
         if OverlayType.WARNING in self.showing:
             self.showing.remove(OverlayType.WARNING)
         else:
