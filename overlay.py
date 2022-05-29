@@ -819,7 +819,12 @@ class Overlay:
         return OverlayType.SETTLEMENT in self.showing
 
     def toggle_warning(self, settlements: typing.List[Settlement], no_blessing: bool, will_have_negative_wealth: bool):
-        # TODO Continue doco from here.
+        """
+        Toggle the warning overlay.
+        :param settlements: The player settlements that have no construction.
+        :param no_blessing: Whether the player is currently not undergoing a blessing.
+        :param will_have_negative_wealth: Whether the player will have negative wealth next turn.
+        """
         if OverlayType.WARNING in self.showing:
             self.showing.remove(OverlayType.WARNING)
         else:
@@ -829,13 +834,25 @@ class Overlay:
             self.will_have_negative_wealth = will_have_negative_wealth
 
     def is_warning(self):
+        """
+        Returns whether the warning overlay is currently being displayed.
+        :return: Whether the warning overlay is being displayed.
+        """
         return OverlayType.WARNING in self.showing
 
     def remove_warning_if_possible(self):
+        """
+        If the warning overlay is currently being displayed, remove it. Used for cases in which the warning overlay is
+        displayed and any user interaction with the mouse or keyboard should remove it.
+        """
         if OverlayType.WARNING in self.showing:
             self.showing.remove(OverlayType.WARNING)
 
     def toggle_blessing_notification(self, blessing: typing.Optional[Blessing]):
+        """
+        Toggle the blessing notification overlay.
+        :param blessing: The blessing completed by the player.
+        """
         if OverlayType.BLESS_NOTIF in self.showing:
             self.showing.remove(OverlayType.BLESS_NOTIF)
         else:
@@ -843,9 +860,17 @@ class Overlay:
             self.completed_blessing = blessing
 
     def is_bless_notif(self):
+        """
+        Returns whether the blessing notification overlay is currently being displayed.
+        :return: Whether the blessing notification overlay is being displayed.
+        """
         return OverlayType.BLESS_NOTIF in self.showing
 
     def toggle_construction_notification(self, constructions: typing.List[CompletedConstruction]):
+        """
+        Toggle the construction notification overlay.
+        :param constructions: The list of constructions that were completed in the last turn.
+        """
         if OverlayType.CONSTR_NOTIF in self.showing:
             self.showing.remove(OverlayType.CONSTR_NOTIF)
         else:
@@ -853,9 +878,17 @@ class Overlay:
             self.completed_constructions = constructions
 
     def is_constr_notif(self):
+        """
+        Returns whether the construction notification overlay is currently being displayed.
+        :return: Whether the construction notification overlay is being displayed.
+        """
         return OverlayType.CONSTR_NOTIF in self.showing
 
     def toggle_level_up_notification(self, settlements: typing.List[Settlement]):
+        """
+        Toggle the level up notification overlay.
+        :param settlements: The list of settlements that levelled up in the last turn.
+        """
         if OverlayType.LEVEL_NOTIF in self.showing:
             self.showing.remove(OverlayType.LEVEL_NOTIF)
         else:
@@ -863,10 +896,19 @@ class Overlay:
             self.levelled_up_settlements = settlements
 
     def is_lvl_notif(self):
+        """
+        Returns whether the level up notification overlay is currently being displayed.
+        :return: Whether the level up notification overlay is being displayed.
+        """
         return OverlayType.LEVEL_NOTIF in self.showing
 
     def toggle_attack(self, attack_data: typing.Optional[AttackData]):
+        """
+        Toggle the attack overlay.
+        :param attack_data: The data for the overlay to display.
+        """
         if OverlayType.ATTACK in self.showing:
+            # We need this if-else in order to update attacks if they occur multiple times within the window.
             if attack_data is None:
                 self.showing.remove(OverlayType.ATTACK)
             else:
@@ -876,10 +918,19 @@ class Overlay:
             self.attack_data = attack_data
 
     def is_attack(self):
+        """
+        Returns whether the attack overlay is currently being displayed.
+        :return: Whether the attack overlay is being displayed.
+        """
         return OverlayType.ATTACK in self.showing
 
     def toggle_setl_attack(self, attack_data: typing.Optional[SetlAttackData]):
+        """
+        Toggle the settlement attack overlay.
+        :param attack_data: The data for the overlay to display.
+        """
         if OverlayType.SETL_ATTACK in self.showing:
+            # We need this if-else in order to update attacks if they occur multiple times within the window.
             if attack_data is None:
                 self.showing.remove(OverlayType.SETL_ATTACK)
             else:
@@ -889,9 +940,18 @@ class Overlay:
             self.setl_attack_data = attack_data
 
     def is_setl_attack(self):
+        """
+        Returns whether the settlement attack overlay is currently being displayed.
+        :return: Whether the settlement attack overlay is being displayed.
+        """
         return OverlayType.SETL_ATTACK in self.showing
 
     def toggle_siege_notif(self, sieged: typing.Optional[Settlement], sieger: typing.Optional[Player]):
+        """
+        Toggle the siege notification overlay.
+        :param sieged: The settlement being placed under siege.
+        :param sieger: The player placing the settlement under siege.
+        """
         if OverlayType.SIEGE_NOTIF in self.showing:
             self.showing.remove(OverlayType.SIEGE_NOTIF)
         else:
@@ -900,16 +960,33 @@ class Overlay:
             self.sieger_of_settlement = sieger
 
     def is_siege_notif(self):
+        """
+        Returns whether the siege notification overlay is currently being displayed.
+        :return: Whether the siege notification overlay is currently being displayed.
+        """
         return OverlayType.SIEGE_NOTIF in self.showing
 
     def toggle_victory(self, victory: Victory):
+        """
+        Toggle the victory overlay.
+        :param victory: The victory achieved by a player.
+        """
         self.showing.append(OverlayType.VICTORY)
         self.current_victory = victory
 
     def is_victory(self):
+        """
+        Returns whether the victory overlay is currently being displayed.
+        :return: Whether the victory overlay is being displayed.
+        """
         return OverlayType.VICTORY in self.showing
 
     def toggle_setl_click(self, att_setl: typing.Optional[Settlement], owner: typing.Optional[Player]):
+        """
+        Toggle the settlement click overlay.
+        :param att_setl: The settlement clicked on by the player.
+        :param owner: The owner of the clicked-on settlement.
+        """
         if OverlayType.SETL_CLICK in self.showing:
             self.showing.remove(OverlayType.SETL_CLICK)
         elif not self.is_standard() and not self.is_constructing() and not self.is_blessing() and \
@@ -922,17 +999,32 @@ class Overlay:
             self.attacked_settlement_owner = owner
 
     def navigate_setl_click(self, left: bool = False, right: bool = False, up: bool = False, down: bool = False):
+        """
+        Navigate the settlement click overlay.
+        :param left: Whether the left arrow key was pressed.
+        :param right: Whether the right arrow key was pressed.
+        :param up: Whether the up arrow key was pressed.
+        :param down: Whether the down arrow key was pressed.
+        """
         if down:
             self.setl_attack_opt = None
+        # From cancel, the up key will take you to the left option.
         elif up or left:
             self.setl_attack_opt = SettlementAttackType.ATTACK
         elif right:
             self.setl_attack_opt = SettlementAttackType.BESIEGE
 
     def is_setl_click(self) -> bool:
+        """
+        Returns whether the settlement click overlay is currently being displayed.
+        :return: Whether the settlement click overlay is being displayed.
+        """
         return OverlayType.SETL_CLICK in self.showing
 
     def toggle_pause(self):
+        """
+        Toggle the pause overlay.
+        """
         if OverlayType.PAUSE in self.showing:
             self.showing.remove(OverlayType.PAUSE)
         elif not self.is_victory():
@@ -940,6 +1032,10 @@ class Overlay:
             self.pause_option = PauseOption.RESUME
 
     def navigate_pause(self, down: bool):
+        """
+        Navigate the pause overlay.
+        :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
+        """
         if down:
             if self.pause_option is PauseOption.RESUME:
                 self.pause_option = PauseOption.SAVE
@@ -956,13 +1052,24 @@ class Overlay:
                 self.pause_option = PauseOption.CONTROLS
 
     def is_pause(self) -> bool:
+        """
+        Returns whether the pause overlay is currently being displayed.
+        :return: Whether the pause overlay is being displayed.
+        """
         return OverlayType.PAUSE in self.showing
 
     def toggle_controls(self):
+        """
+        Toggle the controls overlay.
+        """
         if OverlayType.CONTROLS in self.showing:
             self.showing.remove(OverlayType.CONTROLS)
         elif not self.is_victory():
             self.showing.append(OverlayType.CONTROLS)
 
     def is_controls(self) -> bool:
+        """
+        Returns whether the controls overlay is currently being displayed.
+        :return: Whether the controls overlay is being displayed.
+        """
         return OverlayType.CONTROLS in self.showing
