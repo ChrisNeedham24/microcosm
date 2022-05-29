@@ -756,8 +756,12 @@ class Game:
         """
         self.menu.saves = []
         saves = list(filter(lambda file_name: not file_name == "README.md", os.listdir("saves")))
-        saves.sort()
-        saves.reverse()
-        for f in saves:
-            # Just show the date and time.
-            self.menu.saves.append(f[5:-5].replace("T", " "))
+        # Default to the cancel option if there are no saves available.
+        if len(saves) == 0:
+            self.menu.save_idx = -1
+        else:
+            saves.sort()
+            saves.reverse()
+            for f in saves:
+                # Just show the date and time.
+                self.menu.saves.append(f[5:-5].replace("T", " "))
