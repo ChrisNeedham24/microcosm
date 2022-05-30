@@ -26,6 +26,7 @@ class Board:
     """
     The class responsible for drawing everything in-game (i.e. not on menu).
     """
+
     def __init__(self, cfg: GameConfig, namer: Namer, quads: typing.List[typing.List[Quad]] = None):
         """
         Initialises the board with the given config and quads, if supplied.
@@ -300,7 +301,16 @@ class Board:
         :param mouse_y: The Y coordinate of the mouse click.
         :param map_pos: The current map position.
         """
-        if 4 <= mouse_x <= 196 and 4 <= mouse_y <= 180:
+        # Ensure that we only process right clicks in situations where it makes sense for the player to be able to click
+        # the map. For example, if the player is choosing a construction for a settlement, they should not be able to
+        # click around on the map.
+        obscured_by_overlay = self.overlay.is_standard() or self.overlay.is_constructing() or \
+                              self.overlay.is_blessing() or self.overlay.is_deployment() or \
+                              self.overlay.is_warning() or self.overlay.is_bless_notif() or \
+                              self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or \
+                              self.overlay.is_setl_click() or self.overlay.is_pause() or self.overlay.is_controls() or \
+                              self.overlay.is_victory()
+        if not obscured_by_overlay and 4 <= mouse_x <= 196 and 4 <= mouse_y <= 180:
             # Work out which quad they've clicked, and select it.
             adj_x = int((mouse_x - 4) / 8) + map_pos[0]
             adj_y = int((mouse_y - 4) / 8) + map_pos[1]
@@ -325,11 +335,19 @@ class Board:
         :param all_players: The list of all Players in the game, AI or not.
         :param other_setls: The list of all AI Settlements.
         """
+        # Ensure that we only process left clicks in situations where it makes sense for the player to be able to click
+        # the map. For example, if the player is choosing a construction for a settlement, they should not be able to
+        # click around on the map.
+        obscured_by_overlay = self.overlay.is_standard() or self.overlay.is_constructing() or \
+                              self.overlay.is_blessing() or self.overlay.is_warning() or \
+                              self.overlay.is_bless_notif() or self.overlay.is_constr_notif() or \
+                              self.overlay.is_lvl_notif() or self.overlay.is_setl_click() or self.overlay.is_pause() or \
+                              self.overlay.is_controls() or self.overlay.is_victory()
         # Firstly, deselect the selected quad if there is one.
-        if self.quad_selected is not None:
+        if not obscured_by_overlay and self.quad_selected is not None:
             self.quad_selected.selected = False
             self.quad_selected = None
-        if 4 <= mouse_x <= 196 and 4 <= mouse_y <= 180:
+        if not obscured_by_overlay and 4 <= mouse_x <= 196 and 4 <= mouse_y <= 180:
             # Again, determine the quad.
             adj_x = int((mouse_x - 4) / 8) + map_pos[0]
             adj_y = int((mouse_y - 4) / 8) + map_pos[1]

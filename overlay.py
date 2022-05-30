@@ -577,7 +577,8 @@ class Overlay:
         Toggle the standard overlay.
         :param turn: The current turn.
         """
-        if OverlayType.STANDARD in self.showing:
+        # Ensure that we can only remove the standard overlay if the player is not choosing a blessing.
+        if OverlayType.STANDARD in self.showing and not self.is_blessing():
             self.showing.remove(OverlayType.STANDARD)
         elif not self.is_tutorial() and not self.is_lvl_notif() and not self.is_constr_notif() and \
                 not self.is_bless_notif() and not self.is_deployment() and not self.is_warning() and \
@@ -713,7 +714,8 @@ class Overlay:
         :param settlement: The selected settlement to display.
         :param player: The current player. Will always be the non-AI player.
         """
-        if OverlayType.SETTLEMENT in self.showing:
+        # Ensure that we can only remove the settlement overlay if the player is not choosing a construction.
+        if OverlayType.SETTLEMENT in self.showing and not self.is_constructing():
             self.showing.remove(OverlayType.SETTLEMENT)
         elif not self.is_unit() and not self.is_standard() and not self.is_setl_click() and not self.is_blessing() and \
                 not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_deployment() and \
@@ -1025,7 +1027,8 @@ class Overlay:
         """
         Toggle the pause overlay.
         """
-        if OverlayType.PAUSE in self.showing:
+        # Ensure that we can only remove the pause overlay if the player is not viewing the controls.
+        if OverlayType.PAUSE in self.showing and not self.is_controls():
             self.showing.remove(OverlayType.PAUSE)
         elif not self.is_victory():
             self.showing.append(OverlayType.PAUSE)

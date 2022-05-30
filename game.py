@@ -230,8 +230,8 @@ class Game:
                     self.music_player.play_menu_music()
             elif self.game_started and not self.board.overlay.is_tutorial():
                 # If we are not in any of the above situations, end the turn.
-                self.board.overlay.update_turn(self.turn)
                 if self.end_turn():
+                    self.board.overlay.update_turn(self.turn)
                     self.process_heathens()
                     self.process_ais()
         # Mouse clicks are forwarded to the Board for processing.
