@@ -530,6 +530,10 @@ class Game:
         self.board.overlay.remove_warning_if_possible()
         self.turn += 1
 
+        # Autosave every 10 turns.
+        if self.turn % 10 == 0:
+            self.save_game(auto=True)
+
         possible_victory = self.check_for_victory()
         if possible_victory is not None:
             self.board.overlay.toggle_victory(possible_victory)
@@ -655,12 +659,15 @@ class Game:
             if player.ai_playstyle is not None:
                 self.move_maker.make_move(player, self.players)
 
-    def save_game(self):
+    def save_game(self, auto: bool = False):
         """
         Saves the current game with the current timestamp as the file name.
         """
-        with open(f"saves/save-{datetime.datetime.now().isoformat(timespec='seconds')}.json", "w", encoding="utf-8") \
-                as save_file:
+        # Only maintain 3 autosaves at a time, delete the oldest if we already have 3 before saving the next.
+        if auto and len(autosaves := list(filter(lambda fn: fn.startswith("auto"), os.listdir("saves/")))) == 3:
+            os.remove(f"saves/{autosaves[2]}")
+        save_name = f"saves/{'auto' if auto else ''}save-{datetime.datetime.now().isoformat(timespec='seconds')}.json"
+        with open(save_name, "w", encoding="utf-8") as save_file:
             # We use chain.from_iterable() here because the quads array is 2D.
             save = {
                 "quads": list(chain.from_iterable(self.board.quads)),
@@ -759,13 +766,19 @@ class Game:
         Get the prettified file names of each save file in the saves/ directory and pass them to the menu.
         """
         self.menu.saves = []
-        saves = list(filter(lambda file_name: not file_name == "README.md", os.listdir("saves")))
+        autosaves = list(filter(lambda file_name: file_name.startswith("auto"), os.listdir("saves")))
+        saves = list(filter(lambda file_name: not file_name == "README.md" and not file_name.startswith("auto"),
+                            os.listdir("saves")))
         # Default to the cancel option if there are no saves available.
-        if len(saves) == 0:
+        if len(autosaves) + len(saves) == 0:
             self.menu.save_idx = -1
         else:
+            autosaves.sort()
+            autosaves.reverse()
             saves.sort()
             saves.reverse()
+            for f in autosaves:
+                self.menu.saves.append(f[9:-5].replace("T", " ") + " (auto)")
             for f in saves:
                 # Just show the date and time.
                 self.menu.saves.append(f[5:-5].replace("T", " "))
