@@ -341,8 +341,8 @@ class Board:
         obscured_by_overlay = self.overlay.is_standard() or self.overlay.is_constructing() or \
                               self.overlay.is_blessing() or self.overlay.is_warning() or \
                               self.overlay.is_bless_notif() or self.overlay.is_constr_notif() or \
-                              self.overlay.is_lvl_notif() or self.overlay.is_setl_click() or self.overlay.is_pause() or \
-                              self.overlay.is_controls() or self.overlay.is_victory()
+                              self.overlay.is_lvl_notif() or self.overlay.is_setl_click() or \
+                              self.overlay.is_pause() or self.overlay.is_controls() or self.overlay.is_victory()
         # Firstly, deselect the selected quad if there is one.
         if not obscured_by_overlay and self.quad_selected is not None:
             self.quad_selected.selected = False
