@@ -94,6 +94,7 @@ class Overlay:
         self.sieged_settlement: typing.Optional[Settlement] = None
         self.sieger_of_settlement: typing.Optional[Player] = None
         self.pause_option: PauseOption = PauseOption.RESUME
+        self.has_saved: bool = False
         self.current_victory: typing.Optional[Victory] = None  # Victory data, if one has been achieved.
 
     def display(self):
@@ -538,8 +539,11 @@ class Overlay:
                 pyxel.text(80, 68, "Game paused", pyxel.COLOR_WHITE)
                 pyxel.text(88, 80, "Resume",
                            pyxel.COLOR_RED if self.pause_option is PauseOption.RESUME else pyxel.COLOR_WHITE)
-                pyxel.text(90, 90, "Save",
-                           pyxel.COLOR_RED if self.pause_option is PauseOption.SAVE else pyxel.COLOR_WHITE)
+                if self.has_saved:
+                    pyxel.text(88, 90, "Saved!", pyxel.COLOR_GREEN)
+                else:
+                    pyxel.text(90, 90, "Save",
+                               pyxel.COLOR_RED if self.pause_option is PauseOption.SAVE else pyxel.COLOR_WHITE)
                 pyxel.text(84, 100, "Controls",
                            pyxel.COLOR_RED if self.pause_option is PauseOption.CONTROLS else pyxel.COLOR_WHITE)
                 pyxel.text(90, 110, "Quit",
@@ -1028,11 +1032,12 @@ class Overlay:
         Toggle the pause overlay.
         """
         # Ensure that we can only remove the pause overlay if the player is not viewing the controls.
-        if OverlayType.PAUSE in self.showing and not self.is_controls():
+        if OverlayType.PAUSE in self.showing and not self.is_controls() and not self.is_tutorial():
             self.showing.remove(OverlayType.PAUSE)
         elif not self.is_victory():
             self.showing.append(OverlayType.PAUSE)
             self.pause_option = PauseOption.RESUME
+            self.has_saved = False
 
     def navigate_pause(self, down: bool):
         """
@@ -1042,6 +1047,7 @@ class Overlay:
         if down:
             if self.pause_option is PauseOption.RESUME:
                 self.pause_option = PauseOption.SAVE
+                self.has_saved = False
             elif self.pause_option is PauseOption.SAVE:
                 self.pause_option = PauseOption.CONTROLS
             elif self.pause_option is PauseOption.CONTROLS:
@@ -1051,6 +1057,7 @@ class Overlay:
                 self.pause_option = PauseOption.RESUME
             elif self.pause_option is PauseOption.CONTROLS:
                 self.pause_option = PauseOption.SAVE
+                self.has_saved = False
             elif self.pause_option is PauseOption.QUIT:
                 self.pause_option = PauseOption.CONTROLS
 
