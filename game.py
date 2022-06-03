@@ -218,6 +218,7 @@ class Game:
                     self.board.overlay.toggle_pause()
                 elif self.board.overlay.pause_option is PauseOption.SAVE:
                     self.save_game()
+                    self.board.overlay.has_saved = True
                 elif self.board.overlay.pause_option is PauseOption.CONTROLS:
                     self.board.overlay.toggle_controls()
                 elif self.board.overlay.pause_option is PauseOption.QUIT:
@@ -687,11 +688,17 @@ class Game:
         """
         # Reset the namer so that we have our original set of names again.
         self.namer.reset()
-        # Filter out the README, plus sort and reverse the list so that the most recent are first.
-        saves = list(filter(lambda file: not file == "README.md", os.listdir("saves")))
+        # Sort and reverse both the autosaves and manual saves, remembering that the (up to) 3 autosaves will be
+        # displayed first in the list.
+        autosaves = list(filter(lambda file_name: file_name.startswith("auto"), os.listdir("saves")))
+        saves = list(filter(lambda file_name: not file_name == "README.md" and not file_name.startswith("auto"),
+                            os.listdir("saves")))
+        autosaves.sort()
+        autosaves.reverse()
         saves.sort()
         saves.reverse()
-        with open(f"saves/{saves[save_idx]}", "r", encoding="utf-8") as save_file:
+        all_saves = autosaves + saves
+        with open(f"saves/{all_saves[save_idx]}", "r", encoding="utf-8") as save_file:
             # Use a custom object hook when loading the JSON so that the resulting objects have attribute access.
             save = json.loads(save_file.read(), object_hook=ObjectConverter)
             # Load in the quads.
