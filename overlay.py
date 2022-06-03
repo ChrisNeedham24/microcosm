@@ -1032,9 +1032,9 @@ class Overlay:
         Toggle the pause overlay.
         """
         # Ensure that we can only remove the pause overlay if the player is not viewing the controls.
-        if OverlayType.PAUSE in self.showing and not self.is_controls() and not self.is_tutorial():
+        if OverlayType.PAUSE in self.showing and not self.is_controls():
             self.showing.remove(OverlayType.PAUSE)
-        elif not self.is_victory():
+        elif not self.is_victory() and not self.is_tutorial():
             self.showing.append(OverlayType.PAUSE)
             self.pause_option = PauseOption.RESUME
             self.has_saved = False

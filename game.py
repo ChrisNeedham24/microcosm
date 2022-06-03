@@ -688,7 +688,8 @@ class Game:
         """
         # Reset the namer so that we have our original set of names again.
         self.namer.reset()
-        # Filter out the README, plus sort and reverse the list so that the most recent are first.
+        # Sort and reverse both the autosaves and manual saves, remembering that the (up to) 3 autosaves will be
+        # displayed first in the list.
         autosaves = list(filter(lambda file_name: file_name.startswith("auto"), os.listdir("saves")))
         saves = list(filter(lambda file_name: not file_name == "README.md" and not file_name.startswith("auto"),
                             os.listdir("saves")))
