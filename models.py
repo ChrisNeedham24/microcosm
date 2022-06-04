@@ -238,6 +238,7 @@ class Player:
     ai_playstyle: typing.Optional[AIPlaystyle] = None
     jubilation_ctr: int = 0  # How many turns the player has had 5 settlements at 100% satisfaction.
     accumulated_wealth: float = 0.0
+    eliminated: bool = False
 
 
 @dataclass

@@ -32,6 +32,7 @@ class OverlayType(Enum):
     PAUSE = "PAUSE"
     CONTROLS = "CONTROLS"
     VICTORY = "VICTORY"
+    ELIMINATION = "ELIMINATION"
 
 
 class SettlementAttackType(Enum):
@@ -96,6 +97,7 @@ class Overlay:
         self.pause_option: PauseOption = PauseOption.RESUME
         self.has_saved: bool = False
         self.current_victory: typing.Optional[Victory] = None  # Victory data, if one has been achieved.
+        self.just_eliminated: typing.Optional[Player] = None
 
     def display(self):
         """
@@ -132,6 +134,13 @@ class Overlay:
             pyxel.rectb(12, 150, 176, 15, pyxel.COLOR_WHITE)
             pyxel.rect(13, 151, 174, 13, pyxel.COLOR_BLACK)
             pyxel.text(15, 153, "Click a quad in the white square to deploy!", pyxel.COLOR_WHITE)
+        # The elimination overlay displays any AI players that have been eliminated since the last turn.
+        elif OverlayType.ELIMINATION in self.showing:
+            pyxel.rectb(12, 60, 176, 38, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 61, 174, 36, pyxel.COLOR_BLACK)
+            pyxel.text(56, 65, "Consigned to folklore", pyxel.COLOR_RED)
+            pyxel.text(50, 75, f"{self.just_eliminated.name} has been eliminated.", self.just_eliminated.colour)
+            pyxel.text(70, 85, "SPACE: Dismiss", pyxel.COLOR_WHITE)
         # The blessing notification overlay displays any blessing completed by the player in the last turn, and what has
         # been unlocked as a result.
         elif OverlayType.BLESS_NOTIF in self.showing:
@@ -1083,3 +1092,21 @@ class Overlay:
         :return: Whether the controls overlay is being displayed.
         """
         return OverlayType.CONTROLS in self.showing
+
+    def toggle_elimination(self, eliminated: typing.Optional[Player]):
+        """
+        Toggle the elimination overlay.
+        :param eliminated: The player that has just been eliminated.
+        """
+        if OverlayType.ELIMINATION in self.showing:
+            self.showing.remove(OverlayType.ELIMINATION)
+        else:
+            self.showing.append(OverlayType.ELIMINATION)
+            self.just_eliminated = eliminated
+
+    def is_elimination(self) -> bool:
+        """
+        Returns whether the elimination overlay is currently being displayed.
+        :return: Whether the elimination overlay is being displayed.
+        """
+        return OverlayType.ELIMINATION in self.showing
