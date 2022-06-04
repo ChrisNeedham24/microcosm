@@ -309,6 +309,8 @@ class Game:
                 self.board.overlay.toggle_level_up_notification(None)
             elif self.game_started and self.board.overlay.is_controls():
                 self.board.overlay.toggle_controls()
+            elif self.game_started and self.board.overlay.is_elimination():
+                self.board.overlay.toggle_elimination(None)
             elif self.game_started and self.board.overlay.can_iter_settlements_units() and \
                     len(self.players[0].units) > 0:
                 self.board.overlay.remove_warning_if_possible()
@@ -577,6 +579,9 @@ class Game:
                     return Victory(p, VictoryType.VIGOUR)
             elif any(unit.plan.can_settle for unit in self.players[0].units):
                 players_with_setls += 1
+            elif not p.eliminated:
+                p.eliminated = True
+                self.board.overlay.toggle_elimination(p)
             # If the player has accumulated at least 100k wealth over the game, they have achieved an AFFLUENCE victory.
             if p.accumulated_wealth >= 100000:
                 return Victory(p, VictoryType.AFFLUENCE)
