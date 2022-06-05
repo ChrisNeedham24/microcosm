@@ -14,7 +14,7 @@ from catalogue import get_available_improvements, get_available_blessings, get_a
     get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
-    EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle,\
+    EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, \
     ExpansionPlaystyle, UnitPlan
 from movemaker import MoveMaker
 from music_player import MusicPlayer
