@@ -4,7 +4,8 @@ import typing
 from calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, attack_setl
 from catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
-from models import Player, Blessing, AIPlaystyle, OngoingBlessing, Settlement, Improvement, UnitPlan, Construction, Unit
+from models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, UnitPlan, \
+    Construction, Unit, ExpansionPlaystyle
 
 
 def set_blessing(player: Player, player_totals: (float, float, float, float)):
@@ -57,7 +58,7 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
             ideal = highest_fortune[1]
         # Aggressive AIs will choose the first blessing that unlocks a unit, if there is one. If there aren't any, they
         # will undergo the 'ideal' blessing.
-        if player.ai_playstyle is AIPlaystyle.AGGRESSIVE:
+        if player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE:
             for bless in avail_bless:
                 unlockable = get_unlockable_units(bless)
                 if len(unlockable) > 0:
@@ -67,7 +68,7 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
                 player.ongoing_blessing = OngoingBlessing(ideal)
         # Defensive AIs will choose the first blessing that unlocks an improvement that increases settlement strength.
         # If there aren't any, they will undergo the 'ideal' blessing.
-        elif player.ai_playstyle is AIPlaystyle.DEFENSIVE:
+        elif player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE:
             for bless in avail_bless:
                 unlockable = get_unlockable_improvements(bless)
                 if len([imp for imp in unlockable if imp.effect.strength > 0]) > 0:
@@ -86,17 +87,31 @@ def set_construction(player: Player, setl: Settlement):
     :param player: The AI owner of the given settlement.
     :param setl: The settlement having its construction chosen.
     """
+
+    def get_expansion_lvl() -> int:
+        """
+        Returns the settlement level at which an AI player will construct a settler unit to found a new settlement.
+        :return: The required level for a new settlement.
+        """
+        if player.ai_playstyle.expansion is ExpansionPlaystyle.EXPANSIONIST:
+            return 3
+        if player.ai_playstyle.expansion is ExpansionPlaystyle.NEUTRAL:
+            return 5
+        return 10
+
     avail_imps = get_available_improvements(player, setl)
     avail_units = get_available_unit_plans(player, setl.level)
     settler_units = [settler for settler in avail_units if settler.can_settle]
     # Note that if there are no available improvements for the given settlement, the 'ideal' construction will default
     # to the first available unit.
     ideal: typing.Union[Improvement, UnitPlan] = avail_imps[0] if len(avail_imps) > 0 else avail_units[0]
+
     # If the AI player has neither units on the board nor garrisoned, construct the first available.
     if len(player.units) == 0 and len(setl.garrison) == 0:
         setl.current_work = Construction(avail_units[0])
-    # If the settlement has not yet produced a settler in its 'lifetime', and it has now reached level 3, choose that.
-    elif setl.level >= 3 and not setl.produced_settler:
+    # If the settlement has not yet produced a settler in its 'lifetime', and it has now reached its required level for
+    # expansion, choose that.
+    elif setl.level >= get_expansion_lvl() and not setl.produced_settler:
         setl.current_work = Construction(settler_units[0])
     else:
         if len(avail_imps) > 0:
@@ -131,7 +146,7 @@ def set_construction(player: Player, setl: Settlement):
 
         # Aggressive AIs will, in most cases, pick the available unit with the most power, if the settlement level is
         # high enough.
-        if player.ai_playstyle is AIPlaystyle.AGGRESSIVE:
+        if player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE:
             if len(player.units) < setl.level:
                 most_power: (float, UnitPlan) = avail_units[0].power, avail_units[0]
                 for up in avail_units:
@@ -143,7 +158,7 @@ def set_construction(player: Player, setl: Settlement):
         # Defensive AIs will pick the available unit with the most health if they are lacking in units. Alternatively,
         # they will choose the improvement that yields the most strength for the settlement, if there is one, otherwise,
         # they will choose the 'ideal' construction.
-        elif player.ai_playstyle is AIPlaystyle.DEFENSIVE:
+        elif player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE:
             if len(player.units) * 2 < setl.level:
                 most_health: (float, UnitPlan) = avail_units[0].max_health, avail_units[0]
                 for up in avail_units:
@@ -203,7 +218,7 @@ class MoveMaker:
             # Deploy a unit from the garrison if the AI is not defensive, or the settlement is under siege or attack, or
             # there are too many units garrisoned.
             if (len(setl.garrison) > 0 and
-                (player.ai_playstyle is not AIPlaystyle.DEFENSIVE or setl.under_siege_by is not None
+                (player.ai_playstyle.attacking is not AttackPlaystyle.DEFENSIVE or setl.under_siege_by is not None
                  or setl.strength < setl.max_strength / 2)) or len(setl.garrison) > 3:
                 deployed = setl.garrison.pop()
                 deployed.garrisoned = False
@@ -265,8 +280,9 @@ class MoveMaker:
             for other_u in other_units:
                 could_attack: bool = any(setl.under_siege_by is not None or setl.strength < setl.max_strength / 2
                                          for setl in player.settlements) or \
-                                     player.ai_playstyle is AIPlaystyle.AGGRESSIVE or \
-                                     (player.ai_playstyle is AIPlaystyle.NEUTRAL and unit.health >= other_u.health * 2)
+                                     player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
+                                     (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
+                                      unit.health >= other_u.health * 2)
                 # Of course, the attacked unit has to be close enough.
                 if max(abs(unit.location[0] - other_u.location[0]),
                        abs(unit.location[1] - other_u.location[1])) <= unit.remaining_stamina and could_attack and \
@@ -280,11 +296,12 @@ class MoveMaker:
                     if other_setl not in player.settlements:
                         # Settlements are only attacked by AI players under strict conditions. Even aggressive AIs need
                         # to double the strength of the settlement in their health.
-                        could_attack: bool = (player.ai_playstyle is AIPlaystyle.AGGRESSIVE and
+                        could_attack: bool = (player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE and
                                               unit.health >= other_setl.strength * 2) or \
-                                             (player.ai_playstyle is AIPlaystyle.NEUTRAL and
+                                             (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
                                               unit.health >= other_setl.strength * 10) or \
-                                             (player.ai_playstyle is AIPlaystyle.DEFENSIVE and other_setl.strength == 0)
+                                             (player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE and
+                                              other_setl.strength == 0)
                         if could_attack:
                             if max(abs(unit.location[0] - other_setl.location[0]),
                                    abs(unit.location[1] - other_setl.location[1])) <= unit.remaining_stamina:
@@ -294,8 +311,8 @@ class MoveMaker:
                             # If there are no attackable settlements, we check if the AI player can place any under
                             # siege. Aggressive AIs will place any settlement they can see under siege, and neutral AIs
                             # will do the same if they have the upper hand.
-                            could_siege: bool = player.ai_playstyle is AIPlaystyle.AGGRESSIVE or \
-                                                (player.ai_playstyle is AIPlaystyle.NEUTRAL and
+                            could_siege: bool = player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
+                                                (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
                                                  unit.health >= other_setl.strength * 2)
                             if could_siege:
                                 if max(abs(unit.location[0] - other_setl.location[0]),
