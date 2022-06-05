@@ -317,29 +317,33 @@ class Overlay:
             # The unit overlay displays the statistics for the selected unit, along with a notification if the selected
             # unit is the player's and they are currently placing an enemy settlement under siege.
             if OverlayType.UNIT in self.showing:
-                pyxel.rectb(12, 110, 56, 60, pyxel.COLOR_WHITE)
-                pyxel.rect(13, 111, 54, 58, pyxel.COLOR_BLACK)
-                pyxel.text(20, 114, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
+                y_offset = 0 if self.selected_unit in self.current_player.units else 20
+                pyxel.rectb(12, 110 + y_offset, 56, 60 - y_offset, pyxel.COLOR_WHITE)
+                pyxel.rect(13, 111 + y_offset, 54, 58 - y_offset, pyxel.COLOR_BLACK)
+                pyxel.text(20, 114 + y_offset, self.selected_unit.plan.name, pyxel.COLOR_WHITE)
                 if self.selected_unit.plan.can_settle:
-                    pyxel.blt(55, 113, 0, 24, 36, 8, 8)
+                    pyxel.blt(55, 113 + y_offset, 0, 24, 36, 8, 8)
                 if not isinstance(self.selected_unit, Heathen) and self.selected_unit.sieging and \
                         self.selected_unit in self.current_player.units:
                     pyxel.blt(55, 113, 0, 32, 36, 8, 8)
                     pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
                     pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
                     pyxel.text(18, 14, "Remember: the siege will end if you move!", pyxel.COLOR_RED)
-                pyxel.blt(20, 120, 0, 8, 36, 8, 8)
-                pyxel.text(30, 122, str(self.selected_unit.health), pyxel.COLOR_WHITE)
-                pyxel.blt(20, 130, 0, 0, 36, 8, 8)
-                pyxel.text(30, 132, str(self.selected_unit.plan.power), pyxel.COLOR_WHITE)
-                pyxel.blt(20, 140, 0, 16, 36, 8, 8)
-                pyxel.text(30, 142, f"{self.selected_unit.remaining_stamina}/{self.selected_unit.plan.total_stamina}",
+                pyxel.blt(20, 120 + y_offset, 0, 8, 36, 8, 8)
+                pyxel.text(30, 122 + y_offset, str(self.selected_unit.health), pyxel.COLOR_WHITE)
+                pyxel.blt(20, 130 + y_offset, 0, 0, 36, 8, 8)
+                pyxel.text(30, 132 + y_offset, str(self.selected_unit.plan.power), pyxel.COLOR_WHITE)
+                pyxel.blt(20, 140 + y_offset, 0, 16, 36, 8, 8)
+                pyxel.text(30, 142 + y_offset,
+                           f"{self.selected_unit.remaining_stamina}/{self.selected_unit.plan.total_stamina}",
                            pyxel.COLOR_WHITE)
-                pyxel.blt(20, 150, 0, 0, 44, 8, 8)
-                pyxel.text(30, 152, f"{self.selected_unit.plan.cost} (-{round(self.selected_unit.plan.cost / 25)}/T)",
-                           pyxel.COLOR_WHITE)
-                pyxel.blt(20, 160, 0, 8, 52, 8, 8)
-                pyxel.text(30, 162, "Disb. (D)", pyxel.COLOR_RED)
+                if self.selected_unit in self.current_player.units:
+                    pyxel.blt(20, 150, 0, 0, 44, 8, 8)
+                    pyxel.text(30, 152,
+                               f"{self.selected_unit.plan.cost} (-{round(self.selected_unit.plan.cost / 25)}/T)",
+                               pyxel.COLOR_WHITE)
+                    pyxel.blt(20, 160, 0, 8, 52, 8, 8)
+                    pyxel.text(30, 162, "Disb. (D)", pyxel.COLOR_RED)
             # The construction overlay displays the available improvements and unit plans available for construction in
             # the currently-selected settlement, along with their effects.
             if OverlayType.CONSTRUCTION in self.showing:
