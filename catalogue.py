@@ -179,17 +179,26 @@ UNIT_PLANS = [
     UnitPlan(150, 125, 3, "Sniper", BLESSINGS["apr_ref"], 400),
 ]
 
-# The unit plan for the heathens.
-HEATHEN_UNIT_PLAN = UnitPlan(80, 80, 2, "Heathen", None, 0)
+
+def get_heathen_plan(turn: int) -> UnitPlan:
+    """
+    Returns the turn-adjusted UnitPlan for the Heathen units. Heathens have their power and health increased by 10 every
+    40 turns.
+    :param turn: The game's current turn.
+    :return: The UnitPlan to use for the created Heathen.
+    """
+    return UnitPlan(80 + 10 * (turn // 40), 80 + 10 * (turn // 40), 2, "Heathen" + "+" * (turn // 40), None, 0)
 
 
-def get_heathen(location: (int, int)) -> Heathen:
+def get_heathen(location: (int, int), turn: int) -> Heathen:
     """
     Creates a heathen at the given location.
     :param location: The location for the heathen-to-be.
+    :param turn: The game's current turn.
     :return: The created Heathen object.
     """
-    return Heathen(HEATHEN_UNIT_PLAN.max_health, HEATHEN_UNIT_PLAN.total_stamina, location, HEATHEN_UNIT_PLAN)
+    plan = get_heathen_plan(turn)
+    return Heathen(plan.max_health, plan.total_stamina, location, plan)
 
 
 def get_default_unit(location: (int, int)) -> Unit:

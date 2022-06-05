@@ -11,10 +11,11 @@ import pyxel
 from board import Board
 from calculator import clamp, attack, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
-    get_default_unit, get_improvement, get_blessing, HEATHEN_UNIT_PLAN, get_unit_plan, Namer
+    get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
-    EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, ExpansionPlaystyle
+    EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, \
+    ExpansionPlaystyle, UnitPlan
 from movemaker import MoveMaker
 from music_player import MusicPlayer
 from overlay import SettlementAttackType, PauseOption
@@ -271,7 +272,8 @@ class Game:
                     len(self.board.selected_settlement.garrison) > 0:
                 self.board.deploying_army = True
                 self.board.overlay.toggle_deployment()
-            elif self.game_started and self.board.selected_unit is not None:
+            elif self.game_started and self.board.selected_unit is not None and \
+                    self.board.selected_unit in self.players[0].units:
                 # If a unit is selected rather than a settlement, pressing D disbands the army, destroying the unit and
                 # adding to the player's wealth.
                 self.players[0].wealth += self.board.selected_unit.plan.cost
@@ -523,7 +525,7 @@ class Game:
         # Spawn a heathen every 5 turns.
         if self.turn % 5 == 0:
             heathen_loc = random.randint(0, 89), random.randint(0, 99)
-            self.heathens.append(get_heathen(heathen_loc))
+            self.heathens.append(get_heathen(heathen_loc, self.turn))
 
         # Reset all heathens.
         for heathen in self.heathens:
@@ -757,7 +759,8 @@ class Game:
             for h in save.heathens:
                 # Do another direct conversion for the heathens.
                 self.heathens.append(Heathen(h.health, h.remaining_stamina, (h.location[0], h.location[1]),
-                                             HEATHEN_UNIT_PLAN, h.has_attacked))
+                                             UnitPlan(h.plan.power, h.plan.max_health, 2, h.plan.name, None, 0),
+                                             h.has_attacked))
 
             self.turn = save.turn
             game_cfg = save.cfg
