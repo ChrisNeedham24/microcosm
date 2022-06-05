@@ -14,7 +14,7 @@ from catalogue import get_available_improvements, get_available_blessings, get_a
     get_default_unit, get_improvement, get_blessing, HEATHEN_UNIT_PLAN, get_unit_plan, Namer
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
-    EconomicStatus, Heathen, AIPlaystyle, GameConfig, Biome, Victory, VictoryType
+    EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, ExpansionPlaystyle
 from movemaker import MoveMaker
 from music_player import MusicPlayer
 from overlay import SettlementAttackType, PauseOption
@@ -376,7 +376,8 @@ class Game:
             colour = random.choice(colours)
             colours.remove(colour)
             self.players.append(Player(f"NPC{i}", colour, 0, [], [], [], set(),
-                                       ai_playstyle=random.choice(list(AIPlaystyle))))
+                                       ai_playstyle=AIPlaystyle(random.choice(list(AttackPlaystyle)),
+                                                                random.choice(list(ExpansionPlaystyle)))))
 
     def end_turn(self) -> bool:
         """
@@ -746,7 +747,8 @@ class Game:
                 for idx, bls in enumerate(p.blessings):
                     p.blessings[idx] = get_blessing(bls.name)
                 if p.ai_playstyle is not None:
-                    p.ai_playstyle = AIPlaystyle[p.ai_playstyle]
+                    p.ai_playstyle = AIPlaystyle(AttackPlaystyle[p.ai_playstyle.attacking],
+                                                 ExpansionPlaystyle[p.ai_playstyle.expansion])
             # For the AI players, we can just make quads_seen an empty set, as it's not used.
             for i in range(1, len(self.players)):
                 self.players[i].quads_seen = set()

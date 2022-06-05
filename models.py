@@ -43,14 +43,24 @@ class EconomicStatus(str, Enum):
     BOOM = "BOOM"
 
 
-class AIPlaystyle(str, Enum):
+class AttackPlaystyle(str, Enum):
     """
-    The three AI playstyles; aggressive AIs essentially attack at every opportunity, defensive will almost never attack,
-    and neutral AIs are in between.
+    The three AI attack playstyles; aggressive AIs essentially attack at every opportunity, defensive will almost never
+    attack, and neutral AIs are in between.
     """
     AGGRESSIVE = "AGGRESSIVE"
     DEFENSIVE = "DEFENSIVE"
     NEUTRAL = "NEUTRAL"
+
+
+class ExpansionPlaystyle(str, Enum):
+    """
+    The three AI expansion playstyles; expansionist AIs will create new settlements at level 3, neutral ones at level 5,
+    and hermit ones at level 10.
+    """
+    EXPANSIONIST = "EXPANSIONIST"
+    NEUTRAL = "NEUTRAL"
+    HERMIT = "HERMIT"
 
 
 class VictoryType(Enum):
@@ -220,6 +230,15 @@ class CompletedConstruction:
     """
     construction: typing.Union[Improvement, UnitPlan]
     settlement: Settlement
+
+
+@dataclass
+class AIPlaystyle:
+    """
+    An overall playstyle for an AI player, encompassing both attacking and empire expansion.
+    """
+    attacking: AttackPlaystyle
+    expansion: ExpansionPlaystyle
 
 
 @dataclass
