@@ -83,10 +83,10 @@ BLESSINGS = {
     "grt_goo": Blessing("The Greater Good", "The benefit of helping others.", 100),
     "ref_prc": Blessing("Reformist Principles", "Maybe another system could be better.", 500),
     "brd_fan": Blessing("Broad Fanaticism", "Maybe I can do no wrong.", 2500),
-    "anc_his": Blessing("Ancient History", "Guide us to the light.", 6250),
-    "ard_one": Blessing("Piece of Strength", "The mighty will prevail.", 12500),
-    "ard_two": Blessing("Piece of Passion", "Only the passionate will remain.", 12500),
-    "ard_three": Blessing("Piece of Divinity", "Everything is revealed.", 12500)
+    "anc_his": Blessing("Ancient History", "Guide us to the light.", 25000),
+    "ard_one": Blessing("Piece of Strength", "The mighty will prevail.", 15000),
+    "ard_two": Blessing("Piece of Passion", "Only the passionate will remain.", 15000),
+    "ard_three": Blessing("Piece of Divinity", "Everything is revealed.", 15000)
 }
 
 # The list of improvements that can be built.
@@ -163,7 +163,7 @@ IMPROVEMENTS = [
                 Effect(zeal=2, fortune=-1, satisfaction=12), BLESSINGS["rob_exp"]),
     Improvement(ImprovementType.PANDERING, 1080, "Free Expression", "Say what we know you'll say.",
                 Effect(satisfaction=15), BLESSINGS["brd_fan"]),
-    Improvement(ImprovementType.INDUSTRIAL, 15000, "Holy Sanctum", "To converse with the holy ones.",
+    Improvement(ImprovementType.INDUSTRIAL, 20000, "Holy Sanctum", "To converse with the holy ones.",
                 Effect(), BLESSINGS["anc_his"])
 ]
 

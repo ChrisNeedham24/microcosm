@@ -63,7 +63,7 @@ class ExpansionPlaystyle(str, Enum):
     HERMIT = "HERMIT"
 
 
-class VictoryType(Enum):
+class VictoryType(str, Enum):
     """
     The six different victory types. Their criteria for victory are below:
     - Elimination: all settlements belong to the player
@@ -253,6 +253,7 @@ class Player:
     units: typing.List[Unit]
     blessings: typing.List[Blessing]
     quads_seen: typing.Set[typing.Tuple[int, int]]
+    imminent_victories: typing.Set[VictoryType]
     ongoing_blessing: typing.Optional[OngoingBlessing] = None
     ai_playstyle: typing.Optional[AIPlaystyle] = None
     jubilation_ctr: int = 0  # How many turns the player has had 5 settlements at 100% satisfaction.

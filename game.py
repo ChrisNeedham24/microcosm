@@ -303,7 +303,11 @@ class Game:
             # Pressing space either dismisses the current overlay or iterates through the player's units.
             if self.on_menu and self.menu.in_wiki and self.menu.wiki_showing is not None:
                 self.menu.wiki_showing = None
-            if self.game_started and self.board.overlay.is_bless_notif():
+            if self.game_started and self.board.overlay.is_elimination():
+                self.board.overlay.toggle_elimination(None)
+            elif self.game_started and self.board.overlay.is_close_to_vic():
+                self.board.overlay.toggle_close_to_vic([])
+            elif self.game_started and self.board.overlay.is_bless_notif():
                 self.board.overlay.toggle_blessing_notification(None)
             elif self.game_started and self.board.overlay.is_constr_notif():
                 self.board.overlay.toggle_construction_notification(None)
@@ -311,8 +315,6 @@ class Game:
                 self.board.overlay.toggle_level_up_notification(None)
             elif self.game_started and self.board.overlay.is_controls():
                 self.board.overlay.toggle_controls()
-            elif self.game_started and self.board.overlay.is_elimination():
-                self.board.overlay.toggle_elimination(None)
             elif self.game_started and self.board.overlay.can_iter_settlements_units() and \
                     len(self.players[0].units) > 0:
                 self.board.overlay.remove_warning_if_possible()
@@ -368,7 +370,7 @@ class Game:
         Generates the players for the game based on the supplied config.
         :param cfg: The game config.
         """
-        self.players = [Player("The Chosen One", cfg.player_colour, 0, [], [], [], set())]
+        self.players = [Player("The Chosen One", cfg.player_colour, 0, [], [], [], set(), set())]
         colours = [pyxel.COLOR_NAVY, pyxel.COLOR_PURPLE, pyxel.COLOR_GREEN, pyxel.COLOR_BROWN, pyxel.COLOR_DARK_BLUE,
                    pyxel.COLOR_LIGHT_BLUE, pyxel.COLOR_RED, pyxel.COLOR_ORANGE, pyxel.COLOR_YELLOW, pyxel.COLOR_LIME,
                    pyxel.COLOR_CYAN, pyxel.COLOR_GRAY, pyxel.COLOR_PINK, pyxel.COLOR_PEACH]
@@ -377,7 +379,7 @@ class Game:
         for i in range(1, cfg.player_count):
             colour = random.choice(colours)
             colours.remove(colour)
-            self.players.append(Player(f"NPC{i}", colour, 0, [], [], [], set(),
+            self.players.append(Player(f"NPC{i}", colour, 0, [], [], [], set(), set(),
                                        ai_playstyle=AIPlaystyle(random.choice(list(AttackPlaystyle)),
                                                                 random.choice(list(ExpansionPlaystyle)))))
 
@@ -548,15 +550,26 @@ class Game:
 
     def check_for_victory(self) -> typing.Optional[Victory]:
         """
-        Check if any of the six victories have been achieved by any of the players.
+        Check if any of the six victories have been achieved by any of the players. Also check if any players are close
+        to a victory.
         :return: A Victory, if one has been achieved.
         """
+        close_to_vics: typing.List[Victory] = []
+        all_setls = []
+        for pl in self.players:
+            all_setls.extend(pl.settlements)
+
         players_with_setls = 0
         for p in self.players:
             if len(p.settlements) > 0:
                 jubilated_setls = 0
                 lvl_ten_setls = 0
                 constructed_sanctum = False
+
+                # If a player controls all settlements bar one, they are close to an ELIMINATION victory.
+                if len(p.settlements) + 1 == len(all_setls) and VictoryType.ELIMINATION not in p.imminent_victories:
+                    close_to_vics.append(Victory(p, VictoryType.ELIMINATION))
+                    p.imminent_victories.add(VictoryType.ELIMINATION)
 
                 players_with_setls += 1
                 for s in p.settlements:
@@ -566,8 +579,18 @@ class Game:
                         lvl_ten_setls += 1
                     if any(imp.name == "Holy Sanctum" for imp in s.improvements):
                         constructed_sanctum = True
+                    # If a player is currently constructing the Holy Sanctum, they are close to a VIGOUR victory.
+                    elif s.current_work is not None and s.current_work.construction.name == "Holy Sanctum" and \
+                            VictoryType.VIGOUR not in p.imminent_victories:
+                        close_to_vics.append(Victory(p, VictoryType.VIGOUR))
+                        p.imminent_victories.add(VictoryType.VIGOUR)
                 if jubilated_setls >= 5:
                     p.jubilation_ctr += 1
+                    # If a player has achieved 100% satisfaction in 5 settlements, they are close to (25 turns away)
+                    # from a JUBILATION victory.
+                    if VictoryType.JUBILATION not in p.imminent_victories:
+                        close_to_vics.append(Victory(p, VictoryType.JUBILATION))
+                        p.imminent_victories.add(VictoryType.JUBILATION)
                 else:
                     p.jubilation_ctr = 0
                 # If the player has maintained 5 settlements at 100% satisfaction for 25 turns, they have achieved a
@@ -577,6 +600,10 @@ class Game:
                 # If the player has at least 10 settlements of level 10, they have achieved a GLUTTONY victory.
                 if lvl_ten_setls >= 10:
                     return Victory(p, VictoryType.GLUTTONY)
+                # If a player has 8 level 10 settlements, they are close to a GLUTTONY victory.
+                if lvl_ten_setls >= 8 and VictoryType.GLUTTONY not in p.imminent_victories:
+                    close_to_vics.append(Victory(p, VictoryType.GLUTTONY))
+                    p.imminent_victories.add(VictoryType.GLUTTONY)
                 # If the player has constructed the Holy Sanctum, they have achieved a VIGOUR victory.
                 if constructed_sanctum:
                     return Victory(p, VictoryType.VIGOUR)
@@ -588,15 +615,29 @@ class Game:
             # If the player has accumulated at least 100k wealth over the game, they have achieved an AFFLUENCE victory.
             if p.accumulated_wealth >= 100000:
                 return Victory(p, VictoryType.AFFLUENCE)
+            # If a player has accumulated at least 75k wealth over the game, they are close to an AFFLUENCE victory.
+            if p.accumulated_wealth >= 75000 and VictoryType.AFFLUENCE not in p.imminent_victories:
+                close_to_vics.append(Victory(p, VictoryType.AFFLUENCE))
+                p.imminent_victories.add(VictoryType.AFFLUENCE)
             # If the player has undergone the blessings for all three pieces of ardour, they have achieved a
             # SERENDIPITY victory.
-            if len([bls for bls in p.blessings if "Piece of" in bls.name]) == 3:
+            ardour_pieces = len([bls for bls in p.blessings if "Piece of" in bls.name])
+            if ardour_pieces == 3:
                 return Victory(p, VictoryType.SERENDIPITY)
+            # If a player has undergone two of the required three blessings for the pieces of ardour, they are close to
+            # a SERENDIPITY victory.
+            if ardour_pieces == 2 and VictoryType.SERENDIPITY not in p.imminent_victories:
+                close_to_vics.append(Victory(p, VictoryType.SERENDIPITY))
+                p.imminent_victories.add(VictoryType.SERENDIPITY)
 
         if players_with_setls == 1:
             # If there is only one player with settlements, they have achieved an ELIMINATION victory.
             return Victory(next(player for player in self.players if len(player.settlements) > 0),
                            VictoryType.ELIMINATION)
+
+        # If any players are newly-close to a victory, show that in the overlay.
+        if len(close_to_vics) > 0:
+            self.board.overlay.toggle_close_to_vic(close_to_vics)
 
         return None
 
@@ -643,7 +684,8 @@ class Game:
                 x_movement = random.randint(-heathen.remaining_stamina, heathen.remaining_stamina)
                 rem_movement = heathen.remaining_stamina - abs(x_movement)
                 y_movement = random.choice([-rem_movement, rem_movement])
-                heathen.location = heathen.location[0] + x_movement, heathen.location[1] + y_movement
+                heathen.location = (clamp(heathen.location[0] + x_movement, 0, 99),
+                                    clamp(heathen.location[1] + y_movement, 0, 89))
                 heathen.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
     def initialise_ais(self):
@@ -674,7 +716,8 @@ class Game:
         """
         # Only maintain 3 autosaves at a time, delete the oldest if we already have 3 before saving the next.
         if auto and len(autosaves := list(filter(lambda fn: fn.startswith("auto"), os.listdir("saves/")))) == 3:
-            os.remove(f"saves/{autosaves[2]}")
+            autosaves.sort()
+            os.remove(f"saves/{autosaves[0]}")
         save_name = f"saves/{'auto' if auto else ''}save-{datetime.datetime.now().isoformat(timespec='seconds')}.json"
         with open(save_name, "w", encoding="utf-8") as save_file:
             # We use chain.from_iterable() here because the quads array is 2D.
@@ -742,6 +785,10 @@ class Game:
                     for idx, imp in enumerate(s.improvements):
                         # Do another direct conversion for improvements.
                         s.improvements[idx] = get_improvement(imp.name)
+                    # Also convert all units in garrisons to Unit objects.
+                    for idx, u in enumerate(s.garrison):
+                        s.garrison[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]),
+                                               u.garrisoned, u.plan, u.has_attacked, u.sieging)
                 # We also do direct conversions to Blessing objects for the ongoing one, if there is one, as well as any
                 # previously-completed ones.
                 if p.ongoing_blessing:
@@ -751,6 +798,7 @@ class Game:
                 if p.ai_playstyle is not None:
                     p.ai_playstyle = AIPlaystyle(AttackPlaystyle[p.ai_playstyle.attacking],
                                                  ExpansionPlaystyle[p.ai_playstyle.expansion])
+                p.imminent_victories = set(p.imminent_victories)
             # For the AI players, we can just make quads_seen an empty set, as it's not used.
             for i in range(1, len(self.players)):
                 self.players[i].quads_seen = set()

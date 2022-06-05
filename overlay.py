@@ -33,6 +33,7 @@ class OverlayType(Enum):
     CONTROLS = "CONTROLS"
     VICTORY = "VICTORY"
     ELIMINATION = "ELIMINATION"
+    CLOSE_TO_VIC = "CLOSE_TO_VIC"
 
 
 class SettlementAttackType(Enum):
@@ -98,6 +99,7 @@ class Overlay:
         self.has_saved: bool = False
         self.current_victory: typing.Optional[Victory] = None  # Victory data, if one has been achieved.
         self.just_eliminated: typing.Optional[Player] = None
+        self.close_to_vics: typing.List[Victory] = []
 
     def display(self):
         """
@@ -141,6 +143,32 @@ class Overlay:
             pyxel.text(56, 65, "Consigned to folklore", pyxel.COLOR_RED)
             pyxel.text(50, 75, f"{self.just_eliminated.name} has been eliminated.", self.just_eliminated.colour)
             pyxel.text(70, 85, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+        # The close-to-victory overlay displays any players who are close to achieving a victory, and the type of
+        # victory they are close to achieving.
+        elif OverlayType.CLOSE_TO_VIC in self.showing:
+            extension = 20 * (len(self.close_to_vics) - 1)
+            pyxel.rectb(12, 60, 176, 48 + extension, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 61, 174, 46 + extension, pyxel.COLOR_BLACK)
+            pyxel.text(68, 65, "Nearing greatness", pyxel.COLOR_WHITE)
+            for idx, vic in enumerate(self.close_to_vics):
+                qualifier = "an" if vic.type is VictoryType.ELIMINATION or vic.type is VictoryType.AFFLUENCE else "a"
+                beginning = "You are" if vic.player is self.current_player else f"{vic.player.name} is"
+                vic_x = 32 if vic.type is VictoryType.VIGOUR else 22
+                pyxel.text(vic_x, 75 + idx * 20, f"{beginning} close to {qualifier} {vic.type.value} victory.",
+                           vic.player.colour)
+                if vic.type is VictoryType.ELIMINATION:
+                    pyxel.text(25, 85 + idx * 20, "(Needs to control one more settlement)", pyxel.COLOR_RED)
+                elif vic.type is VictoryType.JUBILATION:
+                    pyxel.text(20, 85 + idx * 20, "(Needs 25 turns of current satisfaction)", pyxel.COLOR_GREEN)
+                elif vic.type is VictoryType.GLUTTONY:
+                    pyxel.text(28, 85 + idx * 20, "(Needs 2 more level 10 settlements)", pyxel.COLOR_GREEN)
+                elif vic.type is VictoryType.AFFLUENCE:
+                    pyxel.text(27, 85 + idx * 20, "(Needs to accumulate 25k more wealth)", pyxel.COLOR_YELLOW)
+                elif vic.type is VictoryType.VIGOUR:
+                    pyxel.text(25, 85 + idx * 20, "(Needs to complete begun Holy Sanctum)", pyxel.COLOR_ORANGE)
+                elif vic.type is VictoryType.SERENDIPITY:
+                    pyxel.text(20, 85 + idx * 20, "(Needs to undergo final ardour blessing)", pyxel.COLOR_PURPLE)
+            pyxel.text(70, 95 + extension, "SPACE: Dismiss", pyxel.COLOR_WHITE)
         # The blessing notification overlay displays any blessing completed by the player in the last turn, and what has
         # been unlocked as a result.
         elif OverlayType.BLESS_NOTIF in self.showing:
@@ -1114,3 +1142,21 @@ class Overlay:
         :return: Whether the elimination overlay is being displayed.
         """
         return OverlayType.ELIMINATION in self.showing
+
+    def toggle_close_to_vic(self, close_to_vics: typing.List[Victory]):
+        """
+        Toggle the close-to-victory overlay.
+        :param close_to_vics: The victories that are close to being achieved, and the players close to achieving them.
+        """
+        if OverlayType.CLOSE_TO_VIC in self.showing:
+            self.showing.remove(OverlayType.CLOSE_TO_VIC)
+        else:
+            self.showing.append(OverlayType.CLOSE_TO_VIC)
+            self.close_to_vics = close_to_vics
+
+    def is_close_to_vic(self) -> bool:
+        """
+        Returns whether the close-to-victory overlay is currently being displayed.
+        :return: Whether the close-to-victory overlay is being displayed.
+        """
+        return OverlayType.CLOSE_TO_VIC in self.showing
