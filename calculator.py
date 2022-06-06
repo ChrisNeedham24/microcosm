@@ -2,7 +2,7 @@ import random
 import typing
 
 from models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, Settlement, Improvement, \
-    UnitPlan, SetlAttackData
+    UnitPlan, SetlAttackData, GameConfig
 
 
 def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
@@ -180,3 +180,45 @@ def complete_construction(setl: Settlement):
             setl.produced_settler = True
         setl.garrison.append(Unit(plan.max_health, plan.total_stamina, setl.location, True, plan))
     setl.current_work = None
+
+
+def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: GameConfig) -> None:
+    """
+    Investigate a relic with the given unit.
+    Possible rewards include:
+    - Wealth bonus
+    - Fortune bonus
+    - Vision bonus (around the relic, only if fog of war enabled)
+    - Permanent +5 health
+    - Permanent +5 power
+    - Permanent +1 stamina
+    - Unit upkeep reduced to 0 permanently
+    TODO doco
+    TODO overlay with results
+    TODO remove relic from quad
+    :param player:
+    :param unit:
+    :param relic_loc:
+    :param cfg:
+    :return:
+    """
+    random_chance = random.randint(0, 100)
+    if random_chance < 70:
+        if random_chance < 10 and player.ongoing_blessing is not None:
+            player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.blessing.cost / 5
+        elif random_chance < 20 or random_chance < 30 and not cfg.fog_of_war:
+            player.wealth += random.uniform(10, 50)
+        elif random_chance < 30 and cfg.fog_of_war:
+            for i in range(relic_loc[1] - 10, relic_loc[1] + 11):
+                for j in range(relic_loc[0] - 10, relic_loc[0] + 11):
+                    player.quads_seen.add((j, i))
+        elif random_chance < 40:
+            unit.plan.max_health += 5
+            unit.health += 5
+        elif random_chance < 50:
+            unit.plan.power += 5
+        elif random_chance < 60:
+            unit.plan.total_stamina += 1
+            unit.remaining_stamina = unit.plan.total_stamina
+        else:
+            unit.plan.cost = 0

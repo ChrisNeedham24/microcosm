@@ -92,6 +92,7 @@ class Quad:
     zeal: float
     fortune: float
     selected: bool = False
+    is_relic: bool = False
 
 
 @dataclass
