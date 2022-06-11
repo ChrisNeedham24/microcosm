@@ -193,6 +193,8 @@ class MoveMaker:
         Make a move for the given AI player.
         :param player: The AI player to make a move for.
         :param all_players: The list of all players.
+        :param quads: The 2D list of quads to use to search for relics.
+        :param cfg: The game configuration.
         """
         all_setls = []
         for pl in all_players:
@@ -251,6 +253,8 @@ class MoveMaker:
         :param other_units: The list of all enemy units.
         :param all_players: The list of all players.
         :param all_setls: The list of all settlements.
+        :param quads: The 2D list of quads to use to search for relics.
+        :param cfg: The game configuration.
         """
         # If the unit can settle, randomly move it until it is far enough away from any of the player's other
         # settlements. Once this has been achieved, found a new settlement and destroy the unit.
@@ -392,6 +396,8 @@ class MoveMaker:
                             self.board_ref.overlay.toggle_siege_notif(within_range, player)
             # If there's nothing within range, look for relics or just move randomly.
             else:
+                # The range in which a unit can investigate is actually further than its remaining stamina, as you only
+                # have to be next to a relic to investigate it.
                 investigate_range = unit.remaining_stamina + 1
                 for i in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
                     for j in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
@@ -416,6 +422,7 @@ class MoveMaker:
                                 investigate_relic(player, unit, (j, i), cfg)
                                 quads[i][j].is_relic = False
                                 return
+                # We only get to this point if a valid relic was not found.
                 x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
                 rem_movement = unit.remaining_stamina - abs(x_movement)
                 y_movement = random.choice([-rem_movement, rem_movement])

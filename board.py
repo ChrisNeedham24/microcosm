@@ -312,11 +312,10 @@ class Board:
         # the map. For example, if the player is choosing a construction for a settlement, they should not be able to
         # click around on the map.
         obscured_by_overlay = self.overlay.is_standard() or self.overlay.is_constructing() or \
-                              self.overlay.is_blessing() or self.overlay.is_deployment() or \
-                              self.overlay.is_warning() or self.overlay.is_bless_notif() or \
-                              self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or \
-                              self.overlay.is_setl_click() or self.overlay.is_pause() or self.overlay.is_controls() or \
-                              self.overlay.is_victory()
+            self.overlay.is_blessing() or self.overlay.is_deployment() or self.overlay.is_warning() or \
+            self.overlay.is_bless_notif() or self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or \
+            self.overlay.is_setl_click() or self.overlay.is_pause() or self.overlay.is_controls() or \
+            self.overlay.is_victory()
         if not obscured_by_overlay and 4 <= mouse_x <= 196 and 4 <= mouse_y <= 180:
             # Work out which quad they've clicked, and select it.
             adj_x = int((mouse_x - 4) / 8) + map_pos[0]
@@ -346,10 +345,9 @@ class Board:
         # the map. For example, if the player is choosing a construction for a settlement, they should not be able to
         # click around on the map.
         obscured_by_overlay = self.overlay.is_standard() or self.overlay.is_constructing() or \
-                              self.overlay.is_blessing() or self.overlay.is_warning() or \
-                              self.overlay.is_bless_notif() or self.overlay.is_constr_notif() or \
-                              self.overlay.is_lvl_notif() or self.overlay.is_setl_click() or \
-                              self.overlay.is_pause() or self.overlay.is_controls() or self.overlay.is_victory()
+            self.overlay.is_blessing() or self.overlay.is_warning() or self.overlay.is_bless_notif() or \
+            self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or self.overlay.is_setl_click() or \
+            self.overlay.is_pause() or self.overlay.is_controls() or self.overlay.is_victory()
         # Firstly, deselect the selected quad if there is one.
         if not obscured_by_overlay and self.quad_selected is not None:
             self.quad_selected.selected = False
@@ -502,6 +500,8 @@ class Board:
                         for i in range(adj_y - 5, adj_y + 6):
                             for j in range(adj_x - 5, adj_x + 6):
                                 player.quads_seen.add((j, i))
+                    # If the player has selected one of their units and clicked on a relic, investigate it, providing
+                    # that their unit is close enough.
                     elif self.selected_unit is not None and self.selected_unit in player.units and \
                             self.quads[adj_y][adj_x].is_relic:
                         if abs(self.selected_unit.location[0] - adj_x) <= 1 and \
@@ -510,6 +510,7 @@ class Board:
                                                                             self.selected_unit,
                                                                             (adj_x, adj_y),
                                                                             self.game_config)
+                            # Relics cease to exist once investigated.
                             self.quads[adj_y][adj_x].is_relic = False
                             self.overlay.toggle_investigation(result)
                     # Lastly, if the player has selected a unit and they click elsewhere, deselect the unit.

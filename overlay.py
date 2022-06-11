@@ -235,6 +235,8 @@ class Overlay:
                 for setl in self.problematic_settlements:
                     pyxel.text(80, 73 + offset, setl.name, pyxel.COLOR_WHITE)
                     offset += 10
+        # The investigation overlay displays the results of a just-executed investigation on a relic by one of the
+        # player's units.
         elif OverlayType.INVESTIGATION in self.showing:
             pyxel.rectb(12, 60, 176, 48, pyxel.COLOR_WHITE)
             pyxel.rect(13, 61, 174, 46, pyxel.COLOR_BLACK)
@@ -884,10 +886,10 @@ class Overlay:
         :return: Whether player settlement/unit iteration is permitted.
         """
         return not self.is_victory() and not self.is_controls() and not self.is_pause() and \
-               not self.is_deployment() and not self.is_warning() and not self.is_bless_notif() and \
-               not self.is_constr_notif() and not self.is_lvl_notif() and not self.is_blessing() and \
-               not self.is_standard() and not self.is_constructing() and not self.is_setl_click() and \
-               not self.is_investigation()
+            not self.is_deployment() and not self.is_warning() and not self.is_bless_notif() and \
+            not self.is_constr_notif() and not self.is_lvl_notif() and not self.is_blessing() and \
+            not self.is_standard() and not self.is_constructing() and not self.is_setl_click() and \
+            not self.is_investigation()
 
     def is_setl(self):
         """
@@ -1193,14 +1195,22 @@ class Overlay:
         return OverlayType.CLOSE_TO_VIC in self.showing
 
     def toggle_investigation(self, inv_res: typing.Optional[InvestigationResult]):
+        """
+        Toggle the investigation overlay.
+        :param inv_res: The result of a just-executed investigation on a relic.
+        """
         if OverlayType.INVESTIGATION in self.showing:
             self.showing.remove(OverlayType.INVESTIGATION)
         elif not self.is_standard() and not self.is_constructing() and not self.is_blessing() and \
-             not self.is_deployment() and not self.is_tutorial() and not self.is_warning() and \
-             not self.is_bless_notif() and not self.is_constr_notif() and not self.is_lvl_notif() and \
-             not self.is_pause() and not self.is_controls() and not self.is_victory():
+                not self.is_deployment() and not self.is_tutorial() and not self.is_warning() and \
+                not self.is_bless_notif() and not self.is_constr_notif() and not self.is_lvl_notif() and \
+                not self.is_pause() and not self.is_controls() and not self.is_victory():
             self.showing.append(OverlayType.INVESTIGATION)
             self.investigation_result = inv_res
 
     def is_investigation(self) -> bool:
+        """
+        Returns whether the investigation overlay is currently being displayed.
+        :return: Whether the investigation overlay is being displayed.
+        """
         return OverlayType.INVESTIGATION in self.showing

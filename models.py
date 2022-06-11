@@ -82,6 +82,9 @@ class VictoryType(str, Enum):
 
 
 class InvestigationResult(Enum):
+    """
+    The types of result a relic investigation can yield.
+    """
     WEALTH = "WEALTH"
     FORTUNE = "FORTUNE"
     VISION = "VISION"
