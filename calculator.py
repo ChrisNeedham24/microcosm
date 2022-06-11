@@ -205,27 +205,25 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
         if random_chance < 10 and player.ongoing_blessing is not None:
             player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.blessing.cost / 5
             return InvestigationResult.FORTUNE
-        elif random_chance < 20 or random_chance < 30 and not cfg.fog_of_war:
+        if random_chance < 20 or random_chance < 30 and not cfg.fog_of_war:
             player.wealth += 25
             return InvestigationResult.WEALTH
-        elif random_chance < 30 and cfg.fog_of_war:
+        if random_chance < 30 and cfg.fog_of_war:
             for i in range(relic_loc[1] - 10, relic_loc[1] + 11):
                 for j in range(relic_loc[0] - 10, relic_loc[0] + 11):
                     player.quads_seen.add((j, i))
             return InvestigationResult.VISION
-        elif random_chance < 40:
+        if random_chance < 40:
             unit.plan.max_health += 5
             unit.health += 5
             return InvestigationResult.HEALTH
-        elif random_chance < 50:
+        if random_chance < 50:
             unit.plan.power += 5
             return InvestigationResult.POWER
-        elif random_chance < 60:
+        if random_chance < 60:
             unit.plan.total_stamina += 1
             unit.remaining_stamina = unit.plan.total_stamina
             return InvestigationResult.STAMINA
-        else:
-            unit.plan.cost = 0
-            return InvestigationResult.UPKEEP
-    else:
-        return InvestigationResult.NONE
+        unit.plan.cost = 0
+        return InvestigationResult.UPKEEP
+    return InvestigationResult.NONE
