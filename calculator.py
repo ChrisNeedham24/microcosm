@@ -2,7 +2,7 @@ import random
 import typing
 
 from models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, Settlement, Improvement, \
-    UnitPlan, SetlAttackData
+    UnitPlan, SetlAttackData, GameConfig, InvestigationResult
 
 
 def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
@@ -180,3 +180,50 @@ def complete_construction(setl: Settlement):
             setl.produced_settler = True
         setl.garrison.append(Unit(plan.max_health, plan.total_stamina, setl.location, True, plan))
     setl.current_work = None
+
+
+def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: GameConfig) -> InvestigationResult:
+    """
+    Investigate a relic with the given unit.
+    Possible rewards include:
+    - Wealth bonus
+    - Fortune bonus
+    - Vision bonus (around the relic, only if fog of war enabled)
+    - Permanent +5 health
+    - Permanent +5 power
+    - Permanent +1 stamina
+    - Unit upkeep reduced to 0 permanently
+    :param player: The owner of the unit investigating the relic.
+    :param unit: The unit investigating the relic.
+    :param relic_loc: The location of the relic.
+    :param cfg: The game configuration, used to determine whether to grant vision bonuses, which are useless when fog of
+    war is disabled.
+    :return: The type of investigation result, i.e. the bonus granted, if there is one.
+    """
+    random_chance = random.randint(0, 100)
+    if random_chance < 70:
+        if random_chance < 10 and player.ongoing_blessing is not None:
+            player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.blessing.cost / 5
+            return InvestigationResult.FORTUNE
+        if random_chance < 20 or random_chance < 30 and not cfg.fog_of_war:
+            player.wealth += 25
+            return InvestigationResult.WEALTH
+        if random_chance < 30 and cfg.fog_of_war:
+            for i in range(relic_loc[1] - 10, relic_loc[1] + 11):
+                for j in range(relic_loc[0] - 10, relic_loc[0] + 11):
+                    player.quads_seen.add((j, i))
+            return InvestigationResult.VISION
+        if random_chance < 40:
+            unit.plan.max_health += 5
+            unit.health += 5
+            return InvestigationResult.HEALTH
+        if random_chance < 50:
+            unit.plan.power += 5
+            return InvestigationResult.POWER
+        if random_chance < 60:
+            unit.plan.total_stamina += 1
+            unit.remaining_stamina = unit.plan.total_stamina
+            return InvestigationResult.STAMINA
+        unit.plan.cost = 0
+        return InvestigationResult.UPKEEP
+    return InvestigationResult.NONE

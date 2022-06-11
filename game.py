@@ -315,6 +315,8 @@ class Game:
                 self.board.overlay.toggle_level_up_notification(None)
             elif self.game_started and self.board.overlay.is_controls():
                 self.board.overlay.toggle_controls()
+            elif self.game_started and self.board.overlay.is_investigation():
+                self.board.overlay.toggle_investigation(None)
             elif self.game_started and self.board.overlay.can_iter_settlements_units() and \
                     len(self.players[0].units) > 0:
                 self.board.overlay.remove_warning_if_possible()
@@ -708,7 +710,7 @@ class Game:
         """
         for player in self.players:
             if player.ai_playstyle is not None:
-                self.move_maker.make_move(player, self.players)
+                self.move_maker.make_move(player, self.players, self.board.quads, self.board.game_config)
 
     def save_game(self, auto: bool = False):
         """

@@ -81,6 +81,20 @@ class VictoryType(str, Enum):
     SERENDIPITY = "SERENDIPITY"
 
 
+class InvestigationResult(Enum):
+    """
+    The types of result a relic investigation can yield.
+    """
+    WEALTH = "WEALTH"
+    FORTUNE = "FORTUNE"
+    VISION = "VISION"
+    HEALTH = "HEALTH"
+    POWER = "POWER"
+    STAMINA = "STAMINA"
+    UPKEEP = "UPKEEP"
+    NONE = "NONE"
+
+
 @dataclass
 class Quad:
     """
@@ -92,6 +106,7 @@ class Quad:
     zeal: float
     fortune: float
     selected: bool = False
+    is_relic: bool = False
 
 
 @dataclass

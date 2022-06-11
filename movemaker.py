@@ -1,11 +1,12 @@
 import random
 import typing
 
-from calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, attack_setl
+from calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, attack_setl, \
+    investigate_relic
 from catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
 from models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, UnitPlan, \
-    Construction, Unit, ExpansionPlaystyle
+    Construction, Unit, ExpansionPlaystyle, Quad, GameConfig
 
 
 def set_blessing(player: Player, player_totals: (float, float, float, float)):
@@ -186,11 +187,14 @@ class MoveMaker:
         self.namer: Namer = namer
         self.board_ref = None
 
-    def make_move(self, player: Player, all_players: typing.List[Player]):
+    def make_move(self, player: Player, all_players: typing.List[Player], quads: typing.List[typing.List[Quad]],
+                  cfg: GameConfig):
         """
         Make a move for the given AI player.
         :param player: The AI player to make a move for.
         :param all_players: The list of all players.
+        :param quads: The 2D list of quads to use to search for relics.
+        :param cfg: The game configuration.
         """
         all_setls = []
         for pl in all_players:
@@ -235,13 +239,13 @@ class MoveMaker:
         for unit in player.units:
             if pow_health := (unit.health + unit.plan.power) < min_pow_health[0]:
                 min_pow_health = pow_health, unit
-            self.move_unit(player, unit, all_units, all_players, all_setls)
+            self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg)
         if player.wealth + player_totals[0] < 0:
             player.wealth += min_pow_health[1].plan.cost
             player.units.remove(min_pow_health[1])
 
     def move_unit(self, player: Player, unit: Unit, other_units: typing.List[Unit], all_players: typing.List[Player],
-                  all_setls: typing.List[Settlement]):
+                  all_setls: typing.List[Settlement], quads: typing.List[typing.List[Quad]], cfg: GameConfig):
         """
         Move the given unit, attacking if the right conditions are met.
         :param player: The AI owner of the unit being moved.
@@ -249,6 +253,8 @@ class MoveMaker:
         :param other_units: The list of all enemy units.
         :param all_players: The list of all players.
         :param all_setls: The list of all settlements.
+        :param quads: The 2D list of quads to use to search for relics.
+        :param cfg: The game configuration.
         """
         # If the unit can settle, randomly move it until it is far enough away from any of the player's other
         # settlements. Once this has been achieved, found a new settlement and destroy the unit.
@@ -388,8 +394,35 @@ class MoveMaker:
                         # Show the siege notification if we have placed one of the player's settlements under siege.
                         if within_range in all_players[0].settlements:
                             self.board_ref.overlay.toggle_siege_notif(within_range, player)
-            # If there's nothing within range, just move randomly.
+            # If there's nothing within range, look for relics or just move randomly.
             else:
+                # The range in which a unit can investigate is actually further than its remaining stamina, as you only
+                # have to be next to a relic to investigate it.
+                investigate_range = unit.remaining_stamina + 1
+                for i in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
+                    for j in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
+                        if 0 <= i <= 89 and 0 <= j <= 99 and quads[i][j].is_relic:
+                            first_resort: (int, int)
+                            second_resort = j, i + 1
+                            third_resort = j, i - 1
+                            if j - unit.location[0] < 0:
+                                first_resort = j + 1, i
+                            else:
+                                first_resort = j - 1, i
+                            found_valid_loc = False
+                            for loc in [first_resort, second_resort, third_resort]:
+                                if not any(u.location == loc for u in player.units) and \
+                                        not any(other_u.location == loc for other_u in other_units) and \
+                                        not any(setl.location == loc for setl in all_setls):
+                                    unit.location = loc
+                                    found_valid_loc = True
+                                    break
+                            unit.remaining_stamina = 0
+                            if found_valid_loc:
+                                investigate_relic(player, unit, (j, i), cfg)
+                                quads[i][j].is_relic = False
+                                return
+                # We only get to this point if a valid relic was not found.
                 x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
                 rem_movement = unit.remaining_stamina - abs(x_movement)
                 y_movement = random.choice([-rem_movement, rem_movement])

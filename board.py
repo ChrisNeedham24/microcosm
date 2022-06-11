@@ -5,9 +5,9 @@ from enum import Enum
 
 import pyxel
 
-from calculator import calculate_yield_for_quad, attack
+from calculator import calculate_yield_for_quad, attack, investigate_relic
 from catalogue import get_default_unit, Namer
-from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig
+from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult
 from overlay import Overlay
 
 
@@ -87,7 +87,8 @@ class Board:
                             quad_x = 16
                         elif quad.biome is Biome.MOUNTAIN:
                             quad_x = 24
-                        pyxel.blt((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 0, quad_x, 4, 8, 8)
+                        quad_y = 20 if quad.is_relic else 4
+                        pyxel.blt((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 0, quad_x, quad_y, 8, 8)
                         if quad.selected:
                             selected_quad_coords = i, j
                             pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
@@ -292,7 +293,13 @@ class Board:
                     # If we're not using biome clustering, just randomly choose one.
                     biome = random.choice(list(Biome))
                 quad_yield: (float, float, float, float) = calculate_yield_for_quad(biome)
-                self.quads[i][j] = Quad(biome, *quad_yield)
+
+                is_relic = False
+                relic_chance = random.randint(0, 100)
+                if relic_chance < 1:
+                    is_relic = True
+
+                self.quads[i][j] = Quad(biome, *quad_yield, is_relic=is_relic)
 
     def process_right_click(self, mouse_x: int, mouse_y: int, map_pos: (int, int)):
         """
@@ -305,11 +312,10 @@ class Board:
         # the map. For example, if the player is choosing a construction for a settlement, they should not be able to
         # click around on the map.
         obscured_by_overlay = self.overlay.is_standard() or self.overlay.is_constructing() or \
-                              self.overlay.is_blessing() or self.overlay.is_deployment() or \
-                              self.overlay.is_warning() or self.overlay.is_bless_notif() or \
-                              self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or \
-                              self.overlay.is_setl_click() or self.overlay.is_pause() or self.overlay.is_controls() or \
-                              self.overlay.is_victory()
+            self.overlay.is_blessing() or self.overlay.is_deployment() or self.overlay.is_warning() or \
+            self.overlay.is_bless_notif() or self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or \
+            self.overlay.is_setl_click() or self.overlay.is_pause() or self.overlay.is_controls() or \
+            self.overlay.is_victory()
         if not obscured_by_overlay and 4 <= mouse_x <= 196 and 4 <= mouse_y <= 180:
             # Work out which quad they've clicked, and select it.
             adj_x = int((mouse_x - 4) / 8) + map_pos[0]
@@ -339,10 +345,9 @@ class Board:
         # the map. For example, if the player is choosing a construction for a settlement, they should not be able to
         # click around on the map.
         obscured_by_overlay = self.overlay.is_standard() or self.overlay.is_constructing() or \
-                              self.overlay.is_blessing() or self.overlay.is_warning() or \
-                              self.overlay.is_bless_notif() or self.overlay.is_constr_notif() or \
-                              self.overlay.is_lvl_notif() or self.overlay.is_setl_click() or \
-                              self.overlay.is_pause() or self.overlay.is_controls() or self.overlay.is_victory()
+            self.overlay.is_blessing() or self.overlay.is_warning() or self.overlay.is_bless_notif() or \
+            self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or self.overlay.is_setl_click() or \
+            self.overlay.is_pause() or self.overlay.is_controls() or self.overlay.is_victory()
         # Firstly, deselect the selected quad if there is one.
         if not obscured_by_overlay and self.quad_selected is not None:
             self.quad_selected.selected = False
@@ -476,6 +481,7 @@ class Board:
                             self.selected_unit in player.units and \
                             not any(unit.location == (adj_x, adj_y) for unit in all_units) and \
                             not any(setl.location == (adj_x, adj_y) for setl in other_setls) and \
+                            not self.quads[adj_y][adj_x].is_relic and \
                             self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
                             self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
@@ -494,6 +500,19 @@ class Board:
                         for i in range(adj_y - 5, adj_y + 6):
                             for j in range(adj_x - 5, adj_x + 6):
                                 player.quads_seen.add((j, i))
+                    # If the player has selected one of their units and clicked on a relic, investigate it, providing
+                    # that their unit is close enough.
+                    elif self.selected_unit is not None and self.selected_unit in player.units and \
+                            self.quads[adj_y][adj_x].is_relic:
+                        if abs(self.selected_unit.location[0] - adj_x) <= 1 and \
+                                abs(self.selected_unit.location[1] - adj_y) <= 1:
+                            result: InvestigationResult = investigate_relic(player,
+                                                                            self.selected_unit,
+                                                                            (adj_x, adj_y),
+                                                                            self.game_config)
+                            # Relics cease to exist once investigated.
+                            self.quads[adj_y][adj_x].is_relic = False
+                            self.overlay.toggle_investigation(result)
                     # Lastly, if the player has selected a unit and they click elsewhere, deselect the unit.
                     elif self.selected_unit is not None and self.selected_unit.location != (adj_x, adj_y):
                         self.selected_unit = None
