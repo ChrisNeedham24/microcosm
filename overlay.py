@@ -7,7 +7,7 @@ import pyxel
 from calculator import get_setl_totals
 from catalogue import get_unlockable_improvements, get_all_unlockable
 from models import Settlement, Player, Improvement, Unit, Blessing, ImprovementType, CompletedConstruction, UnitPlan, \
-    EconomicStatus, Heathen, AttackData, SetlAttackData, Victory, VictoryType
+    EconomicStatus, Heathen, AttackData, SetlAttackData, Victory, VictoryType, InvestigationResult
 
 
 class OverlayType(Enum):
@@ -34,6 +34,7 @@ class OverlayType(Enum):
     VICTORY = "VICTORY"
     ELIMINATION = "ELIMINATION"
     CLOSE_TO_VIC = "CLOSE_TO_VIC"
+    INVESTIGATION = "INVESTIGATION"
 
 
 class SettlementAttackType(Enum):
@@ -100,6 +101,7 @@ class Overlay:
         self.current_victory: typing.Optional[Victory] = None  # Victory data, if one has been achieved.
         self.just_eliminated: typing.Optional[Player] = None
         self.close_to_vics: typing.List[Victory] = []
+        self.investigation_result: typing.Optional[InvestigationResult] = None
 
     def display(self):
         """
@@ -233,6 +235,34 @@ class Overlay:
                 for setl in self.problematic_settlements:
                     pyxel.text(80, 73 + offset, setl.name, pyxel.COLOR_WHITE)
                     offset += 10
+        elif OverlayType.INVESTIGATION in self.showing:
+            pyxel.rectb(12, 60, 176, 48, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 61, 174, 46, pyxel.COLOR_BLACK)
+            pyxel.text(60, 65, "Relic investigation", pyxel.COLOR_ORANGE)
+            if self.investigation_result is InvestigationResult.WEALTH:
+                pyxel.text(15, 75, "Your unit found a chest bursting with gold.", pyxel.COLOR_WHITE)
+                pyxel.text(77, 85, "+25 wealth", pyxel.COLOR_YELLOW)
+            elif self.investigation_result is InvestigationResult.FORTUNE:
+                pyxel.text(18, 75, "Your unit found a temple with holy texts.", pyxel.COLOR_WHITE)
+                pyxel.text(55, 85, "+25% blessing progress", pyxel.COLOR_PURPLE)
+            elif self.investigation_result is InvestigationResult.VISION:
+                pyxel.text(20, 75, "A vantage point was found, giving sight.", pyxel.COLOR_WHITE)
+                pyxel.text(22, 85, "10 quads of vision around unit granted", pyxel.COLOR_GREEN)
+            elif self.investigation_result is InvestigationResult.HEALTH:
+                pyxel.text(22, 75, "A concoction found yields constitution.", pyxel.COLOR_WHITE)
+                pyxel.text(44, 85, "Permanent +5 health to unit", pyxel.COLOR_GREEN)
+            elif self.investigation_result is InvestigationResult.POWER:
+                pyxel.text(20, 75, "An exhilarant aura strengthens the unit.", pyxel.COLOR_WHITE)
+                pyxel.text(45, 85, "Permanent +5 power to unit", pyxel.COLOR_GREEN)
+            elif self.investigation_result is InvestigationResult.STAMINA:
+                pyxel.text(25, 75, "A mixture found invigorates the unit.", pyxel.COLOR_WHITE)
+                pyxel.text(42, 85, "Permanent +1 stamina to unit", pyxel.COLOR_GREEN)
+            elif self.investigation_result is InvestigationResult.UPKEEP:
+                pyxel.text(20, 75, "Returning their coin, the unit walks on.", pyxel.COLOR_WHITE)
+                pyxel.text(45, 85, "Permanent 0 upkeep for unit", pyxel.COLOR_YELLOW)
+            elif self.investigation_result is InvestigationResult.NONE:
+                pyxel.text(40, 80, "Nothing of interest was found.", pyxel.COLOR_GRAY)
+            pyxel.text(70, 95, "SPACE: Dismiss", pyxel.COLOR_WHITE)
         else:
             # The attack overlay displays the results of an attack that occurred involving one of the player's units,
             # whether player-initiated or not.
@@ -765,7 +795,7 @@ class Overlay:
         elif not self.is_unit() and not self.is_standard() and not self.is_setl_click() and not self.is_blessing() and \
                 not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_deployment() and \
                 not self.is_warning() and not self.is_bless_notif() and not self.is_pause() and \
-                not self.is_controls() and not self.is_victory():
+                not self.is_controls() and not self.is_victory() and not self.is_investigation():
             self.showing.append(OverlayType.SETTLEMENT)
             self.current_settlement = settlement
             self.current_player = player
@@ -808,7 +838,7 @@ class Overlay:
         Toggle the unit overlay.
         :param unit: The currently-selected unit to display in the overlay.
         """
-        if OverlayType.UNIT in self.showing:
+        if OverlayType.UNIT in self.showing and not self.is_setl_click() and not self.is_investigation():
             self.showing.remove(OverlayType.UNIT)
         elif not self.is_setl() and not self.is_standard() and not self.is_setl_click() and not self.is_blessing() and \
                 not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_deployment() and \
@@ -856,7 +886,8 @@ class Overlay:
         return not self.is_victory() and not self.is_controls() and not self.is_pause() and \
                not self.is_deployment() and not self.is_warning() and not self.is_bless_notif() and \
                not self.is_constr_notif() and not self.is_lvl_notif() and not self.is_blessing() and \
-               not self.is_standard() and not self.is_constructing() and not self.is_setl_click()
+               not self.is_standard() and not self.is_constructing() and not self.is_setl_click() and \
+               not self.is_investigation()
 
     def is_setl(self):
         """
@@ -1160,3 +1191,16 @@ class Overlay:
         :return: Whether the close-to-victory overlay is being displayed.
         """
         return OverlayType.CLOSE_TO_VIC in self.showing
+
+    def toggle_investigation(self, inv_res: typing.Optional[InvestigationResult]):
+        if OverlayType.INVESTIGATION in self.showing:
+            self.showing.remove(OverlayType.INVESTIGATION)
+        elif not self.is_standard() and not self.is_constructing() and not self.is_blessing() and \
+             not self.is_deployment() and not self.is_tutorial() and not self.is_warning() and \
+             not self.is_bless_notif() and not self.is_constr_notif() and not self.is_lvl_notif() and \
+             not self.is_pause() and not self.is_controls() and not self.is_victory():
+            self.showing.append(OverlayType.INVESTIGATION)
+            self.investigation_result = inv_res
+
+    def is_investigation(self) -> bool:
+        return OverlayType.INVESTIGATION in self.showing

@@ -81,6 +81,17 @@ class VictoryType(str, Enum):
     SERENDIPITY = "SERENDIPITY"
 
 
+class InvestigationResult(Enum):
+    WEALTH = "WEALTH"
+    FORTUNE = "FORTUNE"
+    VISION = "VISION"
+    HEALTH = "HEALTH"
+    POWER = "POWER"
+    STAMINA = "STAMINA"
+    UPKEEP = "UPKEEP"
+    NONE = "NONE"
+
+
 @dataclass
 class Quad:
     """

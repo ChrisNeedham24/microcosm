@@ -7,7 +7,7 @@ import pyxel
 
 from calculator import calculate_yield_for_quad, attack, investigate_relic
 from catalogue import get_default_unit, Namer
-from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig
+from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult
 from overlay import Overlay
 
 
@@ -506,7 +506,12 @@ class Board:
                             self.quads[adj_y][adj_x].is_relic:
                         if abs(self.selected_unit.location[0] - adj_x) <= 1 and \
                                 abs(self.selected_unit.location[1] - adj_y) <= 1:
-                            investigate_relic(player, self.selected_unit, (adj_x, adj_y), self.game_config)
+                            result: InvestigationResult = investigate_relic(player,
+                                                                            self.selected_unit,
+                                                                            (adj_x, adj_y),
+                                                                            self.game_config)
+                            self.quads[adj_y][adj_x].is_relic = False
+                            self.overlay.toggle_investigation(result)
                     # Lastly, if the player has selected a unit and they click elsewhere, deselect the unit.
                     elif self.selected_unit is not None and self.selected_unit.location != (adj_x, adj_y):
                         self.selected_unit = None
