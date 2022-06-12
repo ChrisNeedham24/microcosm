@@ -95,6 +95,51 @@ class InvestigationResult(Enum):
     NONE = "NONE"
 
 
+class OverlayType(Enum):
+    """
+    The various overlay types that may be displayed.
+    """
+    STANDARD = "STANDARD"
+    SETTLEMENT = "SETTLEMENT"
+    CONSTRUCTION = "CONSTRUCTION"
+    BLESSING = "BLESSING"
+    DEPLOYMENT = "DEPLOYMENT"
+    UNIT = "UNIT"
+    TUTORIAL = "TUTORIAL"
+    WARNING = "WARNING"
+    BLESS_NOTIF = "BLESS_NOTIF"
+    CONSTR_NOTIF = "CONSTR_NOTIF"
+    LEVEL_NOTIF = "LEVEL_NOTIF"
+    ATTACK = "ATTACK"
+    SETL_ATTACK = "SETL_ATTACK"
+    SETL_CLICK = "SETL_CLICK"
+    SIEGE_NOTIF = "SIEGE_NOTIF"
+    PAUSE = "PAUSE"
+    CONTROLS = "CONTROLS"
+    VICTORY = "VICTORY"
+    ELIMINATION = "ELIMINATION"
+    CLOSE_TO_VIC = "CLOSE_TO_VIC"
+    INVESTIGATION = "INVESTIGATION"
+
+
+class SettlementAttackType(Enum):
+    """
+    The two types of attack on a settlement that a unit can execute.
+    """
+    ATTACK = "ATTACK"
+    BESIEGE = "BESIEGE"
+
+
+class PauseOption(Enum):
+    """
+    The four pause options available to the player.
+    """
+    RESUME = "RESUME"
+    SAVE = "SAVE"
+    CONTROLS = "CONTROLS"
+    QUIT = "QUIT"
+
+
 @dataclass
 class Quad:
     """
