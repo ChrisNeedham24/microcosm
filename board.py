@@ -9,6 +9,7 @@ from calculator import calculate_yield_for_quad, attack, investigate_relic
 from catalogue import get_default_unit, Namer
 from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult
 from overlay import Overlay
+from overlay_display import display_overlay
 
 
 class HelpOption(Enum):
@@ -220,7 +221,7 @@ class Board:
         pyxel.text(165, 189, f"Turn {turn}", pyxel.COLOR_WHITE)
 
         # Also display the overlay.
-        self.overlay.display()
+        display_overlay(self.overlay)
 
     def update(self, elapsed_time: float):
         """
