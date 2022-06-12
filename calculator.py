@@ -1,5 +1,6 @@
 import random
 import typing
+from copy import deepcopy
 
 from models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, Settlement, Improvement, \
     UnitPlan, SetlAttackData, GameConfig, InvestigationResult
@@ -178,7 +179,7 @@ def complete_construction(setl: Settlement):
             setl.level -= 1
             setl.harvest_reserves = pow(setl.level - 1, 2) * 25
             setl.produced_settler = True
-        setl.garrison.append(Unit(plan.max_health, plan.total_stamina, setl.location, True, plan))
+        setl.garrison.append(Unit(plan.max_health, plan.total_stamina, setl.location, True, deepcopy(plan)))
     setl.current_work = None
 
 
