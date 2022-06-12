@@ -58,6 +58,9 @@ AVAILABLE_COLOURS = [
     ("Peach", pyxel.COLOR_PEACH)
 ]
 
+# TODO Add climatic effects to wiki
+# TODO Add 1 or 2 night images to menu
+
 
 class Menu:
     """

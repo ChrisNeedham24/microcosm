@@ -10,7 +10,7 @@ from models import VictoryType, InvestigationResult, Heathen, EconomicStatus, Im
 from overlay import Overlay
 
 
-def display_overlay(overlay: Overlay):
+def display_overlay(overlay: Overlay, is_night: bool):
     """
     Display the given overlay to the screen.
     :param overlay The Overlay to display.
@@ -239,6 +239,7 @@ def display_overlay(overlay: Overlay):
             pyxel.text(115, 14, str(round(overlay.current_settlement.satisfaction)), pyxel.COLOR_WHITE)
 
             total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(overlay.current_settlement,
+                                                                                     is_night,
                                                                                      strict=True)
 
             pyxel.text(138, 14, str(round(total_wealth)), pyxel.COLOR_YELLOW)
@@ -406,6 +407,8 @@ def display_overlay(overlay: Overlay):
                     fortune_to_add += (setl.level - 1) * 0.25 * fortune_to_add
                     total_fortune += fortune_to_add
                 total_fortune = max(0.5, total_fortune)
+                if is_night:
+                    total_fortune *= 1.1
                 remaining_turns = math.ceil(remaining_work / total_fortune)
                 pyxel.text(30, 50, ong_blessing.blessing.name, pyxel.COLOR_WHITE)
                 pyxel.text(30, 60, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
@@ -463,6 +466,8 @@ def display_overlay(overlay: Overlay):
                 fortune_to_add += (setl.level - 1) * 0.25 * fortune_to_add
                 total_fortune += fortune_to_add
             total_fortune = max(0.5, total_fortune)
+            if is_night:
+                total_fortune *= 1.1
             for idx, blessing in enumerate(overlay.available_blessings):
                 if overlay.blessing_boundaries[0] <= idx <= overlay.blessing_boundaries[1]:
                     adj_idx = idx - overlay.blessing_boundaries[0]

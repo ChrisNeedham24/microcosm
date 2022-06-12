@@ -30,7 +30,7 @@ class Game:
         """
         Initialises the game.
         """
-        pyxel.init(200, 200, title="Microcosm")
+        pyxel.init(200, 200, title="Microcosm", quit_key=pyxel.KEY_NONE)
 
         self.menu = Menu()
         self.board: typing.Optional[Board] = None
@@ -51,6 +51,9 @@ class Game:
 
         self.namer = Namer()
         self.move_maker = MoveMaker(self.namer)
+
+        self.is_night = False
+        self.nighttime_left = 0
 
         pyxel.run(self.on_update, self.draw)
 
@@ -365,7 +368,7 @@ class Game:
         if self.on_menu:
             self.menu.draw()
         elif self.game_started:
-            self.board.draw(self.players, self.map_pos, self.turn, self.heathens)
+            self.board.draw(self.players, self.map_pos, self.turn, self.heathens, self.is_night)
 
     def gen_players(self, cfg: GameConfig):
         """
@@ -440,7 +443,7 @@ class Game:
                     setl.harvest_status = HarvestStatus.PLENTIFUL
                     setl.economic_status = EconomicStatus.BOOM
 
-                total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(setl)
+                total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(setl, self.is_night)
                 overall_fortune += total_fortune
                 overall_wealth += total_wealth
 
@@ -539,6 +542,23 @@ class Game:
 
         self.board.overlay.remove_warning_if_possible()
         self.turn += 1
+
+        if self.board.game_config.climatic_effects:
+            if not self.is_night:
+                random.seed()
+                night_chance = random.randint(0, 100)
+                if night_chance < 5:
+                    # TODO Show an overlay saying the everlasting night begins
+                    self.is_night = True
+                    self.nighttime_left = random.randint(5, 25)
+                    for h in self.heathens:
+                        h.plan.power = round(2 * h.plan.power)
+            else:
+                self.nighttime_left -= 1
+                if self.nighttime_left == 0:
+                    self.is_night = False
+                    for h in self.heathens:
+                        h.plan.power = round(h.plan.power / 2)
 
         # Autosave every 10 turns.
         if self.turn % 10 == 0:
@@ -710,7 +730,7 @@ class Game:
         """
         for player in self.players:
             if player.ai_playstyle is not None:
-                self.move_maker.make_move(player, self.players, self.board.quads, self.board.game_config)
+                self.move_maker.make_move(player, self.players, self.board.quads, self.board.game_config, self.is_night)
 
     def save_game(self, auto: bool = False):
         """

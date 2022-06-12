@@ -82,7 +82,7 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
             player.ongoing_blessing = OngoingBlessing(ideal)
 
 
-def set_construction(player: Player, setl: Settlement):
+def set_construction(player: Player, setl: Settlement, is_night: bool):
     """
     Choose and begin a construction for the given AI player's settlement.
     :param player: The AI owner of the given settlement.
@@ -116,7 +116,7 @@ def set_construction(player: Player, setl: Settlement):
         setl.current_work = Construction(settler_units[0])
     else:
         if len(avail_imps) > 0:
-            totals = get_setl_totals(setl)
+            totals = get_setl_totals(setl, is_night)
             # The 'ideal' construction in all other cases is the one that will yield the effect that boosts the
             # category the settlement is most lacking in.
             lowest = totals.index(min(totals))
@@ -188,7 +188,7 @@ class MoveMaker:
         self.board_ref = None
 
     def make_move(self, player: Player, all_players: typing.List[Player], quads: typing.List[typing.List[Quad]],
-                  cfg: GameConfig):
+                  cfg: GameConfig, is_night: bool):
         """
         Make a move for the given AI player.
         :param player: The AI player to make a move for.
@@ -199,12 +199,12 @@ class MoveMaker:
         all_setls = []
         for pl in all_players:
             all_setls.extend(pl.settlements)
-        player_totals = get_player_totals(player)
+        player_totals = get_player_totals(player, is_night)
         if player.ongoing_blessing is None:
             set_blessing(player, player_totals)
         for setl in player.settlements:
             if setl.current_work is None:
-                set_construction(player, setl)
+                set_construction(player, setl, is_night)
             else:
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out.
                 if rem_work := (setl.current_work.construction.cost - setl.current_work.zeal_consumed) < \

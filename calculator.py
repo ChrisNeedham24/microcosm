@@ -89,7 +89,7 @@ def attack_setl(attacker: Unit, setl: Settlement, setl_owner: Player, ai=True) -
                           attacker.health <= 0, setl.strength <= 0)
 
 
-def get_player_totals(player: Player) -> (float, float, float, float):
+def get_player_totals(player: Player, is_night: bool) -> (float, float, float, float):
     """
     Get the wealth, harvest, zeal, and fortune totals for the given player.
     :param player: The player to calculate totals for.
@@ -102,7 +102,7 @@ def get_player_totals(player: Player) -> (float, float, float, float):
 
     # Just add together the stats for each of the player's settlements.
     for setl in player.settlements:
-        setl_totals = get_setl_totals(setl)
+        setl_totals = get_setl_totals(setl, is_night)
 
         overall_wealth += setl_totals[0]
         overall_harvest += setl_totals[1]
@@ -112,7 +112,7 @@ def get_player_totals(player: Player) -> (float, float, float, float):
     return overall_wealth, overall_harvest, overall_zeal, overall_fortune
 
 
-def get_setl_totals(setl: Settlement, strict: bool = False) -> (float, float, float, float):
+def get_setl_totals(setl: Settlement, is_night: bool, strict: bool = False) -> (float, float, float, float):
     """
     Get the wealth, harvest, zeal, and fortune totals for the given Settlement.
     :param setl: The settlement to calculate totals for.
@@ -143,12 +143,16 @@ def get_setl_totals(setl: Settlement, strict: bool = False) -> (float, float, fl
         total_harvest = 0
     elif setl.harvest_status is HarvestStatus.PLENTIFUL:
         total_harvest *= 1.5
+    if is_night:
+        total_harvest /= 2
     total_zeal = max(sum(quad.zeal for quad in setl.quads) +
                      sum(imp.effect.zeal for imp in setl.improvements), 0 if strict else 0.5)
     total_zeal += (setl.level - 1) * 0.25 * total_zeal
     total_fortune = max(sum(quad.fortune for quad in setl.quads) +
                         sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 0.5)
     total_fortune += (setl.level - 1) * 0.25 * total_fortune
+    if is_night:
+        total_fortune *= 1.1
 
     return total_wealth, total_harvest, total_zeal, total_fortune
 
