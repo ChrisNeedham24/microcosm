@@ -120,6 +120,7 @@ class OverlayType(Enum):
     ELIMINATION = "ELIMINATION"
     CLOSE_TO_VIC = "CLOSE_TO_VIC"
     INVESTIGATION = "INVESTIGATION"
+    NIGHT = "NIGHT"
 
 
 class SettlementAttackType(Enum):
@@ -359,7 +360,7 @@ class GameConfig:
     player_colour: int  # Refers to pyxel's colours, which resolve to integers.
     biome_clustering: bool
     fog_of_war: bool
-    climatic_effects: bool = True  # TODO Add this to the setup options
+    climatic_effects: bool
 
 
 @dataclass

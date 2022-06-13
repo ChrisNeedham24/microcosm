@@ -27,6 +27,7 @@ class SetupOption(Enum):
     PLAYER_COUNT = "COUNT"
     BIOME_CLUSTERING = "BIOME"
     FOG_OF_WAR = "FOG"
+    CLIMATIC_EFFECTS = "CLIMATE"
     START_GAME = "START"
 
 
@@ -59,7 +60,6 @@ AVAILABLE_COLOURS = [
 ]
 
 # TODO Add climatic effects to wiki
-# TODO Add 1 or 2 night images to menu
 
 
 class Menu:
@@ -72,7 +72,7 @@ class Menu:
         """
         self.menu_option = MenuOption.NEW_GAME
         random.seed()
-        self.image = random.randint(0, 3)
+        self.image = random.randint(0, 5)
         self.in_game_setup = False
         self.loading_game = False
         self.in_wiki = False
@@ -88,6 +88,7 @@ class Menu:
         self.player_count = 2
         self.biome_clustering_enabled = True
         self.fog_of_war_enabled = True
+        self.climatic_effects_enabled = True
 
     def draw(self):
         """
@@ -99,7 +100,7 @@ class Menu:
             pyxel.blt(0, 0, self.image, 0, 0, 200, 200)
         else:
             pyxel.load("resources/background2.pyxres")
-            pyxel.blt(0, 0, 0, 0, 0, 200, 200)
+            pyxel.blt(0, 0, self.image - 3, 0, 0, 200, 200)
         if self.in_game_setup:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -136,6 +137,12 @@ class Menu:
                 pyxel.text(125, 100, "<- Enabled", pyxel.COLOR_GREEN)
             else:
                 pyxel.text(125, 100, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 120, "Climatic Effects",
+                       pyxel.COLOR_RED if self.setup_option is SetupOption.CLIMATIC_EFFECTS else pyxel.COLOR_WHITE)
+            if self.climatic_effects_enabled:
+                pyxel.text(125, 120, "<- Enabled", pyxel.COLOR_GREEN)
+            else:
+                pyxel.text(125, 120, "Disabled ->", pyxel.COLOR_RED)
             pyxel.text(81, 150, "Start Game",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.START_GAME else pyxel.COLOR_WHITE)
         elif self.loading_game:
@@ -411,6 +418,8 @@ class Menu:
                 elif self.setup_option is SetupOption.BIOME_CLUSTERING:
                     self.setup_option = SetupOption.FOG_OF_WAR
                 elif self.setup_option is SetupOption.FOG_OF_WAR:
+                    self.setup_option = SetupOption.CLIMATIC_EFFECTS
+                elif self.setup_option is SetupOption.CLIMATIC_EFFECTS:
                     self.setup_option = SetupOption.START_GAME
             elif self.loading_game:
                 if 0 <= self.save_idx < len(self.saves) - 1:
@@ -449,8 +458,10 @@ class Menu:
                     self.setup_option = SetupOption.PLAYER_COUNT
                 elif self.setup_option is SetupOption.FOG_OF_WAR:
                     self.setup_option = SetupOption.BIOME_CLUSTERING
-                elif self.setup_option is SetupOption.START_GAME:
+                elif self.setup_option is SetupOption.CLIMATIC_EFFECTS:
                     self.setup_option = SetupOption.FOG_OF_WAR
+                elif self.setup_option is SetupOption.START_GAME:
+                    self.setup_option = SetupOption.CLIMATIC_EFFECTS
             elif self.loading_game:
                 if self.save_idx == -1:
                     self.save_idx = len(self.saves) - 1
@@ -490,6 +501,8 @@ class Menu:
                     self.biome_clustering_enabled = False
                 elif self.setup_option is SetupOption.FOG_OF_WAR:
                     self.fog_of_war_enabled = False
+                elif self.setup_option is SetupOption.CLIMATIC_EFFECTS:
+                    self.climatic_effects_enabled = False
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:
                 if self.victory_type is VictoryType.JUBILATION:
                     self.victory_type = VictoryType.ELIMINATION
@@ -511,6 +524,8 @@ class Menu:
                     self.biome_clustering_enabled = True
                 elif self.setup_option is SetupOption.FOG_OF_WAR:
                     self.fog_of_war_enabled = True
+                elif self.setup_option is SetupOption.CLIMATIC_EFFECTS:
+                    self.climatic_effects_enabled = True
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:
                 if self.victory_type is VictoryType.ELIMINATION:
                     self.victory_type = VictoryType.JUBILATION
@@ -529,4 +544,4 @@ class Menu:
         :return: The appropriate GameConfig object.
         """
         return GameConfig(self.player_count, AVAILABLE_COLOURS[self.colour_idx][1], self.biome_clustering_enabled,
-                          self.fog_of_war_enabled)
+                          self.fog_of_war_enabled, self.climatic_effects_enabled)

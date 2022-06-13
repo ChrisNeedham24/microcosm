@@ -241,10 +241,11 @@ class Board:
             pyxel.text(2, 189, "S: Found new settlement", pyxel.COLOR_WHITE)
         else:
             pyxel.text(2, 189, self.current_help.value, pyxel.COLOR_WHITE)
-        if is_night:
-            pyxel.blt(153, 188, 0, 8, 84, 8, 8)
-        else:
-            pyxel.blt(153, 188, 0, 0, 84, 8, 8)
+        if self.game_config.climatic_effects:
+            if is_night:
+                pyxel.blt(153, 188, 0, 8, 84, 8, 8)
+            else:
+                pyxel.blt(153, 188, 0, 0, 84, 8, 8)
         pyxel.text(165, 189, f"Turn {turn}", pyxel.COLOR_WHITE)
 
         # Also display the overlay.

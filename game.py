@@ -52,7 +52,8 @@ class Game:
         self.namer = Namer()
         self.move_maker = MoveMaker(self.namer)
 
-        self.is_night = False
+        random.seed()
+        self.until_night: int = random.randint(10, 20)
         self.nighttime_left = 0
 
         pyxel.run(self.on_update, self.draw)
@@ -142,6 +143,9 @@ class Game:
                     pyxel.mouse(visible=True)
                     self.game_started = True
                     self.turn = 1
+                    random.seed()
+                    self.until_night: int = random.randint(10, 20)
+                    self.nighttime_left = 0
                     self.on_menu = False
                     cfg: GameConfig = self.menu.get_game_config()
                     self.gen_players(cfg)
@@ -308,6 +312,8 @@ class Game:
                 self.menu.wiki_showing = None
             if self.game_started and self.board.overlay.is_elimination():
                 self.board.overlay.toggle_elimination(None)
+            elif self.game_started and self.board.overlay.is_night():
+                self.board.overlay.toggle_night(None)
             elif self.game_started and self.board.overlay.is_close_to_vic():
                 self.board.overlay.toggle_close_to_vic([])
             elif self.game_started and self.board.overlay.is_bless_notif():
@@ -368,7 +374,7 @@ class Game:
         if self.on_menu:
             self.menu.draw()
         elif self.game_started:
-            self.board.draw(self.players, self.map_pos, self.turn, self.heathens, self.is_night)
+            self.board.draw(self.players, self.map_pos, self.turn, self.heathens, self.nighttime_left > 0)
 
     def gen_players(self, cfg: GameConfig):
         """
@@ -443,7 +449,7 @@ class Game:
                     setl.harvest_status = HarvestStatus.PLENTIFUL
                     setl.economic_status = EconomicStatus.BOOM
 
-                total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(setl, self.is_night)
+                total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(setl, self.nighttime_left > 0)
                 overall_fortune += total_fortune
                 overall_wealth += total_wealth
 
@@ -544,19 +550,19 @@ class Game:
         self.turn += 1
 
         if self.board.game_config.climatic_effects:
-            if not self.is_night:
-                random.seed()
-                night_chance = random.randint(0, 100)
-                if night_chance < 5:
-                    # TODO Show an overlay saying the everlasting night begins
-                    self.is_night = True
+            random.seed()
+            if self.nighttime_left == 0:
+                self.until_night -= 1
+                if self.until_night == 0:
+                    self.board.overlay.toggle_night(True)
                     self.nighttime_left = random.randint(5, 25)
                     for h in self.heathens:
                         h.plan.power = round(2 * h.plan.power)
             else:
                 self.nighttime_left -= 1
                 if self.nighttime_left == 0:
-                    self.is_night = False
+                    self.until_night = random.randint(10, 20)
+                    self.board.overlay.toggle_night(False)
                     for h in self.heathens:
                         h.plan.power = round(h.plan.power / 2)
 
@@ -730,7 +736,8 @@ class Game:
         """
         for player in self.players:
             if player.ai_playstyle is not None:
-                self.move_maker.make_move(player, self.players, self.board.quads, self.board.game_config, self.is_night)
+                self.move_maker.make_move(player, self.players, self.board.quads, self.board.game_config,
+                                          self.nighttime_left > 0)
 
     def save_game(self, auto: bool = False):
         """
@@ -748,7 +755,8 @@ class Game:
                 "players": self.players,
                 "heathens": self.heathens,
                 "turn": self.turn,
-                "cfg": self.board.game_config
+                "cfg": self.board.game_config,
+                "night_status": {"until": self.until_night, "remaining": self.nighttime_left}
             }
             # Note that we use the SaveEncoder here for custom encoding for some classes.
             save_file.write(json.dumps(save, cls=SaveEncoder))
@@ -833,6 +841,8 @@ class Game:
                                              h.has_attacked))
 
             self.turn = save.turn
+            self.until_night = save.night_status.until
+            self.nighttime_left = save.night_status.remaining
             game_cfg = save.cfg
         save_file.close()
         # Now do all the same logic we do when starting a game.

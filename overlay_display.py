@@ -53,6 +53,20 @@ def display_overlay(overlay: Overlay, is_night: bool):
         pyxel.text(56, 65, "Consigned to folklore", pyxel.COLOR_RED)
         pyxel.text(50, 75, f"{overlay.just_eliminated.name} has been eliminated.", overlay.just_eliminated.colour)
         pyxel.text(70, 85, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+    elif OverlayType.NIGHT in overlay.showing:
+        pyxel.rectb(12, 50, 176, 58, pyxel.COLOR_WHITE)
+        pyxel.rect(13, 51, 174, 56, pyxel.COLOR_BLACK)
+        if overlay.night_beginning:
+            pyxel.text(35, 55, "The everlasting night begins...", pyxel.COLOR_YELLOW)
+            pyxel.text(45, 65, "Reduced vision and harvest", pyxel.COLOR_RED)
+            pyxel.text(63, 75, "Increased fortune", pyxel.COLOR_PURPLE)
+            pyxel.text(55, 85, "Strengthened heathens", pyxel.COLOR_RED)
+        else:
+            pyxel.text(42, 55, "The sun returns once more...", pyxel.COLOR_YELLOW)
+            pyxel.text(45, 65, "Restored vision and harvest", pyxel.COLOR_GREEN)
+            pyxel.text(67, 75, "Regular fortune", pyxel.COLOR_PURPLE)
+            pyxel.text(62, 85, "Standard heathens", pyxel.COLOR_GREEN)
+        pyxel.text(70, 95, "SPACE: Dismiss", pyxel.COLOR_WHITE)
     # The close-to-victory overlay displays any players who are close to achieving a victory, and the type of
     # victory they are close to achieving.
     elif OverlayType.CLOSE_TO_VIC in overlay.showing:

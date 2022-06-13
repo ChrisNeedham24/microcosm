@@ -4,7 +4,6 @@ from time import sleep
 
 import vlc
 
-# TODO Need night music (can just be 1 or 2 tracks)
 
 class MusicPlayer:
     """
