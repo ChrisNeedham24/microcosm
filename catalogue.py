@@ -207,7 +207,7 @@ def get_default_unit(location: (int, int)) -> Unit:
     :param location: The location for the unit. Largely irrelevant due to the fact that it is garrisoned.
     :return: The created Unit object.
     """
-    return Unit(UNIT_PLANS[0].max_health, UNIT_PLANS[0].total_stamina, location, True, UNIT_PLANS[0])
+    return Unit(UNIT_PLANS[0].max_health, UNIT_PLANS[0].total_stamina, location, True, deepcopy(UNIT_PLANS[0]))
 
 
 def get_available_improvements(player: Player, settlement: Settlement) -> typing.List[Improvement]:

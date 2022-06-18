@@ -175,8 +175,10 @@ class Game:
                         self.menu.in_wiki = True
                     elif self.menu.menu_option is MenuOption.EXIT:
                         pyxel.quit()
-            elif self.game_started and self.board.overlay.is_victory():
-                # If the player has won the game, enter will take them back to the menu.
+            elif self.game_started and (self.board.overlay.is_victory() or
+                                        self.board.overlay.is_elimination() and self.players[0].eliminated):
+                # If the player has won the game, or they've just been eliminated themselves, enter will take them back
+                # to the menu.
                 self.game_started = False
                 self.on_menu = True
                 self.menu.loading_game = False
@@ -797,9 +799,11 @@ class Game:
             self.players[0].quads_seen = set(self.players[0].quads_seen)
             for p in self.players:
                 for idx, u in enumerate(p.units):
-                    # We can do a direct conversion to a Unit object for units.
+                    # We can do a direct conversion to Unit and UnitPlan objects for units.
                     p.units[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]), u.garrisoned,
-                                        u.plan, u.has_attacked, u.sieging)
+                                        UnitPlan(u.plan.power, u.plan.max_health, u.plan.total_stamina,
+                                                 u.plan.name, u.plan.prereq, u.plan.cost, u.plan.can_settle),
+                                        u.has_attacked, u.sieging)
                 for s in p.settlements:
                     # Make sure we remove the settlement's name so that we don't get duplicates.
                     self.namer.remove_settlement_name(s.name, s.quads[0].biome)
@@ -819,6 +823,17 @@ class Game:
                     for idx, u in enumerate(s.garrison):
                         s.garrison[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]),
                                                u.garrisoned, u.plan, u.has_attacked, u.sieging)
+                    # Lastly ensure that if the settlement was under siege at the time of the save, we convert the
+                    # sieging unit into proper objects too. This is necessary so that the siege is not improperly ended
+                    # because the game thinks the sieging unit has died.
+                    if s.under_siege_by is not None:
+                        s_plan = s.under_siege_by.plan
+                        s.under_siege_by = Unit(s.under_siege_by.health, s.under_siege_by.remaining_stamina,
+                                                (s.under_siege_by.location[0], s.under_siege_by.location[1]),
+                                                s.under_siege_by.garrisoned,
+                                                UnitPlan(s_plan.power, s_plan.max_health, s_plan.total_stamina,
+                                                         s_plan.name, s_plan.prereq, s_plan.cost, s_plan.can_settle),
+                                                s.under_siege_by.has_attacked, s.under_siege_by.sieging)
                 # We also do direct conversions to Blessing objects for the ongoing one, if there is one, as well as any
                 # previously-completed ones.
                 if p.ongoing_blessing:
