@@ -46,13 +46,19 @@ def display_overlay(overlay: Overlay):
         pyxel.rectb(12, 150, 176, 15, pyxel.COLOR_WHITE)
         pyxel.rect(13, 151, 174, 13, pyxel.COLOR_BLACK)
         pyxel.text(15, 153, "Click a quad in the white square to deploy!", pyxel.COLOR_WHITE)
-    # The elimination overlay displays any AI players that have been eliminated since the last turn.
+    # The elimination overlay displays either game over if the player has been eliminated, or alternatively, any AI
+    # players that have been eliminated since the last turn.
     elif OverlayType.ELIMINATION in overlay.showing:
         pyxel.rectb(12, 60, 176, 38, pyxel.COLOR_WHITE)
         pyxel.rect(13, 61, 174, 36, pyxel.COLOR_BLACK)
-        pyxel.text(56, 65, "Consigned to folklore", pyxel.COLOR_RED)
-        pyxel.text(50, 75, f"{overlay.just_eliminated.name} has been eliminated.", overlay.just_eliminated.colour)
-        pyxel.text(70, 85, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+        if overlay.just_eliminated is overlay.current_player:
+            pyxel.text(82, 65, "Game Over!", pyxel.COLOR_RED)
+            pyxel.text(32, 75, "Defeat has arrived at your doorstep.", pyxel.COLOR_WHITE)
+            pyxel.text(35, 85, "Press ENTER to return to the menu.", pyxel.COLOR_WHITE)
+        else:
+            pyxel.text(56, 65, "Consigned to folklore", pyxel.COLOR_RED)
+            pyxel.text(50, 75, f"{overlay.just_eliminated.name} has been eliminated.", overlay.just_eliminated.colour)
+            pyxel.text(70, 85, "SPACE: Dismiss", pyxel.COLOR_WHITE)
     # The close-to-victory overlay displays any players who are close to achieving a victory, and the type of
     # victory they are close to achieving.
     elif OverlayType.CLOSE_TO_VIC in overlay.showing:

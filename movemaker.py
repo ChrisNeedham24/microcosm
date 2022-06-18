@@ -239,7 +239,9 @@ class MoveMaker:
         for unit in player.units:
             if pow_health := (unit.health + unit.plan.power) < min_pow_health[0]:
                 min_pow_health = pow_health, unit
-            self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg)
+            # Units that are currently sieging a settlement do not need to move.
+            if not unit.sieging:
+                self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg)
         if player.wealth + player_totals[0] < 0:
             player.wealth += min_pow_health[1].plan.cost
             player.units.remove(min_pow_health[1])

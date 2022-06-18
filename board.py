@@ -316,7 +316,8 @@ class Board:
             self.overlay.is_blessing() or self.overlay.is_deployment() or self.overlay.is_warning() or \
             self.overlay.is_bless_notif() or self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or \
             self.overlay.is_setl_click() or self.overlay.is_pause() or self.overlay.is_controls() or \
-            self.overlay.is_victory()
+            self.overlay.is_victory() or self.overlay.is_elimination() or self.overlay.is_close_to_vic() or \
+            self.overlay.is_investigation()
         if not obscured_by_overlay and 4 <= mouse_x <= 196 and 4 <= mouse_y <= 180:
             # Work out which quad they've clicked, and select it.
             adj_x = int((mouse_x - 4) / 8) + map_pos[0]
@@ -348,7 +349,8 @@ class Board:
         obscured_by_overlay = self.overlay.is_standard() or self.overlay.is_constructing() or \
             self.overlay.is_blessing() or self.overlay.is_warning() or self.overlay.is_bless_notif() or \
             self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or self.overlay.is_setl_click() or \
-            self.overlay.is_pause() or self.overlay.is_controls() or self.overlay.is_victory()
+            self.overlay.is_pause() or self.overlay.is_controls() or self.overlay.is_victory() or \
+            self.overlay.is_elimination() or self.overlay.is_close_to_vic() or self.overlay.is_investigation()
         # Firstly, deselect the selected quad if there is one.
         if not obscured_by_overlay and self.quad_selected is not None:
             self.quad_selected.selected = False
