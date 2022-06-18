@@ -36,6 +36,7 @@ class WikiOption(Enum):
     Represents the options the player can choose from the wiki.
     """
     VICTORIES = "VIC"
+    CLIMATE = "CLIM"
     BLESSINGS = "BLS"
     IMPROVEMENTS = "IMP"
     UNITS = "UNITS"
@@ -89,6 +90,7 @@ class Menu:
         self.biome_clustering_enabled = True
         self.fog_of_war_enabled = True
         self.climatic_effects_enabled = True
+        self.showing_night = False
 
     def draw(self):
         """
@@ -274,6 +276,26 @@ class Menu:
                     pyxel.text(25, 141, "with two hands, as a blessed man.", pyxel.COLOR_WHITE)
                     pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                     pyxel.blt(35, 150, 0, 16, 44, 8, 8)
+            elif self.wiki_showing is WikiOption.CLIMATE:
+                pyxel.load("resources/sprites.pyxres")
+                pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
+                pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
+                pyxel.text(86, 30, "Climate", pyxel.COLOR_WHITE)
+                pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
+                if self.showing_night:
+                    pyxel.blt(96, 40, 0, 8, 84, 8, 8)
+                    pyxel.text(60, 50, "The Everlasting Night", pyxel.COLOR_DARK_BLUE)
+                    pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
+                    pyxel.blt(35, 150, 0, 0, 84, 8, 8)
+                    # TODO Mention folklore rumours
+                    # TODO List same effects as in overlay
+                else:
+                    pyxel.blt(96, 40, 0, 0, 84, 8, 8)
+                    pyxel.text(62, 50, "The Heat of the Sun", pyxel.COLOR_YELLOW)
+                    pyxel.blt(158, 151, 0, 8, 84, 8, 8)
+                    pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
+                    # TODO Mention the toil, the heat, etc.
+                    # TODO List the reverse of overlay effects (e.g. shared and memorised map)
             elif self.wiki_showing is WikiOption.BLESSINGS:
                 pyxel.load("resources/sprites.pyxres")
                 pyxel.rectb(10, 20, 180, 154, pyxel.COLOR_WHITE)
@@ -376,18 +398,20 @@ class Menu:
                     pyxel.text(132, 50 + idx * 10, str(unit.total_stamina), pyxel.COLOR_WHITE)
                 pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
             elif self.wiki_showing is None:
-                pyxel.rectb(60, 60, 80, 80, pyxel.COLOR_WHITE)
-                pyxel.rect(61, 61, 78, 78, pyxel.COLOR_BLACK)
-                pyxel.text(92, 65, "Wiki", pyxel.COLOR_WHITE)
-                pyxel.text(82, 80, "Victories",
+                pyxel.rectb(60, 55, 80, 90, pyxel.COLOR_WHITE)
+                pyxel.rect(61, 56, 78, 88, pyxel.COLOR_BLACK)
+                pyxel.text(92, 60, "Wiki", pyxel.COLOR_WHITE)
+                pyxel.text(82, 75, "Victories",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.VICTORIES else pyxel.COLOR_WHITE)
-                pyxel.text(82, 90, "Blessings",
+                pyxel.text(86, 85, "Climate",
+                           pyxel.COLOR_RED if self.wiki_option is WikiOption.CLIMATE else pyxel.COLOR_WHITE)
+                pyxel.text(82, 95, "Blessings",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.BLESSINGS else pyxel.COLOR_WHITE)
-                pyxel.text(78, 100, "Improvements",
+                pyxel.text(78, 105, "Improvements",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.IMPROVEMENTS else pyxel.COLOR_WHITE)
-                pyxel.text(90, 110, "Units",
+                pyxel.text(90, 115, "Units",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.UNITS else pyxel.COLOR_WHITE)
-                pyxel.text(92, 130, "Back", pyxel.COLOR_RED if self.wiki_option is None else pyxel.COLOR_WHITE)
+                pyxel.text(92, 135, "Back", pyxel.COLOR_RED if self.wiki_option is None else pyxel.COLOR_WHITE)
         else:
             pyxel.rectb(75, 120, 50, 60, pyxel.COLOR_WHITE)
             pyxel.rect(76, 121, 48, 58, pyxel.COLOR_BLACK)
@@ -436,6 +460,8 @@ class Menu:
                             self.improvement_boundaries[0] + 1, self.improvement_boundaries[1] + 1
                 else:
                     if self.wiki_option is WikiOption.VICTORIES:
+                        self.wiki_option = WikiOption.CLIMATE
+                    elif self.wiki_option is WikiOption.CLIMATE:
                         self.wiki_option = WikiOption.BLESSINGS
                     elif self.wiki_option is WikiOption.BLESSINGS:
                         self.wiki_option = WikiOption.IMPROVEMENTS
@@ -476,8 +502,10 @@ class Menu:
                         self.improvement_boundaries = \
                             self.improvement_boundaries[0] - 1, self.improvement_boundaries[1] - 1
                 else:
-                    if self.wiki_option is WikiOption.BLESSINGS:
+                    if self.wiki_option is WikiOption.CLIMATE:
                         self.wiki_option = WikiOption.VICTORIES
+                    elif self.wiki_option is WikiOption.BLESSINGS:
+                        self.wiki_option = WikiOption.CLIMATE
                     elif self.wiki_option is WikiOption.IMPROVEMENTS:
                         self.wiki_option = WikiOption.BLESSINGS
                     elif self.wiki_option is WikiOption.UNITS:
@@ -514,6 +542,8 @@ class Menu:
                     self.victory_type = VictoryType.AFFLUENCE
                 elif self.victory_type is VictoryType.SERENDIPITY:
                     self.victory_type = VictoryType.VIGOUR
+            elif self.in_wiki and self.wiki_showing is WikiOption.CLIMATE:
+                self.showing_night = False
         if right:
             if self.in_game_setup:
                 if self.setup_option is SetupOption.PLAYER_COLOUR:
@@ -537,6 +567,8 @@ class Menu:
                     self.victory_type = VictoryType.VIGOUR
                 elif self.victory_type is VictoryType.VIGOUR:
                     self.victory_type = VictoryType.SERENDIPITY
+            elif self.in_wiki and self.wiki_showing is WikiOption.CLIMATE:
+                self.showing_night = True
 
     def get_game_config(self) -> GameConfig:
         """
