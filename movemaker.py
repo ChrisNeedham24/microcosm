@@ -82,11 +82,12 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
             player.ongoing_blessing = OngoingBlessing(ideal)
 
 
-def set_construction(player: Player, setl: Settlement):
+def set_construction(player: Player, setl: Settlement, is_night: bool):
     """
     Choose and begin a construction for the given AI player's settlement.
     :param player: The AI owner of the given settlement.
     :param setl: The settlement having its construction chosen.
+    :param is_night: Whether it is night.
     """
 
     def get_expansion_lvl() -> int:
@@ -116,7 +117,7 @@ def set_construction(player: Player, setl: Settlement):
         setl.current_work = Construction(settler_units[0])
     else:
         if len(avail_imps) > 0:
-            totals = get_setl_totals(setl)
+            totals = get_setl_totals(setl, is_night)
             # The 'ideal' construction in all other cases is the one that will yield the effect that boosts the
             # category the settlement is most lacking in.
             lowest = totals.index(min(totals))
@@ -188,23 +189,24 @@ class MoveMaker:
         self.board_ref = None
 
     def make_move(self, player: Player, all_players: typing.List[Player], quads: typing.List[typing.List[Quad]],
-                  cfg: GameConfig):
+                  cfg: GameConfig, is_night: bool):
         """
         Make a move for the given AI player.
         :param player: The AI player to make a move for.
         :param all_players: The list of all players.
         :param quads: The 2D list of quads to use to search for relics.
         :param cfg: The game configuration.
+        :param is_night: Whether it is night.
         """
         all_setls = []
         for pl in all_players:
             all_setls.extend(pl.settlements)
-        player_totals = get_player_totals(player)
+        player_totals = get_player_totals(player, is_night)
         if player.ongoing_blessing is None:
             set_blessing(player, player_totals)
         for setl in player.settlements:
             if setl.current_work is None:
-                set_construction(player, setl)
+                set_construction(player, setl, is_night)
             else:
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out.
                 if rem_work := (setl.current_work.construction.cost - setl.current_work.zeal_consumed) < \
@@ -392,10 +394,11 @@ class MoveMaker:
                     # settlement, do so.
                     elif not unit.sieging:
                         unit.sieging = True
-                        within_range.under_siege_by = unit
-                        # Show the siege notification if we have placed one of the player's settlements under siege.
-                        if within_range in all_players[0].settlements:
-                            self.board_ref.overlay.toggle_siege_notif(within_range, player)
+                        if within_range.under_siege_by is None:
+                            within_range.under_siege_by = unit
+                            # Show the siege notification if we have placed one of the player's settlements under siege.
+                            if within_range in all_players[0].settlements:
+                                self.board_ref.overlay.toggle_siege_notif(within_range, player)
             # If there's nothing within range, look for relics or just move randomly.
             else:
                 # The range in which a unit can investigate is actually further than its remaining stamina, as you only

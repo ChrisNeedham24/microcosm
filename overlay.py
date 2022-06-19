@@ -51,6 +51,7 @@ class Overlay:
         self.just_eliminated: typing.Optional[Player] = None
         self.close_to_vics: typing.List[Victory] = []
         self.investigation_result: typing.Optional[InvestigationResult] = None
+        self.night_beginning: bool = False
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
@@ -622,3 +623,21 @@ class Overlay:
         :return: Whether the investigation overlay is being displayed.
         """
         return OverlayType.INVESTIGATION in self.showing
+
+    def toggle_night(self, beginning: typing.Optional[bool]):
+        """
+        Toggle the night overlay.
+        :param beginning: Whether the night is beginning (will be False if dawn has broken).
+        """
+        if OverlayType.NIGHT in self.showing:
+            self.showing.remove(OverlayType.NIGHT)
+        else:
+            self.showing.append(OverlayType.NIGHT)
+            self.night_beginning = beginning
+
+    def is_night(self) -> bool:
+        """
+        Returns whether the night overlay is currently being displayed.
+        :return: Whether the night overlay is being displayed.
+        """
+        return OverlayType.NIGHT in self.showing

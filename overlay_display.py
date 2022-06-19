@@ -10,10 +10,11 @@ from models import VictoryType, InvestigationResult, Heathen, EconomicStatus, Im
 from overlay import Overlay
 
 
-def display_overlay(overlay: Overlay):
+def display_overlay(overlay: Overlay, is_night: bool):
     """
     Display the given overlay to the screen.
     :param overlay The Overlay to display.
+    :param is_night Whether it is night.
     """
     pyxel.load("resources/sprites.pyxres")
     # The victory overlay displays the player who achieved the victory, as well as the type.
@@ -59,6 +60,21 @@ def display_overlay(overlay: Overlay):
             pyxel.text(56, 65, "Consigned to folklore", pyxel.COLOR_RED)
             pyxel.text(50, 75, f"{overlay.just_eliminated.name} has been eliminated.", overlay.just_eliminated.colour)
             pyxel.text(70, 85, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+    # The night overlay alerts the player that night is either beginning or ending, and the effects of that.
+    elif OverlayType.NIGHT in overlay.showing:
+        pyxel.rectb(12, 50, 176, 58, pyxel.COLOR_WHITE)
+        pyxel.rect(13, 51, 174, 56, pyxel.COLOR_BLACK)
+        if overlay.night_beginning:
+            pyxel.text(35, 55, "The everlasting night begins...", pyxel.COLOR_YELLOW)
+            pyxel.text(45, 65, "Reduced vision and harvest", pyxel.COLOR_RED)
+            pyxel.text(63, 75, "Increased fortune", pyxel.COLOR_PURPLE)
+            pyxel.text(55, 85, "Strengthened heathens", pyxel.COLOR_RED)
+        else:
+            pyxel.text(42, 55, "The sun returns once more...", pyxel.COLOR_YELLOW)
+            pyxel.text(45, 65, "Restored vision and harvest", pyxel.COLOR_GREEN)
+            pyxel.text(67, 75, "Regular fortune", pyxel.COLOR_PURPLE)
+            pyxel.text(62, 85, "Standard heathens", pyxel.COLOR_GREEN)
+        pyxel.text(70, 95, "SPACE: Dismiss", pyxel.COLOR_WHITE)
     # The close-to-victory overlay displays any players who are close to achieving a victory, and the type of
     # victory they are close to achieving.
     elif OverlayType.CLOSE_TO_VIC in overlay.showing:
@@ -89,8 +105,8 @@ def display_overlay(overlay: Overlay):
     # been unlocked as a result.
     elif OverlayType.BLESS_NOTIF in overlay.showing:
         unlocked = get_all_unlockable(overlay.completed_blessing)
-        pyxel.rectb(12, 60, 176, 45 + len(unlocked) * 10, pyxel.COLOR_WHITE)
-        pyxel.rect(13, 61, 174, 43 + len(unlocked) * 10, pyxel.COLOR_BLACK)
+        pyxel.rectb(12, 60, 176, 45 + max(1, len(unlocked)) * 10, pyxel.COLOR_WHITE)
+        pyxel.rect(13, 61, 174, 43 + max(1, len(unlocked)) * 10, pyxel.COLOR_BLACK)
         pyxel.text(60, 63, "Blessing completed!", pyxel.COLOR_PURPLE)
         pyxel.text(20, 73, overlay.completed_blessing.name, pyxel.COLOR_WHITE)
         pyxel.text(20, 83, "Unlocks:", pyxel.COLOR_WHITE)
@@ -245,6 +261,7 @@ def display_overlay(overlay: Overlay):
             pyxel.text(115, 14, str(round(overlay.current_settlement.satisfaction)), pyxel.COLOR_WHITE)
 
             total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(overlay.current_settlement,
+                                                                                     is_night,
                                                                                      strict=True)
 
             pyxel.text(138, 14, str(round(total_wealth)), pyxel.COLOR_YELLOW)
@@ -412,6 +429,8 @@ def display_overlay(overlay: Overlay):
                     fortune_to_add += (setl.level - 1) * 0.25 * fortune_to_add
                     total_fortune += fortune_to_add
                 total_fortune = max(0.5, total_fortune)
+                if is_night:
+                    total_fortune *= 1.1
                 remaining_turns = math.ceil(remaining_work / total_fortune)
                 pyxel.text(30, 50, ong_blessing.blessing.name, pyxel.COLOR_WHITE)
                 pyxel.text(30, 60, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
@@ -469,6 +488,8 @@ def display_overlay(overlay: Overlay):
                 fortune_to_add += (setl.level - 1) * 0.25 * fortune_to_add
                 total_fortune += fortune_to_add
             total_fortune = max(0.5, total_fortune)
+            if is_night:
+                total_fortune *= 1.1
             for idx, blessing in enumerate(overlay.available_blessings):
                 if overlay.blessing_boundaries[0] <= idx <= overlay.blessing_boundaries[1]:
                     adj_idx = idx - overlay.blessing_boundaries[0]

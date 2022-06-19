@@ -58,13 +58,15 @@ class Board:
         self.deploying_army = False
         self.selected_unit: typing.Optional[typing.Union[Unit, Heathen]] = None
 
-    def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen]):
+    def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
+             is_night: bool):
         """
         Draws the board and its objects to the screen.
         :param players: The players in the game.
         :param map_pos: The current map position.
         :param turn: The current turn.
         :param heathens: The list of Heathens to draw.
+        :param is_night: Whether it is currently night.
         """
         # Clear the screen to black.
         pyxel.cls(0)
@@ -72,14 +74,27 @@ class Board:
 
         pyxel.load("resources/quads.pyxres")
         selected_quad_coords: (int, int) = None
+        quads_to_show: typing.Set[typing.Tuple[int, int]] = set()
+        # At nighttime, the player can only see a few quads around their settlements and units.
+        if is_night:
+            for setl in players[0].settlements:
+                for i in range(setl.location[0] - 3, setl.location[0] + 4):
+                    for j in range(setl.location[1] - 3, setl.location[1] + 4):
+                        quads_to_show.add((i, j))
+            for unit in players[0].units:
+                for i in range(unit.location[0] - 3, unit.location[0] + 4):
+                    for j in range(unit.location[1] - 3, unit.location[1] + 4):
+                        quads_to_show.add((i, j))
+        else:
+            quads_to_show = players[0].quads_seen
+        fog_of_war_impacts: bool = self.game_config.fog_of_war or is_night
         # Draw the quads.
         for i in range(map_pos[0], map_pos[0] + 24):
             for j in range(map_pos[1], map_pos[1] + 22):
                 if 0 <= i <= 99 and 0 <= j <= 89:
                     # Draw the quad if fog of war is off, or if the player has seen the quad, or we're in the tutorial.
                     # This same logic applies to all subsequent draws.
-                    if (i, j) in players[0].quads_seen or len(players[0].settlements) == 0 or \
-                            not self.game_config.fog_of_war:
+                    if (i, j) in quads_to_show or len(players[0].settlements) == 0 or not fog_of_war_impacts:
                         quad = self.quads[j][i]
                         quad_x: int = 0
                         if quad.biome is Biome.FOREST:
@@ -89,17 +104,19 @@ class Board:
                         elif quad.biome is Biome.MOUNTAIN:
                             quad_x = 24
                         quad_y = 20 if quad.is_relic else 4
+                        if is_night:
+                            quad_x += 32
                         pyxel.blt((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 0, quad_x, quad_y, 8, 8)
                         if quad.selected:
                             selected_quad_coords = i, j
                             pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
-                    else:
+                    elif not is_night:
                         pyxel.blt((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 0, 0, 12, 8, 8)
 
         pyxel.load("resources/sprites.pyxres")
         # Draw the heathens.
         for heathen in heathens:
-            if (not self.game_config.fog_of_war or heathen.location in players[0].quads_seen) and \
+            if (not fog_of_war_impacts or heathen.location in quads_to_show) and \
                     map_pos[0] <= heathen.location[0] < map_pos[0] + 24 and \
                     map_pos[1] <= heathen.location[1] < map_pos[1] + 22:
                 quad: Quad = self.quads[heathen.location[1]][heathen.location[0]]
@@ -110,6 +127,8 @@ class Board:
                     heathen_x = 16
                 elif quad.biome is Biome.MOUNTAIN:
                     heathen_x = 24
+                if is_night:
+                    heathen_x += 32
                 pyxel.blt((heathen.location[0] - map_pos[0]) * 8 + 4,
                           (heathen.location[1] - map_pos[1]) * 8 + 4, 0, heathen_x, 60, 8, 8)
                 # Outline a heathen if the player can attack it.
@@ -122,7 +141,7 @@ class Board:
         for player in players:
             # Draw all player units.
             for unit in player.units:
-                if (not self.game_config.fog_of_war or unit.location in players[0].quads_seen) and \
+                if (not fog_of_war_impacts or unit.location in quads_to_show) and \
                         map_pos[0] <= unit.location[0] < map_pos[0] + 24 and \
                         map_pos[1] <= unit.location[1] < map_pos[1] + 22:
                     quad: Quad = self.quads[unit.location[1]][unit.location[0]]
@@ -133,6 +152,8 @@ class Board:
                         unit_x = 16
                     elif quad.biome is Biome.MOUNTAIN:
                         unit_x = 24
+                    if is_night:
+                        unit_x += 32
                     pyxel.blt((unit.location[0] - map_pos[0]) * 8 + 4,
                               (unit.location[1] - map_pos[1]) * 8 + 4, 0, unit_x, 16, 8, 8)
                     pyxel.rectb((unit.location[0] - map_pos[0]) * 8 + 4,
@@ -146,7 +167,7 @@ class Board:
         for player in players:
             # Draw all player settlements.
             for settlement in player.settlements:
-                if (not self.game_config.fog_of_war or settlement.location in players[0].quads_seen) and \
+                if (not fog_of_war_impacts or settlement.location in quads_to_show) and \
                         map_pos[0] <= settlement.location[0] < map_pos[0] + 24 and \
                         map_pos[1] <= settlement.location[1] < map_pos[1] + 22:
                     quad: Quad = self.quads[settlement.location[1]][settlement.location[0]]
@@ -157,13 +178,15 @@ class Board:
                         setl_x = 16
                     elif quad.biome is Biome.MOUNTAIN:
                         setl_x = 24
+                    if is_night and settlement.under_siege_by is None:
+                        setl_x += 32
                     pyxel.blt((settlement.location[0] - map_pos[0]) * 8 + 4,
                               (settlement.location[1] - map_pos[1]) * 8 + 4, 0, setl_x,
                               68 if settlement.under_siege_by is not None else 4, 8, 8)
 
         for player in players:
             for settlement in player.settlements:
-                if settlement.location in players[0].quads_seen or not self.game_config.fog_of_war:
+                if settlement.location in quads_to_show or not fog_of_war_impacts:
                     # Draw name tags for non-selected settlements.
                     if self.selected_settlement is not settlement:
                         name_len = len(settlement.name)
@@ -172,10 +195,12 @@ class Board:
                         base_y_pos = (settlement.location[1] - map_pos[1]) * 8
                         # Sieged settlements are displayed with a black background.
                         if settlement.under_siege_by is not None:
-                            pyxel.rect(base_x_pos - 17, base_y_pos - 8, 52, 10, pyxel.COLOR_BLACK)
+                            pyxel.rect(base_x_pos - 17, base_y_pos - 8, 52, 10,
+                                       pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
                             pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, player.colour)
                         else:
-                            pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10, pyxel.COLOR_BLACK)
+                            pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10,
+                                        pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
                             pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
                             pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
                     else:
@@ -184,8 +209,8 @@ class Board:
 
         # For the selected quad, display its yield.
         if self.quad_selected is not None and selected_quad_coords is not None and \
-                (selected_quad_coords in players[0].quads_seen or len(players[0].settlements) == 0 or
-                 not self.game_config.fog_of_war):
+                (selected_quad_coords in quads_to_show or len(players[0].settlements) == 0 or
+                 not fog_of_war_impacts):
             x_offset = 30 if selected_quad_coords[0] - map_pos[0] <= 8 else 0
             y_offset = -34 if selected_quad_coords[1] - map_pos[1] >= 36 else 0
             base_x_pos = (selected_quad_coords[0] - map_pos[0]) * 8 + x_offset
@@ -218,10 +243,15 @@ class Board:
             pyxel.text(2, 189, "S: Found new settlement", pyxel.COLOR_WHITE)
         else:
             pyxel.text(2, 189, self.current_help.value, pyxel.COLOR_WHITE)
+        if self.game_config.climatic_effects:
+            if is_night:
+                pyxel.blt(153, 188, 0, 8, 84, 8, 8)
+            else:
+                pyxel.blt(153, 188, 0, 0, 84, 8, 8)
         pyxel.text(165, 189, f"Turn {turn}", pyxel.COLOR_WHITE)
 
         # Also display the overlay.
-        display_overlay(self.overlay)
+        display_overlay(self.overlay, is_night)
 
     def update(self, elapsed_time: float):
         """

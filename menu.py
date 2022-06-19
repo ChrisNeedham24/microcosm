@@ -27,6 +27,7 @@ class SetupOption(Enum):
     PLAYER_COUNT = "COUNT"
     BIOME_CLUSTERING = "BIOME"
     FOG_OF_WAR = "FOG"
+    CLIMATIC_EFFECTS = "CLIMATE"
     START_GAME = "START"
 
 
@@ -35,6 +36,7 @@ class WikiOption(Enum):
     Represents the options the player can choose from the wiki.
     """
     VICTORIES = "VIC"
+    CLIMATE = "CLIM"
     BLESSINGS = "BLS"
     IMPROVEMENTS = "IMP"
     UNITS = "UNITS"
@@ -69,7 +71,7 @@ class Menu:
         """
         self.menu_option = MenuOption.NEW_GAME
         random.seed()
-        self.image = random.randint(0, 3)
+        self.image = random.randint(0, 5)
         self.in_game_setup = False
         self.loading_game = False
         self.in_wiki = False
@@ -85,6 +87,8 @@ class Menu:
         self.player_count = 2
         self.biome_clustering_enabled = True
         self.fog_of_war_enabled = True
+        self.climatic_effects_enabled = True
+        self.showing_night = False
 
     def draw(self):
         """
@@ -96,7 +100,7 @@ class Menu:
             pyxel.blt(0, 0, self.image, 0, 0, 200, 200)
         else:
             pyxel.load("resources/background2.pyxres")
-            pyxel.blt(0, 0, 0, 0, 0, 200, 200)
+            pyxel.blt(0, 0, self.image - 3, 0, 0, 200, 200)
         if self.in_game_setup:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -133,6 +137,12 @@ class Menu:
                 pyxel.text(125, 100, "<- Enabled", pyxel.COLOR_GREEN)
             else:
                 pyxel.text(125, 100, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 120, "Climatic Effects",
+                       pyxel.COLOR_RED if self.setup_option is SetupOption.CLIMATIC_EFFECTS else pyxel.COLOR_WHITE)
+            if self.climatic_effects_enabled:
+                pyxel.text(125, 120, "<- Enabled", pyxel.COLOR_GREEN)
+            else:
+                pyxel.text(125, 120, "Disabled ->", pyxel.COLOR_RED)
             pyxel.text(81, 150, "Start Game",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.START_GAME else pyxel.COLOR_WHITE)
         elif self.loading_game:
@@ -264,6 +274,53 @@ class Menu:
                     pyxel.text(25, 141, "with two hands, as a blessed man.", pyxel.COLOR_WHITE)
                     pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                     pyxel.blt(35, 150, 0, 16, 44, 8, 8)
+            elif self.wiki_showing is WikiOption.CLIMATE:
+                pyxel.load("resources/sprites.pyxres")
+                pyxel.rectb(20, 10, 160, 164, pyxel.COLOR_WHITE)
+                pyxel.rect(21, 11, 158, 162, pyxel.COLOR_BLACK)
+                pyxel.text(86, 15, "Climate", pyxel.COLOR_WHITE)
+                pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
+                if self.showing_night:
+                    pyxel.blt(96, 25, 0, 8, 84, 8, 8)
+                    pyxel.text(60, 35, "The Everlasting Night", pyxel.COLOR_DARK_BLUE)
+                    pyxel.text(25, 45, "It's part of the life in this world.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 51, "It's the feeling running down your", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 57, "spine when you're walking the streets", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 63, "alone with only a torch to guide you.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 69, "It's the devastation when this month's", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 75, "cultivation is smaller than the last.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 81, "It's the agony of looking out on a", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 87, "field of crops that won't grow. It's", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 93, "the fear of cursed heathens that could", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 99, "be lurking around every corner, ready", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 105, "to pounce. It's life during the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 111, "nighttime, and you pray to the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 117, "passions that the dawn soon comes.", pyxel.COLOR_WHITE)
+                    pyxel.line(24, 127, 175, 127, pyxel.COLOR_GRAY)
+                    pyxel.text(25, 130, "Effects", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 138, "Reduced vision/harvest", pyxel.COLOR_RED)
+                    pyxel.text(25, 144, "Strengthened heathens", pyxel.COLOR_RED)
+                    pyxel.text(25, 150, "Increased fortune", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 162, "<-", pyxel.COLOR_WHITE)
+                    pyxel.blt(35, 161, 0, 0, 84, 8, 8)
+                else:
+                    pyxel.blt(96, 25, 0, 0, 84, 8, 8)
+                    pyxel.text(62, 35, "The Heat of the Sun", pyxel.COLOR_YELLOW)
+                    pyxel.text(25, 45, "Each of those on this land can testify", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 51, "to the toll it takes on you. From the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 57, "heat of the sun when toiling in the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 63, "fields, to the icy chill of the wind", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 69, "atop a mountain, it changes a man. But", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 75, "the climb is always worth the reward,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 81, "and you truly feel one with the land", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 87, "as you gaze outward from the peak and", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 93, "fully absorb the graciousness of this", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 99, "world. This is home.", pyxel.COLOR_WHITE)
+                    pyxel.line(24, 109, 175, 109, pyxel.COLOR_GRAY)
+                    pyxel.text(25, 114, "Effects", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 124, "Persistent map and vision", pyxel.COLOR_GREEN)
+                    pyxel.blt(158, 161, 0, 8, 84, 8, 8)
+                    pyxel.text(168, 162, "->", pyxel.COLOR_WHITE)
             elif self.wiki_showing is WikiOption.BLESSINGS:
                 pyxel.load("resources/sprites.pyxres")
                 pyxel.rectb(10, 20, 180, 154, pyxel.COLOR_WHITE)
@@ -366,18 +423,20 @@ class Menu:
                     pyxel.text(132, 50 + idx * 10, str(unit.total_stamina), pyxel.COLOR_WHITE)
                 pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
             elif self.wiki_showing is None:
-                pyxel.rectb(60, 60, 80, 80, pyxel.COLOR_WHITE)
-                pyxel.rect(61, 61, 78, 78, pyxel.COLOR_BLACK)
-                pyxel.text(92, 65, "Wiki", pyxel.COLOR_WHITE)
-                pyxel.text(82, 80, "Victories",
+                pyxel.rectb(60, 55, 80, 90, pyxel.COLOR_WHITE)
+                pyxel.rect(61, 56, 78, 88, pyxel.COLOR_BLACK)
+                pyxel.text(92, 60, "Wiki", pyxel.COLOR_WHITE)
+                pyxel.text(82, 75, "Victories",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.VICTORIES else pyxel.COLOR_WHITE)
-                pyxel.text(82, 90, "Blessings",
+                pyxel.text(86, 85, "Climate",
+                           pyxel.COLOR_RED if self.wiki_option is WikiOption.CLIMATE else pyxel.COLOR_WHITE)
+                pyxel.text(82, 95, "Blessings",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.BLESSINGS else pyxel.COLOR_WHITE)
-                pyxel.text(78, 100, "Improvements",
+                pyxel.text(78, 105, "Improvements",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.IMPROVEMENTS else pyxel.COLOR_WHITE)
-                pyxel.text(90, 110, "Units",
+                pyxel.text(90, 115, "Units",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.UNITS else pyxel.COLOR_WHITE)
-                pyxel.text(92, 130, "Back", pyxel.COLOR_RED if self.wiki_option is None else pyxel.COLOR_WHITE)
+                pyxel.text(92, 135, "Back", pyxel.COLOR_RED if self.wiki_option is None else pyxel.COLOR_WHITE)
         else:
             pyxel.rectb(75, 120, 50, 60, pyxel.COLOR_WHITE)
             pyxel.rect(76, 121, 48, 58, pyxel.COLOR_BLACK)
@@ -408,6 +467,8 @@ class Menu:
                 elif self.setup_option is SetupOption.BIOME_CLUSTERING:
                     self.setup_option = SetupOption.FOG_OF_WAR
                 elif self.setup_option is SetupOption.FOG_OF_WAR:
+                    self.setup_option = SetupOption.CLIMATIC_EFFECTS
+                elif self.setup_option is SetupOption.CLIMATIC_EFFECTS:
                     self.setup_option = SetupOption.START_GAME
             elif self.loading_game:
                 if 0 <= self.save_idx < len(self.saves) - 1:
@@ -424,6 +485,8 @@ class Menu:
                             self.improvement_boundaries[0] + 1, self.improvement_boundaries[1] + 1
                 else:
                     if self.wiki_option is WikiOption.VICTORIES:
+                        self.wiki_option = WikiOption.CLIMATE
+                    elif self.wiki_option is WikiOption.CLIMATE:
                         self.wiki_option = WikiOption.BLESSINGS
                     elif self.wiki_option is WikiOption.BLESSINGS:
                         self.wiki_option = WikiOption.IMPROVEMENTS
@@ -446,8 +509,10 @@ class Menu:
                     self.setup_option = SetupOption.PLAYER_COUNT
                 elif self.setup_option is SetupOption.FOG_OF_WAR:
                     self.setup_option = SetupOption.BIOME_CLUSTERING
-                elif self.setup_option is SetupOption.START_GAME:
+                elif self.setup_option is SetupOption.CLIMATIC_EFFECTS:
                     self.setup_option = SetupOption.FOG_OF_WAR
+                elif self.setup_option is SetupOption.START_GAME:
+                    self.setup_option = SetupOption.CLIMATIC_EFFECTS
             elif self.loading_game:
                 if self.save_idx == -1:
                     self.save_idx = len(self.saves) - 1
@@ -462,8 +527,10 @@ class Menu:
                         self.improvement_boundaries = \
                             self.improvement_boundaries[0] - 1, self.improvement_boundaries[1] - 1
                 else:
-                    if self.wiki_option is WikiOption.BLESSINGS:
+                    if self.wiki_option is WikiOption.CLIMATE:
                         self.wiki_option = WikiOption.VICTORIES
+                    elif self.wiki_option is WikiOption.BLESSINGS:
+                        self.wiki_option = WikiOption.CLIMATE
                     elif self.wiki_option is WikiOption.IMPROVEMENTS:
                         self.wiki_option = WikiOption.BLESSINGS
                     elif self.wiki_option is WikiOption.UNITS:
@@ -487,6 +554,8 @@ class Menu:
                     self.biome_clustering_enabled = False
                 elif self.setup_option is SetupOption.FOG_OF_WAR:
                     self.fog_of_war_enabled = False
+                elif self.setup_option is SetupOption.CLIMATIC_EFFECTS:
+                    self.climatic_effects_enabled = False
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:
                 if self.victory_type is VictoryType.JUBILATION:
                     self.victory_type = VictoryType.ELIMINATION
@@ -498,6 +567,8 @@ class Menu:
                     self.victory_type = VictoryType.AFFLUENCE
                 elif self.victory_type is VictoryType.SERENDIPITY:
                     self.victory_type = VictoryType.VIGOUR
+            elif self.in_wiki and self.wiki_showing is WikiOption.CLIMATE:
+                self.showing_night = False
         if right:
             if self.in_game_setup:
                 if self.setup_option is SetupOption.PLAYER_COLOUR:
@@ -508,6 +579,8 @@ class Menu:
                     self.biome_clustering_enabled = True
                 elif self.setup_option is SetupOption.FOG_OF_WAR:
                     self.fog_of_war_enabled = True
+                elif self.setup_option is SetupOption.CLIMATIC_EFFECTS:
+                    self.climatic_effects_enabled = True
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:
                 if self.victory_type is VictoryType.ELIMINATION:
                     self.victory_type = VictoryType.JUBILATION
@@ -519,6 +592,8 @@ class Menu:
                     self.victory_type = VictoryType.VIGOUR
                 elif self.victory_type is VictoryType.VIGOUR:
                     self.victory_type = VictoryType.SERENDIPITY
+            elif self.in_wiki and self.wiki_showing is WikiOption.CLIMATE:
+                self.showing_night = True
 
     def get_game_config(self) -> GameConfig:
         """
@@ -526,4 +601,4 @@ class Menu:
         :return: The appropriate GameConfig object.
         """
         return GameConfig(self.player_count, AVAILABLE_COLOURS[self.colour_idx][1], self.biome_clustering_enabled,
-                          self.fog_of_war_enabled)
+                          self.fog_of_war_enabled, self.climatic_effects_enabled)
