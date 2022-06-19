@@ -66,6 +66,7 @@ class Board:
         :param map_pos: The current map position.
         :param turn: The current turn.
         :param heathens: The list of Heathens to draw.
+        :param is_night: Whether it is currently night.
         """
         # Clear the screen to black.
         pyxel.cls(0)
@@ -74,6 +75,7 @@ class Board:
         pyxel.load("resources/quads.pyxres")
         selected_quad_coords: (int, int) = None
         quads_to_show: typing.Set[typing.Tuple[int, int]] = set()
+        # At nighttime, the player can only see a few quads around their settlements and units.
         if is_night:
             for setl in players[0].settlements:
                 for i in range(setl.location[0] - 3, setl.location[0] + 4):
@@ -176,7 +178,7 @@ class Board:
                         setl_x = 16
                     elif quad.biome is Biome.MOUNTAIN:
                         setl_x = 24
-                    if is_night:
+                    if is_night and settlement.under_siege_by is not None:
                         setl_x += 32
                     pyxel.blt((settlement.location[0] - map_pos[0]) * 8 + 4,
                               (settlement.location[1] - map_pos[1]) * 8 + 4, 0, setl_x,
@@ -208,7 +210,7 @@ class Board:
         # For the selected quad, display its yield.
         if self.quad_selected is not None and selected_quad_coords is not None and \
                 (selected_quad_coords in quads_to_show or len(players[0].settlements) == 0 or
-                 not self.game_config.fog_of_war):
+                 not fog_of_war_impacts):
             x_offset = 30 if selected_quad_coords[0] - map_pos[0] <= 8 else 0
             y_offset = -34 if selected_quad_coords[1] - map_pos[1] >= 36 else 0
             base_x_pos = (selected_quad_coords[0] - map_pos[0]) * 8 + x_offset

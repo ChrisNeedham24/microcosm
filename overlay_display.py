@@ -14,6 +14,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
     """
     Display the given overlay to the screen.
     :param overlay The Overlay to display.
+    :param is_night Whether it is night.
     """
     pyxel.load("resources/sprites.pyxres")
     # The victory overlay displays the player who achieved the victory, as well as the type.
@@ -59,6 +60,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(56, 65, "Consigned to folklore", pyxel.COLOR_RED)
             pyxel.text(50, 75, f"{overlay.just_eliminated.name} has been eliminated.", overlay.just_eliminated.colour)
             pyxel.text(70, 85, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+    # The night overlay alerts the player that night is either beginning or ending, and the effects of that.
     elif OverlayType.NIGHT in overlay.showing:
         pyxel.rectb(12, 50, 176, 58, pyxel.COLOR_WHITE)
         pyxel.rect(13, 51, 174, 56, pyxel.COLOR_BLACK)

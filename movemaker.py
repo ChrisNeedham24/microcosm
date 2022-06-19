@@ -87,6 +87,7 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
     Choose and begin a construction for the given AI player's settlement.
     :param player: The AI owner of the given settlement.
     :param setl: The settlement having its construction chosen.
+    :param is_night: Whether it is night.
     """
 
     def get_expansion_lvl() -> int:
@@ -195,6 +196,7 @@ class MoveMaker:
         :param all_players: The list of all players.
         :param quads: The 2D list of quads to use to search for relics.
         :param cfg: The game configuration.
+        :param is_night: Whether it is night.
         """
         all_setls = []
         for pl in all_players:

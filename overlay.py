@@ -625,6 +625,10 @@ class Overlay:
         return OverlayType.INVESTIGATION in self.showing
 
     def toggle_night(self, beginning: typing.Optional[bool]):
+        """
+        Toggle the night overlay.
+        :param beginning: Whether the night is beginning (will be False if dawn has broken).
+        """
         if OverlayType.NIGHT in self.showing:
             self.showing.remove(OverlayType.NIGHT)
         else:
@@ -632,4 +636,8 @@ class Overlay:
             self.night_beginning = beginning
 
     def is_night(self) -> bool:
+        """
+        Returns whether the night overlay is currently being displayed.
+        :return: Whether the night overlay is being displayed.
+        """
         return OverlayType.NIGHT in self.showing

@@ -94,6 +94,7 @@ def get_player_totals(player: Player, is_night: bool) -> (float, float, float, f
     """
     Get the wealth, harvest, zeal, and fortune totals for the given player.
     :param player: The player to calculate totals for.
+    :param is_night: Whether it is night.
     :return: A tuple containing the player's wealth, harvest, zeal, and fortune.
     """
     overall_wealth = 0
@@ -117,6 +118,7 @@ def get_setl_totals(setl: Settlement, is_night: bool, strict: bool = False) -> (
     """
     Get the wealth, harvest, zeal, and fortune totals for the given Settlement.
     :param setl: The settlement to calculate totals for.
+    :param is_night: Whether it is night. Used as harvest is halved and fortune increased by 10% at night.
     :param strict: Whether the total should be 0 as opposed to 0.5 in situations where the total would be negative.
     Only used for the settlement overlay, as we want users to make progress even if their zeal/fortune is 0.
     :return: A tuple containing the settlement's wealth, harvest, zeal, and fortune.
