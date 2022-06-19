@@ -394,10 +394,11 @@ class MoveMaker:
                     # settlement, do so.
                     elif not unit.sieging:
                         unit.sieging = True
-                        within_range.under_siege_by = unit
-                        # Show the siege notification if we have placed one of the player's settlements under siege.
-                        if within_range in all_players[0].settlements:
-                            self.board_ref.overlay.toggle_siege_notif(within_range, player)
+                        if within_range.under_siege_by is None:
+                            within_range.under_siege_by = unit
+                            # Show the siege notification if we have placed one of the player's settlements under siege.
+                            if within_range in all_players[0].settlements:
+                                self.board_ref.overlay.toggle_siege_notif(within_range, player)
             # If there's nothing within range, look for relics or just move randomly.
             else:
                 # The range in which a unit can investigate is actually further than its remaining stamina, as you only

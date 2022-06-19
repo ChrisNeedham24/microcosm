@@ -178,7 +178,7 @@ class Board:
                         setl_x = 16
                     elif quad.biome is Biome.MOUNTAIN:
                         setl_x = 24
-                    if is_night and settlement.under_siege_by is not None:
+                    if is_night and settlement.under_siege_by is None:
                         setl_x += 32
                     pyxel.blt((settlement.location[0] - map_pos[0]) * 8 + 4,
                               (settlement.location[1] - map_pos[1]) * 8 + 4, 0, setl_x,

@@ -105,8 +105,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
     # been unlocked as a result.
     elif OverlayType.BLESS_NOTIF in overlay.showing:
         unlocked = get_all_unlockable(overlay.completed_blessing)
-        pyxel.rectb(12, 60, 176, 45 + len(unlocked) * 10, pyxel.COLOR_WHITE)
-        pyxel.rect(13, 61, 174, 43 + len(unlocked) * 10, pyxel.COLOR_BLACK)
+        pyxel.rectb(12, 60, 176, 45 + max(1, len(unlocked)) * 10, pyxel.COLOR_WHITE)
+        pyxel.rect(13, 61, 174, 43 + max(1, len(unlocked)) * 10, pyxel.COLOR_BLACK)
         pyxel.text(60, 63, "Blessing completed!", pyxel.COLOR_PURPLE)
         pyxel.text(20, 73, overlay.completed_blessing.name, pyxel.COLOR_WHITE)
         pyxel.text(20, 83, "Unlocks:", pyxel.COLOR_WHITE)
