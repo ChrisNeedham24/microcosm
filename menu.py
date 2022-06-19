@@ -60,8 +60,6 @@ AVAILABLE_COLOURS = [
     ("Peach", pyxel.COLOR_PEACH)
 ]
 
-# TODO Add climatic effects to wiki
-
 
 class Menu:
     """
@@ -278,24 +276,51 @@ class Menu:
                     pyxel.blt(35, 150, 0, 16, 44, 8, 8)
             elif self.wiki_showing is WikiOption.CLIMATE:
                 pyxel.load("resources/sprites.pyxres")
-                pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
-                pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
-                pyxel.text(86, 30, "Climate", pyxel.COLOR_WHITE)
-                pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
+                pyxel.rectb(20, 10, 160, 164, pyxel.COLOR_WHITE)
+                pyxel.rect(21, 11, 158, 162, pyxel.COLOR_BLACK)
+                pyxel.text(86, 15, "Climate", pyxel.COLOR_WHITE)
+                pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                 if self.showing_night:
-                    pyxel.blt(96, 40, 0, 8, 84, 8, 8)
-                    pyxel.text(60, 50, "The Everlasting Night", pyxel.COLOR_DARK_BLUE)
-                    pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
-                    pyxel.blt(35, 150, 0, 0, 84, 8, 8)
-                    # TODO Mention folklore rumours
-                    # TODO List same effects as in overlay
+                    pyxel.blt(96, 25, 0, 8, 84, 8, 8)
+                    pyxel.text(60, 35, "The Everlasting Night", pyxel.COLOR_DARK_BLUE)
+                    pyxel.text(25, 45, "It's part of the life in this world.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 51, "It's the feeling running down your", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 57, "spine when you're walking the streets", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 63, "alone with only a torch to guide you.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 69, "It's the devastation when this month's", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 75, "cultivation is smaller than the last.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 81, "It's the agony of looking out on a", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 87, "field of crops that won't grow. It's", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 93, "the fear of cursed heathens that could", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 99, "be lurking around every corner, ready", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 105, "to pounce. It's life during the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 111, "nighttime, and you pray to the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 117, "passions that the dawn soon comes.", pyxel.COLOR_WHITE)
+                    pyxel.line(24, 127, 175, 127, pyxel.COLOR_GRAY)
+                    pyxel.text(25, 130, "Effects", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 138, "Reduced vision/harvest", pyxel.COLOR_RED)
+                    pyxel.text(25, 144, "Strengthened heathens", pyxel.COLOR_RED)
+                    pyxel.text(25, 150, "Increased fortune", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 162, "<-", pyxel.COLOR_WHITE)
+                    pyxel.blt(35, 161, 0, 0, 84, 8, 8)
                 else:
-                    pyxel.blt(96, 40, 0, 0, 84, 8, 8)
-                    pyxel.text(62, 50, "The Heat of the Sun", pyxel.COLOR_YELLOW)
-                    pyxel.blt(158, 151, 0, 8, 84, 8, 8)
-                    pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
-                    # TODO Mention the toil, the heat, etc.
-                    # TODO List the reverse of overlay effects (e.g. shared and memorised map)
+                    pyxel.blt(96, 25, 0, 0, 84, 8, 8)
+                    pyxel.text(62, 35, "The Heat of the Sun", pyxel.COLOR_YELLOW)
+                    pyxel.text(25, 45, "Each of those on this land can testify", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 51, "to the toll it takes on you. From the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 57, "heat of the sun when toiling in the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 63, "fields, to the icy chill of the wind", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 69, "atop a mountain, it changes a man. But", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 75, "the climb is always worth the reward,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 81, "and you truly feel one with the land", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 87, "as you gaze outward from the peak and", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 93, "fully absorb the graciousness of this", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 99, "world. This is home.", pyxel.COLOR_WHITE)
+                    pyxel.line(24, 109, 175, 109, pyxel.COLOR_GRAY)
+                    pyxel.text(25, 114, "Effects", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 124, "Persistent map and vision", pyxel.COLOR_GREEN)
+                    pyxel.blt(158, 161, 0, 8, 84, 8, 8)
+                    pyxel.text(168, 162, "->", pyxel.COLOR_WHITE)
             elif self.wiki_showing is WikiOption.BLESSINGS:
                 pyxel.load("resources/sprites.pyxres")
                 pyxel.rectb(10, 20, 180, 154, pyxel.COLOR_WHITE)
