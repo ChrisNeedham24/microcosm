@@ -9,6 +9,6 @@ python-vlc (or something like that) as an optional dependency, it is advised tha
 
 ## Play from source
 
-1. Clone the repository
+1. Download the [latest release](https://github.com/ChrisNeedham24/microcosm/releases/latest)
 2. Run `pip install -r requirements.txt`
 3. Run `pyxel run microcosm`
