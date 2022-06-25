@@ -146,34 +146,38 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
                         highest_fortune = imp.effect.fortune, imp
                 ideal = highest_fortune[1]
 
-        # Aggressive AIs will, in most cases, pick the available unit with the most power, if the settlement level is
-        # high enough.
-        if player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE:
-            if len(player.units) < setl.level:
-                most_power: (float, UnitPlan) = avail_units[0].power, avail_units[0]
-                for up in avail_units:
-                    if up.power >= most_power[0]:
-                        most_power = up.power, up
-                setl.current_work = Construction(most_power[1])
-            else:
-                setl.current_work = Construction(ideal)
-        # Defensive AIs will pick the available unit with the most health if they are lacking in units. Alternatively,
-        # they will choose the improvement that yields the most strength for the settlement, if there is one, otherwise,
-        # they will choose the 'ideal' construction.
-        elif player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE:
-            if len(player.units) * 2 < setl.level:
-                most_health: (float, UnitPlan) = avail_units[0].max_health, avail_units[0]
-                for up in avail_units:
-                    if up.max_health >= most_health[0]:
-                        most_health = up.max_health, up
-                setl.current_work = Construction(most_health[1])
-            elif len(strength_imps := [imp for imp in avail_imps if imp.effect.strength > 0]) > 0:
-                setl.current_work = Construction(strength_imps[0])
-            else:
-                setl.current_work = Construction(ideal)
-        # Neutral AIs will always choose the 'ideal' construction.
+        # TODO Looks like this might not be enough. Maybe needs to be more complicated in working out which is best?
+        if setl.satisfaction < 45 and len(sat_imps := [imp for imp in avail_imps if imp.effect.satisfaction > 0]) > 0:
+            setl.current_work = Construction(sat_imps[0])
         else:
-            setl.current_work = Construction(ideal)
+            # Aggressive AIs will, in most cases, pick the available unit with the most power, if the settlement level
+            # is high enough.
+            if player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE:
+                if len(player.units) < setl.level:
+                    most_power: (float, UnitPlan) = avail_units[0].power, avail_units[0]
+                    for up in avail_units:
+                        if up.power >= most_power[0]:
+                            most_power = up.power, up
+                    setl.current_work = Construction(most_power[1])
+                else:
+                    setl.current_work = Construction(ideal)
+            # Defensive AIs will pick the available unit with the most health if they are lacking in units.
+            # Alternatively, they will choose the improvement that yields the most strength for the settlement, if there
+            # is one, otherwise, they will choose the 'ideal' construction.
+            elif player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE:
+                if len(player.units) * 2 < setl.level:
+                    most_health: (float, UnitPlan) = avail_units[0].max_health, avail_units[0]
+                    for up in avail_units:
+                        if up.max_health >= most_health[0]:
+                            most_health = up.max_health, up
+                    setl.current_work = Construction(most_health[1])
+                elif len(strength_imps := [imp for imp in avail_imps if imp.effect.strength > 0]) > 0:
+                    setl.current_work = Construction(strength_imps[0])
+                else:
+                    setl.current_work = Construction(ideal)
+            # Neutral AIs will always choose the 'ideal' construction.
+            else:
+                setl.current_work = Construction(ideal)
 
 
 class MoveMaker:
@@ -205,6 +209,7 @@ class MoveMaker:
         if player.ongoing_blessing is None:
             set_blessing(player, player_totals)
         for setl in player.settlements:
+            print(player.name, setl.name, setl.satisfaction)  # TODO REMOVE
             if setl.current_work is None:
                 set_construction(player, setl, is_night)
             else:
