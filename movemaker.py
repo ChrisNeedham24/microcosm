@@ -106,49 +106,74 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
     settler_units = [settler for settler in avail_units if settler.can_settle]
     # Note that if there are no available improvements for the given settlement, the 'ideal' construction will default
     # to the first available unit.
-    ideal: typing.Union[Improvement, UnitPlan] = avail_imps[0] if len(avail_imps) > 0 else avail_units[0]
+    ideal: typing.Union[Improvement, UnitPlan] = avail_imps[0] \
+        if len(avail_imps) > 0 and setl.satisfaction + avail_imps[0].effect.satisfaction >= 50 \
+        else avail_units[0]
+    totals = get_setl_totals(setl, is_night)
 
     # If the AI player has neither units on the board nor garrisoned, construct the first available.
     if len(player.units) == 0 and len(setl.garrison) == 0:
         setl.current_work = Construction(avail_units[0])
+    # TODO Next thing to try would be abandoning problematic settlements, at 20 or below satisfaction.
     # If the settlement has not yet produced a settler in its 'lifetime', and it has now reached its required level for
     # expansion, choose that.
     elif setl.level >= get_expansion_lvl() and not setl.produced_settler:
         setl.current_work = Construction(settler_units[0])
     else:
         if len(avail_imps) > 0:
-            totals = get_setl_totals(setl, is_night)
             # The 'ideal' construction in all other cases is the one that will yield the effect that boosts the
             # category the settlement is most lacking in.
             lowest = totals.index(min(totals))
             if lowest == 0:
                 highest_wealth: (float, Improvement) = avail_imps[0].effect.wealth, avail_imps[0]
                 for imp in avail_imps:
-                    if imp.effect.wealth > highest_wealth[0]:
+                    if imp.effect.wealth > highest_wealth[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
                         highest_wealth = imp.effect.wealth, imp
                 ideal = highest_wealth[1]
             if lowest == 1:
                 highest_harvest: (float, Improvement) = avail_imps[0].effect.harvest, avail_imps[0]
                 for imp in avail_imps:
-                    if imp.effect.harvest > highest_harvest[0]:
+                    if imp.effect.harvest > highest_harvest[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
                         highest_harvest = imp.effect.harvest, imp
                 ideal = highest_harvest[1]
             if lowest == 2:
                 highest_zeal: (float, Improvement) = avail_imps[0].effect.zeal, avail_imps[0]
                 for imp in avail_imps:
-                    if imp.effect.zeal > highest_zeal[0]:
+                    if imp.effect.zeal > highest_zeal[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
                         highest_zeal = imp.effect.zeal, imp
                 ideal = highest_zeal[1]
             if lowest == 3:
                 highest_fortune: (float, Improvement) = avail_imps[0].effect.fortune, avail_imps[0]
                 for imp in avail_imps:
-                    if imp.effect.fortune > highest_fortune[0]:
+                    if imp.effect.fortune > highest_fortune[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
                         highest_fortune = imp.effect.fortune, imp
                 ideal = highest_fortune[1]
 
-        # TODO Looks like this might not be enough. Maybe needs to be more complicated in working out which is best?
-        if setl.satisfaction < 45 and len(sat_imps := [imp for imp in avail_imps if imp.effect.satisfaction > 0]) > 0:
-            setl.current_work = Construction(sat_imps[0])
+        sat_imps = [imp for imp in avail_imps if imp.effect.satisfaction > 0]
+        harv_imps = [imp for imp in avail_imps if imp.effect.harvest > 0]
+        if setl.satisfaction < 50 and (sat_imps or harv_imps):
+            # The improvement with the lowest cost and the highest combined satisfaction and harvest is chosen.
+            imps = sat_imps + harv_imps
+            # Combined benefit, cost, Improvement.
+            most_beneficial: (int, float, Improvement) = \
+                imps[0].effect.satisfaction + imps[0].effect.harvest, imps[0].cost, imps[0]
+            for i in imps:
+                if benefit := (i.effect.satisfaction + i.effect.harvest) > most_beneficial[0] and \
+                              i.cost <= most_beneficial[1]:
+                    most_beneficial = benefit, i.cost, i
+            if avail_imps[0].cost * 5 < most_beneficial[1]:
+                setl.current_work = Construction(ideal)
+            else:
+                setl.current_work = Construction(most_beneficial[2])
+        elif totals[1] < setl.level * 4 and harv_imps:
+            most_harvest: (int, float, Improvement) = harv_imps[0].effect.harvest, harv_imps[0].cost, harv_imps[0]
+            for i in harv_imps:
+                if i.effect.harvest > most_harvest[0] and i.cost <= most_harvest[1]:
+                    most_harvest = i.effect.harvest, i.cost, i
+            if avail_imps[0].cost * 5 < most_harvest[1]:
+                setl.current_work = Construction(ideal)
+            else:
+                setl.current_work = Construction(most_harvest[2])
         else:
             # Aggressive AIs will, in most cases, pick the available unit with the most power, if the settlement level
             # is high enough.
@@ -209,13 +234,16 @@ class MoveMaker:
         if player.ongoing_blessing is None:
             set_blessing(player, player_totals)
         for setl in player.settlements:
-            print(player.name, setl.name, setl.satisfaction)  # TODO REMOVE
+            print(player.name, setl.name, setl.level, setl.quads[0].biome, setl.satisfaction)  # TODO REMOVE
             if setl.current_work is None:
                 set_construction(player, setl, is_night)
             else:
+                constr = setl.current_work.construction
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out.
-                if rem_work := (setl.current_work.construction.cost - setl.current_work.zeal_consumed) < \
-                               player.wealth / 3:
+                if rem_work := (constr.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or \
+                               (setl.satisfaction < 50 and player.wealth >= constr.cost and
+                                isinstance(constr, Improvement) and
+                                (constr.effect.satisfaction > 0 or constr.effect.harvest > 0)):
                     complete_construction(setl)
                     player.wealth -= rem_work
             # If the settlement has a settler, deploy them.

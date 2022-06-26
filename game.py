@@ -357,7 +357,8 @@ class Game:
             if self.game_started:
                 self.music_player.next_song()
         elif pyxel.btnp(pyxel.KEY_B):
-            if self.game_started and self.board.selected_settlement is not None:
+            if self.game_started and self.board.selected_settlement is not None and \
+                    self.board.selected_settlement.current_work is not None:
                 # Pressing B will buyout the remaining cost of the settlement's current construction.
                 current_work = self.board.selected_settlement.current_work
                 remaining_work = current_work.construction.cost - current_work.zeal_consumed
