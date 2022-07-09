@@ -254,8 +254,9 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
             pyxel.text(20, 14, f"{overlay.current_settlement.name} ({overlay.current_settlement.level})",
                        overlay.current_player.colour)
-            pyxel.blt(80, 12, 0, 0, 28, 8, 8)
-            pyxel.text(90, 14, str(round(overlay.current_settlement.strength)), pyxel.COLOR_WHITE)
+            pyxel.blt(80, 12, 0, 24 if overlay.current_settlement.under_siege_by is not None else 0, 28, 8, 8)
+            pyxel.text(90, 14, str(round(overlay.current_settlement.strength)),
+                       pyxel.COLOR_RED if overlay.current_settlement.under_siege_by is not None else pyxel.COLOR_WHITE)
             satisfaction_u = 8 if overlay.current_settlement.satisfaction >= 50 else 16
             pyxel.blt(105, 12, 0, satisfaction_u, 28, 8, 8)
             pyxel.text(115, 14, str(round(overlay.current_settlement.satisfaction)), pyxel.COLOR_WHITE)
