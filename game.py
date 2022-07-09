@@ -246,7 +246,7 @@ class Game:
                                             self.board.overlay.is_bless_notif() or
                                             self.board.overlay.is_constr_notif() or self.board.overlay.is_lvl_notif() or
                                             self.board.overlay.is_close_to_vic() or
-                                            self.board.overlay.is_investigation()):
+                                            self.board.overlay.is_investigation() or self.board.overlay.is_night()):
                 # If we are not in any of the above situations, end the turn.
                 if self.end_turn():
                     self.board.overlay.update_turn(self.turn)
