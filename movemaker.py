@@ -105,75 +105,116 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
     avail_units = get_available_unit_plans(player, setl.level)
     settler_units = [settler for settler in avail_units if settler.can_settle]
     # Note that if there are no available improvements for the given settlement, the 'ideal' construction will default
-    # to the first available unit.
-    ideal: typing.Union[Improvement, UnitPlan] = avail_imps[0] if len(avail_imps) > 0 else avail_units[0]
+    # to the first available unit. Additionally, the first improvement is only selected if it won't reduce satisfaction.
+    ideal: typing.Union[Improvement, UnitPlan] = avail_imps[0] \
+        if len(avail_imps) > 0 and setl.satisfaction + avail_imps[0].effect.satisfaction >= 50 \
+        else avail_units[0]
+    totals = get_setl_totals(setl, is_night)
 
     # If the AI player has neither units on the board nor garrisoned, construct the first available.
     if len(player.units) == 0 and len(setl.garrison) == 0:
         setl.current_work = Construction(avail_units[0])
     # If the settlement has not yet produced a settler in its 'lifetime', and it has now reached its required level for
-    # expansion, choose that.
-    elif setl.level >= get_expansion_lvl() and not setl.produced_settler:
+    # expansion, choose that. Alternatively, if the AI is facing a situation where all of their settlements are
+    # dissatisfied, and they can produce a settler, produce one regardless of whether they have produced one before.
+    elif (setl.level >= get_expansion_lvl() and not setl.produced_settler) or \
+            (setl.level > 1 and all(setl.satisfaction < 40 for setl in player.settlements)):
         setl.current_work = Construction(settler_units[0])
     else:
         if len(avail_imps) > 0:
-            totals = get_setl_totals(setl, is_night)
             # The 'ideal' construction in all other cases is the one that will yield the effect that boosts the
-            # category the settlement is most lacking in.
+            # category the settlement is most lacking in, and doesn't reduce satisfaction below 50.
             lowest = totals.index(min(totals))
             if lowest == 0:
                 highest_wealth: (float, Improvement) = avail_imps[0].effect.wealth, avail_imps[0]
                 for imp in avail_imps:
-                    if imp.effect.wealth > highest_wealth[0]:
+                    if imp.effect.wealth > highest_wealth[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
                         highest_wealth = imp.effect.wealth, imp
                 ideal = highest_wealth[1]
             if lowest == 1:
                 highest_harvest: (float, Improvement) = avail_imps[0].effect.harvest, avail_imps[0]
                 for imp in avail_imps:
-                    if imp.effect.harvest > highest_harvest[0]:
+                    if imp.effect.harvest > highest_harvest[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
                         highest_harvest = imp.effect.harvest, imp
                 ideal = highest_harvest[1]
             if lowest == 2:
                 highest_zeal: (float, Improvement) = avail_imps[0].effect.zeal, avail_imps[0]
                 for imp in avail_imps:
-                    if imp.effect.zeal > highest_zeal[0]:
+                    if imp.effect.zeal > highest_zeal[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
                         highest_zeal = imp.effect.zeal, imp
                 ideal = highest_zeal[1]
             if lowest == 3:
                 highest_fortune: (float, Improvement) = avail_imps[0].effect.fortune, avail_imps[0]
                 for imp in avail_imps:
-                    if imp.effect.fortune > highest_fortune[0]:
+                    if imp.effect.fortune > highest_fortune[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
                         highest_fortune = imp.effect.fortune, imp
                 ideal = highest_fortune[1]
 
-        # Aggressive AIs will, in most cases, pick the available unit with the most power, if the settlement level is
-        # high enough.
-        if player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE:
-            if len(player.units) < setl.level:
-                most_power: (float, UnitPlan) = avail_units[0].power, avail_units[0]
-                for up in avail_units:
-                    if up.power >= most_power[0]:
-                        most_power = up.power, up
-                setl.current_work = Construction(most_power[1])
-            else:
+        sat_imps = [imp for imp in avail_imps if imp.effect.satisfaction > 0]
+        harv_imps = [imp for imp in avail_imps if imp.effect.harvest > 0]
+        # If the settlement is dissatisfied, the easiest way to increase satisfaction is by constructing improvements
+        # that either directly increase satisfaction, or by indirectly increasing satisfaction through increasing
+        # harvest, which contributes to settlement satisfaction.
+        if setl.satisfaction < 50 and (sat_imps or harv_imps):
+            # The improvement with the lowest cost and the highest combined satisfaction and harvest is chosen.
+            imps = sat_imps + harv_imps
+            # Combined benefit, cost, Improvement.
+            most_beneficial: (int, float, Improvement) = \
+                imps[0].effect.satisfaction + imps[0].effect.harvest, imps[0].cost, imps[0]
+            for i in imps:
+                # Pick the improvement that yields the highest combined benefit while also not costing more than the
+                # current ideal one. We do this to stop AIs choosing improvements that will take 50 turns to construct,
+                # all the while, their satisfaction is decreasing.
+                if benefit := (i.effect.satisfaction + i.effect.harvest) > most_beneficial[0] and \
+                              i.cost <= most_beneficial[1]:
+                    most_beneficial = benefit, i.cost, i
+            # Even still, if the improvement will take a long time relative to other non-harvest/satisfaction
+            # improvements, just do the ideal instead.
+            if avail_imps[0].cost * 5 < most_beneficial[1]:
                 setl.current_work = Construction(ideal)
-        # Defensive AIs will pick the available unit with the most health if they are lacking in units. Alternatively,
-        # they will choose the improvement that yields the most strength for the settlement, if there is one, otherwise,
-        # they will choose the 'ideal' construction.
-        elif player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE:
-            if len(player.units) * 2 < setl.level:
-                most_health: (float, UnitPlan) = avail_units[0].max_health, avail_units[0]
-                for up in avail_units:
-                    if up.max_health >= most_health[0]:
-                        most_health = up.max_health, up
-                setl.current_work = Construction(most_health[1])
-            elif len(strength_imps := [imp for imp in avail_imps if imp.effect.strength > 0]) > 0:
-                setl.current_work = Construction(strength_imps[0])
             else:
+                setl.current_work = Construction(most_beneficial[2])
+        # Alternatively, if we are below the benchmark for harvest for this settlement (i.e. the harvest is low enough
+        # that it is decreasing satisfaction), try to construct an improvement that will increase it.
+        elif totals[1] < setl.level * 4 and harv_imps:
+            most_harvest: (int, float, Improvement) = harv_imps[0].effect.harvest, harv_imps[0].cost, harv_imps[0]
+            for i in harv_imps:
+                if i.effect.harvest > most_harvest[0] and i.cost <= most_harvest[1]:
+                    most_harvest = i.effect.harvest, i.cost, i
+            # Again, don't do the improvement if it takes too long relatively.
+            if avail_imps[0].cost * 5 < most_harvest[1]:
                 setl.current_work = Construction(ideal)
-        # Neutral AIs will always choose the 'ideal' construction.
+            else:
+                setl.current_work = Construction(most_harvest[2])
         else:
-            setl.current_work = Construction(ideal)
+            # Aggressive AIs will, in most cases, pick the available unit with the most power, if the settlement level
+            # is high enough.
+            if player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE:
+                if len(player.units) < setl.level:
+                    most_power: (float, UnitPlan) = avail_units[0].power, avail_units[0]
+                    for up in avail_units:
+                        if up.power >= most_power[0]:
+                            most_power = up.power, up
+                    setl.current_work = Construction(most_power[1])
+                else:
+                    setl.current_work = Construction(ideal)
+            # Defensive AIs will pick the available unit with the most health if they are lacking in units.
+            # Alternatively, they will choose the improvement that yields the most strength for the settlement, if there
+            # is one, otherwise, they will choose the 'ideal' construction.
+            elif player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE:
+                if len(player.units) * 2 < setl.level:
+                    most_health: (float, UnitPlan) = avail_units[0].max_health, avail_units[0]
+                    for up in avail_units:
+                        if up.max_health >= most_health[0]:
+                            most_health = up.max_health, up
+                    setl.current_work = Construction(most_health[1])
+                elif len(strength_imps := [imp for imp in avail_imps if imp.effect.strength > 0]) > 0:
+                    setl.current_work = Construction(strength_imps[0])
+                else:
+                    setl.current_work = Construction(ideal)
+            # Neutral AIs will always choose the 'ideal' construction.
+            else:
+                setl.current_work = Construction(ideal)
 
 
 class MoveMaker:
@@ -208,9 +249,14 @@ class MoveMaker:
             if setl.current_work is None:
                 set_construction(player, setl, is_night)
             else:
-                # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out.
-                if rem_work := (setl.current_work.construction.cost - setl.current_work.zeal_consumed) < \
-                               player.wealth / 3:
+                constr = setl.current_work.construction
+                # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out. In
+                # circumstances where the settlement's satisfaction is less than 50 and the construction would yield
+                # harvest or satisfaction, buy it out as soon as the AI is able to afford it.
+                if rem_work := (constr.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or \
+                               (setl.satisfaction < 50 and player.wealth >= constr.cost and
+                                isinstance(constr, Improvement) and
+                                (constr.effect.satisfaction > 0 or constr.effect.harvest > 0)):
                     complete_construction(setl)
                     player.wealth -= rem_work
             # If the settlement has a settler, deploy them.
