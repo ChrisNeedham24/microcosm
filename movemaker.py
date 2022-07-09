@@ -114,10 +114,10 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
     # If the AI player has neither units on the board nor garrisoned, construct the first available.
     if len(player.units) == 0 and len(setl.garrison) == 0:
         setl.current_work = Construction(avail_units[0])
-    # TODO Next thing to try would be abandoning problematic settlements, at 20 or below satisfaction.
     # If the settlement has not yet produced a settler in its 'lifetime', and it has now reached its required level for
     # expansion, choose that.
-    elif setl.level >= get_expansion_lvl() and not setl.produced_settler:
+    elif (setl.level >= get_expansion_lvl() and not setl.produced_settler) or \
+            (setl.level > 1 and all(setl.satisfaction < 40 for setl in player.settlements)):
         setl.current_work = Construction(settler_units[0])
     else:
         if len(avail_imps) > 0:
@@ -234,7 +234,6 @@ class MoveMaker:
         if player.ongoing_blessing is None:
             set_blessing(player, player_totals)
         for setl in player.settlements:
-            print(player.name, setl.name, setl.level, setl.quads[0].biome, setl.satisfaction)  # TODO REMOVE
             if setl.current_work is None:
                 set_construction(player, setl, is_night)
             else:
