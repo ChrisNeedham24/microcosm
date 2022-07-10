@@ -80,6 +80,7 @@ class Menu:
         self.victory_type = VictoryType.ELIMINATION
         self.blessing_boundaries = 0, 3
         self.improvement_boundaries = 0, 3
+        self.unit_boundaries = 0, 9
         self.saves: typing.List[str] = []
         self.save_idx: typing.Optional[int] = 0
         self.setup_option = SetupOption.PLAYER_COLOUR
@@ -416,12 +417,18 @@ class Menu:
                 pyxel.text(155, 40, "Cost", pyxel.COLOR_WHITE)
                 pyxel.blt(173, 39, 0, 16, 44, 8, 8)
                 for idx, unit in enumerate(UNIT_PLANS):
-                    pyxel.text(20, 50 + idx * 10, str(unit.name), pyxel.COLOR_WHITE)
-                    pyxel.text(160, 50 + idx * 10, str(unit.cost), pyxel.COLOR_WHITE)
-                    pyxel.text(88, 50 + idx * 10, str(unit.max_health), pyxel.COLOR_WHITE)
-                    pyxel.text(108, 50 + idx * 10, str(unit.power), pyxel.COLOR_WHITE)
-                    pyxel.text(132, 50 + idx * 10, str(unit.total_stamina), pyxel.COLOR_WHITE)
+                    if self.unit_boundaries[0] <= idx <= self.unit_boundaries[1]:
+                        adj_idx = idx - self.unit_boundaries[0]
+                        pyxel.text(20, 50 + adj_idx * 10, str(unit.name), pyxel.COLOR_WHITE)
+                        pyxel.text(160, 50 + adj_idx * 10, str(unit.cost), pyxel.COLOR_WHITE)
+                        pyxel.text(88, 50 + adj_idx * 10, str(unit.max_health), pyxel.COLOR_WHITE)
+                        pyxel.text(108, 50 + adj_idx * 10, str(unit.power), pyxel.COLOR_WHITE)
+                        pyxel.text(132, 50 + adj_idx * 10, str(unit.total_stamina), pyxel.COLOR_WHITE)
                 pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
+                if self.unit_boundaries[1] != len(UNIT_PLANS) - 1:
+                    pyxel.text(152, 155, "More", pyxel.COLOR_WHITE)
+                    pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
+                    pyxel.blt(172, 156, 0, 0, 76, 8, 8)
             elif self.wiki_showing is None:
                 pyxel.rectb(60, 55, 80, 90, pyxel.COLOR_WHITE)
                 pyxel.rect(61, 56, 78, 88, pyxel.COLOR_BLACK)
@@ -483,6 +490,9 @@ class Menu:
                     if self.improvement_boundaries[1] < len(IMPROVEMENTS) - 1:
                         self.improvement_boundaries = \
                             self.improvement_boundaries[0] + 1, self.improvement_boundaries[1] + 1
+                elif self.wiki_showing is WikiOption.UNITS:
+                    if self.unit_boundaries[1] < len(UNIT_PLANS) - 1:
+                        self.unit_boundaries = self.unit_boundaries[0] + 1, self.unit_boundaries[1] + 1
                 else:
                     if self.wiki_option is WikiOption.VICTORIES:
                         self.wiki_option = WikiOption.CLIMATE
@@ -526,6 +536,9 @@ class Menu:
                     if self.improvement_boundaries[0] > 0:
                         self.improvement_boundaries = \
                             self.improvement_boundaries[0] - 1, self.improvement_boundaries[1] - 1
+                elif self.wiki_showing is WikiOption.UNITS:
+                    if self.unit_boundaries[0] > 0:
+                        self.unit_boundaries = self.unit_boundaries[0] - 1, self.unit_boundaries[1] - 1
                 else:
                     if self.wiki_option is WikiOption.CLIMATE:
                         self.wiki_option = WikiOption.VICTORIES

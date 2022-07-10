@@ -4,7 +4,7 @@ import math
 import pyxel
 
 from calculator import get_setl_totals
-from catalogue import get_all_unlockable, get_unlockable_improvements
+from catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units
 from models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, OverlayType, \
     SettlementAttackType, PauseOption
 from overlay import Overlay
@@ -499,6 +499,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     pyxel.text(145, 35 + adj_idx * 18, "Undergo",
                                pyxel.COLOR_RED if overlay.selected_blessing is blessing else pyxel.COLOR_WHITE)
                     imps = get_unlockable_improvements(blessing)
+                    units = get_unlockable_units(blessing)
                     pyxel.text(30, 42 + adj_idx * 18, "Unlocks:", pyxel.COLOR_WHITE)
                     types_unlockable: typing.List[ImprovementType] = []
                     if len(imps) > 0:
@@ -530,6 +531,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                                     uv_coords = 8, 28
                                 pyxel.blt(65 + type_idx * 10, 41 + adj_idx * 18, 0, uv_coords[0], uv_coords[1], 8,
                                           8)
+                            if units:
+                                pyxel.blt(65 + len(set(types_unlockable)) * 10, 41 + adj_idx * 18, 0, 0, 36, 8, 8)
                         else:
                             pyxel.text(65, 41 + adj_idx * 18, "victory", pyxel.COLOR_GREEN)
                     else:
