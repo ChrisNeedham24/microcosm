@@ -377,8 +377,8 @@ class Game:
             if self.game_started and not self.board.overlay.is_victory() and not self.board.overlay.is_elimination():
                 # Show the pause menu if there are no intrusive overlays being shown.
                 if not self.board.overlay.showing or \
-                        all(overlay == OverlayType.ATTACK or overlay == OverlayType.SETL_ATTACK or
-                            overlay == OverlayType.SIEGE_NOTIF for overlay in self.board.overlay.showing):
+                        all(overlay in (OverlayType.ATTACK, OverlayType.SETL_ATTACK, OverlayType.SIEGE_NOTIF)
+                            for overlay in self.board.overlay.showing):
                     self.board.overlay.toggle_pause()
                 # Remove one overlay layer per ESCAPE press, assuming it is a layer that can be removed.
                 elif not self.board.overlay.is_tutorial() and not self.board.overlay.is_deployment():
