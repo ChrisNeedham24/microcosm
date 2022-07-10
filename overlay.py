@@ -641,3 +641,43 @@ class Overlay:
         :return: Whether the night overlay is being displayed.
         """
         return OverlayType.NIGHT in self.showing
+
+    def remove_layer(self) -> typing.Optional[OverlayType]:
+        """
+        Remove a layer of the overlay, where possible.
+        :return: An OverlayType, if the given type requires further action. More specifically, when toggling the unit
+        and settlement overlays, action is also required to reset the selected unit/settlement.
+        """
+        if self.is_night():
+            self.toggle_night(None)
+        elif self.is_close_to_vic():
+            self.toggle_close_to_vic([])
+        elif self.is_bless_notif():
+            self.toggle_blessing_notification(None)
+        elif self.is_constr_notif():
+            self.toggle_construction_notification([])
+        elif self.is_lvl_notif():
+            self.toggle_level_up_notification([])
+        elif self.is_warning():
+            self.remove_warning_if_possible()
+        elif self.is_investigation():
+            self.toggle_investigation(None)
+        elif self.is_controls():
+            self.toggle_controls()
+        elif self.is_pause():
+            self.toggle_pause()
+        elif self.is_blessing():
+            self.toggle_blessing([])
+        elif self.is_setl_click():
+            self.toggle_setl_click(None, None)
+        elif self.is_standard():
+            self.toggle_standard(self.current_turn)
+        elif self.is_constructing():
+            self.toggle_construction([], [])
+        elif self.is_unit():
+            self.toggle_unit(None)
+            return OverlayType.UNIT
+        elif self.is_setl():
+            self.toggle_settlement(None, self.current_player)
+            return OverlayType.SETTLEMENT
+        return None
