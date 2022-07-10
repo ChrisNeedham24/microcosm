@@ -19,7 +19,7 @@ class HelpOption(Enum):
     SETTLEMENT = "TAB: Next settlement"
     UNIT = "SPACE: Next unit"
     OVERLAY = "SHIFT: Show status overlay"
-    PAUSE = "P: Pause"
+    PAUSE = "ESC: Pause"
     END_TURN = "ENTER: End turn"
 
 

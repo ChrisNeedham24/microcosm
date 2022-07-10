@@ -15,7 +15,7 @@ from catalogue import get_available_improvements, get_available_blessings, get_a
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
     EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, \
-    ExpansionPlaystyle, UnitPlan
+    ExpansionPlaystyle, UnitPlan, OverlayType
 from movemaker import MoveMaker
 from music_player import MusicPlayer
 from overlay import SettlementAttackType, PauseOption
@@ -373,9 +373,21 @@ class Game:
                     ])
                     complete_construction(self.board.selected_settlement)
                     self.players[0].wealth -= remaining_work
-        elif pyxel.btnp(pyxel.KEY_P):
-            if self.game_started and not self.board.overlay.is_victory():
-                self.board.overlay.toggle_pause()
+        elif pyxel.btnp(pyxel.KEY_ESCAPE):
+            if self.game_started and not self.board.overlay.is_victory() and not self.board.overlay.is_elimination():
+                # Show the pause menu if there are no intrusive overlays being shown.
+                if not self.board.overlay.showing or \
+                        all(overlay == OverlayType.ATTACK or overlay == OverlayType.SETL_ATTACK or
+                            overlay == OverlayType.SIEGE_NOTIF for overlay in self.board.overlay.showing):
+                    self.board.overlay.toggle_pause()
+                # Remove one overlay layer per ESCAPE press, assuming it is a layer that can be removed.
+                elif not self.board.overlay.is_tutorial() and not self.board.overlay.is_deployment():
+                    to_reset: typing.Optional[OverlayType] = self.board.overlay.remove_layer()
+                    # Make sure we reset board selections if necessary.
+                    if to_reset == OverlayType.UNIT:
+                        self.board.selected_unit = None
+                    elif to_reset == OverlayType.SETTLEMENT:
+                        self.board.selected_settlement = None
 
     def draw(self):
         """
@@ -477,7 +489,7 @@ class Game:
                         if setl.under_siege_by.health <= 0:
                             setl.under_siege_by = None
                         else:
-                            setl.strength -= setl.max_strength * 0.1
+                            setl.strength = max(0.0, setl.strength - setl.max_strength * 0.1)
                 else:
                     # Otherwise, increase the settlement's strength if it was recently under siege and is not at full
                     # strength.

@@ -84,7 +84,7 @@ def attack_setl(attacker: Unit, setl: Settlement, setl_owner: Player, ai=True) -
     attacker_dmg = attacker.plan.power * 0.1
     setl_dmg = setl.strength / 2
     attacker.health -= setl_dmg
-    setl.strength -= attacker_dmg
+    setl.strength = max(0.0, setl.strength - attacker_dmg)
     attacker.has_attacked = True
     return SetlAttackData(attacker, setl, setl_owner, setl_dmg, attacker_dmg, not ai,
                           attacker.health <= 0, setl.strength <= 0)
