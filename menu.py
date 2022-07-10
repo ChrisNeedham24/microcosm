@@ -415,6 +415,7 @@ class Menu:
                 pyxel.blt(130, 39, 0, 16, 36, 8, 8)
                 pyxel.text(155, 40, "Cost", pyxel.COLOR_WHITE)
                 pyxel.blt(173, 39, 0, 16, 44, 8, 8)
+                # TODO Will need boundaries here now with the new units.
                 for idx, unit in enumerate(UNIT_PLANS):
                     pyxel.text(20, 50 + idx * 10, str(unit.name), pyxel.COLOR_WHITE)
                     pyxel.text(160, 50 + idx * 10, str(unit.cost), pyxel.COLOR_WHITE)

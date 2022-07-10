@@ -171,12 +171,17 @@ IMPROVEMENTS = [
 UNIT_PLANS = [
     UnitPlan(100, 100, 3, "Warrior", None, 25),
     UnitPlan(125, 50, 5, "Bowman", None, 25),
+    UnitPlan(75, 125, 2, "Shielder", None, 25),
     UnitPlan(25, 25, 6, "Settler", None, 50, can_settle=True),
     UnitPlan(150, 75, 4, "Mage", BLESSINGS["beg_spl"], 50),
+    UnitPlan(50, 50, 10, "Locksmith", BLESSINGS["sl_vau"], 75),
     UnitPlan(200, 40, 2, "Grenadier", BLESSINGS["rud_exp"], 100),
-    UnitPlan(150, 150, 5, "Drone", BLESSINGS["rob_exp"], 800),
     UnitPlan(50, 200, 2, "Flagellant", BLESSINGS["tor_tec"], 200),
     UnitPlan(150, 125, 3, "Sniper", BLESSINGS["apr_ref"], 400),
+    UnitPlan(150, 150, 5, "Drone", BLESSINGS["rob_exp"], 800),
+    UnitPlan(200, 200, 4, "Herculeum", BLESSINGS["met_alt"], 1200),
+    UnitPlan(300, 50, 3, "Haruspex", BLESSINGS["psy_sup"], 1200),
+    UnitPlan(40, 400, 2, "Fanatic", BLESSINGS["brd_fan"], 1200)
 ]
 
 
