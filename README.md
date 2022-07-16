@@ -12,3 +12,7 @@ python-vlc (or something like that) as an optional dependency, it is advised tha
 1. Download the [latest release](https://github.com/ChrisNeedham24/microcosm/releases/latest)
 2. Run `pip install -r requirements.txt`
 3. Run `pyxel run microcosm`
+
+## Wiki
+
+The Wiki can be viewed both [on GitHub](https://github.com/ChrisNeedham24/microcosm/wiki) and in-game.
