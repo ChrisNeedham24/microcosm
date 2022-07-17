@@ -1,0 +1,75 @@
+FACTIONS PLANNING
+
+TODO colours
+TODO descriptions
+
+14 factions required
+
+Each faction needs a positive and a negative.
+
+Base a faction on each model.
+
+Faction 1: Agriculturists
++ Immune to poor harvest
+- Generates 75% of the usual zeal
+
+Faction 2: Capitalists
++ Immune to recession
+- Satisfaction drops by double if below harvest boundary
+
+Faction 3: Scrutineers
++ Always finds something in investigations
+- Generates 75% of the usual fortune
+D: Talk about how they see all and even scrutinise the religious
+
+Faction 4: The Godless
++ Generates 125% of the usual wealth
+- Blessings are 150% of the usual cost
+
+Faction 5: The Ravenous
++ Generates 125% of the usual harvest
+- Settlements are capped at level 5
+D: Talk about greed of harvest not wanting to expand
+
+Faction 6: Fundamentalists
++ Generates 125% of the usual zeal
+- Construction buyouts are disabled
+D: Do things the right way
+
+Faction 7: The Orthodox
++ Generates 125% of the usual fortune
+- Generates 75% of the usual wealth
+
+Faction 8: The Concentrated
++ Settlements have 200% of the usual strength
+- Players are limited to a single settlement
+
+Faction 9: Frontiersmen
++ New settlements begin on 75 satisfaction
+- Once a settlement reaches level 5, only settler units can be constructed
+D: The thrill of the frontier, constant expansion
+
+Faction 10: Imperials
++ Units have 150% of the usual power
+- Settlements have 50% of the usual strength
+D: Expect that no one will attack
+
+Faction 11: The Persistent
++ Units have 150% of the usual health
+- Units have 75% of the usual power
+D: Wear others down
+
+Faction 12: Explorers
++ Units have 150% of the usual stamina
+- Units have 75% of the usual health
+D: Tired from movement, easy to attack
+
+Faction 13: Infidels
++ Are not attacked by heathens
+- Are attacked on sight by other empires, regardless of circumstance (likelihood of winning)
+D: Seen as sub-humans
+
+Faction 14: The Nocturne
++ Thrive at night (harvest/vision not reduced, player units are strengthened like heathens, also know how long until night)
+- Units have 50% power/health/stamina during daytime
+D: Some genetic thing
