@@ -5,8 +5,8 @@ from enum import Enum
 import pyxel
 
 from calculator import clamp
-from catalogue import BLESSINGS, get_unlockable_improvements, IMPROVEMENTS, UNIT_PLANS
-from models import GameConfig, VictoryType
+from catalogue import BLESSINGS, get_unlockable_improvements, IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS
+from models import GameConfig, VictoryType, Faction
 
 
 class MenuOption(Enum):
@@ -23,7 +23,7 @@ class SetupOption(Enum):
     """
     Represents the options the player can choose from the game setup screen.
     """
-    PLAYER_COLOUR = "COLOUR"
+    PLAYER_FACTION = "FACTION"
     PLAYER_COUNT = "COUNT"
     BIOME_CLUSTERING = "BIOME"
     FOG_OF_WAR = "FOG"
@@ -40,25 +40,6 @@ class WikiOption(Enum):
     BLESSINGS = "BLS"
     IMPROVEMENTS = "IMP"
     UNITS = "UNITS"
-
-
-# A convenient list of all available colours. Deliberately excludes black and white.
-AVAILABLE_COLOURS = [
-    ("Navy", pyxel.COLOR_NAVY),
-    ("Purple", pyxel.COLOR_PURPLE),
-    ("Green", pyxel.COLOR_GREEN),
-    ("Brown", pyxel.COLOR_BROWN),
-    ("Dark blue", pyxel.COLOR_DARK_BLUE),
-    ("Light blue", pyxel.COLOR_LIGHT_BLUE),
-    ("Red", pyxel.COLOR_RED),
-    ("Orange", pyxel.COLOR_ORANGE),
-    ("Yellow", pyxel.COLOR_YELLOW),
-    ("Lime", pyxel.COLOR_LIME),
-    ("Cyan", pyxel.COLOR_CYAN),
-    ("Grey", pyxel.COLOR_GRAY),
-    ("Pink", pyxel.COLOR_PINK),
-    ("Peach", pyxel.COLOR_PEACH)
-]
 
 
 class Menu:
@@ -83,13 +64,14 @@ class Menu:
         self.unit_boundaries = 0, 9
         self.saves: typing.List[str] = []
         self.save_idx: typing.Optional[int] = 0
-        self.setup_option = SetupOption.PLAYER_COLOUR
-        self.colour_idx = 0
+        self.setup_option = SetupOption.PLAYER_FACTION
+        self.faction_idx = 0
         self.player_count = 2
         self.biome_clustering_enabled = True
         self.fog_of_war_enabled = True
         self.climatic_effects_enabled = True
         self.showing_night = False
+        self.faction_colours: typing.List[typing.Tuple[Faction, int]] = list(FACTION_COLOURS.items())
 
     def draw(self):
         """
@@ -106,18 +88,18 @@ class Menu:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
             pyxel.text(81, 25, "Game Setup", pyxel.COLOR_WHITE)
-            pyxel.text(28, 40, "Player Colour",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.PLAYER_COLOUR else pyxel.COLOR_WHITE)
-            colour_offset = 5 - len(AVAILABLE_COLOURS[self.colour_idx][0])
-            if self.colour_idx == 0:
-                pyxel.text(130 + colour_offset, 40, f"{AVAILABLE_COLOURS[self.colour_idx][0]} ->",
-                           AVAILABLE_COLOURS[self.colour_idx][1])
-            elif self.colour_idx == len(AVAILABLE_COLOURS) - 1:
-                pyxel.text(130 + colour_offset, 40, f"<- {AVAILABLE_COLOURS[self.colour_idx][0]}",
-                           AVAILABLE_COLOURS[self.colour_idx][1])
+            pyxel.text(28, 40, "Player Faction",
+                       pyxel.COLOR_RED if self.setup_option is SetupOption.PLAYER_FACTION else pyxel.COLOR_WHITE)
+            faction_offset = 50 - pow(len(self.faction_colours[self.faction_idx][0]), 1.4)
+            if self.faction_idx == 0:
+                pyxel.text(100 + faction_offset, 40, f"{self.faction_colours[self.faction_idx][0]} ->",
+                           self.faction_colours[self.faction_idx][1])
+            elif self.faction_idx == len(self.faction_colours) - 1:
+                pyxel.text(95 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0]}",
+                           self.faction_colours[self.faction_idx][1])
             else:
-                pyxel.text(120 + colour_offset, 40, f"<- {AVAILABLE_COLOURS[self.colour_idx][0]} ->",
-                           AVAILABLE_COLOURS[self.colour_idx][1])
+                pyxel.text(88 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0]} ->",
+                           self.faction_colours[self.faction_idx][1])
             pyxel.text(28, 60, "Player Count",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.PLAYER_COUNT else pyxel.COLOR_WHITE)
             if self.player_count == 2:
@@ -467,7 +449,7 @@ class Menu:
         """
         if down:
             if self.in_game_setup:
-                if self.setup_option is SetupOption.PLAYER_COLOUR:
+                if self.setup_option is SetupOption.PLAYER_FACTION:
                     self.setup_option = SetupOption.PLAYER_COUNT
                 elif self.setup_option is SetupOption.PLAYER_COUNT:
                     self.setup_option = SetupOption.BIOME_CLUSTERING
@@ -514,7 +496,7 @@ class Menu:
         if up:
             if self.in_game_setup:
                 if self.setup_option is SetupOption.PLAYER_COUNT:
-                    self.setup_option = SetupOption.PLAYER_COLOUR
+                    self.setup_option = SetupOption.PLAYER_FACTION
                 elif self.setup_option is SetupOption.BIOME_CLUSTERING:
                     self.setup_option = SetupOption.PLAYER_COUNT
                 elif self.setup_option is SetupOption.FOG_OF_WAR:
@@ -559,8 +541,8 @@ class Menu:
                     self.menu_option = MenuOption.WIKI
         if left:
             if self.in_game_setup:
-                if self.setup_option is SetupOption.PLAYER_COLOUR:
-                    self.colour_idx = clamp(self.colour_idx - 1, 0, len(AVAILABLE_COLOURS) - 1)
+                if self.setup_option is SetupOption.PLAYER_FACTION:
+                    self.faction_idx = clamp(self.faction_idx - 1, 0, len(self.faction_colours) - 1)
                 elif self.setup_option is SetupOption.PLAYER_COUNT:
                     self.player_count = max(2, self.player_count - 1)
                 elif self.setup_option is SetupOption.BIOME_CLUSTERING:
@@ -584,8 +566,8 @@ class Menu:
                 self.showing_night = False
         if right:
             if self.in_game_setup:
-                if self.setup_option is SetupOption.PLAYER_COLOUR:
-                    self.colour_idx = clamp(self.colour_idx + 1, 0, len(AVAILABLE_COLOURS) - 1)
+                if self.setup_option is SetupOption.PLAYER_FACTION:
+                    self.faction_idx = clamp(self.faction_idx + 1, 0, len(self.faction_colours) - 1)
                 elif self.setup_option is SetupOption.PLAYER_COUNT:
                     self.player_count = min(14, self.player_count + 1)
                 elif self.setup_option is SetupOption.BIOME_CLUSTERING:
@@ -613,5 +595,5 @@ class Menu:
         Returns the game config based on the setup screen selections.
         :return: The appropriate GameConfig object.
         """
-        return GameConfig(self.player_count, AVAILABLE_COLOURS[self.colour_idx][1], self.biome_clustering_enabled,
+        return GameConfig(self.player_count, self.faction_colours[self.faction_idx][0], self.biome_clustering_enabled,
                           self.fog_of_war_enabled, self.climatic_effects_enabled)

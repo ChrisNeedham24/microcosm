@@ -11,11 +11,11 @@ import pyxel
 from board import Board
 from calculator import clamp, attack, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
-    get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer
+    get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer, FACTION_COLOURS
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
     EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, \
-    ExpansionPlaystyle, UnitPlan, OverlayType
+    ExpansionPlaystyle, UnitPlan, OverlayType, Faction
 from movemaker import MoveMaker
 from music_player import MusicPlayer
 from overlay import SettlementAttackType, PauseOption
@@ -403,16 +403,15 @@ class Game:
         Generates the players for the game based on the supplied config.
         :param cfg: The game config.
         """
-        self.players = [Player("The Chosen One", cfg.player_colour, 0, [], [], [], set(), set())]
-        colours = [pyxel.COLOR_NAVY, pyxel.COLOR_PURPLE, pyxel.COLOR_GREEN, pyxel.COLOR_BROWN, pyxel.COLOR_DARK_BLUE,
-                   pyxel.COLOR_LIGHT_BLUE, pyxel.COLOR_RED, pyxel.COLOR_ORANGE, pyxel.COLOR_YELLOW, pyxel.COLOR_LIME,
-                   pyxel.COLOR_CYAN, pyxel.COLOR_GRAY, pyxel.COLOR_PINK, pyxel.COLOR_PEACH]
-        # Ensure that an AI player doesn't choose the same colour as the player.
-        colours.remove(cfg.player_colour)
+        self.players = [Player("The Chosen One", cfg.player_faction, FACTION_COLOURS[cfg.player_faction],
+                               0, [], [], [], set(), set())]
+        factions = list(Faction)
+        # Ensure that an AI player doesn't choose the same faction as the player.
+        factions.remove(cfg.player_faction)
         for i in range(1, cfg.player_count):
-            colour = random.choice(colours)
-            colours.remove(colour)
-            self.players.append(Player(f"NPC{i}", colour, 0, [], [], [], set(), set(),
+            faction = random.choice(factions)
+            factions.remove(faction)
+            self.players.append(Player(f"NPC{i}", faction, FACTION_COLOURS[faction], 0, [], [], [], set(), set(),
                                        ai_playstyle=AIPlaystyle(random.choice(list(AttackPlaystyle)),
                                                                 random.choice(list(ExpansionPlaystyle)))))
 

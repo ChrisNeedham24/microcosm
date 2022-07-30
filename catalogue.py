@@ -2,7 +2,10 @@ import random
 import typing
 from copy import deepcopy
 
-from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome, Heathen
+import pyxel
+
+from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome, Heathen, \
+    Faction
 
 # The list of settlement names, for each biome.
 SETL_NAMES = {
@@ -183,6 +186,24 @@ UNIT_PLANS = [
     UnitPlan(300, 50, 3, "Haruspex", BLESSINGS["psy_sup"], 1200),
     UnitPlan(40, 400, 2, "Fanatic", BLESSINGS["brd_fan"], 1200)
 ]
+
+
+FACTION_COLOURS: typing.Dict[Faction, int] = {
+    Faction.AGRICULTURISTS: pyxel.COLOR_GREEN,
+    Faction.CAPITALISTS: pyxel.COLOR_YELLOW,
+    Faction.SCRUTINEERS: pyxel.COLOR_LIGHT_BLUE,
+    Faction.GODLESS: pyxel.COLOR_CYAN,
+    Faction.RAVENOUS: pyxel.COLOR_LIME,
+    Faction.FUNDAMENTALISTS: pyxel.COLOR_ORANGE,
+    Faction.ORTHODOX: pyxel.COLOR_PURPLE,
+    Faction.CONCENTRATED: pyxel.COLOR_GRAY,
+    Faction.FRONTIERSMEN: pyxel.COLOR_PEACH,
+    Faction.IMPERIALS: pyxel.COLOR_DARK_BLUE,
+    Faction.PERSISTENT: pyxel.COLOR_RED,
+    Faction.EXPLORERS: pyxel.COLOR_PINK,
+    Faction.INFIDELS: pyxel.COLOR_BROWN,
+    Faction.NOCTURNE: pyxel.COLOR_NAVY
+}
 
 
 def get_heathen_plan(turn: int) -> UnitPlan:
