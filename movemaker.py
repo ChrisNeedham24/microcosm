@@ -109,7 +109,7 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
     ideal: typing.Union[Improvement, UnitPlan] = avail_imps[0] \
         if len(avail_imps) > 0 and setl.satisfaction + avail_imps[0].effect.satisfaction >= 50 \
         else avail_units[0]
-    totals = get_setl_totals(setl, is_night)
+    totals = get_setl_totals(player, setl, is_night)
 
     # If the AI player has neither units on the board nor garrisoned, construct the first available.
     if len(player.units) == 0 and len(setl.garrison) == 0:

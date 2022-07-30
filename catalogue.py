@@ -289,6 +289,10 @@ def get_available_blessings(player: Player) -> typing.List[Blessing]:
     """
     blessings = [bls for bls in BLESSINGS.values() if bls not in player.blessings]
 
+    if player.faction is Faction.GODLESS:
+        for bls in blessings:
+            bls.cost *= 1.5
+
     def get_cost(blessing: Blessing) -> float:
         return blessing.cost
 

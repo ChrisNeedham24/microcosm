@@ -437,6 +437,8 @@ class Game:
         for unit in self.players[0].units:
             if not unit.garrisoned:
                 total_wealth -= unit.plan.cost / 25
+        if self.players[0].faction is Faction.GODLESS:
+            total_wealth *= 1.25
         has_no_blessing = self.players[0].ongoing_blessing is None
         will_have_negative_wealth = (self.players[0].wealth + total_wealth) < 0 and len(self.players[0].units) > 0
         if not self.board.overlay.is_warning() and \
@@ -455,10 +457,13 @@ class Game:
                 # satisfaction of [20, 40) will yield 0 harvest, a satisfaction of [60, 80) will yield 150% harvest,
                 # and a satisfaction of 80 or more will yield 150% wealth and 150% harvest.
                 if setl.satisfaction < 20:
-                    setl.harvest_status = HarvestStatus.POOR
-                    setl.economic_status = EconomicStatus.RECESSION
+                    if player.faction is not Faction.AGRICULTURISTS:
+                        setl.harvest_status = HarvestStatus.POOR
+                    if player.faction is not Faction.CAPITALISTS:
+                        setl.economic_status = EconomicStatus.RECESSION
                 elif setl.satisfaction < 40:
-                    setl.harvest_status = HarvestStatus.POOR
+                    if player.faction is not Faction.AGRICULTURISTS:
+                        setl.harvest_status = HarvestStatus.POOR
                     setl.economic_status = EconomicStatus.STANDARD
                 elif setl.satisfaction < 60:
                     setl.harvest_status = HarvestStatus.STANDARD
@@ -470,7 +475,7 @@ class Game:
                     setl.harvest_status = HarvestStatus.PLENTIFUL
                     setl.economic_status = EconomicStatus.BOOM
 
-                total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(setl, self.nighttime_left > 0)
+                total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(player, setl, self.nighttime_left > 0)
                 overall_fortune += total_fortune
                 overall_wealth += total_wealth
 
@@ -504,7 +509,7 @@ class Game:
 
                 # Settlement satisfaction is regulated by the amount of harvest generated against the level.
                 if total_harvest < setl.level * 4:
-                    setl.satisfaction -= 0.5
+                    setl.satisfaction -= (1 if player.faction is Faction.CAPITALISTS else 0.5)
                 elif total_harvest >= setl.level * 8:
                     setl.satisfaction += 0.25
                 setl.satisfaction = clamp(setl.satisfaction, 0, 100)

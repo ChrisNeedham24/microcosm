@@ -6,7 +6,7 @@ import pyxel
 from calculator import get_setl_totals
 from catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units
 from models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, OverlayType, \
-    SettlementAttackType, PauseOption
+    SettlementAttackType, PauseOption, Faction
 from overlay import Overlay
 
 
@@ -261,7 +261,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.blt(105, 12, 0, satisfaction_u, 28, 8, 8)
             pyxel.text(115, 14, str(round(overlay.current_settlement.satisfaction)), pyxel.COLOR_WHITE)
 
-            total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(overlay.current_settlement,
+            total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(overlay.current_player,
+                                                                                     overlay.current_settlement,
                                                                                      is_night,
                                                                                      strict=True)
 
@@ -286,6 +287,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 total_zeal = max(sum(quad.zeal for quad in overlay.current_settlement.quads) +
                                  sum(imp.effect.zeal for imp in overlay.current_settlement.improvements), 0.5)
                 total_zeal += (overlay.current_settlement.level - 1) * 0.25 * total_zeal
+                if overlay.current_player.faction is Faction.AGRICULTURISTS:
+                    total_zeal *= 0.75
                 remaining_turns = math.ceil(remaining_work / total_zeal)
                 pyxel.text(20, 145 - y_offset, current_work.construction.name, pyxel.COLOR_WHITE)
                 pyxel.text(20, 155 - y_offset, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
@@ -346,6 +349,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
             total_zeal += sum(quad.zeal for quad in overlay.current_settlement.quads)
             total_zeal += sum(imp.effect.zeal for imp in overlay.current_settlement.improvements)
             total_zeal = max(0.5, total_zeal) + (overlay.current_settlement.level - 1) * 0.25 * total_zeal
+            if overlay.current_player.faction is Faction.AGRICULTURISTS:
+                total_zeal *= 0.75
             if overlay.constructing_improvement:
                 for idx, construction in enumerate(overlay.available_constructions):
                     if overlay.construction_boundaries[0] <= idx <= overlay.construction_boundaries[1]:
@@ -449,6 +454,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     wealth_to_add = 0
                 elif setl.economic_status is EconomicStatus.BOOM:
                     wealth_to_add *= 1.5
+                if overlay.current_player.faction is Faction.GODLESS:
+                    wealth_to_add *= 1.25
                 wealth_per_turn += wealth_to_add
             for unit in overlay.current_player.units:
                 if not unit.garrisoned:
@@ -489,6 +496,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 fortune_to_add += (setl.level - 1) * 0.25 * fortune_to_add
                 total_fortune += fortune_to_add
             total_fortune = max(0.5, total_fortune)
+            if overlay.current_player.faction is Faction.SCRUTINEERS:
+                total_fortune *= 0.75
             if is_night:
                 total_fortune *= 1.1
             for idx, blessing in enumerate(overlay.available_blessings):
