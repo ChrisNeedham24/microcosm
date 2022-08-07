@@ -6,7 +6,7 @@ from calculator import get_player_totals, get_setl_totals, attack, complete_cons
 from catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
 from models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, UnitPlan, \
-    Construction, Unit, ExpansionPlaystyle, Quad, GameConfig
+    Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction
 
 
 def set_blessing(player: Player, player_totals: (float, float, float, float)):
@@ -248,7 +248,7 @@ class MoveMaker:
         for setl in player.settlements:
             if setl.current_work is None:
                 set_construction(player, setl, is_night)
-            else:
+            elif player.faction is not Faction.FUNDAMENTALISTS:
                 constr = setl.current_work.construction
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out. In
                 # circumstances where the settlement's satisfaction is less than 50 and the construction would yield
@@ -257,7 +257,7 @@ class MoveMaker:
                                (setl.satisfaction < 50 and player.wealth >= constr.cost and
                                 isinstance(constr, Improvement) and
                                 (constr.effect.satisfaction > 0 or constr.effect.harvest > 0)):
-                    complete_construction(setl)
+                    complete_construction(setl, player)
                     player.wealth -= rem_work
             # If the settlement has a settler, deploy them.
             if len([unit for unit in setl.garrison if unit.plan.can_settle]) > 0:
@@ -323,6 +323,8 @@ class MoveMaker:
                 setl_name = self.namer.get_settlement_name(quad_biome)
                 new_settl = Settlement(setl_name, unit.location, [],
                                        [self.board_ref.quads[unit.location[1]][unit.location[0]]], [])
+                if player.faction is Faction.FRONTIERSMEN:
+                    new_settl.satisfaction = 75
                 player.settlements.append(new_settl)
                 player.units.remove(unit)
         else:
@@ -432,7 +434,8 @@ class MoveMaker:
                                 player.units.remove(data.attacker)
                             elif data.setl_was_taken:
                                 data.settlement.under_siege_by = None
-                                player.settlements.append(data.settlement)
+                                if player.faction is not Faction.CONCENTRATED:
+                                    player.settlements.append(data.settlement)
                                 setl_owner.settlements.remove(data.settlement)
                     # If we have chosen to place a settlement under siege, and the unit is not already sieging another
                     # settlement, do so.

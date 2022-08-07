@@ -268,9 +268,9 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
         # A unit plan is available if the unit plan's pre-requisite has been satisfied, or it is non-existent.
         if unit_plan.prereq is None or unit_plan.prereq in player.blessings:
             # Note that settlers can only be recruited in settlements of at least level 2.
-            if unit_plan.can_settle and setl_lvl > 1:
+            if unit_plan.can_settle and setl_lvl > 1 and player.faction is not Faction.CONCENTRATED:
                 unit_plans.append(unit_plan)
-            elif not unit_plan.can_settle:
+            elif not unit_plan.can_settle and not (player.faction is Faction.FRONTIERSMEN and setl_lvl >= 5):
                 unit_plans.append(unit_plan)
 
     def get_cost(up: UnitPlan) -> float:

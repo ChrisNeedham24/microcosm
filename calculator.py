@@ -141,6 +141,8 @@ def get_setl_totals(player: Player, setl: Settlement, is_night: bool, strict: bo
         total_wealth *= 1.5
     if player.faction is Faction.GODLESS:
         total_wealth *= 1.25
+    elif player.faction is Faction.ORTHODOX:
+        total_wealth *= 0.75
     total_harvest = max(sum(quad.harvest for quad in setl.quads) +
                         sum(imp.effect.harvest for imp in setl.improvements), 0)
     total_harvest += (setl.level - 1) * 0.25 * total_harvest
@@ -148,6 +150,8 @@ def get_setl_totals(player: Player, setl: Settlement, is_night: bool, strict: bo
         total_harvest = 0
     elif setl.harvest_status is HarvestStatus.PLENTIFUL:
         total_harvest *= 1.5
+    if player.faction is Faction.RAVENOUS:
+        total_harvest *= 1.25
     if is_night:
         total_harvest /= 2
     total_zeal = max(sum(quad.zeal for quad in setl.quads) +
@@ -155,6 +159,8 @@ def get_setl_totals(player: Player, setl: Settlement, is_night: bool, strict: bo
     total_zeal += (setl.level - 1) * 0.25 * total_zeal
     if player.faction is Faction.AGRICULTURISTS:
         total_zeal *= 0.75
+    elif player.faction is Faction.FUNDAMENTALISTS:
+        total_zeal *= 1.25
     total_fortune = max(sum(quad.fortune for quad in setl.quads) +
                         sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 0.5)
     total_fortune += (setl.level - 1) * 0.25 * total_fortune
@@ -162,11 +168,13 @@ def get_setl_totals(player: Player, setl: Settlement, is_night: bool, strict: bo
         total_fortune *= 1.1
     if player.faction is Faction.SCRUTINEERS:
         total_fortune *= 0.75
+    elif player.faction is Faction.ORTHODOX:
+        total_fortune *= 1.25
 
     return total_wealth, total_harvest, total_zeal, total_fortune
 
 
-def complete_construction(setl: Settlement):
+def complete_construction(setl: Settlement, player: Player):
     """
     Completes the current construction for the given settlement.
     :param setl: The settlement having its construction completed.
@@ -176,8 +184,9 @@ def complete_construction(setl: Settlement):
     if isinstance(setl.current_work.construction, Improvement):
         setl.improvements.append(setl.current_work.construction)
         if setl.current_work.construction.effect.strength > 0:
-            setl.strength += setl.current_work.construction.effect.strength
-            setl.max_strength += setl.current_work.construction.effect.strength
+            strength_multiplier = 2 if player.faction is Faction.CONCENTRATED else 1
+            setl.strength += setl.current_work.construction.effect.strength * strength_multiplier
+            setl.max_strength += setl.current_work.construction.effect.strength * strength_multiplier
         if setl.current_work.construction.effect.satisfaction != 0:
             setl.satisfaction += setl.current_work.construction.effect.satisfaction
             if setl.satisfaction < 0:

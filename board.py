@@ -7,7 +7,7 @@ import pyxel
 
 from calculator import calculate_yield_for_quad, attack, investigate_relic
 from catalogue import get_default_unit, Namer
-from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult
+from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, Faction
 from overlay import Overlay
 from overlay_display import display_overlay
 
@@ -397,6 +397,10 @@ class Board:
                     setl_name = self.namer.get_settlement_name(quad_biome)
                     new_settl = Settlement(setl_name, (adj_x, adj_y), [], [self.quads[adj_y][adj_x]],
                                            [get_default_unit((adj_x, adj_y))])
+                    if player.faction is Faction.CONCENTRATED:
+                        new_settl.strength *= 2
+                    elif player.faction is Faction.FRONTIERSMEN:
+                        new_settl.satisfaction = 75
                     player.settlements.append(new_settl)
                     # Automatically add 5 quads in either direction to the player's seen.
                     for i in range(adj_y - 5, adj_y + 6):
@@ -567,6 +571,8 @@ class Board:
             setl_name = self.namer.get_settlement_name(quad_biome)
             new_settl = Settlement(setl_name, self.selected_unit.location, [],
                                    [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]], [])
+            if player.faction is Faction.FRONTIERSMEN:
+                new_settl.satisfaction = 75
             player.settlements.append(new_settl)
             # Destroy the settler unit and select the new settlement.
             player.units.remove(self.selected_unit)

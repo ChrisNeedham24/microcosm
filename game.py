@@ -211,7 +211,8 @@ class Game:
                     elif data.setl_was_taken:
                         # If the settlement was taken, transfer it to the player.
                         data.settlement.under_siege_by = None
-                        self.players[0].settlements.append(data.settlement)
+                        if self.players[0].faction is not Faction.CONCENTRATED:
+                            self.players[0].settlements.append(data.settlement)
                         for idx, p in enumerate(self.players):
                             if data.settlement in p.settlements and idx != 0:
                                 p.settlements.remove(data.settlement)
@@ -362,7 +363,8 @@ class Game:
                 self.music_player.next_song()
         elif pyxel.btnp(pyxel.KEY_B):
             if self.game_started and self.board.selected_settlement is not None and \
-                    self.board.selected_settlement.current_work is not None:
+                    self.board.selected_settlement.current_work is not None and \
+                    self.players[0].faction is not Faction.FUNDAMENTALISTS:
                 # Pressing B will buyout the remaining cost of the settlement's current construction.
                 current_work = self.board.selected_settlement.current_work
                 remaining_work = current_work.construction.cost - current_work.zeal_consumed
@@ -371,7 +373,7 @@ class Game:
                         CompletedConstruction(self.board.selected_settlement.current_work.construction,
                                               self.board.selected_settlement)
                     ])
-                    complete_construction(self.board.selected_settlement)
+                    complete_construction(self.board.selected_settlement, self.players[0])
                     self.players[0].wealth -= remaining_work
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
             if self.game_started and not self.board.overlay.is_victory() and not self.board.overlay.is_elimination():
@@ -439,6 +441,8 @@ class Game:
                 total_wealth -= unit.plan.cost / 25
         if self.players[0].faction is Faction.GODLESS:
             total_wealth *= 1.25
+        elif self.players[0].faction is Faction.ORTHODOX:
+            total_wealth *= 0.75
         has_no_blessing = self.players[0].ongoing_blessing is None
         will_have_negative_wealth = (self.players[0].wealth + total_wealth) < 0 and len(self.players[0].units) > 0
         if not self.board.overlay.is_warning() and \
@@ -517,7 +521,8 @@ class Game:
                 setl.harvest_reserves += total_harvest
                 # Settlement levels are increased if the settlement's harvest reserves exceed a certain level (specified
                 # in models.py).
-                if setl.harvest_reserves >= pow(setl.level, 2) * 25 and setl.level < 10:
+                level_cap = 5 if player.faction is Faction.RAVENOUS else 10
+                if setl.harvest_reserves >= pow(setl.level, 2) * 25 and setl.level < level_cap:
                     setl.level += 1
                     levelled_up_settlements.append(setl)
 
@@ -526,7 +531,7 @@ class Game:
                     setl.current_work.zeal_consumed += total_zeal
                     if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
                         completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
-                        complete_construction(setl)
+                        complete_construction(setl, player)
             # Show notifications if the player's constructions have completed or one of their settlements has levelled
             # up.
             if player.ai_playstyle is None and len(completed_constructions) > 0:
@@ -756,6 +761,10 @@ class Game:
                 new_settl = Settlement(setl_name, setl_coords, [],
                                        [self.board.quads[setl_coords[0]][setl_coords[1]]],
                                        [get_default_unit(setl_coords)])
+                if player.faction is Faction.CONCENTRATED:
+                    new_settl.strength *= 2
+                elif player.faction is Faction.FRONTIERSMEN:
+                    new_settl.satisfaction = 75
                 player.settlements.append(new_settl)
 
     def process_ais(self):

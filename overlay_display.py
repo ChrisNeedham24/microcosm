@@ -289,10 +289,13 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 total_zeal += (overlay.current_settlement.level - 1) * 0.25 * total_zeal
                 if overlay.current_player.faction is Faction.AGRICULTURISTS:
                     total_zeal *= 0.75
+                elif overlay.current_player.faction is Faction.FUNDAMENTALISTS:
+                    total_zeal *= 1.25
                 remaining_turns = math.ceil(remaining_work / total_zeal)
                 pyxel.text(20, 145 - y_offset, current_work.construction.name, pyxel.COLOR_WHITE)
                 pyxel.text(20, 155 - y_offset, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
-                if overlay.current_player.wealth >= remaining_work:
+                if overlay.current_player.wealth >= remaining_work and \
+                        overlay.current_player.faction is not Faction.FUNDAMENTALISTS:
                     pyxel.blt(20, 153, 0, 0, 52, 8, 8)
                     pyxel.text(30, 155, "Buyout:", pyxel.COLOR_WHITE)
                     pyxel.blt(60, 153, 0, 0, 44, 8, 8)
@@ -351,6 +354,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
             total_zeal = max(0.5, total_zeal) + (overlay.current_settlement.level - 1) * 0.25 * total_zeal
             if overlay.current_player.faction is Faction.AGRICULTURISTS:
                 total_zeal *= 0.75
+            elif overlay.current_player.faction is Faction.FUNDAMENTALISTS:
+                total_zeal *= 1.25
             if overlay.constructing_improvement:
                 for idx, construction in enumerate(overlay.available_constructions):
                     if overlay.construction_boundaries[0] <= idx <= overlay.construction_boundaries[1]:
@@ -456,6 +461,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     wealth_to_add *= 1.5
                 if overlay.current_player.faction is Faction.GODLESS:
                     wealth_to_add *= 1.25
+                elif overlay.current_player.faction is Faction.ORTHODOX:
+                    wealth_to_add *= 0.75
                 wealth_per_turn += wealth_to_add
             for unit in overlay.current_player.units:
                 if not unit.garrisoned:
@@ -498,6 +505,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
             total_fortune = max(0.5, total_fortune)
             if overlay.current_player.faction is Faction.SCRUTINEERS:
                 total_fortune *= 0.75
+            elif overlay.current_player.faction is Faction.ORTHODOX:
+                total_fortune *= 1.25
             if is_night:
                 total_fortune *= 1.1
             for idx, blessing in enumerate(overlay.available_blessings):
