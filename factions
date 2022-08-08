@@ -76,8 +76,8 @@ Residing in a new settlement is considered to be the pinnacle of Frontier achiev
 After some time, the people become restless and seek to expand further. And thus the cycle repeats.
 
 Faction 10: Imperials - Dark blue
-+ Units have 150% of the usual power
-- Settlements have 50% of the usual strength
++ Units have 150% of the usual power DONE
+- Settlements have 50% of the usual strength DONE
 The concept of raw power and strength has long been a core tenet of the self-dubbed Empire, with compulsory military
 service a feature of their culture. This value has been drilled into the populace for such an extensive period that the
 armed forces of the Imperials are a fearsome sight to behold. Those lining up opposite gaze at one another in an effort
@@ -86,8 +86,8 @@ under the expectation that no one would dare attack one of their settlements for
 them relatively undefended.
 
 Faction 11: The Persistent - Red
-+ Units have 150% of the usual health
-- Units have 75% of the usual power
++ Units have 150% of the usual health DONE
+- Units have 75% of the usual power DONE
 Atop a mountain in the north of these lands, there is a people of a certain philosophical nature. Instilled in all from
 birth to death is the ideal of determination, and achieving one's goals no matter the cost, in time or in life. Aptly
 dubbed by others as The Persistent, these militaristic people often elect to wear others down through sieges and
@@ -95,8 +95,8 @@ defensive manoeuvres. Of course, such strategies become ineffective against the 
 The Persistent; they simply continue on.
 
 Faction 12: Explorers - Pink
-+ Units have 150% of the usual stamina
-- Units have 75% of the usual health
++ Units have 150% of the usual stamina DONE
+- Units have 75% of the usual health DONE
 Originating from an isolated part of the globe, the Explorers were first introduced to the wider world when a lost
 trader stumbled across their crude and underdeveloped settlement. Guiding the leaders of the settlement out to the
 nearest other settlement, and returning to explain to the masses was significant. Once the Explorers got a taste, they
@@ -104,8 +104,8 @@ have not been able to stop. They look higher, run farther and dig deeper, at the
 Unfortunately for the Explorers, the required rest during the journey makes them easy targets for Heathens.
 
 Faction 13: Infidels - Brown
-+ Are not attacked by heathens
-- Are attacked on sight by other empires, regardless of circumstance (likelihood of winning)
++ Are not attacked by heathens DONE
+- Are attacked on sight by other empires, regardless of circumstance (likelihood of winning) DONE
 Some say they were raised by Heathens, and some say that their DNA is actually closer to Heathen than human. Regardless
 of their biological makeup, if you approach someone on the street of any settlement and bring up the Infidels, you will
 be met with a look of disgust and the question 'you're not one of them, are you?'. Seen as sub-human, other empires

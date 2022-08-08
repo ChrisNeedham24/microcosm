@@ -243,6 +243,8 @@ def get_available_improvements(player: Player, settlement: Settlement) -> typing
     :param settlement: The settlement to retrieve improvements for.
     :return: A list of available improvements.
     """
+    if player.faction is Faction.FRONTIERSMEN and settlement.level >= 5:
+        return []
     # An improvement is available if the improvement has not been built in this settlement yet and either the player has
     # satisfied the improvement's pre-requisite or the improvement does not have one.
     imps = [imp for imp in IMPROVEMENTS if (imp.prereq in player.blessings or imp.prereq is None)
@@ -272,6 +274,18 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
                 unit_plans.append(unit_plan)
             elif not unit_plan.can_settle and not (player.faction is Faction.FRONTIERSMEN and setl_lvl >= 5):
                 unit_plans.append(unit_plan)
+
+    if player.faction is Faction.IMPERIALS:
+        for unit_plan in unit_plans:
+            unit_plan.power *= 1.5
+    elif player.faction is Faction.PERSISTENT:
+        for unit_plan in unit_plans:
+            unit_plan.max_health *= 1.5
+            unit_plan.power *= 0.75
+    elif player.faction is Faction.EXPLORERS:
+        for unit_plan in unit_plans:
+            unit_plan.total_stamina *= 1.5
+            unit_plan.max_health *= 0.75
 
     def get_cost(up: UnitPlan) -> float:
         return up.cost

@@ -325,6 +325,8 @@ class MoveMaker:
                                        [self.board_ref.quads[unit.location[1]][unit.location[0]]], [])
                 if player.faction is Faction.FRONTIERSMEN:
                     new_settl.satisfaction = 75
+                elif player.faction is Faction.IMPERIALS:
+                    new_settl.strength /= 2
                 player.settlements.append(new_settl)
                 player.units.remove(unit)
         else:
@@ -334,11 +336,16 @@ class MoveMaker:
             # unit can attack if any of its settlements are under siege or attack, or if the AI is aggressive, or if the
             # AI is neutral but with a health advantage over another unit.
             for other_u in other_units:
+                is_infidel = False
+                for player in all_players:
+                    if player.faction is Faction.INFIDELS and other_u in player.units:
+                        is_infidel = True
+                        break
                 could_attack: bool = any(setl.under_siege_by is not None or setl.strength < setl.max_strength / 2
                                          for setl in player.settlements) or \
                                      player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
                                      (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
-                                      unit.health >= other_u.health * 2)
+                                      unit.health >= other_u.health * 2) or is_infidel
                 # Of course, the attacked unit has to be close enough.
                 if max(abs(unit.location[0] - other_u.location[0]),
                        abs(unit.location[1] - other_u.location[1])) <= unit.remaining_stamina and could_attack and \

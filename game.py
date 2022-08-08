@@ -708,8 +708,9 @@ class Game:
         """
         all_units = []
         for player in self.players:
-            for unit in player.units:
-                all_units.append(unit)
+            if player.faction is not Faction.INFIDELS:
+                for unit in player.units:
+                    all_units.append(unit)
         for heathen in self.heathens:
             within_range: typing.Optional[Unit] = None
             # Check if any player unit is within range of the heathen.
@@ -765,6 +766,8 @@ class Game:
                     new_settl.strength *= 2
                 elif player.faction is Faction.FRONTIERSMEN:
                     new_settl.satisfaction = 75
+                elif player.faction is Faction.IMPERIALS:
+                    new_settl.strength /= 2
                 player.settlements.append(new_settl)
 
     def process_ais(self):
