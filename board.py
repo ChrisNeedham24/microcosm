@@ -59,7 +59,7 @@ class Board:
         self.selected_unit: typing.Optional[typing.Union[Unit, Heathen]] = None
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
-             is_night: bool):
+             is_night: bool, turns_until_change: int):
         """
         Draws the board and its objects to the screen.
         :param players: The players in the game.
@@ -76,7 +76,7 @@ class Board:
         selected_quad_coords: (int, int) = None
         quads_to_show: typing.Set[typing.Tuple[int, int]] = set()
         # At nighttime, the player can only see a few quads around their settlements and units.
-        if is_night:
+        if is_night and players[0].faction is not Faction.NOCTURNE:
             for setl in players[0].settlements:
                 for i in range(setl.location[0] - 3, setl.location[0] + 4):
                     for j in range(setl.location[1] - 3, setl.location[1] + 4):
@@ -87,7 +87,8 @@ class Board:
                         quads_to_show.add((i, j))
         else:
             quads_to_show = players[0].quads_seen
-        fog_of_war_impacts: bool = self.game_config.fog_of_war or is_night
+        fog_of_war_impacts: bool = self.game_config.fog_of_war or \
+                                   (is_night and players[0].faction is not Faction.NOCTURNE)
         # Draw the quads.
         for i in range(map_pos[0], map_pos[0] + 24):
             for j in range(map_pos[1], map_pos[1] + 22):
@@ -244,6 +245,8 @@ class Board:
         else:
             pyxel.text(2, 189, self.current_help.value, pyxel.COLOR_WHITE)
         if self.game_config.climatic_effects:
+            if players[0].faction is Faction.NOCTURNE:
+                pyxel.text(135, 190, f"({turns_until_change})", pyxel.COLOR_WHITE)
             if is_night:
                 pyxel.blt(153, 188, 0, 8, 84, 8, 8)
             else:

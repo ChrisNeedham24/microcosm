@@ -152,7 +152,7 @@ def get_setl_totals(player: Player, setl: Settlement, is_night: bool, strict: bo
         total_harvest *= 1.5
     if player.faction is Faction.RAVENOUS:
         total_harvest *= 1.25
-    if is_night:
+    if is_night and player.faction is not Faction.NOCTURNE:
         total_harvest /= 2
     total_zeal = max(sum(quad.zeal for quad in setl.quads) +
                      sum(imp.effect.zeal for imp in setl.improvements), 0 if strict else 0.5)

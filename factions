@@ -1,6 +1,6 @@
 FACTIONS PLANNING
 
-Faction 1: Agriculturists - Green
+Faction 1: Agriculturists - Green VALID
 + Immune to poor harvest DONE
 - Generates 75% of the usual zeal DONE
 Using techniques passed down through the generations, the Agriculturists are able to sustain their populace through famine
@@ -8,7 +8,7 @@ and indeed through feast. Some of this land's greatest delicacies are grown by t
 could grow what they do, winking at one another as they say it. Without the spectre of hunger on the horizon, the Agriculturists
 lead the slow life, indulging in pleasures at their own pace.
 
-Faction 2: Capitalists - Yellow
+Faction 2: Capitalists - Yellow VALID
 + Immune to recession DONE
 - Satisfaction drops by double if below harvest boundary DONE
 The sky-high towers and luxurious dwellings found throughout their cities represent the Capitalists to the fullest. They
@@ -16,7 +16,7 @@ value the clink of coins over anything else, and it has served them well so far.
 corner, things are clearly not as the seem. And as the slums fill up, there better be enough food to go around, lest
 something... dangerous happens.
 
-Faction 3: Scrutineers - Light blue
+Faction 3: Scrutineers - Light blue VALID
 + Always finds something in investigations DONE
 - Generates 75% of the usual fortune DONE
 Due to a genetic trait, the Scrutineers have always had good eyesight and they use it to full effect. Nothing gets past
@@ -24,7 +24,7 @@ them, from the temples of the outlands to the streets of their cities. But, as i
 the local clergy certainly aren't exempt from the all-seeing eye, with blessings being stymied as much as is humanly
 possible.
 
-Faction 4: The Godless - Cyan
+Faction 4: The Godless - Cyan VALID
 + Generates 125% of the usual wealth DONE
 - Blessings are 150% of the usual cost DONE
 Many eons ago, a subsection of the population of these lands began to question the effectiveness of their blessings
@@ -112,8 +112,8 @@ be met with a look of disgust and the question 'you're not one of them, are you?
 engage in combat on sight with the Infidels, no matter the disguises they apply.
 
 Faction 14: The Nocturne - Navy
-+ Thrive at night (harvest/vision not reduced, player units are strengthened like heathens, also know how long until night)
-- Units have 50% power/health/stamina during daytime
++ Thrive at night (harvest/vision not reduced, player units are strengthened like heathens, also know how long until night) DONE
+- Units have 50% power/health/stamina during daytime DONE
 Long have The Nocturne worshipped the holy moons of this world, and through repeated attempts to modify their circadian
 rhythm, the strongest among them have developed genetic abilities. These abilities go further than simply making them
 nocturnal, no, they see farther and become stronger during the nighttime, and have perfected the art of predicting the

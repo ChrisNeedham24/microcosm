@@ -398,7 +398,8 @@ class Game:
         if self.on_menu:
             self.menu.draw()
         elif self.game_started:
-            self.board.draw(self.players, self.map_pos, self.turn, self.heathens, self.nighttime_left > 0)
+            self.board.draw(self.players, self.map_pos, self.turn, self.heathens, self.nighttime_left > 0,
+                            self.until_night if self.until_night != 0 else self.nighttime_left)
 
     def gen_players(self, cfg: GameConfig):
         """
@@ -591,6 +592,8 @@ class Game:
                     self.nighttime_left = random.randint(5, 25)
                     for h in self.heathens:
                         h.plan.power = round(2 * h.plan.power)
+                    for u in self.players[0].units:
+                        u.plan.power = round(2 * u.plan.power)
             else:
                 self.nighttime_left -= 1
                 if self.nighttime_left == 0:
@@ -598,6 +601,11 @@ class Game:
                     self.board.overlay.toggle_night(False)
                     for h in self.heathens:
                         h.plan.power = round(h.plan.power / 2)
+                    for u in self.players[0].units:
+                        u.plan.power = round(u.plan.power / 4)
+                        u.health = round(u.health / 2)
+                        u.plan.max_health = round(u.plan.max_health / 2)
+                        u.plan.total_stamina = round(u.plan.total_stamina / 2)
 
         # Autosave every 10 turns.
         if self.turn % 10 == 0:
