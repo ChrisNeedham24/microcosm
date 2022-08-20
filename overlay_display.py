@@ -275,7 +275,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
             if overlay.current_settlement.current_work is not None and \
                     overlay.current_player.wealth >= \
                     (overlay.current_settlement.current_work.construction.cost -
-                     overlay.current_settlement.current_work.zeal_consumed):
+                     overlay.current_settlement.current_work.zeal_consumed) and \
+                    overlay.current_player.faction is not Faction.FUNDAMENTALISTS:
                 y_offset = 10
             pyxel.rectb(12, 130 - y_offset, 176, 40 + y_offset, pyxel.COLOR_WHITE)
             pyxel.rect(13, 131 - y_offset, 174, 38 + y_offset, pyxel.COLOR_BLACK)
@@ -328,9 +329,9 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
                 pyxel.text(18, 14, "Remember: the siege will end if you move!", pyxel.COLOR_RED)
             pyxel.blt(20, 120 + y_offset, 0, 8, 36, 8, 8)
-            pyxel.text(30, 122 + y_offset, str(overlay.selected_unit.health), pyxel.COLOR_WHITE)
+            pyxel.text(30, 122 + y_offset, str(round(overlay.selected_unit.health)), pyxel.COLOR_WHITE)
             pyxel.blt(20, 130 + y_offset, 0, 0, 36, 8, 8)
-            pyxel.text(30, 132 + y_offset, str(overlay.selected_unit.plan.power), pyxel.COLOR_WHITE)
+            pyxel.text(30, 132 + y_offset, str(round(overlay.selected_unit.plan.power)), pyxel.COLOR_WHITE)
             pyxel.blt(20, 140 + y_offset, 0, 16, 36, 8, 8)
             pyxel.text(30, 142 + y_offset,
                        f"{overlay.selected_unit.remaining_stamina}/{overlay.selected_unit.plan.total_stamina}",
@@ -412,7 +413,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                         pyxel.blt(30, 42 + adj_idx * 18, 0, 8, 36, 8, 8)
                         pyxel.text(45, 42 + adj_idx * 18, str(unit_plan.max_health), pyxel.COLOR_WHITE)
                         pyxel.blt(60, 42 + adj_idx * 18, 0, 0, 36, 8, 8)
-                        pyxel.text(75, 42 + adj_idx * 18, str(unit_plan.power), pyxel.COLOR_WHITE)
+                        pyxel.text(75, 42 + adj_idx * 18, str(round(unit_plan.power)), pyxel.COLOR_WHITE)
                         pyxel.blt(90, 42 + adj_idx * 18, 0, 16, 36, 8, 8)
                         pyxel.text(105, 42 + adj_idx * 18, str(unit_plan.total_stamina), pyxel.COLOR_WHITE)
                         if unit_plan.can_settle:

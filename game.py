@@ -155,6 +155,7 @@ class Game:
                     self.board = Board(cfg, self.namer)
                     self.move_maker.board_ref = self.board
                     self.board.overlay.toggle_tutorial()
+                    self.namer.reset()
                     self.initialise_ais()
                     self.music_player.stop_menu_music()
                     self.music_player.play_game_music()
@@ -776,6 +777,7 @@ class Game:
                     new_settl.satisfaction = 75
                 elif player.faction is Faction.IMPERIALS:
                     new_settl.strength /= 2
+                    new_settl.max_strength /= 2
                 player.settlements.append(new_settl)
 
     def process_ais(self):
@@ -892,6 +894,7 @@ class Game:
                     p.ai_playstyle = AIPlaystyle(AttackPlaystyle[p.ai_playstyle.attacking],
                                                  ExpansionPlaystyle[p.ai_playstyle.expansion])
                 p.imminent_victories = set(p.imminent_victories)
+                p.faction = Faction(p.faction)
             # For the AI players, we can just make quads_seen an empty set, as it's not used.
             for i in range(1, len(self.players)):
                 self.players[i].quads_seen = set()

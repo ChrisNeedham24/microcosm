@@ -117,8 +117,9 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
     # If the settlement has not yet produced a settler in its 'lifetime', and it has now reached its required level for
     # expansion, choose that. Alternatively, if the AI is facing a situation where all of their settlements are
     # dissatisfied, and they can produce a settler, produce one regardless of whether they have produced one before.
-    elif (setl.level >= get_expansion_lvl() and not setl.produced_settler) or \
-            (setl.level > 1 and all(setl.satisfaction < 40 for setl in player.settlements)):
+    elif player.faction is not Faction.CONCENTRATED and \
+            ((setl.level >= get_expansion_lvl() and not setl.produced_settler) or
+             (setl.level > 1 and all(setl.satisfaction < 40 for setl in player.settlements))):
         setl.current_work = Construction(settler_units[0])
     else:
         if len(avail_imps) > 0:
@@ -327,6 +328,7 @@ class MoveMaker:
                     new_settl.satisfaction = 75
                 elif player.faction is Faction.IMPERIALS:
                     new_settl.strength /= 2
+                    new_settl.max_strength /= 2
                 player.settlements.append(new_settl)
                 player.units.remove(unit)
         else:
@@ -337,8 +339,8 @@ class MoveMaker:
             # AI is neutral but with a health advantage over another unit.
             for other_u in other_units:
                 is_infidel = False
-                for player in all_players:
-                    if player.faction is Faction.INFIDELS and other_u in player.units:
+                for pl in all_players:
+                    if pl.faction is Faction.INFIDELS and other_u in pl.units:
                         is_infidel = True
                         break
                 could_attack: bool = any(setl.under_siege_by is not None or setl.strength < setl.max_strength / 2

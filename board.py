@@ -406,6 +406,7 @@ class Board:
                         new_settl.satisfaction = 75
                     elif player.faction is Faction.IMPERIALS:
                         new_settl.strength /= 2
+                        new_settl.max_strength /= 2
                     player.settlements.append(new_settl)
                     # Automatically add 5 quads in either direction to the player's seen.
                     for i in range(adj_y - 5, adj_y + 6):
@@ -580,6 +581,7 @@ class Board:
                 new_settl.satisfaction = 75
             elif player.faction is Faction.IMPERIALS:
                 new_settl.strength /= 2
+                new_settl.max_strength /= 2
             player.settlements.append(new_settl)
             # Destroy the settler unit and select the new settlement.
             player.units.remove(self.selected_unit)

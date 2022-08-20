@@ -266,7 +266,7 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
     :return: A list of available units.
     """
     unit_plans = []
-    for unit_plan in UNIT_PLANS:
+    for unit_plan in deepcopy(UNIT_PLANS):
         # A unit plan is available if the unit plan's pre-requisite has been satisfied, or it is non-existent.
         if unit_plan.prereq is None or unit_plan.prereq in player.blessings:
             # Note that settlers can only be recruited in settlements of at least level 2.
@@ -284,7 +284,7 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
             unit_plan.power *= 0.75
     elif player.faction is Faction.EXPLORERS:
         for unit_plan in unit_plans:
-            unit_plan.total_stamina *= 1.5
+            unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
             unit_plan.max_health *= 0.75
 
     def get_cost(up: UnitPlan) -> float:
