@@ -593,8 +593,9 @@ class Game:
                     self.nighttime_left = random.randint(5, 25)
                     for h in self.heathens:
                         h.plan.power = round(2 * h.plan.power)
-                    for u in self.players[0].units:
-                        u.plan.power = round(2 * u.plan.power)
+                    if self.players[0].faction is Faction.NOCTURNE:
+                        for u in self.players[0].units:
+                            u.plan.power = round(2 * u.plan.power)
             else:
                 self.nighttime_left -= 1
                 if self.nighttime_left == 0:
@@ -602,11 +603,12 @@ class Game:
                     self.board.overlay.toggle_night(False)
                     for h in self.heathens:
                         h.plan.power = round(h.plan.power / 2)
-                    for u in self.players[0].units:
-                        u.plan.power = round(u.plan.power / 4)
-                        u.health = round(u.health / 2)
-                        u.plan.max_health = round(u.plan.max_health / 2)
-                        u.plan.total_stamina = round(u.plan.total_stamina / 2)
+                    if self.players[0].faction is Faction.NOCTURNE:
+                        for u in self.players[0].units:
+                            u.plan.power = round(u.plan.power / 4)
+                            u.health = round(u.health / 2)
+                            u.plan.max_health = round(u.plan.max_health / 2)
+                            u.plan.total_stamina = round(u.plan.total_stamina / 2)
 
         # Autosave every 10 turns.
         if self.turn % 10 == 0:
@@ -765,11 +767,11 @@ class Game:
         """
         for player in self.players:
             if player.ai_playstyle is not None:
-                setl_coords = random.randint(0, 89), random.randint(0, 99)
-                quad_biome = self.board.quads[setl_coords[0]][setl_coords[1]].biome
+                setl_coords = random.randint(0, 99), random.randint(0, 89)
+                quad_biome = self.board.quads[setl_coords[1]][setl_coords[0]].biome
                 setl_name = self.namer.get_settlement_name(quad_biome)
                 new_settl = Settlement(setl_name, setl_coords, [],
-                                       [self.board.quads[setl_coords[0]][setl_coords[1]]],
+                                       [self.board.quads[setl_coords[1]][setl_coords[0]]],
                                        [get_default_unit(setl_coords)])
                 if player.faction is Faction.CONCENTRATED:
                     new_settl.strength *= 2

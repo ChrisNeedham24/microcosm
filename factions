@@ -85,7 +85,7 @@ to gauge whether it might be preferred to retreat. But this superiority leads to
 under the expectation that no one would dare attack one of their settlements for fear of retribution, and as such leave
 them relatively undefended.
 
-Faction 11: The Persistent - Red
+Faction 11: The Persistent - Red VALID
 + Units have 150% of the usual health DONE
 - Units have 75% of the usual power DONE
 Atop a mountain in the north of these lands, there is a people of a certain philosophical nature. Instilled in all from
@@ -94,7 +94,7 @@ dubbed by others as The Persistent, these militaristic people often elect to wea
 defensive manoeuvres. Of course, such strategies become ineffective against the well-prepared, but this does not bother
 The Persistent; they simply continue on.
 
-Faction 12: Explorers - Pink
+Faction 12: Explorers - Pink VALID
 + Units have 150% of the usual stamina DONE
 - Units have 75% of the usual health DONE
 Originating from an isolated part of the globe, the Explorers were first introduced to the wider world when a lost
@@ -103,7 +103,7 @@ nearest other settlement, and returning to explain to the masses was significant
 have not been able to stop. They look higher, run farther and dig deeper, at the expense of their energy levels.
 Unfortunately for the Explorers, the required rest during the journey makes them easy targets for Heathens.
 
-Faction 13: Infidels - Brown
+Faction 13: Infidels - Brown VALID
 + Are not attacked by heathens DONE
 - Are attacked on sight by other empires, regardless of circumstance (likelihood of winning) DONE
 Some say they were raised by Heathens, and some say that their DNA is actually closer to Heathen than human. Regardless
@@ -111,7 +111,7 @@ of their biological makeup, if you approach someone on the street of any settlem
 be met with a look of disgust and the question 'you're not one of them, are you?'. Seen as sub-human, other empires
 engage in combat on sight with the Infidels, no matter the disguises they apply.
 
-Faction 14: The Nocturne - Navy
+Faction 14: The Nocturne - Navy VALID
 + Thrive at night (harvest/vision not reduced, player units are strengthened like heathens, also know how long until night) DONE
 - Units have 50% power/health/stamina during daytime DONE
 Long have The Nocturne worshipped the holy moons of this world, and through repeated attempts to modify their circadian

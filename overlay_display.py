@@ -66,14 +66,20 @@ def display_overlay(overlay: Overlay, is_night: bool):
         pyxel.rect(13, 51, 174, 56, pyxel.COLOR_BLACK)
         if overlay.night_beginning:
             pyxel.text(35, 55, "The everlasting night begins...", pyxel.COLOR_YELLOW)
-            pyxel.text(45, 65, "Reduced vision and harvest", pyxel.COLOR_RED)
             pyxel.text(63, 75, "Increased fortune", pyxel.COLOR_PURPLE)
             pyxel.text(55, 85, "Strengthened heathens", pyxel.COLOR_RED)
+            if overlay.current_player.faction is Faction.NOCTURNE:
+                pyxel.text(52, 65, "Nocturne bonus to units", pyxel.COLOR_GREEN)
+            else:
+                pyxel.text(45, 65, "Reduced vision and harvest", pyxel.COLOR_RED)
         else:
             pyxel.text(42, 55, "The sun returns once more...", pyxel.COLOR_YELLOW)
-            pyxel.text(45, 65, "Restored vision and harvest", pyxel.COLOR_GREEN)
             pyxel.text(67, 75, "Regular fortune", pyxel.COLOR_PURPLE)
             pyxel.text(62, 85, "Standard heathens", pyxel.COLOR_GREEN)
+            if overlay.current_player.faction is Faction.NOCTURNE:
+                pyxel.text(45, 65, "Nocturne unit bonus removed", pyxel.COLOR_RED)
+            else:
+                pyxel.text(45, 65, "Restored vision and harvest", pyxel.COLOR_GREEN)
         pyxel.text(70, 95, "SPACE: Dismiss", pyxel.COLOR_WHITE)
     # The close-to-victory overlay displays any players who are close to achieving a victory, and the type of
     # victory they are close to achieving.
@@ -411,7 +417,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                                    pyxel.COLOR_RED if overlay.selected_construction is unit_plan
                                    else pyxel.COLOR_WHITE)
                         pyxel.blt(30, 42 + adj_idx * 18, 0, 8, 36, 8, 8)
-                        pyxel.text(45, 42 + adj_idx * 18, str(unit_plan.max_health), pyxel.COLOR_WHITE)
+                        pyxel.text(45, 42 + adj_idx * 18, str(round(unit_plan.max_health)), pyxel.COLOR_WHITE)
                         pyxel.blt(60, 42 + adj_idx * 18, 0, 0, 36, 8, 8)
                         pyxel.text(75, 42 + adj_idx * 18, str(round(unit_plan.power)), pyxel.COLOR_WHITE)
                         pyxel.blt(90, 42 + adj_idx * 18, 0, 16, 36, 8, 8)
