@@ -11,22 +11,26 @@ from models import Player, Improvement, ImprovementType, Effect, Blessing, Settl
 SETL_NAMES = {
     Biome.DESERT: [
         "Enfu", "Saknoten", "Despemar", "Khasolzum", "Nekpesir", "Akhtamar", "Absai", "Khanomhat", "Sharrisir", "Kisri",
-        "Kervapet", "Khefupet", "Djesy", "Quri", "Sakmusa", "Khasru", "Farvaru", "Kiteru", "Setmeris", "Qulno"
+        "Kervapet", "Khefupet", "Djesy", "Quri", "Sakmusa", "Khasru", "Farvaru", "Kiteru", "Setmeris", "Qulno",
+        "Kirinu", "Farpesiris", "Neripet", "Shafu", "Kiskhekhen", "Ennotjer", "Desnounis", "Avseta", "Ebsai", "Ektu"
     ],
     Biome.FOREST: [
         "Kalshara", "Mora Caelora", "Yam Ennore", "Uyla Themar", "Nelrenqua", "Caranlian", "Osaenamel", "Elhamel",
         "Allenrion", "Nilathaes", "Osna Thalas", "Mytebel", "Ifoqua", "Amsanas", "Effa Dorei", "Aff Tirion",
-        "Wamalenor", "Thaihona", "Illmelion", "Naallume"
+        "Wamalenor", "Thaihona", "Illmelion", "Naallume", "Ayh Taesi", "Naalbel", "Ohelean", "Esaqua", "Ulananore",
+        "Ei Allanar", "Eririon", "Wan Thalor", "Maldell", "Mile Thalore"
     ],
     Biome.SEA: [
         "Natanas", "Tempetia", "Leviarey", "Atlalis", "Neptulean", "Oceacada", "Naurus", "Hylore", "Expathis",
         "Liquasa", "Navanoch", "Flulean", "Calaril", "Njomon", "Jutumari", "Atlalora", "Abystin", "Vapolina",
-        "Watamari", "Pacirius"
+        "Watamari", "Pacirius", "Calaren", "Aegmon", "Puratia", "Nephren", "Glalis", "Tritemari", "Sireri", "Ocearis",
+        "Navasa", "Merrius"
     ],
     Biome.MOUNTAIN: [
         "Nem Tarhir", "Dharnturm", "Hun Thurum", "Vil Tarum", "Kha Kuldihr", "Hildarim", "Gog Daruhl", "Vogguruhm",
         "Dhighthiod", "Malwihr", "Mil Boldar", "Hunfuhn", "Dunulur", "Kagria", "Meltorum", "Gol Darohm", "Beghrihm",
-        "Heltorhm", "Kor Olihm", "Nilgron"
+        "Heltorhm", "Kor Olihm", "Nilgron", "Garndor", "Khon Daruhm", "Bhalladuhr", "Kham Tarum", "Dugboldor",
+        "Gor Faldir", "Vildarth", "Keraldur", "Vog Durahl", "Gumdim"
     ]
 }
 
