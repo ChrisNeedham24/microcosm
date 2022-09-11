@@ -343,7 +343,7 @@ class Game:
                 if self.board.overlay.is_setl():
                     self.board.selected_settlement = None
                     self.board.overlay.toggle_settlement(None, self.players[0])
-                if self.board.selected_unit is None:
+                if self.board.selected_unit is None or isinstance(self.board.selected_unit, Heathen):
                     self.board.selected_unit = self.players[0].units[0]
                     self.board.overlay.toggle_unit(self.players[0].units[0])
                 elif len(self.players[0].units) > 1:

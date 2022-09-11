@@ -449,6 +449,10 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 total_fortune = max(0.5, total_fortune)
                 if is_night:
                     total_fortune *= 1.1
+                if overlay.current_player.faction is Faction.SCRUTINEERS:
+                    total_fortune *= 0.75
+                elif overlay.current_player.faction is Faction.ORTHODOX:
+                    total_fortune *= 1.25
                 remaining_turns = math.ceil(remaining_work / total_fortune)
                 pyxel.text(30, 50, ong_blessing.blessing.name, pyxel.COLOR_WHITE)
                 pyxel.text(30, 60, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
@@ -488,7 +492,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(82 + x_offset, 70, str(overlay.attacked_settlement.name),
                        overlay.attacked_settlement_owner.colour)
             pyxel.blt(90, 78, 0, 0, 28, 8, 8)
-            pyxel.text(100, 80, str(overlay.attacked_settlement.strength), pyxel.COLOR_WHITE)
+            pyxel.text(100, 80, str(round(overlay.attacked_settlement.strength)), pyxel.COLOR_WHITE)
             pyxel.text(68, 95, "Attack",
                        pyxel.COLOR_RED
                        if overlay.setl_attack_opt is SettlementAttackType.ATTACK else pyxel.COLOR_WHITE)
