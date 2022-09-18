@@ -202,6 +202,7 @@ class Game:
             elif self.game_started and self.board.overlay.is_setl_click():
                 # If the player has chosen to attack a settlement, execute the attack.
                 if self.board.overlay.setl_attack_opt is SettlementAttackType.ATTACK:
+                    self.board.overlay.toggle_setl_click(None, None)
                     data = attack_setl(self.board.selected_unit, self.board.overlay.attacked_settlement,
                                        self.board.overlay.attacked_settlement_owner, False)
                     if data.attacker_was_killed:
@@ -220,7 +221,6 @@ class Game:
                                 break
                     self.board.overlay.toggle_setl_attack(data)
                     self.board.attack_time_bank = 0
-                    self.board.overlay.toggle_setl_click(None, None)
                 elif self.board.overlay.setl_attack_opt is SettlementAttackType.BESIEGE:
                     # Alternatively, begin a siege on the settlement.
                     self.board.selected_unit.sieging = True

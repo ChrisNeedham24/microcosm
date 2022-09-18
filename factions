@@ -8,7 +8,7 @@ and indeed through feast. Some of this land's greatest delicacies are grown by t
 could grow what they do, winking at one another as they say it. Without the spectre of hunger on the horizon, the Agriculturists
 lead the slow life, indulging in pleasures at their own pace.
 
-Faction 2: Capitalists - Yellow VALID
+Faction 2: Capitalists - Yellow VALID VIABLE
 + Immune to recession DONE
 - Satisfaction drops by double if below harvest boundary DONE
 The sky-high towers and luxurious dwellings found throughout their cities represent the Capitalists to the fullest. They
@@ -67,7 +67,7 @@ one looks along with the cloud-breaching towers can make one feel like they have
 future. It is this intimidatory factor, in combination with the colossal ramparts surrounding the megapolis that have
 kept The Concentrated safe and sound for many years.
 
-Faction 9: Frontiersmen - Peach VALID
+Faction 9: Frontiersmen - Peach VALID VIABLE
 + New settlements begin on 75 satisfaction DONE
 - Once a settlement reaches level 5, only settler units can be constructed DONE
 Blink and you'll miss it; that's the story of the settlements of the Frontier. The Frontiersmen have a near obsession
@@ -75,7 +75,7 @@ with the thrill of the frontier and making something of inhospitable terrain, in
 Residing in a new settlement is considered to be the pinnacle of Frontier achievement, but the shine wears off quickly.
 After some time, the people become restless and seek to expand further. And thus the cycle repeats.
 
-Faction 10: Imperials - Dark blue VALID
+Faction 10: Imperials - Dark blue VALID VIABLE
 + Units have 150% of the usual power DONE
 - Settlements have 50% of the usual strength DONE
 The concept of raw power and strength has long been a core tenet of the self-dubbed Empire, with compulsory military

@@ -305,7 +305,7 @@ def get_available_blessings(player: Player) -> typing.List[Blessing]:
     :param player: The player viewing the available blessings.
     :return: A list of available blessings.
     """
-    blessings = [bls for bls in BLESSINGS.values() if bls not in player.blessings]
+    blessings = [bls for bls in deepcopy(BLESSINGS).values() if bls not in player.blessings]
 
     if player.faction is Faction.GODLESS:
         for bls in blessings:
@@ -325,8 +325,8 @@ def get_all_unlockable(blessing: Blessing) -> typing.List[typing.Union[Improveme
     :param blessing: The blessing to search pre-requisites for.
     :return: A list of unlockable improvements and unit plans.
     """
-    unlockable = [imp for imp in IMPROVEMENTS if imp.prereq is blessing]
-    unlockable.extend([up for up in UNIT_PLANS if up.prereq is blessing])
+    unlockable = [imp for imp in IMPROVEMENTS if (imp.prereq is not None) and (imp.prereq.name == blessing.name)]
+    unlockable.extend([up for up in UNIT_PLANS if (up.prereq is not None) and (up.prereq.name == blessing.name)])
     return unlockable
 
 
@@ -336,7 +336,7 @@ def get_unlockable_improvements(blessing: Blessing) -> typing.List[Improvement]:
     :param blessing: The blessing to search pre-requisites for.
     :return: A list of unlockable improvements.
     """
-    return [imp for imp in IMPROVEMENTS if imp.prereq is blessing]
+    return [imp for imp in IMPROVEMENTS if (imp.prereq is not None) and (imp.prereq.name == blessing.name)]
 
 
 def get_unlockable_units(blessing: Blessing) -> typing.List[UnitPlan]:
@@ -345,7 +345,7 @@ def get_unlockable_units(blessing: Blessing) -> typing.List[UnitPlan]:
     :param blessing: The blessing to search pre-requisites for.
     :return: A list of unlockable unit plans.
     """
-    return [up for up in UNIT_PLANS if up.prereq is blessing]
+    return [up for up in UNIT_PLANS if (up.prereq is not None) and (up.prereq.name == blessing.name)]
 
 
 def get_improvement(name: str) -> Improvement:
