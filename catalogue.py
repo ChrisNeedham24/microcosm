@@ -249,9 +249,10 @@ def get_available_improvements(player: Player, settlement: Settlement) -> typing
     """
     if player.faction is Faction.FRONTIERSMEN and settlement.level >= 5:
         return []
+    completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
     # An improvement is available if the improvement has not been built in this settlement yet and either the player has
     # satisfied the improvement's pre-requisite or the improvement does not have one.
-    imps = [imp for imp in IMPROVEMENTS if (imp.prereq in player.blessings or imp.prereq is None)
+    imps = [imp for imp in IMPROVEMENTS if (imp.prereq is None or imp.prereq.name in completed_blessing_names)
             and imp not in settlement.improvements]
 
     def get_cost(imp: Improvement) -> float:
@@ -270,9 +271,10 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
     :return: A list of available units.
     """
     unit_plans = []
+    completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
     for unit_plan in deepcopy(UNIT_PLANS):
         # A unit plan is available if the unit plan's pre-requisite has been satisfied, or it is non-existent.
-        if unit_plan.prereq is None or unit_plan.prereq in player.blessings:
+        if unit_plan.prereq is None or unit_plan.prereq.name in completed_blessing_names:
             # Note that settlers can only be recruited in settlements of at least level 2.
             if unit_plan.can_settle and setl_lvl > 1 and player.faction is not Faction.CONCENTRATED:
                 unit_plans.append(unit_plan)
@@ -305,7 +307,8 @@ def get_available_blessings(player: Player) -> typing.List[Blessing]:
     :param player: The player viewing the available blessings.
     :return: A list of available blessings.
     """
-    blessings = [bls for bls in deepcopy(BLESSINGS).values() if bls not in player.blessings]
+    completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
+    blessings = [bls for bls in deepcopy(BLESSINGS).values() if bls.name not in completed_blessing_names]
 
     if player.faction is Faction.GODLESS:
         for bls in blessings:

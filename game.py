@@ -596,6 +596,9 @@ class Game:
                     if self.players[0].faction is Faction.NOCTURNE:
                         for u in self.players[0].units:
                             u.plan.power = round(2 * u.plan.power)
+                        for setl in self.players[0].settlements:
+                            for unit in setl.garrison:
+                                unit.plan.power = round(2 * unit.plan.power)
             else:
                 self.nighttime_left -= 1
                 if self.nighttime_left == 0:
@@ -609,6 +612,12 @@ class Game:
                             u.health = round(u.health / 2)
                             u.plan.max_health = round(u.plan.max_health / 2)
                             u.plan.total_stamina = round(u.plan.total_stamina / 2)
+                        for setl in self.players[0].settlements:
+                            for unit in setl.garrison:
+                                unit.plan.power = round(unit.plan.power / 4)
+                                unit.health = round(unit.health / 2)
+                                unit.plan.max_health = round(unit.plan.max_health / 2)
+                                unit.plan.total_stamina = round(unit.plan.total_stamina / 2)
 
         # Autosave every 10 turns.
         if self.turn % 10 == 0:
