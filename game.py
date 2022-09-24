@@ -282,7 +282,9 @@ class Game:
                                                        get_available_unit_plans(self.players[0],
                                                                                 self.board.selected_settlement.level))
         elif pyxel.btnp(pyxel.KEY_F):
-            if self.game_started and self.board.overlay.is_standard():
+            if self.on_menu and self.menu.in_game_setup and self.menu.setup_option is SetupOption.PLAYER_FACTION:
+                self.menu.showing_faction_details = not self.menu.showing_faction_details
+            elif self.game_started and self.board.overlay.is_standard():
                 # Pick a blessing.
                 self.board.overlay.toggle_blessing(get_available_blessings(self.players[0]))
         elif pyxel.btnp(pyxel.KEY_D):

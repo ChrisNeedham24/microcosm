@@ -72,6 +72,7 @@ class Menu:
         self.climatic_effects_enabled = True
         self.showing_night = False
         self.faction_colours: typing.List[typing.Tuple[Faction, int]] = list(FACTION_COLOURS.items())
+        self.showing_faction_details = False
 
     def draw(self):
         """
@@ -100,34 +101,51 @@ class Menu:
             else:
                 pyxel.text(88 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0]} ->",
                            self.faction_colours[self.faction_idx][1])
-            pyxel.text(28, 60, "Player Count",
+            pyxel.text(26, 50, "(Press F to show more faction details)", pyxel.COLOR_WHITE)
+            pyxel.text(28, 65, "Player Count",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.PLAYER_COUNT else pyxel.COLOR_WHITE)
             if self.player_count == 2:
-                pyxel.text(140, 60, "2 ->", pyxel.COLOR_WHITE)
+                pyxel.text(140, 65, "2 ->", pyxel.COLOR_WHITE)
             elif 2 < self.player_count < 14:
-                pyxel.text(130, 60, f"<- {self.player_count} ->", pyxel.COLOR_WHITE)
+                pyxel.text(130, 65, f"<- {self.player_count} ->", pyxel.COLOR_WHITE)
             else:
-                pyxel.text(130, 60, "<- 14", pyxel.COLOR_WHITE)
-            pyxel.text(28, 80, "Biome Clustering",
+                pyxel.text(130, 65, "<- 14", pyxel.COLOR_WHITE)
+            pyxel.text(28, 85, "Biome Clustering",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.BIOME_CLUSTERING else pyxel.COLOR_WHITE)
             if self.biome_clustering_enabled:
-                pyxel.text(125, 80, "<- Enabled", pyxel.COLOR_GREEN)
+                pyxel.text(125, 85, "<- Enabled", pyxel.COLOR_GREEN)
             else:
-                pyxel.text(125, 80, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 100, "Fog of War",
+                pyxel.text(125, 85, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 105, "Fog of War",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.FOG_OF_WAR else pyxel.COLOR_WHITE)
             if self.fog_of_war_enabled:
-                pyxel.text(125, 100, "<- Enabled", pyxel.COLOR_GREEN)
+                pyxel.text(125, 105, "<- Enabled", pyxel.COLOR_GREEN)
             else:
-                pyxel.text(125, 100, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 120, "Climatic Effects",
+                pyxel.text(125, 105, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 125, "Climatic Effects",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.CLIMATIC_EFFECTS else pyxel.COLOR_WHITE)
             if self.climatic_effects_enabled:
-                pyxel.text(125, 120, "<- Enabled", pyxel.COLOR_GREEN)
+                pyxel.text(125, 125, "<- Enabled", pyxel.COLOR_GREEN)
             else:
-                pyxel.text(125, 120, "Disabled ->", pyxel.COLOR_RED)
+                pyxel.text(125, 125, "Disabled ->", pyxel.COLOR_RED)
             pyxel.text(81, 150, "Start Game",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.START_GAME else pyxel.COLOR_WHITE)
+
+            if self.showing_faction_details:
+                pyxel.load("resources/sprites.pyxres")
+                pyxel.rectb(30, 30, 140, 124, pyxel.COLOR_WHITE)
+                pyxel.rect(31, 31, 138, 122, pyxel.COLOR_BLACK)
+                pyxel.text(70, 35, "Faction Details", pyxel.COLOR_WHITE)
+                pyxel.text(35, 50, str(self.faction_colours[self.faction_idx][0].value),
+                           self.faction_colours[self.faction_idx][1])
+                pyxel.blt(150, 48, 0, self.faction_idx * 8, 92, 8, 8)
+                if self.faction_idx != 0:
+                    pyxel.text(35, 140, "<-", pyxel.COLOR_WHITE)
+                    pyxel.blt(45, 138, 0, (self.faction_idx - 1) * 8, 92, 8, 8)
+                pyxel.text(65, 140, "Press F to go back", pyxel.COLOR_WHITE)
+                if self.faction_idx != len(self.faction_colours) - 1:
+                    pyxel.blt(148, 138, 0, (self.faction_idx + 1) * 8, 92, 8, 8)
+                    pyxel.text(158, 140, "->", pyxel.COLOR_WHITE)
         elif self.loading_game:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -448,7 +466,7 @@ class Menu:
         :param right: Whether the right arrow key was pressed.
         """
         if down:
-            if self.in_game_setup:
+            if self.in_game_setup and not self.showing_faction_details:
                 if self.setup_option is SetupOption.PLAYER_FACTION:
                     self.setup_option = SetupOption.PLAYER_COUNT
                 elif self.setup_option is SetupOption.PLAYER_COUNT:
@@ -494,7 +512,7 @@ class Menu:
                 elif self.menu_option is MenuOption.WIKI:
                     self.menu_option = MenuOption.EXIT
         if up:
-            if self.in_game_setup:
+            if self.in_game_setup and not self.showing_faction_details:
                 if self.setup_option is SetupOption.PLAYER_COUNT:
                     self.setup_option = SetupOption.PLAYER_FACTION
                 elif self.setup_option is SetupOption.BIOME_CLUSTERING:
