@@ -325,6 +325,8 @@ class Game:
             # Pressing space either dismisses the current overlay or iterates through the player's units.
             if self.on_menu and self.menu.in_wiki and self.menu.wiki_showing is not None:
                 self.menu.wiki_showing = None
+            if self.on_menu and self.menu.loading_game:
+                self.menu.loading_game = False
             if self.game_started and self.board.overlay.is_elimination():
                 self.board.overlay.toggle_elimination(None)
             elif self.game_started and self.board.overlay.is_night():
@@ -950,7 +952,7 @@ class Game:
         autosaves = list(filter(lambda file_name: file_name.startswith("auto"), os.listdir("saves")))
         saves = list(filter(lambda file_name: not file_name == "README.md" and not file_name.startswith("auto"),
                             os.listdir("saves")))
-        # Default to the cancel option if there are no saves available.
+        # Default to a fake option if there are no saves available.
         if len(autosaves) + len(saves) == 0:
             self.menu.save_idx = -1
         else:
