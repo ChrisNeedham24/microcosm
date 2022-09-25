@@ -230,7 +230,7 @@ class Board:
                         (self.selected_settlement.location[1] - map_pos[1]) * 8 - 4, 24, 24, pyxel.COLOR_WHITE)
 
         # Also display the number of units the player can move at the bottom-right of the screen.
-        movable_units = [unit for unit in players[0].units if unit.remaining_stamina > 0]
+        movable_units = [unit for unit in players[0].units if unit.remaining_stamina > 0 and not unit.sieging]
         if len(movable_units) > 0:
             pluralisation = "s" if len(movable_units) > 1 else ""
             pyxel.rectb(150, 147, 40, 20, pyxel.COLOR_WHITE)
