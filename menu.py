@@ -75,6 +75,7 @@ class Menu:
         self.faction_colours: typing.List[typing.Tuple[Faction, int]] = list(FACTION_COLOURS.items())
         self.showing_faction_details = False
         self.faction_wiki_idx = 0
+        self.load_game_boundaries = 0, 9
 
     def draw(self):
         """
@@ -208,13 +209,20 @@ class Menu:
                     pyxel.blt(148, 138, 0, (self.faction_idx + 1) * 8, 92, 8, 8)
                     pyxel.text(158, 140, "->", pyxel.COLOR_WHITE)
         elif self.loading_game:
+            pyxel.load("resources/sprites.pyxres")
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
             pyxel.text(81, 25, "Load Game", pyxel.COLOR_WHITE)
             for idx, save in enumerate(self.saves):
-                pyxel.text(25, 35 + idx * 10, save, pyxel.COLOR_WHITE)
-                pyxel.text(150, 35 + idx * 10, "Load", pyxel.COLOR_RED if self.save_idx is idx else pyxel.COLOR_WHITE)
-            pyxel.text(85, 150, "Cancel", pyxel.COLOR_RED if self.save_idx == -1 else pyxel.COLOR_WHITE)
+                if self.load_game_boundaries[0] <= idx <= self.load_game_boundaries[1]:
+                    pyxel.text(25, 35 + (idx - self.load_game_boundaries[0]) * 10, save, pyxel.COLOR_WHITE)
+                    pyxel.text(150, 35 + (idx - self.load_game_boundaries[0]) * 10, "Load",
+                               pyxel.COLOR_RED if self.save_idx is idx else pyxel.COLOR_WHITE)
+            if self.load_game_boundaries[1] != len(self.saves) - 1:
+                pyxel.text(147, 135, "More", pyxel.COLOR_WHITE)
+                pyxel.text(147, 141, "down!", pyxel.COLOR_WHITE)
+                pyxel.blt(167, 136, 0, 0, 76, 8, 8)
+            pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
         elif self.in_wiki:
             if self.wiki_showing is WikiOption.VICTORIES:
                 pyxel.load("resources/sprites.pyxres")
@@ -809,10 +817,10 @@ class Menu:
                 elif self.setup_option is SetupOption.CLIMATIC_EFFECTS:
                     self.setup_option = SetupOption.START_GAME
             elif self.loading_game:
+                if self.save_idx == self.load_game_boundaries[1] and self.save_idx < len(self.saves) - 1:
+                    self.load_game_boundaries = self.load_game_boundaries[0] + 1, self.load_game_boundaries[1] + 1
                 if 0 <= self.save_idx < len(self.saves) - 1:
                     self.save_idx += 1
-                elif self.save_idx == len(self.saves) - 1:
-                    self.save_idx = -1
             elif self.in_wiki:
                 if self.wiki_showing is WikiOption.BLESSINGS:
                     if self.blessing_boundaries[1] < len(BLESSINGS) - 1:
@@ -858,9 +866,9 @@ class Menu:
                 elif self.setup_option is SetupOption.START_GAME:
                     self.setup_option = SetupOption.CLIMATIC_EFFECTS
             elif self.loading_game:
-                if self.save_idx == -1:
-                    self.save_idx = len(self.saves) - 1
-                elif self.save_idx > 0:
+                if self.save_idx > 0 and self.save_idx == self.load_game_boundaries[0]:
+                    self.load_game_boundaries = self.load_game_boundaries[0] - 1, self.load_game_boundaries[1] - 1
+                if self.save_idx > 0:
                     self.save_idx -= 1
             elif self.in_wiki:
                 if self.wiki_showing is WikiOption.BLESSINGS:
