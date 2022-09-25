@@ -11,11 +11,11 @@ import pyxel
 from board import Board
 from calculator import clamp, attack, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
-    get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer
+    get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer, FACTION_COLOURS
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
     EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, \
-    ExpansionPlaystyle, UnitPlan, OverlayType
+    ExpansionPlaystyle, UnitPlan, OverlayType, Faction
 from movemaker import MoveMaker
 from music_player import MusicPlayer
 from overlay import SettlementAttackType, PauseOption
@@ -155,6 +155,7 @@ class Game:
                     self.board = Board(cfg, self.namer)
                     self.move_maker.board_ref = self.board
                     self.board.overlay.toggle_tutorial()
+                    self.namer.reset()
                     self.initialise_ais()
                     self.music_player.stop_menu_music()
                     self.music_player.play_game_music()
@@ -201,6 +202,7 @@ class Game:
             elif self.game_started and self.board.overlay.is_setl_click():
                 # If the player has chosen to attack a settlement, execute the attack.
                 if self.board.overlay.setl_attack_opt is SettlementAttackType.ATTACK:
+                    self.board.overlay.toggle_setl_click(None, None)
                     data = attack_setl(self.board.selected_unit, self.board.overlay.attacked_settlement,
                                        self.board.overlay.attacked_settlement_owner, False)
                     if data.attacker_was_killed:
@@ -211,14 +213,16 @@ class Game:
                     elif data.setl_was_taken:
                         # If the settlement was taken, transfer it to the player.
                         data.settlement.under_siege_by = None
-                        self.players[0].settlements.append(data.settlement)
+                        # The Concentrated can only have a single settlement, so when they take others, the settlements
+                        # simply disappear.
+                        if self.players[0].faction is not Faction.CONCENTRATED:
+                            self.players[0].settlements.append(data.settlement)
                         for idx, p in enumerate(self.players):
                             if data.settlement in p.settlements and idx != 0:
                                 p.settlements.remove(data.settlement)
                                 break
                     self.board.overlay.toggle_setl_attack(data)
                     self.board.attack_time_bank = 0
-                    self.board.overlay.toggle_setl_click(None, None)
                 elif self.board.overlay.setl_attack_opt is SettlementAttackType.BESIEGE:
                     # Alternatively, begin a siege on the settlement.
                     self.board.selected_unit.sieging = True
@@ -280,7 +284,9 @@ class Game:
                                                        get_available_unit_plans(self.players[0],
                                                                                 self.board.selected_settlement.level))
         elif pyxel.btnp(pyxel.KEY_F):
-            if self.game_started and self.board.overlay.is_standard():
+            if self.on_menu and self.menu.in_game_setup and self.menu.setup_option is SetupOption.PLAYER_FACTION:
+                self.menu.showing_faction_details = not self.menu.showing_faction_details
+            elif self.game_started and self.board.overlay.is_standard():
                 # Pick a blessing.
                 self.board.overlay.toggle_blessing(get_available_blessings(self.players[0]))
         elif pyxel.btnp(pyxel.KEY_D):
@@ -341,7 +347,7 @@ class Game:
                 if self.board.overlay.is_setl():
                     self.board.selected_settlement = None
                     self.board.overlay.toggle_settlement(None, self.players[0])
-                if self.board.selected_unit is None:
+                if self.board.selected_unit is None or isinstance(self.board.selected_unit, Heathen):
                     self.board.selected_unit = self.players[0].units[0]
                     self.board.overlay.toggle_unit(self.players[0].units[0])
                 elif len(self.players[0].units) > 1:
@@ -362,8 +368,10 @@ class Game:
                 self.music_player.next_song()
         elif pyxel.btnp(pyxel.KEY_B):
             if self.game_started and self.board.selected_settlement is not None and \
-                    self.board.selected_settlement.current_work is not None:
-                # Pressing B will buyout the remaining cost of the settlement's current construction.
+                    self.board.selected_settlement.current_work is not None and \
+                    self.players[0].faction is not Faction.FUNDAMENTALISTS:
+                # Pressing B will buyout the remaining cost of the settlement's current construction. However, players
+                # using the Fundamentalists faction are barred from this.
                 current_work = self.board.selected_settlement.current_work
                 remaining_work = current_work.construction.cost - current_work.zeal_consumed
                 if self.players[0].wealth >= remaining_work:
@@ -371,7 +379,7 @@ class Game:
                         CompletedConstruction(self.board.selected_settlement.current_work.construction,
                                               self.board.selected_settlement)
                     ])
-                    complete_construction(self.board.selected_settlement)
+                    complete_construction(self.board.selected_settlement, self.players[0])
                     self.players[0].wealth -= remaining_work
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
             if self.game_started and not self.board.overlay.is_victory() and not self.board.overlay.is_elimination():
@@ -396,23 +404,23 @@ class Game:
         if self.on_menu:
             self.menu.draw()
         elif self.game_started:
-            self.board.draw(self.players, self.map_pos, self.turn, self.heathens, self.nighttime_left > 0)
+            self.board.draw(self.players, self.map_pos, self.turn, self.heathens, self.nighttime_left > 0,
+                            self.until_night if self.until_night != 0 else self.nighttime_left)
 
     def gen_players(self, cfg: GameConfig):
         """
         Generates the players for the game based on the supplied config.
         :param cfg: The game config.
         """
-        self.players = [Player("The Chosen One", cfg.player_colour, 0, [], [], [], set(), set())]
-        colours = [pyxel.COLOR_NAVY, pyxel.COLOR_PURPLE, pyxel.COLOR_GREEN, pyxel.COLOR_BROWN, pyxel.COLOR_DARK_BLUE,
-                   pyxel.COLOR_LIGHT_BLUE, pyxel.COLOR_RED, pyxel.COLOR_ORANGE, pyxel.COLOR_YELLOW, pyxel.COLOR_LIME,
-                   pyxel.COLOR_CYAN, pyxel.COLOR_GRAY, pyxel.COLOR_PINK, pyxel.COLOR_PEACH]
-        # Ensure that an AI player doesn't choose the same colour as the player.
-        colours.remove(cfg.player_colour)
+        self.players = [Player("The Chosen One", cfg.player_faction, FACTION_COLOURS[cfg.player_faction],
+                               0, [], [], [], set(), set())]
+        factions = list(Faction)
+        # Ensure that an AI player doesn't choose the same faction as the player.
+        factions.remove(cfg.player_faction)
         for i in range(1, cfg.player_count):
-            colour = random.choice(colours)
-            colours.remove(colour)
-            self.players.append(Player(f"NPC{i}", colour, 0, [], [], [], set(), set(),
+            faction = random.choice(factions)
+            factions.remove(faction)
+            self.players.append(Player(f"NPC{i}", faction, FACTION_COLOURS[faction], 0, [], [], [], set(), set(),
                                        ai_playstyle=AIPlaystyle(random.choice(list(AttackPlaystyle)),
                                                                 random.choice(list(ExpansionPlaystyle)))))
 
@@ -438,6 +446,10 @@ class Game:
         for unit in self.players[0].units:
             if not unit.garrisoned:
                 total_wealth -= unit.plan.cost / 25
+        if self.players[0].faction is Faction.GODLESS:
+            total_wealth *= 1.25
+        elif self.players[0].faction is Faction.ORTHODOX:
+            total_wealth *= 0.75
         has_no_blessing = self.players[0].ongoing_blessing is None
         will_have_negative_wealth = (self.players[0].wealth + total_wealth) < 0 and len(self.players[0].units) > 0
         if not self.board.overlay.is_warning() and \
@@ -456,10 +468,13 @@ class Game:
                 # satisfaction of [20, 40) will yield 0 harvest, a satisfaction of [60, 80) will yield 150% harvest,
                 # and a satisfaction of 80 or more will yield 150% wealth and 150% harvest.
                 if setl.satisfaction < 20:
-                    setl.harvest_status = HarvestStatus.POOR
-                    setl.economic_status = EconomicStatus.RECESSION
+                    if player.faction is not Faction.AGRICULTURISTS:
+                        setl.harvest_status = HarvestStatus.POOR
+                    if player.faction is not Faction.CAPITALISTS:
+                        setl.economic_status = EconomicStatus.RECESSION
                 elif setl.satisfaction < 40:
-                    setl.harvest_status = HarvestStatus.POOR
+                    if player.faction is not Faction.AGRICULTURISTS:
+                        setl.harvest_status = HarvestStatus.POOR
                     setl.economic_status = EconomicStatus.STANDARD
                 elif setl.satisfaction < 60:
                     setl.harvest_status = HarvestStatus.STANDARD
@@ -471,7 +486,8 @@ class Game:
                     setl.harvest_status = HarvestStatus.PLENTIFUL
                     setl.economic_status = EconomicStatus.BOOM
 
-                total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(setl, self.nighttime_left > 0)
+                total_wealth, total_harvest, total_zeal, total_fortune = \
+                    get_setl_totals(player, setl, self.nighttime_left > 0)
                 overall_fortune += total_fortune
                 overall_wealth += total_wealth
 
@@ -505,7 +521,7 @@ class Game:
 
                 # Settlement satisfaction is regulated by the amount of harvest generated against the level.
                 if total_harvest < setl.level * 4:
-                    setl.satisfaction -= 0.5
+                    setl.satisfaction -= (1 if player.faction is Faction.CAPITALISTS else 0.5)
                 elif total_harvest >= setl.level * 8:
                     setl.satisfaction += 0.25
                 setl.satisfaction = clamp(setl.satisfaction, 0, 100)
@@ -513,7 +529,8 @@ class Game:
                 setl.harvest_reserves += total_harvest
                 # Settlement levels are increased if the settlement's harvest reserves exceed a certain level (specified
                 # in models.py).
-                if setl.harvest_reserves >= pow(setl.level, 2) * 25 and setl.level < 10:
+                level_cap = 5 if player.faction is Faction.RAVENOUS else 10
+                if setl.harvest_reserves >= pow(setl.level, 2) * 25 and setl.level < level_cap:
                     setl.level += 1
                     levelled_up_settlements.append(setl)
 
@@ -522,7 +539,7 @@ class Game:
                     setl.current_work.zeal_consumed += total_zeal
                     if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
                         completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
-                        complete_construction(setl)
+                        complete_construction(setl, player)
             # Show notifications if the player's constructions have completed or one of their settlements has levelled
             # up.
             if player.ai_playstyle is None and len(completed_constructions) > 0:
@@ -582,6 +599,12 @@ class Game:
                     self.nighttime_left = random.randint(5, 25)
                     for h in self.heathens:
                         h.plan.power = round(2 * h.plan.power)
+                    if self.players[0].faction is Faction.NOCTURNE:
+                        for u in self.players[0].units:
+                            u.plan.power = round(2 * u.plan.power)
+                        for setl in self.players[0].settlements:
+                            for unit in setl.garrison:
+                                unit.plan.power = round(2 * unit.plan.power)
             else:
                 self.nighttime_left -= 1
                 if self.nighttime_left == 0:
@@ -589,6 +612,18 @@ class Game:
                     self.board.overlay.toggle_night(False)
                     for h in self.heathens:
                         h.plan.power = round(h.plan.power / 2)
+                    if self.players[0].faction is Faction.NOCTURNE:
+                        for u in self.players[0].units:
+                            u.plan.power = round(u.plan.power / 4)
+                            u.health = round(u.health / 2)
+                            u.plan.max_health = round(u.plan.max_health / 2)
+                            u.plan.total_stamina = round(u.plan.total_stamina / 2)
+                        for setl in self.players[0].settlements:
+                            for unit in setl.garrison:
+                                unit.plan.power = round(unit.plan.power / 4)
+                                unit.health = round(unit.health / 2)
+                                unit.plan.max_health = round(unit.plan.max_health / 2)
+                                unit.plan.total_stamina = round(unit.plan.total_stamina / 2)
 
         # Autosave every 10 turns.
         if self.turn % 10 == 0:
@@ -699,8 +734,10 @@ class Game:
         """
         all_units = []
         for player in self.players:
-            for unit in player.units:
-                all_units.append(unit)
+            # Heathens will not attack Infidel units.
+            if player.faction is not Faction.INFIDELS:
+                for unit in player.units:
+                    all_units.append(unit)
         for heathen in self.heathens:
             within_range: typing.Optional[Unit] = None
             # Check if any player unit is within range of the heathen.
@@ -746,12 +783,19 @@ class Game:
         """
         for player in self.players:
             if player.ai_playstyle is not None:
-                setl_coords = random.randint(0, 89), random.randint(0, 99)
-                quad_biome = self.board.quads[setl_coords[0]][setl_coords[1]].biome
+                setl_coords = random.randint(0, 99), random.randint(0, 89)
+                quad_biome = self.board.quads[setl_coords[1]][setl_coords[0]].biome
                 setl_name = self.namer.get_settlement_name(quad_biome)
                 new_settl = Settlement(setl_name, setl_coords, [],
-                                       [self.board.quads[setl_coords[0]][setl_coords[1]]],
+                                       [self.board.quads[setl_coords[1]][setl_coords[0]]],
                                        [get_default_unit(setl_coords)])
+                if player.faction is Faction.CONCENTRATED:
+                    new_settl.strength *= 2
+                elif player.faction is Faction.FRONTIERSMEN:
+                    new_settl.satisfaction = 75
+                elif player.faction is Faction.IMPERIALS:
+                    new_settl.strength /= 2
+                    new_settl.max_strength /= 2
                 player.settlements.append(new_settl)
 
     def process_ais(self):
@@ -868,6 +912,7 @@ class Game:
                     p.ai_playstyle = AIPlaystyle(AttackPlaystyle[p.ai_playstyle.attacking],
                                                  ExpansionPlaystyle[p.ai_playstyle.expansion])
                 p.imminent_victories = set(p.imminent_victories)
+                p.faction = Faction(p.faction)
             # For the AI players, we can just make quads_seen an empty set, as it's not used.
             for i in range(1, len(self.players)):
                 self.players[i].quads_seen = set()

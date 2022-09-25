@@ -5,8 +5,8 @@ from enum import Enum
 import pyxel
 
 from calculator import clamp
-from catalogue import BLESSINGS, get_unlockable_improvements, IMPROVEMENTS, UNIT_PLANS
-from models import GameConfig, VictoryType
+from catalogue import BLESSINGS, get_unlockable_improvements, IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS
+from models import GameConfig, VictoryType, Faction
 
 
 class MenuOption(Enum):
@@ -23,7 +23,7 @@ class SetupOption(Enum):
     """
     Represents the options the player can choose from the game setup screen.
     """
-    PLAYER_COLOUR = "COLOUR"
+    PLAYER_FACTION = "FACTION"
     PLAYER_COUNT = "COUNT"
     BIOME_CLUSTERING = "BIOME"
     FOG_OF_WAR = "FOG"
@@ -36,29 +36,11 @@ class WikiOption(Enum):
     Represents the options the player can choose from the wiki.
     """
     VICTORIES = "VIC"
+    FACTIONS = "FAC"
     CLIMATE = "CLIM"
     BLESSINGS = "BLS"
     IMPROVEMENTS = "IMP"
     UNITS = "UNITS"
-
-
-# A convenient list of all available colours. Deliberately excludes black and white.
-AVAILABLE_COLOURS = [
-    ("Navy", pyxel.COLOR_NAVY),
-    ("Purple", pyxel.COLOR_PURPLE),
-    ("Green", pyxel.COLOR_GREEN),
-    ("Brown", pyxel.COLOR_BROWN),
-    ("Dark blue", pyxel.COLOR_DARK_BLUE),
-    ("Light blue", pyxel.COLOR_LIGHT_BLUE),
-    ("Red", pyxel.COLOR_RED),
-    ("Orange", pyxel.COLOR_ORANGE),
-    ("Yellow", pyxel.COLOR_YELLOW),
-    ("Lime", pyxel.COLOR_LIME),
-    ("Cyan", pyxel.COLOR_CYAN),
-    ("Grey", pyxel.COLOR_GRAY),
-    ("Pink", pyxel.COLOR_PINK),
-    ("Peach", pyxel.COLOR_PEACH)
-]
 
 
 class Menu:
@@ -83,13 +65,16 @@ class Menu:
         self.unit_boundaries = 0, 9
         self.saves: typing.List[str] = []
         self.save_idx: typing.Optional[int] = 0
-        self.setup_option = SetupOption.PLAYER_COLOUR
-        self.colour_idx = 0
+        self.setup_option = SetupOption.PLAYER_FACTION
+        self.faction_idx = 0
         self.player_count = 2
         self.biome_clustering_enabled = True
         self.fog_of_war_enabled = True
         self.climatic_effects_enabled = True
         self.showing_night = False
+        self.faction_colours: typing.List[typing.Tuple[Faction, int]] = list(FACTION_COLOURS.items())
+        self.showing_faction_details = False
+        self.faction_wiki_idx = 0
 
     def draw(self):
         """
@@ -106,46 +91,122 @@ class Menu:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
             pyxel.text(81, 25, "Game Setup", pyxel.COLOR_WHITE)
-            pyxel.text(28, 40, "Player Colour",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.PLAYER_COLOUR else pyxel.COLOR_WHITE)
-            colour_offset = 5 - len(AVAILABLE_COLOURS[self.colour_idx][0])
-            if self.colour_idx == 0:
-                pyxel.text(130 + colour_offset, 40, f"{AVAILABLE_COLOURS[self.colour_idx][0]} ->",
-                           AVAILABLE_COLOURS[self.colour_idx][1])
-            elif self.colour_idx == len(AVAILABLE_COLOURS) - 1:
-                pyxel.text(130 + colour_offset, 40, f"<- {AVAILABLE_COLOURS[self.colour_idx][0]}",
-                           AVAILABLE_COLOURS[self.colour_idx][1])
+            pyxel.text(28, 40, "Player Faction",
+                       pyxel.COLOR_RED if self.setup_option is SetupOption.PLAYER_FACTION else pyxel.COLOR_WHITE)
+            faction_offset = 50 - pow(len(self.faction_colours[self.faction_idx][0]), 1.4)
+            if self.faction_idx == 0:
+                pyxel.text(100 + faction_offset, 40, f"{self.faction_colours[self.faction_idx][0]} ->",
+                           self.faction_colours[self.faction_idx][1])
+            elif self.faction_idx == len(self.faction_colours) - 1:
+                pyxel.text(95 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0]}",
+                           self.faction_colours[self.faction_idx][1])
             else:
-                pyxel.text(120 + colour_offset, 40, f"<- {AVAILABLE_COLOURS[self.colour_idx][0]} ->",
-                           AVAILABLE_COLOURS[self.colour_idx][1])
-            pyxel.text(28, 60, "Player Count",
+                pyxel.text(88 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0]} ->",
+                           self.faction_colours[self.faction_idx][1])
+            pyxel.text(26, 50, "(Press F to show more faction details)", pyxel.COLOR_WHITE)
+            pyxel.text(28, 65, "Player Count",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.PLAYER_COUNT else pyxel.COLOR_WHITE)
             if self.player_count == 2:
-                pyxel.text(140, 60, "2 ->", pyxel.COLOR_WHITE)
+                pyxel.text(140, 65, "2 ->", pyxel.COLOR_WHITE)
             elif 2 < self.player_count < 14:
-                pyxel.text(130, 60, f"<- {self.player_count} ->", pyxel.COLOR_WHITE)
+                pyxel.text(130, 65, f"<- {self.player_count} ->", pyxel.COLOR_WHITE)
             else:
-                pyxel.text(130, 60, "<- 14", pyxel.COLOR_WHITE)
-            pyxel.text(28, 80, "Biome Clustering",
+                pyxel.text(130, 65, "<- 14", pyxel.COLOR_WHITE)
+            pyxel.text(28, 85, "Biome Clustering",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.BIOME_CLUSTERING else pyxel.COLOR_WHITE)
             if self.biome_clustering_enabled:
-                pyxel.text(125, 80, "<- Enabled", pyxel.COLOR_GREEN)
+                pyxel.text(125, 85, "<- Enabled", pyxel.COLOR_GREEN)
             else:
-                pyxel.text(125, 80, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 100, "Fog of War",
+                pyxel.text(125, 85, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 105, "Fog of War",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.FOG_OF_WAR else pyxel.COLOR_WHITE)
             if self.fog_of_war_enabled:
-                pyxel.text(125, 100, "<- Enabled", pyxel.COLOR_GREEN)
+                pyxel.text(125, 105, "<- Enabled", pyxel.COLOR_GREEN)
             else:
-                pyxel.text(125, 100, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 120, "Climatic Effects",
+                pyxel.text(125, 105, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 125, "Climatic Effects",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.CLIMATIC_EFFECTS else pyxel.COLOR_WHITE)
             if self.climatic_effects_enabled:
-                pyxel.text(125, 120, "<- Enabled", pyxel.COLOR_GREEN)
+                pyxel.text(125, 125, "<- Enabled", pyxel.COLOR_GREEN)
             else:
-                pyxel.text(125, 120, "Disabled ->", pyxel.COLOR_RED)
+                pyxel.text(125, 125, "Disabled ->", pyxel.COLOR_RED)
             pyxel.text(81, 150, "Start Game",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.START_GAME else pyxel.COLOR_WHITE)
+
+            if self.showing_faction_details:
+                pyxel.load("resources/sprites.pyxres")
+                pyxel.rectb(30, 30, 140, 124, pyxel.COLOR_WHITE)
+                pyxel.rect(31, 31, 138, 122, pyxel.COLOR_BLACK)
+                pyxel.text(70, 35, "Faction Details", pyxel.COLOR_WHITE)
+                pyxel.text(35, 50, str(self.faction_colours[self.faction_idx][0].value),
+                           self.faction_colours[self.faction_idx][1])
+                pyxel.text(35, 110, "Recommended victory:", pyxel.COLOR_WHITE)
+
+                if self.faction_idx == 0:
+                    pyxel.text(35, 70, "+ Immune to poor harvest", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Generates 75% of usual zeal", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "GLUTTONY", pyxel.COLOR_GREEN)
+                elif self.faction_idx == 1:
+                    pyxel.text(35, 70, "+ Immune to recession", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Double low harvest penalty", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "AFFLUENCE", pyxel.COLOR_YELLOW)
+                elif self.faction_idx == 2:
+                    pyxel.text(35, 70, "+ Investigations always succeed", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Generates 75% of usual fortune", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
+                elif self.faction_idx == 3:
+                    pyxel.text(35, 70, "+ Generates 125% of usual wealth", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Blessings cost 125% of usual", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "AFFLUENCE", pyxel.COLOR_YELLOW)
+                elif self.faction_idx == 4:
+                    pyxel.text(35, 70, "+ Generates 125% of usual harvest", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Settlements capped at level 5", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "JUBILATION", pyxel.COLOR_GREEN)
+                elif self.faction_idx == 5:
+                    pyxel.text(35, 70, "+ Generates 125% of usual zeal", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Construction buyouts disabled", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "VIGOUR", pyxel.COLOR_ORANGE)
+                elif self.faction_idx == 6:
+                    pyxel.text(35, 70, "+ Generates 125% of usual fortune", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Generates 75% of usual wealth", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "SERENDIPITY", pyxel.COLOR_PURPLE)
+                elif self.faction_idx == 7:
+                    pyxel.text(35, 70, "+ Settlements have 200% strength", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Limited to a single settlement", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
+                elif self.faction_idx == 8:
+                    pyxel.text(35, 70, "+ Base satisfaction is 75", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Settlers only at level 5", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "JUBILATION", pyxel.COLOR_GREEN)
+                elif self.faction_idx == 9:
+                    pyxel.text(35, 70, "+ Units have 50% more power", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Settlements have 50% strength", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
+                elif self.faction_idx == 10:
+                    pyxel.text(35, 70, "+ Units have 50% more health", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Units have 75% of usual power", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
+                elif self.faction_idx == 11:
+                    pyxel.text(35, 70, "+ Units have 50% more stamina", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Units have 75% of usual health", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "GLUTTONY", pyxel.COLOR_GREEN)
+                elif self.faction_idx == 12:
+                    pyxel.text(35, 70, "+ Not attacked by heathens", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Always attacked by AI players", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
+                elif self.faction_idx == 13:
+                    pyxel.text(35, 70, "+ Thrive during the night", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 90, "- Units weakened during the day", pyxel.COLOR_RED)
+                    pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
+
+                pyxel.blt(150, 48, 0, self.faction_idx * 8, 92, 8, 8)
+                if self.faction_idx != 0:
+                    pyxel.text(35, 140, "<-", pyxel.COLOR_WHITE)
+                    pyxel.blt(45, 138, 0, (self.faction_idx - 1) * 8, 92, 8, 8)
+                pyxel.text(65, 140, "Press F to go back", pyxel.COLOR_WHITE)
+                if self.faction_idx != len(self.faction_colours) - 1:
+                    pyxel.blt(148, 138, 0, (self.faction_idx + 1) * 8, 92, 8, 8)
+                    pyxel.text(158, 140, "->", pyxel.COLOR_WHITE)
         elif self.loading_game:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
@@ -275,6 +336,273 @@ class Menu:
                     pyxel.text(25, 141, "with two hands, as a blessed man.", pyxel.COLOR_WHITE)
                     pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                     pyxel.blt(35, 150, 0, 16, 44, 8, 8)
+            elif self.wiki_showing is WikiOption.FACTIONS:
+                pyxel.load("resources/sprites.pyxres")
+                pyxel.rectb(20, 10, 160, 184, pyxel.COLOR_WHITE)
+                pyxel.rect(21, 11, 158, 182, pyxel.COLOR_BLACK)
+                pyxel.text(85, 15, "Factions", pyxel.COLOR_WHITE)
+                pyxel.text(25, 30, str(self.faction_colours[self.faction_wiki_idx][0].value),
+                           self.faction_colours[self.faction_wiki_idx][1])
+                pyxel.blt(160, 28, 0, self.faction_wiki_idx * 8, 92, 8, 8)
+                pyxel.line(24, 137, 175, 137, pyxel.COLOR_GRAY)
+                pyxel.text(25, 160, "Recommended victory:", pyxel.COLOR_WHITE)
+                if self.faction_wiki_idx != 0:
+                    pyxel.text(25, 180, "<-", pyxel.COLOR_WHITE)
+                    pyxel.blt(35, 178, 0, (self.faction_wiki_idx - 1) * 8, 92, 8, 8)
+                if self.faction_wiki_idx != len(self.faction_colours) - 1:
+                    pyxel.blt(158, 178, 0, (self.faction_wiki_idx + 1) * 8, 92, 8, 8)
+                    pyxel.text(168, 180, "->", pyxel.COLOR_WHITE)
+                pyxel.text(56, 180, "Press SPACE to go back", pyxel.COLOR_WHITE)
+
+                if self.faction_wiki_idx == 0:
+                    pyxel.text(25, 40, "Using techniques passed down through ", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "the generations, the Agriculturists", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "are able to sustain their populace", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "through famine and indeed through", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "feast. Some of this land's greatest", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "delicacies are grown by these humble", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "people, who insist that anyone could", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "grow what they do, winking at one", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "another as they say it. Without the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "spectre of hunger on the horizon, the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "Agriculturists lead the slow life,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 106, "indulging in pleasures at their own", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 112, "pace.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Immune to poor harvest", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Generates 75% of usual zeal", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "GLUTTONY", pyxel.COLOR_GREEN)
+                elif self.faction_wiki_idx == 1:
+                    pyxel.text(25, 40, "The sky-high towers and luxurious", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "dwellings found throughout their", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "cities represent the Capitalists to", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "the fullest. They value the clink of", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "coins over anything else, and it has", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "served them well so far. However, if", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "you take a look around the corner,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "things are clearly not as the seem.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "And as the slums fill up, there", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "better be enough food to go around,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "lest something... dangerous happens.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Immune to recession", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Double low harvest penalty", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "AFFLUENCE", pyxel.COLOR_YELLOW)
+                elif self.faction_wiki_idx == 2:
+                    pyxel.text(25, 40, "Due to a genetic trait, the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "Scrutineers have always had good", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "eyesight and they use it to full", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "effect. Nothing gets past them, from", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "the temples of the outlands to the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "streets of their cities. But, as it", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "goes, the devil is in the details, as", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "the local clergy certainly aren't", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "exempt from the all-seeing eye, with", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "blessings being stymied as much as is", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "humanly possible.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Investigations always succeed", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Generates 75% of usual fortune", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
+                elif self.faction_wiki_idx == 3:
+                    pyxel.text(25, 40, "Many eons ago, a subsection of the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "population of these lands began to", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "question the effectiveness of their", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "blessings after years of squalor and", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "oppression. They shook free their", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "bonds and formed their own community", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "based around the one thing that", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "proved valuable to all people:", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "currency. However, despite shunning", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "blessings at every opportunity, The", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "Godless, as they became known, are", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 106, "wont to dabble in blessings in", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 112, "moments of weakness, and what's left", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 118, "of their clergy makes sure to sink", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 124, "the boot in.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Generates 125% of usual wealth", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Blessings cost 125% of usual", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "AFFLUENCE", pyxel.COLOR_YELLOW)
+                elif self.faction_wiki_idx == 4:
+                    pyxel.text(25, 40, "Originating from a particular fertile", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "part of these lands, The Ravenous have", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "enjoyed bountiful harvests for", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "centuries. No matter the skill of the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "farmer, or the quality of the seeds, a", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "cultivation of significant size is", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "always created after some months. But", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "with such consistency, comes", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "complacency. Those that have resided", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "in settlements occupied by The", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "Ravenous, over time, grow greedy. As", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 106, "populations increase, and more food", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 112, "is available, the existing residents", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 118, "seek to keep it all for themselves, as", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 124, "newcomers are given the unbearable", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 130, "choice of starving or leaving.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Generates 125% of usual harvest", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Settlements capped at level 5", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "JUBILATION", pyxel.COLOR_GREEN)
+                elif self.faction_wiki_idx == 5:
+                    pyxel.text(25, 40, "There's nothing quite like the clang", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "of iron striking iron to truly ground", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "a person in their surroundings. This", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "is a fact that the Fundamentalists", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "know well, as every child of a certain", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "age is required to serve as an", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "apprentice in a local forge or", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "refinery. With such resources at their", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "disposal, work is done quickly. And", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "yet, suggestions that constructions", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "should be made quicker, and in some", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 106, "cases instantaneous, through the use", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 112, "of empire funds are met with utter", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 118, "disgust by the people. For the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 124, "Fundamentalists, everything must be", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 130, "done the right way.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Generates 125% of usual zeal", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Construction buyouts disabled", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "VIGOUR", pyxel.COLOR_ORANGE)
+                elif self.faction_wiki_idx == 6:
+                    pyxel.text(25, 40, "Glory to the ancient ones, and glory", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "to the passionate. The Orthodox look", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "to those that came before them for", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "guidance, and they are justly", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "rewarded that, with enlightenment", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "and discoveries occurring", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "frequently. As the passionate tend", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "to do, however, the clatter of coin", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "in the palm is met with a stern", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "decline. Content they are with their", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "existence, The Orthodox rely on", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 106, "seeing what others cannot.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Generates 125% of usual fortune", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Generates 75% of usual wealth", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "SERENDIPITY", pyxel.COLOR_PURPLE)
+                elif self.faction_wiki_idx == 7:
+                    pyxel.text(25, 40, "For the unfamiliar, visiting the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "settlement of The Concentrated can", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "be overwhelming. The sheer mass of", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "people everywhere one looks along", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "with the cloud-breaching towers can", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "make one feel like they have been", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "transported to some distant future.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "It is this intimidatory factor, in", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "combination with the colossal", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "ramparts surrounding the megapolis", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "that have kept The Concentrated", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 106, "safe and sound for many years.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Settlements have 200% strength", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Limited to a single settlement", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
+                elif self.faction_wiki_idx == 8:
+                    pyxel.text(25, 40, "Blink and you'll miss it; that's the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "story of the settlements of the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "Frontier. The Frontiersmen have a", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "near obsession with the thrill of", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "the frontier and making something of", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "inhospitable terrain, in situations", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "where others could not. Residing in", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "a new settlement is considered to be", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "the pinnacle of Frontier achievement,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "but the shine wears off quickly.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "After some time, the people become", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 106, "restless and seek to expand further.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 112, "And thus the cycle repeats.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Base satisfaction is 75", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Settlers only at level 5", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "JUBILATION", pyxel.COLOR_GREEN)
+                elif self.faction_wiki_idx == 9:
+                    pyxel.text(25, 40, "The concept of raw power and strength", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "has long been a core tenet of the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "self-dubbed Empire, with compulsory", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "military service a cultural feature.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "Drilled into the populace for such an", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "extensive period, the armed forces of", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "the Imperials are a fearsome sight to", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "behold. Those opposite gaze at one", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "another, gauging whether it might be", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "preferred to retreat. But this", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "superiority leads to carelessness, as", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 106, "the Imperials assume that no one", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 112, "would dare attack one of their", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 118, "settlements for fear of retribution,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 124, "and thus leave them relatively", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 130, "undefended.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Units have 50% more power", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Settlements have 50% strength", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
+                elif self.faction_wiki_idx == 10:
+                    pyxel.text(25, 40, "Atop a mountain in the north of these", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "lands, there is a people of a certain", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "philosophical nature. Instilled in all", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "from birth to death is the ideal of", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "determination, and achieving one's", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "goals no matter the cost, in time or", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "in life. Aptly dubbed by others as", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "The Persistent, these militaristic", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "people often elect to wear others down", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "through sieges and defensive", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "manoeuvres. Of course, such", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 106, "strategies become ineffective against", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 112, "the well-prepared, but this does not", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 118, "bother The Persistent; they simply", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 124, "continue on.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Units have 50% more health", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Units have 75% of usual power", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
+                elif self.faction_wiki_idx == 11:
+                    pyxel.text(25, 40, "Originating from an isolated part of", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "the globe, the Explorers were first", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "introduced to the wider world when a", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "lost trader stumbled across their", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "crude and underdeveloped settlement.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "Guiding the leaders of the settlement", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "out to the nearest other settlement,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "and returning to explain to the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "masses was significant. Once the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "Explorers got a taste, they have not", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "been able to stop. They look higher,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 106, "run farther and dig deeper, at the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 112, "expense of their energy levels.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 118, "Unfortunately for the Explorers, the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 124, "required rest during the journey", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 130, "makes them easy targets for Heathens.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Units have 50% more stamina", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Units have 75% of usual health", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "GLUTTONY", pyxel.COLOR_GREEN)
+                elif self.faction_wiki_idx == 12:
+                    pyxel.text(25, 40, "Some say they were raised by Heathens,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "and some say that their DNA is", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "actually closer to Heathen than human.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "Regardless of their biological makeup,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "if you approach someone on the street", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "of any settlement and bring up the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "Infidels, you will be met with a look", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "of disgust and the question 'you're", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "not one of them, are you?'. Seen as", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "sub-human, other empires engage in", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "combat on sight with the Infidels,", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 106, "no matter the disguises they apply.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Not attacked by heathens", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Always attacked by AI players", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
+                elif self.faction_wiki_idx == 13:
+                    pyxel.text(25, 40, "Long have The Nocturne worshipped the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 46, "holy moons of this world, and through", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 52, "repeated attempts to modify their", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 58, "circadian rhythm, the strongest among", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 64, "them have developed genetic abilities.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 70, "These abilities go further than simply", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 76, "making them nocturnal, no, they see", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 82, "farther and become stronger during the", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 88, "nighttime, and have perfected the art", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 94, "of predicting the sundown. As all", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 100, "things are, however, there is a", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 106, "trade-off. When the sun is out, those", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 112, "of The Nocturne are weakened, and", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 118, "largely huddle together waiting for", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 124, "their precious darkness to return.", pyxel.COLOR_WHITE)
+                    pyxel.text(25, 140, "+ Thrive during the night", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, "- Units weakened during the day", pyxel.COLOR_RED)
+                    pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
             elif self.wiki_showing is WikiOption.CLIMATE:
                 pyxel.load("resources/sprites.pyxres")
                 pyxel.rectb(20, 10, 160, 164, pyxel.COLOR_WHITE)
@@ -430,20 +758,22 @@ class Menu:
                     pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
                     pyxel.blt(172, 156, 0, 0, 76, 8, 8)
             elif self.wiki_showing is None:
-                pyxel.rectb(60, 55, 80, 90, pyxel.COLOR_WHITE)
-                pyxel.rect(61, 56, 78, 88, pyxel.COLOR_BLACK)
+                pyxel.rectb(60, 55, 80, 100, pyxel.COLOR_WHITE)
+                pyxel.rect(61, 56, 78, 98, pyxel.COLOR_BLACK)
                 pyxel.text(92, 60, "Wiki", pyxel.COLOR_WHITE)
                 pyxel.text(82, 75, "Victories",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.VICTORIES else pyxel.COLOR_WHITE)
-                pyxel.text(86, 85, "Climate",
+                pyxel.text(85, 85, "Factions",
+                           pyxel.COLOR_RED if self.wiki_option is WikiOption.FACTIONS else pyxel.COLOR_WHITE)
+                pyxel.text(86, 95, "Climate",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.CLIMATE else pyxel.COLOR_WHITE)
-                pyxel.text(82, 95, "Blessings",
+                pyxel.text(82, 105, "Blessings",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.BLESSINGS else pyxel.COLOR_WHITE)
-                pyxel.text(78, 105, "Improvements",
+                pyxel.text(78, 115, "Improvements",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.IMPROVEMENTS else pyxel.COLOR_WHITE)
-                pyxel.text(90, 115, "Units",
+                pyxel.text(90, 125, "Units",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.UNITS else pyxel.COLOR_WHITE)
-                pyxel.text(92, 135, "Back", pyxel.COLOR_RED if self.wiki_option is None else pyxel.COLOR_WHITE)
+                pyxel.text(92, 145, "Back", pyxel.COLOR_RED if self.wiki_option is None else pyxel.COLOR_WHITE)
         else:
             pyxel.rectb(75, 120, 50, 60, pyxel.COLOR_WHITE)
             pyxel.rect(76, 121, 48, 58, pyxel.COLOR_BLACK)
@@ -466,8 +796,9 @@ class Menu:
         :param right: Whether the right arrow key was pressed.
         """
         if down:
-            if self.in_game_setup:
-                if self.setup_option is SetupOption.PLAYER_COLOUR:
+            # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
+            if self.in_game_setup and not self.showing_faction_details:
+                if self.setup_option is SetupOption.PLAYER_FACTION:
                     self.setup_option = SetupOption.PLAYER_COUNT
                 elif self.setup_option is SetupOption.PLAYER_COUNT:
                     self.setup_option = SetupOption.BIOME_CLUSTERING
@@ -495,6 +826,8 @@ class Menu:
                         self.unit_boundaries = self.unit_boundaries[0] + 1, self.unit_boundaries[1] + 1
                 else:
                     if self.wiki_option is WikiOption.VICTORIES:
+                        self.wiki_option = WikiOption.FACTIONS
+                    elif self.wiki_option is WikiOption.FACTIONS:
                         self.wiki_option = WikiOption.CLIMATE
                     elif self.wiki_option is WikiOption.CLIMATE:
                         self.wiki_option = WikiOption.BLESSINGS
@@ -512,9 +845,10 @@ class Menu:
                 elif self.menu_option is MenuOption.WIKI:
                     self.menu_option = MenuOption.EXIT
         if up:
-            if self.in_game_setup:
+            # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
+            if self.in_game_setup and not self.showing_faction_details:
                 if self.setup_option is SetupOption.PLAYER_COUNT:
-                    self.setup_option = SetupOption.PLAYER_COLOUR
+                    self.setup_option = SetupOption.PLAYER_FACTION
                 elif self.setup_option is SetupOption.BIOME_CLUSTERING:
                     self.setup_option = SetupOption.PLAYER_COUNT
                 elif self.setup_option is SetupOption.FOG_OF_WAR:
@@ -540,8 +874,10 @@ class Menu:
                     if self.unit_boundaries[0] > 0:
                         self.unit_boundaries = self.unit_boundaries[0] - 1, self.unit_boundaries[1] - 1
                 else:
-                    if self.wiki_option is WikiOption.CLIMATE:
+                    if self.wiki_option is WikiOption.FACTIONS:
                         self.wiki_option = WikiOption.VICTORIES
+                    elif self.wiki_option is WikiOption.CLIMATE:
+                        self.wiki_option = WikiOption.FACTIONS
                     elif self.wiki_option is WikiOption.BLESSINGS:
                         self.wiki_option = WikiOption.CLIMATE
                     elif self.wiki_option is WikiOption.IMPROVEMENTS:
@@ -559,8 +895,8 @@ class Menu:
                     self.menu_option = MenuOption.WIKI
         if left:
             if self.in_game_setup:
-                if self.setup_option is SetupOption.PLAYER_COLOUR:
-                    self.colour_idx = clamp(self.colour_idx - 1, 0, len(AVAILABLE_COLOURS) - 1)
+                if self.setup_option is SetupOption.PLAYER_FACTION:
+                    self.faction_idx = clamp(self.faction_idx - 1, 0, len(self.faction_colours) - 1)
                 elif self.setup_option is SetupOption.PLAYER_COUNT:
                     self.player_count = max(2, self.player_count - 1)
                 elif self.setup_option is SetupOption.BIOME_CLUSTERING:
@@ -580,12 +916,14 @@ class Menu:
                     self.victory_type = VictoryType.AFFLUENCE
                 elif self.victory_type is VictoryType.SERENDIPITY:
                     self.victory_type = VictoryType.VIGOUR
+            elif self.in_wiki and self.wiki_showing is WikiOption.FACTIONS and self.faction_wiki_idx != 0:
+                self.faction_wiki_idx -= 1
             elif self.in_wiki and self.wiki_showing is WikiOption.CLIMATE:
                 self.showing_night = False
         if right:
             if self.in_game_setup:
-                if self.setup_option is SetupOption.PLAYER_COLOUR:
-                    self.colour_idx = clamp(self.colour_idx + 1, 0, len(AVAILABLE_COLOURS) - 1)
+                if self.setup_option is SetupOption.PLAYER_FACTION:
+                    self.faction_idx = clamp(self.faction_idx + 1, 0, len(self.faction_colours) - 1)
                 elif self.setup_option is SetupOption.PLAYER_COUNT:
                     self.player_count = min(14, self.player_count + 1)
                 elif self.setup_option is SetupOption.BIOME_CLUSTERING:
@@ -605,6 +943,9 @@ class Menu:
                     self.victory_type = VictoryType.VIGOUR
                 elif self.victory_type is VictoryType.VIGOUR:
                     self.victory_type = VictoryType.SERENDIPITY
+            elif self.in_wiki and self.wiki_showing is WikiOption.FACTIONS and \
+                    self.faction_wiki_idx != len(self.faction_colours) - 1:
+                self.faction_wiki_idx += 1
             elif self.in_wiki and self.wiki_showing is WikiOption.CLIMATE:
                 self.showing_night = True
 
@@ -613,5 +954,5 @@ class Menu:
         Returns the game config based on the setup screen selections.
         :return: The appropriate GameConfig object.
         """
-        return GameConfig(self.player_count, AVAILABLE_COLOURS[self.colour_idx][1], self.biome_clustering_enabled,
+        return GameConfig(self.player_count, self.faction_colours[self.faction_idx][0], self.biome_clustering_enabled,
                           self.fog_of_war_enabled, self.climatic_effects_enabled)

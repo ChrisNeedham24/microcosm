@@ -2,28 +2,35 @@ import random
 import typing
 from copy import deepcopy
 
-from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome, Heathen
+import pyxel
+
+from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome, Heathen, \
+    Faction
 
 # The list of settlement names, for each biome.
 SETL_NAMES = {
     Biome.DESERT: [
         "Enfu", "Saknoten", "Despemar", "Khasolzum", "Nekpesir", "Akhtamar", "Absai", "Khanomhat", "Sharrisir", "Kisri",
-        "Kervapet", "Khefupet", "Djesy", "Quri", "Sakmusa", "Khasru", "Farvaru", "Kiteru", "Setmeris", "Qulno"
+        "Kervapet", "Khefupet", "Djesy", "Quri", "Sakmusa", "Khasru", "Farvaru", "Kiteru", "Setmeris", "Qulno",
+        "Kirinu", "Farpesiris", "Neripet", "Shafu", "Kiskhekhen", "Ennotjer", "Desnounis", "Avseta", "Ebsai", "Ektu"
     ],
     Biome.FOREST: [
         "Kalshara", "Mora Caelora", "Yam Ennore", "Uyla Themar", "Nelrenqua", "Caranlian", "Osaenamel", "Elhamel",
         "Allenrion", "Nilathaes", "Osna Thalas", "Mytebel", "Ifoqua", "Amsanas", "Effa Dorei", "Aff Tirion",
-        "Wamalenor", "Thaihona", "Illmelion", "Naallume"
+        "Wamalenor", "Thaihona", "Illmelion", "Naallume", "Ayh Taesi", "Naalbel", "Ohelean", "Esaqua", "Ulananore",
+        "Ei Allanar", "Eririon", "Wan Thalor", "Maldell", "Mile Thalore"
     ],
     Biome.SEA: [
         "Natanas", "Tempetia", "Leviarey", "Atlalis", "Neptulean", "Oceacada", "Naurus", "Hylore", "Expathis",
         "Liquasa", "Navanoch", "Flulean", "Calaril", "Njomon", "Jutumari", "Atlalora", "Abystin", "Vapolina",
-        "Watamari", "Pacirius"
+        "Watamari", "Pacirius", "Calaren", "Aegmon", "Puratia", "Nephren", "Glalis", "Tritemari", "Sireri", "Ocearis",
+        "Navasa", "Merrius"
     ],
     Biome.MOUNTAIN: [
         "Nem Tarhir", "Dharnturm", "Hun Thurum", "Vil Tarum", "Kha Kuldihr", "Hildarim", "Gog Daruhl", "Vogguruhm",
         "Dhighthiod", "Malwihr", "Mil Boldar", "Hunfuhn", "Dunulur", "Kagria", "Meltorum", "Gol Darohm", "Beghrihm",
-        "Heltorhm", "Kor Olihm", "Nilgron"
+        "Heltorhm", "Kor Olihm", "Nilgron", "Garndor", "Khon Daruhm", "Bhalladuhr", "Kham Tarum", "Dugboldor",
+        "Gor Faldir", "Vildarth", "Keraldur", "Vog Durahl", "Gumdim"
     ]
 }
 
@@ -185,6 +192,24 @@ UNIT_PLANS = [
 ]
 
 
+FACTION_COLOURS: typing.Dict[Faction, int] = {
+    Faction.AGRICULTURISTS: pyxel.COLOR_GREEN,
+    Faction.CAPITALISTS: pyxel.COLOR_YELLOW,
+    Faction.SCRUTINEERS: pyxel.COLOR_LIGHT_BLUE,
+    Faction.GODLESS: pyxel.COLOR_CYAN,
+    Faction.RAVENOUS: pyxel.COLOR_LIME,
+    Faction.FUNDAMENTALISTS: pyxel.COLOR_ORANGE,
+    Faction.ORTHODOX: pyxel.COLOR_PURPLE,
+    Faction.CONCENTRATED: pyxel.COLOR_GRAY,
+    Faction.FRONTIERSMEN: pyxel.COLOR_PEACH,
+    Faction.IMPERIALS: pyxel.COLOR_DARK_BLUE,
+    Faction.PERSISTENT: pyxel.COLOR_RED,
+    Faction.EXPLORERS: pyxel.COLOR_PINK,
+    Faction.INFIDELS: pyxel.COLOR_BROWN,
+    Faction.NOCTURNE: pyxel.COLOR_NAVY
+}
+
+
 def get_heathen_plan(turn: int) -> UnitPlan:
     """
     Returns the turn-adjusted UnitPlan for the Heathen units. Heathens have their power and health increased by 10 every
@@ -222,9 +247,13 @@ def get_available_improvements(player: Player, settlement: Settlement) -> typing
     :param settlement: The settlement to retrieve improvements for.
     :return: A list of available improvements.
     """
+    # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
+    if player.faction is Faction.FRONTIERSMEN and settlement.level >= 5:
+        return []
+    completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
     # An improvement is available if the improvement has not been built in this settlement yet and either the player has
     # satisfied the improvement's pre-requisite or the improvement does not have one.
-    imps = [imp for imp in IMPROVEMENTS if (imp.prereq in player.blessings or imp.prereq is None)
+    imps = [imp for imp in IMPROVEMENTS if (imp.prereq is None or imp.prereq.name in completed_blessing_names)
             and imp not in settlement.improvements]
 
     def get_cost(imp: Improvement) -> float:
@@ -243,14 +272,29 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
     :return: A list of available units.
     """
     unit_plans = []
-    for unit_plan in UNIT_PLANS:
+    completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
+    for unit_plan in deepcopy(UNIT_PLANS):
         # A unit plan is available if the unit plan's pre-requisite has been satisfied, or it is non-existent.
-        if unit_plan.prereq is None or unit_plan.prereq in player.blessings:
-            # Note that settlers can only be recruited in settlements of at least level 2.
-            if unit_plan.can_settle and setl_lvl > 1:
+        if unit_plan.prereq is None or unit_plan.prereq.name in completed_blessing_names:
+            # Note that settlers can only be recruited in settlements of at least level 2. Additionally, users of The
+            # Concentrated cannot construct settlers at all.
+            if unit_plan.can_settle and setl_lvl > 1 and player.faction is not Faction.CONCENTRATED:
                 unit_plans.append(unit_plan)
-            elif not unit_plan.can_settle:
+            # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
+            elif not unit_plan.can_settle and not (player.faction is Faction.FRONTIERSMEN and setl_lvl >= 5):
                 unit_plans.append(unit_plan)
+
+    if player.faction is Faction.IMPERIALS:
+        for unit_plan in unit_plans:
+            unit_plan.power *= 1.5
+    elif player.faction is Faction.PERSISTENT:
+        for unit_plan in unit_plans:
+            unit_plan.max_health *= 1.5
+            unit_plan.power *= 0.75
+    elif player.faction is Faction.EXPLORERS:
+        for unit_plan in unit_plans:
+            unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
+            unit_plan.max_health *= 0.75
 
     def get_cost(up: UnitPlan) -> float:
         return up.cost
@@ -266,7 +310,12 @@ def get_available_blessings(player: Player) -> typing.List[Blessing]:
     :param player: The player viewing the available blessings.
     :return: A list of available blessings.
     """
-    blessings = [bls for bls in BLESSINGS.values() if bls not in player.blessings]
+    completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
+    blessings = [bls for bls in deepcopy(BLESSINGS).values() if bls.name not in completed_blessing_names]
+
+    if player.faction is Faction.GODLESS:
+        for bls in blessings:
+            bls.cost *= 1.5
 
     def get_cost(blessing: Blessing) -> float:
         return blessing.cost
@@ -282,8 +331,8 @@ def get_all_unlockable(blessing: Blessing) -> typing.List[typing.Union[Improveme
     :param blessing: The blessing to search pre-requisites for.
     :return: A list of unlockable improvements and unit plans.
     """
-    unlockable = [imp for imp in IMPROVEMENTS if imp.prereq is blessing]
-    unlockable.extend([up for up in UNIT_PLANS if up.prereq is blessing])
+    unlockable = [imp for imp in IMPROVEMENTS if (imp.prereq is not None) and (imp.prereq.name == blessing.name)]
+    unlockable.extend([up for up in UNIT_PLANS if (up.prereq is not None) and (up.prereq.name == blessing.name)])
     return unlockable
 
 
@@ -293,7 +342,7 @@ def get_unlockable_improvements(blessing: Blessing) -> typing.List[Improvement]:
     :param blessing: The blessing to search pre-requisites for.
     :return: A list of unlockable improvements.
     """
-    return [imp for imp in IMPROVEMENTS if imp.prereq is blessing]
+    return [imp for imp in IMPROVEMENTS if (imp.prereq is not None) and (imp.prereq.name == blessing.name)]
 
 
 def get_unlockable_units(blessing: Blessing) -> typing.List[UnitPlan]:
@@ -302,7 +351,7 @@ def get_unlockable_units(blessing: Blessing) -> typing.List[UnitPlan]:
     :param blessing: The blessing to search pre-requisites for.
     :return: A list of unlockable unit plans.
     """
-    return [up for up in UNIT_PLANS if up.prereq is blessing]
+    return [up for up in UNIT_PLANS if (up.prereq is not None) and (up.prereq.name == blessing.name)]
 
 
 def get_improvement(name: str) -> Improvement:

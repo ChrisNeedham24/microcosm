@@ -81,6 +81,26 @@ class VictoryType(str, Enum):
     SERENDIPITY = "SERENDIPITY"
 
 
+class Faction(str, Enum):
+    """
+    The fourteen different playable factions in Microcosm. Each faction has its own advantage and disadvantage.
+    """
+    AGRICULTURISTS = "Agriculturists"
+    CAPITALISTS = "Capitalists"
+    SCRUTINEERS = "Scrutineers"
+    GODLESS = "The Godless"
+    RAVENOUS = "The Ravenous"
+    FUNDAMENTALISTS = "Fundamentalists"
+    ORTHODOX = "The Orthodox"
+    CONCENTRATED = "The Concentrated"
+    FRONTIERSMEN = "Frontiersmen"
+    IMPERIALS = "Imperials"
+    PERSISTENT = "The Persistent"
+    EXPLORERS = "Explorers"
+    INFIDELS = "Infidels"
+    NOCTURNE = "The Nocturne"
+
+
 class InvestigationResult(Enum):
     """
     The types of result a relic investigation can yield.
@@ -308,6 +328,7 @@ class Player:
     A player of Microcosm.
     """
     name: str
+    faction: Faction
     colour: int  # Refers to pyxel's colours, which resolve to integers.
     wealth: float
     settlements: typing.List[Settlement]
@@ -357,7 +378,7 @@ class GameConfig:
     The configuration for a game of Microcosm.
     """
     player_count: int
-    player_colour: int  # Refers to pyxel's colours, which resolve to integers.
+    player_faction: Faction
     biome_clustering: bool
     fog_of_war: bool
     climatic_effects: bool

@@ -6,7 +6,7 @@ from calculator import get_player_totals, get_setl_totals, attack, complete_cons
 from catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
 from models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, UnitPlan, \
-    Construction, Unit, ExpansionPlaystyle, Quad, GameConfig
+    Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction
 
 
 def set_blessing(player: Player, player_totals: (float, float, float, float)):
@@ -109,7 +109,7 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
     ideal: typing.Union[Improvement, UnitPlan] = avail_imps[0] \
         if len(avail_imps) > 0 and setl.satisfaction + avail_imps[0].effect.satisfaction >= 50 \
         else avail_units[0]
-    totals = get_setl_totals(setl, is_night)
+    totals = get_setl_totals(player, setl, is_night)
 
     # If the AI player has neither units on the board nor garrisoned, construct the first available.
     if len(player.units) == 0 and len(setl.garrison) == 0:
@@ -117,8 +117,10 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
     # If the settlement has not yet produced a settler in its 'lifetime', and it has now reached its required level for
     # expansion, choose that. Alternatively, if the AI is facing a situation where all of their settlements are
     # dissatisfied, and they can produce a settler, produce one regardless of whether they have produced one before.
-    elif (setl.level >= get_expansion_lvl() and not setl.produced_settler) or \
-            (setl.level > 1 and all(setl.satisfaction < 40 for setl in player.settlements)):
+    # Naturally, The Concentrated are exempt from this requirement.
+    elif player.faction is not Faction.CONCENTRATED and \
+            ((setl.level >= get_expansion_lvl() and not setl.produced_settler) or
+             (setl.level > 1 and all(setl.satisfaction < 40 for setl in player.settlements))):
         setl.current_work = Construction(settler_units[0])
     else:
         if len(avail_imps) > 0:
@@ -248,16 +250,17 @@ class MoveMaker:
         for setl in player.settlements:
             if setl.current_work is None:
                 set_construction(player, setl, is_night)
-            else:
+            elif player.faction is not Faction.FUNDAMENTALISTS:
                 constr = setl.current_work.construction
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out. In
                 # circumstances where the settlement's satisfaction is less than 50 and the construction would yield
-                # harvest or satisfaction, buy it out as soon as the AI is able to afford it.
+                # harvest or satisfaction, buy it out as soon as the AI is able to afford it. Fundamentalist AIs are
+                # exempt from this, as they cannot buy out constructions.
                 if rem_work := (constr.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or \
                                (setl.satisfaction < 50 and player.wealth >= constr.cost and
                                 isinstance(constr, Improvement) and
                                 (constr.effect.satisfaction > 0 or constr.effect.harvest > 0)):
-                    complete_construction(setl)
+                    complete_construction(setl, player)
                     player.wealth -= rem_work
             # If the settlement has a settler, deploy them.
             if len([unit for unit in setl.garrison if unit.plan.can_settle]) > 0:
@@ -323,6 +326,11 @@ class MoveMaker:
                 setl_name = self.namer.get_settlement_name(quad_biome)
                 new_settl = Settlement(setl_name, unit.location, [],
                                        [self.board_ref.quads[unit.location[1]][unit.location[0]]], [])
+                if player.faction is Faction.FRONTIERSMEN:
+                    new_settl.satisfaction = 75
+                elif player.faction is Faction.IMPERIALS:
+                    new_settl.strength /= 2
+                    new_settl.max_strength /= 2
                 player.settlements.append(new_settl)
                 player.units.remove(unit)
         else:
@@ -330,13 +338,18 @@ class MoveMaker:
             within_range: typing.Optional[typing.Union[Unit, Settlement]] = None
             # If the unit cannot settle, then we must first check if it meets the criteria to attack another unit. A
             # unit can attack if any of its settlements are under siege or attack, or if the AI is aggressive, or if the
-            # AI is neutral but with a health advantage over another unit.
+            # AI is neutral but with a health advantage over another unit, or lastly, if the other unit is an Infidel.
             for other_u in other_units:
+                is_infidel = False
+                for pl in all_players:
+                    if pl.faction is Faction.INFIDELS and other_u in pl.units:
+                        is_infidel = True
+                        break
                 could_attack: bool = any(setl.under_siege_by is not None or setl.strength < setl.max_strength / 2
                                          for setl in player.settlements) or \
-                                     player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
-                                     (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
-                                      unit.health >= other_u.health * 2)
+                    player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
+                    (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
+                     unit.health >= other_u.health * 2) or is_infidel
                 # Of course, the attacked unit has to be close enough.
                 if max(abs(unit.location[0] - other_u.location[0]),
                        abs(unit.location[1] - other_u.location[1])) <= unit.remaining_stamina and could_attack and \
@@ -432,7 +445,8 @@ class MoveMaker:
                                 player.units.remove(data.attacker)
                             elif data.setl_was_taken:
                                 data.settlement.under_siege_by = None
-                                player.settlements.append(data.settlement)
+                                if player.faction is not Faction.CONCENTRATED:
+                                    player.settlements.append(data.settlement)
                                 setl_owner.settlements.remove(data.settlement)
                     # If we have chosen to place a settlement under siege, and the unit is not already sieging another
                     # settlement, do so.

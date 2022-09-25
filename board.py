@@ -7,7 +7,7 @@ import pyxel
 
 from calculator import calculate_yield_for_quad, attack, investigate_relic
 from catalogue import get_default_unit, Namer
-from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult
+from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, Faction
 from overlay import Overlay
 from overlay_display import display_overlay
 
@@ -59,7 +59,7 @@ class Board:
         self.selected_unit: typing.Optional[typing.Union[Unit, Heathen]] = None
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
-             is_night: bool):
+             is_night: bool, turns_until_change: int):
         """
         Draws the board and its objects to the screen.
         :param players: The players in the game.
@@ -67,6 +67,7 @@ class Board:
         :param turn: The current turn.
         :param heathens: The list of Heathens to draw.
         :param is_night: Whether it is currently night.
+        :param turns_until_change: The number of turns until a climatic change will occur (day -> night, or vice versa).
         """
         # Clear the screen to black.
         pyxel.cls(0)
@@ -75,8 +76,9 @@ class Board:
         pyxel.load("resources/quads.pyxres")
         selected_quad_coords: (int, int) = None
         quads_to_show: typing.Set[typing.Tuple[int, int]] = set()
-        # At nighttime, the player can only see a few quads around their settlements and units.
-        if is_night:
+        # At nighttime, the player can only see a few quads around their settlements and units. However, players of the
+        # Nocturne faction have no vision impacts at nighttime.
+        if is_night and players[0].faction is not Faction.NOCTURNE:
             for setl in players[0].settlements:
                 for i in range(setl.location[0] - 3, setl.location[0] + 4):
                     for j in range(setl.location[1] - 3, setl.location[1] + 4):
@@ -87,7 +89,8 @@ class Board:
                         quads_to_show.add((i, j))
         else:
             quads_to_show = players[0].quads_seen
-        fog_of_war_impacts: bool = self.game_config.fog_of_war or is_night
+        fog_of_war_impacts: bool = self.game_config.fog_of_war or \
+            (is_night and players[0].faction is not Faction.NOCTURNE)
         # Draw the quads.
         for i in range(map_pos[0], map_pos[0] + 24):
             for j in range(map_pos[1], map_pos[1] + 22):
@@ -244,6 +247,8 @@ class Board:
         else:
             pyxel.text(2, 189, self.current_help.value, pyxel.COLOR_WHITE)
         if self.game_config.climatic_effects:
+            if players[0].faction is Faction.NOCTURNE:
+                pyxel.text(135, 190, f"({turns_until_change})", pyxel.COLOR_WHITE)
             if is_night:
                 pyxel.blt(153, 188, 0, 8, 84, 8, 8)
             else:
@@ -397,6 +402,13 @@ class Board:
                     setl_name = self.namer.get_settlement_name(quad_biome)
                     new_settl = Settlement(setl_name, (adj_x, adj_y), [], [self.quads[adj_y][adj_x]],
                                            [get_default_unit((adj_x, adj_y))])
+                    if player.faction is Faction.CONCENTRATED:
+                        new_settl.strength *= 2
+                    elif player.faction is Faction.FRONTIERSMEN:
+                        new_settl.satisfaction = 75
+                    elif player.faction is Faction.IMPERIALS:
+                        new_settl.strength /= 2
+                        new_settl.max_strength /= 2
                     player.settlements.append(new_settl)
                     # Automatically add 5 quads in either direction to the player's seen.
                     for i in range(adj_y - 5, adj_y + 6):
@@ -567,6 +579,11 @@ class Board:
             setl_name = self.namer.get_settlement_name(quad_biome)
             new_settl = Settlement(setl_name, self.selected_unit.location, [],
                                    [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]], [])
+            if player.faction is Faction.FRONTIERSMEN:
+                new_settl.satisfaction = 75
+            elif player.faction is Faction.IMPERIALS:
+                new_settl.strength /= 2
+                new_settl.max_strength /= 2
             player.settlements.append(new_settl)
             # Destroy the settler unit and select the new settlement.
             player.units.remove(self.selected_unit)
