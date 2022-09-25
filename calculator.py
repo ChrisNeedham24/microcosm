@@ -114,9 +114,13 @@ def get_player_totals(player: Player, is_night: bool) -> (float, float, float, f
     return overall_wealth, overall_harvest, overall_zeal, overall_fortune
 
 
-def get_setl_totals(player: Player, setl: Settlement, is_night: bool, strict: bool = False) -> (float, float, float, float):
+def get_setl_totals(player: Player,
+                    setl: Settlement,
+                    is_night: bool,
+                    strict: bool = False) -> (float, float, float, float):
     """
     Get the wealth, harvest, zeal, and fortune totals for the given Settlement.
+    :param player: The owner of the settlement.
     :param setl: The settlement to calculate totals for.
     :param is_night: Whether it is night. Used as harvest is halved and fortune increased by 10% at night.
     :param strict: Whether the total should be 0 as opposed to 0.5 in situations where the total would be negative.
@@ -178,6 +182,7 @@ def complete_construction(setl: Settlement, player: Player):
     """
     Completes the current construction for the given settlement.
     :param setl: The settlement having its construction completed.
+    :param player: The owner of the settlement.
     """
     # If an improvement is being completed, add it to the settlement, and adjust the settlement's strength and
     # satisfaction.
@@ -223,6 +228,7 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
     :return: The type of investigation result, i.e. the bonus granted, if there is one.
     """
     random_chance = random.randint(0, 100)
+    # Scrutineers always succeed when investigating.
     was_successful = True if player.faction is Faction.SCRUTINEERS else random_chance < 70
     if was_successful:
         if random_chance < 10 and player.ongoing_blessing is not None:

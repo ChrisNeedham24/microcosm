@@ -247,6 +247,7 @@ def get_available_improvements(player: Player, settlement: Settlement) -> typing
     :param settlement: The settlement to retrieve improvements for.
     :return: A list of available improvements.
     """
+    # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
     if player.faction is Faction.FRONTIERSMEN and settlement.level >= 5:
         return []
     completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
@@ -275,9 +276,11 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
     for unit_plan in deepcopy(UNIT_PLANS):
         # A unit plan is available if the unit plan's pre-requisite has been satisfied, or it is non-existent.
         if unit_plan.prereq is None or unit_plan.prereq.name in completed_blessing_names:
-            # Note that settlers can only be recruited in settlements of at least level 2.
+            # Note that settlers can only be recruited in settlements of at least level 2. Additionally, users of The
+            # Concentrated cannot construct settlers at all.
             if unit_plan.can_settle and setl_lvl > 1 and player.faction is not Faction.CONCENTRATED:
                 unit_plans.append(unit_plan)
+            # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
             elif not unit_plan.can_settle and not (player.faction is Faction.FRONTIERSMEN and setl_lvl >= 5):
                 unit_plans.append(unit_plan)
 

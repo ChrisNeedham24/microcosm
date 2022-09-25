@@ -67,6 +67,7 @@ class Board:
         :param turn: The current turn.
         :param heathens: The list of Heathens to draw.
         :param is_night: Whether it is currently night.
+        :param turns_until_change: The number of turns until a climatic change will occur (day -> night, or vice versa).
         """
         # Clear the screen to black.
         pyxel.cls(0)
@@ -75,7 +76,8 @@ class Board:
         pyxel.load("resources/quads.pyxres")
         selected_quad_coords: (int, int) = None
         quads_to_show: typing.Set[typing.Tuple[int, int]] = set()
-        # At nighttime, the player can only see a few quads around their settlements and units.
+        # At nighttime, the player can only see a few quads around their settlements and units. However, players of the
+        # Nocturne faction have no vision impacts at nighttime.
         if is_night and players[0].faction is not Faction.NOCTURNE:
             for setl in players[0].settlements:
                 for i in range(setl.location[0] - 3, setl.location[0] + 4):
@@ -88,7 +90,7 @@ class Board:
         else:
             quads_to_show = players[0].quads_seen
         fog_of_war_impacts: bool = self.game_config.fog_of_war or \
-                                   (is_night and players[0].faction is not Faction.NOCTURNE)
+            (is_night and players[0].faction is not Faction.NOCTURNE)
         # Draw the quads.
         for i in range(map_pos[0], map_pos[0] + 24):
             for j in range(map_pos[1], map_pos[1] + 22):

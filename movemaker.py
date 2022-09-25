@@ -117,6 +117,7 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
     # If the settlement has not yet produced a settler in its 'lifetime', and it has now reached its required level for
     # expansion, choose that. Alternatively, if the AI is facing a situation where all of their settlements are
     # dissatisfied, and they can produce a settler, produce one regardless of whether they have produced one before.
+    # Naturally, The Concentrated are exempt from this requirement.
     elif player.faction is not Faction.CONCENTRATED and \
             ((setl.level >= get_expansion_lvl() and not setl.produced_settler) or
              (setl.level > 1 and all(setl.satisfaction < 40 for setl in player.settlements))):
@@ -253,7 +254,8 @@ class MoveMaker:
                 constr = setl.current_work.construction
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out. In
                 # circumstances where the settlement's satisfaction is less than 50 and the construction would yield
-                # harvest or satisfaction, buy it out as soon as the AI is able to afford it.
+                # harvest or satisfaction, buy it out as soon as the AI is able to afford it. Fundamentalist AIs are
+                # exempt from this, as they cannot buy out constructions.
                 if rem_work := (constr.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or \
                                (setl.satisfaction < 50 and player.wealth >= constr.cost and
                                 isinstance(constr, Improvement) and
@@ -336,7 +338,7 @@ class MoveMaker:
             within_range: typing.Optional[typing.Union[Unit, Settlement]] = None
             # If the unit cannot settle, then we must first check if it meets the criteria to attack another unit. A
             # unit can attack if any of its settlements are under siege or attack, or if the AI is aggressive, or if the
-            # AI is neutral but with a health advantage over another unit.
+            # AI is neutral but with a health advantage over another unit, or lastly, if the other unit is an Infidel.
             for other_u in other_units:
                 is_infidel = False
                 for pl in all_players:
@@ -345,9 +347,9 @@ class MoveMaker:
                         break
                 could_attack: bool = any(setl.under_siege_by is not None or setl.strength < setl.max_strength / 2
                                          for setl in player.settlements) or \
-                                     player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
-                                     (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
-                                      unit.health >= other_u.health * 2) or is_infidel
+                    player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
+                    (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
+                     unit.health >= other_u.health * 2) or is_infidel
                 # Of course, the attacked unit has to be close enough.
                 if max(abs(unit.location[0] - other_u.location[0]),
                        abs(unit.location[1] - other_u.location[1])) <= unit.remaining_stamina and could_attack and \

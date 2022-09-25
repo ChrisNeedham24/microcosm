@@ -213,6 +213,8 @@ class Game:
                     elif data.setl_was_taken:
                         # If the settlement was taken, transfer it to the player.
                         data.settlement.under_siege_by = None
+                        # The Concentrated can only have a single settlement, so when they take others, the settlements
+                        # simply disappear.
                         if self.players[0].faction is not Faction.CONCENTRATED:
                             self.players[0].settlements.append(data.settlement)
                         for idx, p in enumerate(self.players):
@@ -368,7 +370,8 @@ class Game:
             if self.game_started and self.board.selected_settlement is not None and \
                     self.board.selected_settlement.current_work is not None and \
                     self.players[0].faction is not Faction.FUNDAMENTALISTS:
-                # Pressing B will buyout the remaining cost of the settlement's current construction.
+                # Pressing B will buyout the remaining cost of the settlement's current construction. However, players
+                # using the Fundamentalists faction are barred from this.
                 current_work = self.board.selected_settlement.current_work
                 remaining_work = current_work.construction.cost - current_work.zeal_consumed
                 if self.players[0].wealth >= remaining_work:
@@ -483,7 +486,8 @@ class Game:
                     setl.harvest_status = HarvestStatus.PLENTIFUL
                     setl.economic_status = EconomicStatus.BOOM
 
-                total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(player, setl, self.nighttime_left > 0)
+                total_wealth, total_harvest, total_zeal, total_fortune = \
+                    get_setl_totals(player, setl, self.nighttime_left > 0)
                 overall_fortune += total_fortune
                 overall_wealth += total_wealth
 
@@ -730,6 +734,7 @@ class Game:
         """
         all_units = []
         for player in self.players:
+            # Heathens will not attack Infidel units.
             if player.faction is not Faction.INFIDELS:
                 for unit in player.units:
                     all_units.append(unit)

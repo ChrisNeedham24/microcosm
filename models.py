@@ -82,6 +82,9 @@ class VictoryType(str, Enum):
 
 
 class Faction(str, Enum):
+    """
+    The fourteen different playable factions in Microcosm. Each faction has its own advantage and disadvantage.
+    """
     AGRICULTURISTS = "Agriculturists"
     CAPITALISTS = "Capitalists"
     SCRUTINEERS = "Scrutineers"

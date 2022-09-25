@@ -796,6 +796,7 @@ class Menu:
         :param right: Whether the right arrow key was pressed.
         """
         if down:
+            # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
             if self.in_game_setup and not self.showing_faction_details:
                 if self.setup_option is SetupOption.PLAYER_FACTION:
                     self.setup_option = SetupOption.PLAYER_COUNT
@@ -844,6 +845,7 @@ class Menu:
                 elif self.menu_option is MenuOption.WIKI:
                     self.menu_option = MenuOption.EXIT
         if up:
+            # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
             if self.in_game_setup and not self.showing_faction_details:
                 if self.setup_option is SetupOption.PLAYER_COUNT:
                     self.setup_option = SetupOption.PLAYER_FACTION
