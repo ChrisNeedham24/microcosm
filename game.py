@@ -326,6 +326,8 @@ class Game:
             # Pressing space either dismisses the current overlay or iterates through the player's units.
             if self.on_menu and self.menu.in_wiki and self.menu.wiki_showing is not None:
                 self.menu.wiki_showing = None
+            if self.on_menu and self.menu.in_game_setup:
+                self.menu.in_game_setup = False
             if self.on_menu and self.menu.loading_game:
                 self.menu.loading_game = False
             if self.game_started and self.board.overlay.is_elimination():
