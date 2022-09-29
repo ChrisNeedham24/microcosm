@@ -304,7 +304,8 @@ class Game:
                 self.board.overlay.toggle_unit(None)
         elif pyxel.btnp(pyxel.KEY_TAB):
             # Pressing tab iterates through the player's settlements, centreing on each one.
-            if self.game_started and self.board.overlay.can_iter_settlements_units():
+            if self.game_started and self.board.overlay.can_iter_settlements_units() and \
+                    len(self.players[0].settlements) > 0:
                 self.board.overlay.remove_warning_if_possible()
                 if self.board.overlay.is_unit():
                     self.board.selected_unit = None
