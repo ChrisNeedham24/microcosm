@@ -89,8 +89,8 @@ class Menu:
             pyxel.load("resources/background2.pyxres")
             pyxel.blt(0, 0, self.image - 3, 0, 0, 200, 200)
         if self.in_game_setup:
-            pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
-            pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
+            pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
+            pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
             pyxel.text(81, 25, "Game Setup", pyxel.COLOR_WHITE)
             pyxel.text(28, 40, "Player Faction",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.PLAYER_FACTION else pyxel.COLOR_WHITE)
@@ -133,6 +133,7 @@ class Menu:
                 pyxel.text(125, 125, "Disabled ->", pyxel.COLOR_RED)
             pyxel.text(81, 150, "Start Game",
                        pyxel.COLOR_RED if self.setup_option is SetupOption.START_GAME else pyxel.COLOR_WHITE)
+            pyxel.text(52, 160, "(Press SPACE to go back)", pyxel.COLOR_WHITE)
 
             if self.showing_faction_details:
                 pyxel.load("resources/sprites.pyxres")
