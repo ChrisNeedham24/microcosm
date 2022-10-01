@@ -256,11 +256,8 @@ def get_available_improvements(player: Player, settlement: Settlement) -> typing
     imps = [imp for imp in IMPROVEMENTS if (imp.prereq is None or imp.prereq.name in completed_blessing_names)
             and imp not in settlement.improvements]
 
-    def get_cost(imp: Improvement) -> float:
-        return imp.cost
-
     # Sort improvements by cost.
-    imps.sort(key=get_cost)
+    imps.sort(key=lambda i: i.cost)
     return imps
 
 
@@ -296,11 +293,8 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
             unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
             unit_plan.max_health *= 0.75
 
-    def get_cost(up: UnitPlan) -> float:
-        return up.cost
-
     # Sort unit plans by cost.
-    unit_plans.sort(key=get_cost)
+    unit_plans.sort(key=lambda up: up.cost)
     return unit_plans
 
 
@@ -317,11 +311,8 @@ def get_available_blessings(player: Player) -> typing.List[Blessing]:
         for bls in blessings:
             bls.cost *= 1.5
 
-    def get_cost(blessing: Blessing) -> float:
-        return blessing.cost
-
     # Sort blessings by cost.
-    blessings.sort(key=get_cost)
+    blessings.sort(key=lambda b: b.cost)
     return blessings
 
 

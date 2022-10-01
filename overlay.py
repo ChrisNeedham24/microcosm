@@ -52,6 +52,7 @@ class Overlay:
         self.close_to_vics: typing.List[Victory] = []
         self.investigation_result: typing.Optional[InvestigationResult] = None
         self.night_beginning: bool = False
+        self.settlement_status_boundaries: typing.Tuple[int, int] = 0, 7
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
@@ -71,6 +72,20 @@ class Overlay:
                 not self.is_pause() and not self.is_controls() and not self.is_victory() and not self.is_constructing():
             self.showing.append(OverlayType.STANDARD)
             self.current_turn = turn
+
+    def navigate_standard(self, down: bool):
+        """
+        Navigate the standard overlay.
+        :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
+        """
+        # Only allow navigation if the player has enough settlements to warrant scrolling.
+        if len(self.current_player.settlements) > 7:
+            if down and self.settlement_status_boundaries[1] != len(self.current_player.settlements):
+                self.settlement_status_boundaries = \
+                    self.settlement_status_boundaries[0] + 1, self.settlement_status_boundaries[1] + 1
+            elif not down and self.settlement_status_boundaries[0] != 0:
+                self.settlement_status_boundaries = \
+                    self.settlement_status_boundaries[0] - 1, self.settlement_status_boundaries[1] - 1
 
     def toggle_construction(self, available_constructions: typing.List[Improvement],
                             available_unit_plans: typing.List[UnitPlan]):

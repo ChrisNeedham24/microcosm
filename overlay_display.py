@@ -6,7 +6,7 @@ import pyxel
 from calculator import get_setl_totals
 from catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units
 from models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, OverlayType, \
-    SettlementAttackType, PauseOption, Faction
+    SettlementAttackType, PauseOption, Faction, HarvestStatus
 from overlay import Overlay
 
 
@@ -430,8 +430,10 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(140, 150, "Units ->", pyxel.COLOR_WHITE)
             elif len(overlay.available_constructions) > 0:
                 pyxel.text(25, 150, "<- Improvements", pyxel.COLOR_WHITE)
-        # The standard overlay displays the current turn, ongoing blessing, and player wealth.
+        # The standard overlay displays the current turn, ongoing blessing, player wealth, and player settlement
+        # statistics.
         if OverlayType.STANDARD in overlay.showing:
+            pyxel.load("resources/sprites.pyxres")
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
             pyxel.text(90, 30, f"Turn {overlay.current_turn}", pyxel.COLOR_WHITE)
@@ -459,7 +461,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             else:
                 pyxel.text(30, 50, "None", pyxel.COLOR_RED)
                 pyxel.text(30, 60, "Press F to add one!", pyxel.COLOR_WHITE)
-            pyxel.text(30, 80, "Wealth", pyxel.COLOR_YELLOW)
+            pyxel.text(30, 72, "Wealth", pyxel.COLOR_YELLOW)
             wealth_per_turn = 0
             for setl in overlay.current_player.settlements:
                 wealth_to_add = 0
@@ -479,9 +481,65 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 if not unit.garrisoned:
                     wealth_per_turn -= unit.plan.cost / 25
             sign = "+" if wealth_per_turn > 0 else "-"
-            pyxel.text(30, 90,
+            pyxel.text(30, 82,
                        f"{round(overlay.current_player.wealth)} ({sign}{abs(round(wealth_per_turn, 2))})",
                        pyxel.COLOR_WHITE)
+
+            pyxel.text(30, 94, "Settlements", pyxel.COLOR_GREEN)
+            pyxel.blt(100, 94, 0, 8, 28, 8, 8)
+            pyxel.blt(117, 94, 0, 0, 28, 8, 8)
+            pyxel.blt(130, 94, 0, 0, 116, 8, 8)
+            pyxel.blt(140, 94, 0, 0, 36, 8, 8)
+            if 7 < len(overlay.current_player.settlements) != overlay.settlement_status_boundaries[1]:
+                pyxel.blt(21, 155, 0, 0, 76, 8, 8)
+            if len(overlay.current_player.settlements) > 7 and overlay.settlement_status_boundaries[0] != 0:
+                pyxel.blt(21, 100, 0, 8, 76, 8, 8)
+            start_idx = overlay.settlement_status_boundaries[0]
+            end_idx = overlay.settlement_status_boundaries[1]
+            player_setls = overlay.current_player.settlements
+            player_setls.sort(key=lambda s: s.level, reverse=True)
+            for idx, setl in enumerate(player_setls[start_idx:end_idx]):
+                pyxel.text(30, 104 + idx * 8, f"{setl.name} ({setl.level})",
+                           pyxel.COLOR_RED if setl.under_siege_by is not None else pyxel.COLOR_WHITE)
+                pyxel.text(100, 104 + idx * 8, str(round(setl.satisfaction)),
+                           pyxel.COLOR_RED if setl.satisfaction < 50 else pyxel.COLOR_GREEN)
+                pyxel.text(115, 104 + idx * 8, str(round(setl.strength)),
+                           pyxel.COLOR_RED if setl.under_siege_by is not None else pyxel.COLOR_WHITE)
+
+                current_work = setl.current_work
+                if current_work is not None:
+                    remaining_work = current_work.construction.cost - current_work.zeal_consumed
+                    total_zeal = max(sum(quad.zeal for quad in setl.quads) +
+                                     sum(imp.effect.zeal for imp in setl.improvements), 0.5)
+                    total_zeal += (setl.level - 1) * 0.25 * total_zeal
+                    if overlay.current_player.faction is Faction.AGRICULTURISTS:
+                        total_zeal *= 0.75
+                    elif overlay.current_player.faction is Faction.FUNDAMENTALISTS:
+                        total_zeal *= 1.25
+                    remaining_turns = math.ceil(remaining_work / total_zeal)
+                    pyxel.text(130, 104 + idx * 8, str(remaining_turns), pyxel.COLOR_WHITE)
+                else:
+                    pyxel.text(130, 104 + idx * 8, "-", pyxel.COLOR_WHITE)
+
+                pyxel.text(140, 104 + idx * 8, str(len(setl.garrison)), pyxel.COLOR_WHITE)
+
+                harvest_u: int
+                if setl.harvest_status == HarvestStatus.STANDARD:
+                    harvest_u = 0
+                elif setl.harvest_status == HarvestStatus.PLENTIFUL:
+                    harvest_u = 8
+                else:
+                    harvest_u = 16
+                pyxel.blt(155, 102 + idx * 8, 0, harvest_u, 100, 8, 8)
+
+                wealth_u: int
+                if setl.economic_status == EconomicStatus.RECESSION:
+                    wealth_u = 0
+                elif setl.economic_status == EconomicStatus.STANDARD:
+                    wealth_u = 8
+                else:
+                    wealth_u = 16
+                pyxel.blt(165, 102 + idx * 8, 0, wealth_u, 108, 8, 8)
         # The settlement click overlay displays the two options available to the player when interacting with an
         # enemy settlement: attack or besiege.
         if OverlayType.SETL_CLICK in overlay.showing:

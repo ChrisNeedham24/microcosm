@@ -90,6 +90,8 @@ class Game:
                     self.board.overlay.navigate_setl_click(down=True)
                 elif self.board.overlay.is_pause():
                     self.board.overlay.navigate_pause(down=True)
+                elif self.board.overlay.is_standard():
+                    self.board.overlay.navigate_standard(down=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press down.
@@ -100,12 +102,14 @@ class Game:
             elif self.game_started:
                 if self.board.overlay.is_constructing():
                     self.board.overlay.navigate_constructions(down=False)
-                elif self.board.overlay.is_standard():
+                elif self.board.overlay.is_blessing():
                     self.board.overlay.navigate_blessings(down=False)
                 elif self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(up=True)
                 elif self.board.overlay.is_pause():
                     self.board.overlay.navigate_pause(down=False)
+                elif self.board.overlay.is_standard():
+                    self.board.overlay.navigate_standard(down=False)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press up.
@@ -484,10 +488,10 @@ class Game:
                 elif setl.satisfaction < 60:
                     setl.harvest_status = HarvestStatus.STANDARD
                     setl.economic_status = EconomicStatus.STANDARD
-                elif setl.satisfaction >= 60:
+                elif setl.satisfaction < 80:
                     setl.harvest_status = HarvestStatus.PLENTIFUL
                     setl.economic_status = EconomicStatus.STANDARD
-                elif setl.satisfaction >= 80:
+                else:
                     setl.harvest_status = HarvestStatus.PLENTIFUL
                     setl.economic_status = EconomicStatus.BOOM
 
