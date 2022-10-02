@@ -21,7 +21,9 @@ from music_player import MusicPlayer
 from overlay import SettlementAttackType, PauseOption
 from save_encoder import SaveEncoder, ObjectConverter
 
+# The prefix attached to save files created by the autosave feature.
 AUTOSAVE_PREFIX = "auto"
+# The directory where save files are created and loaded from.
 SAVES_DIR = "saves"
 
 
