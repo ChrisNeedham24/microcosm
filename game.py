@@ -21,11 +21,15 @@ from music_player import MusicPlayer
 from overlay import SettlementAttackType, PauseOption
 from save_encoder import SaveEncoder, ObjectConverter
 
+AUTOSAVE_PREFIX = "auto"
+SAVES_DIR = "saves"
+
 
 class Game:
     """
     The main class for the game. Contains the majority of business logic, and none of the drawing.
     """
+
     def __init__(self):
         """
         Initialises the game.
@@ -821,10 +825,15 @@ class Game:
         Saves the current game with the current timestamp as the file name.
         """
         # Only maintain 3 autosaves at a time, delete the oldest if we already have 3 before saving the next.
-        if auto and len(autosaves := list(filter(lambda fn: fn.startswith("auto"), os.listdir("saves/")))) == 3:
+        if auto and len(
+                autosaves := list(filter(lambda fn: fn.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))) == 3:
             autosaves.sort()
-            os.remove(f"saves/{autosaves[0]}")
-        save_name = f"saves/{'auto' if auto else ''}save-{datetime.datetime.now().isoformat(timespec='seconds')}.json"
+            os.remove(os.path.join(SAVES_DIR, {autosaves[0]}))
+        save_name = os.path.join \
+            (SAVES_DIR,
+             f"{AUTOSAVE_PREFIX if auto else ''}"
+             # The ':' characters in the datestring must be replaced to conform with Windows files supported characters.
+             f"save-{datetime.datetime.now().isoformat(timespec='seconds').replace(':', '.')}.json")
         with open(save_name, "w", encoding="utf-8") as save_file:
             # We use chain.from_iterable() here because the quads array is 2D.
             save = {
@@ -848,15 +857,16 @@ class Game:
         self.namer.reset()
         # Sort and reverse both the autosaves and manual saves, remembering that the (up to) 3 autosaves will be
         # displayed first in the list.
-        autosaves = list(filter(lambda file_name: file_name.startswith("auto"), os.listdir("saves")))
-        saves = list(filter(lambda file_name: not file_name == "README.md" and not file_name.startswith("auto"),
-                            os.listdir("saves")))
+        autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
+        saves = list(
+            filter(lambda file_name: not file_name == "README.md" and not file_name.startswith(AUTOSAVE_PREFIX),
+                   os.listdir(SAVES_DIR)))
         autosaves.sort()
         autosaves.reverse()
         saves.sort()
         saves.reverse()
         all_saves = autosaves + saves
-        with open(f"saves/{all_saves[save_idx]}", "r", encoding="utf-8") as save_file:
+        with open(os.path.join(SAVES_DIR, all_saves[save_idx]), "r", encoding="utf-8") as save_file:
             # Use a custom object hook when loading the JSON so that the resulting objects have attribute access.
             save = json.loads(save_file.read(), object_hook=ObjectConverter)
             # Load in the quads.
@@ -956,9 +966,10 @@ class Game:
         Get the prettified file names of each save file in the saves/ directory and pass them to the menu.
         """
         self.menu.saves = []
-        autosaves = list(filter(lambda file_name: file_name.startswith("auto"), os.listdir("saves")))
-        saves = list(filter(lambda file_name: not file_name == "README.md" and not file_name.startswith("auto"),
-                            os.listdir("saves")))
+        autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
+        saves = list(
+            filter(lambda file_name: not file_name == "README.md" and not file_name.startswith(AUTOSAVE_PREFIX),
+                   os.listdir(SAVES_DIR)))
         # Default to a fake option if there are no saves available.
         if len(autosaves) + len(saves) == 0:
             self.menu.save_idx = -1
