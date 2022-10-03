@@ -830,12 +830,10 @@ class Game:
         if auto and len(
                 autosaves := list(filter(lambda fn: fn.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))) == 3:
             autosaves.sort()
-            os.remove(os.path.join(SAVES_DIR, {autosaves[0]}))
-        save_name = os.path.join \
-            (SAVES_DIR,
-             f"{AUTOSAVE_PREFIX if auto else ''}"
-             # The ':' characters in the datestring must be replaced to conform with Windows files supported characters.
-             f"save-{datetime.datetime.now().isoformat(timespec='seconds').replace(':', '.')}.json")
+            os.remove(os.path.join(SAVES_DIR, autosaves[0]))
+        # The ':' characters in the datestring must be replaced to conform with Windows files supported characters.
+        sanitised_timestamp = datetime.datetime.now().isoformat(timespec='seconds').replace(':', '.')
+        save_name = os.path.join(SAVES_DIR, f"{AUTOSAVE_PREFIX if auto else ''}save-{sanitised_timestamp}.json")
         with open(save_name, "w", encoding="utf-8") as save_file:
             # We use chain.from_iterable() here because the quads array is 2D.
             save = {
