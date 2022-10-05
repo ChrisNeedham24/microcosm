@@ -27,9 +27,9 @@ You should receive a response in a day or two, and a full review by the weekend 
 ### If you find a bug
 
 Hey, none of us are perfect. So, if you find a bug in the game, add a new issue [here](https://github.com/ChrisNeedham24/microcosm/issues/new).
-Any submitted issues of this kind must have the bug label.
+Any submitted issues of this kind should have the bug label, so be sure to mention in the issue description that the label should be applied.
 
-If you're not sure whether something classifies as a bug, just use the 'almost a bug' label instead.
+If you're not sure whether something classifies as a bug, just suggest the 'almost a bug' label instead.
 
 ### What to try first
 
@@ -37,8 +37,8 @@ Any issue with either of the 'hacktoberfest' or 'good first issue' labels will b
 
 ### Additional features
 
-If you have a dream for Microcosm that isn't adequately captured in existing issues, add a new issue [here](https://github.com/ChrisNeedham24/microcosm/issues/new) with the  'enhancement' label.
-If you think the feature may require some significant work, you can also add the 'difficult' label.
+If you have a dream for Microcosm that isn't adequately captured in existing issues, add a new issue [here](https://github.com/ChrisNeedham24/microcosm/issues/new).
+If you think the feature may require some significant work, be sure to mention that in the issue description as well.
 
 ### Style guide
 
