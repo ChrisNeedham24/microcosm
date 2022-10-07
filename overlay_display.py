@@ -470,14 +470,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 remaining_work = ong_blessing.blessing.cost - ong_blessing.fortune_consumed
                 total_fortune = 0
                 for setl in overlay.current_player.settlements:
-                    total_wealth, total_harvest, total_zeal, total_fortune = get_setl_totals(overlay.current_player,
-                                                                                             overlay.current_settlement,
-                                                                                             is_night,
-                                                                                             strict=True)
-                    fortune_to_add = 0
-                    fortune_to_add += sum(quad.fortune for quad in setl.quads)
-                    fortune_to_add += sum(imp.effect.fortune for imp in setl.improvements)
-                    fortune_to_add += (setl.level - 1) * 0.25 * fortune_to_add
+                    _, _, _, fortune_to_add = get_setl_totals(overlay.current_player, setl, is_night, strict=True)
                     total_fortune += fortune_to_add
                 total_fortune = max(0.5, total_fortune)
                 if is_night:
@@ -495,19 +488,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(30, 72, "Wealth", pyxel.COLOR_YELLOW)
             wealth_per_turn = 0
             for setl in overlay.current_player.settlements:
-
-                wealth_to_add = 0
-                wealth_to_add += sum(quad.wealth for quad in setl.quads)
-                wealth_to_add += sum(imp.effect.wealth for imp in setl.improvements)
-                wealth_to_add += (setl.level - 1) * 0.25 * wealth_to_add
-                if setl.economic_status is EconomicStatus.RECESSION:
-                    wealth_to_add = 0
-                elif setl.economic_status is EconomicStatus.BOOM:
-                    wealth_to_add *= 1.5
-                if overlay.current_player.faction is Faction.GODLESS:
-                    wealth_to_add *= 1.25
-                elif overlay.current_player.faction is Faction.ORTHODOX:
-                    wealth_to_add *= 0.75
+                wealth_to_add, _, _, _ = get_setl_totals(overlay.current_player, setl, is_night, strict=True)
                 wealth_per_turn += wealth_to_add
             for unit in overlay.current_player.units:
                 if not unit.garrisoned:
