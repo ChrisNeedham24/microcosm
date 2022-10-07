@@ -5,7 +5,7 @@ from copy import deepcopy
 import pyxel
 
 from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome, Heathen, \
-    Faction
+    Faction, Project, ProjectType
 
 # The list of settlement names, for each biome.
 SETL_NAMES = {
@@ -172,6 +172,12 @@ IMPROVEMENTS = [
                 Effect(satisfaction=15), BLESSINGS["brd_fan"]),
     Improvement(ImprovementType.INDUSTRIAL, 20000, "Holy Sanctum", "To converse with the holy ones.",
                 Effect(), BLESSINGS["anc_his"])
+]
+
+PROJECTS = [
+    Project(ProjectType.BOUNTIFUL, "Call of the Fields", "From hand to mouth."),
+    Project(ProjectType.ECONOMICAL, "Inflation by Design", "More is more, right?"),
+    Project(ProjectType.MAGICAL, "The Holy Epiphany", "Awaken the soul.")
 ]
 
 # The list of unit plans that units can be recruited according to.

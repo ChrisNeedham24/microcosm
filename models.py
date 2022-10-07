@@ -25,6 +25,12 @@ class ImprovementType(str, Enum):
     PANDERING = "PANDERING"
 
 
+class ProjectType(str, Enum):
+    MAGICAL = "MAGICAL"
+    ECONOMICAL = "ECONOMICAL"
+    BOUNTIFUL = "BOUNTIFUL"
+
+
 class HarvestStatus(str, Enum):
     """
     The three harvest statuses that are used to regulate harvest levels in a settlement.
@@ -161,6 +167,12 @@ class PauseOption(Enum):
     QUIT = "QUIT"
 
 
+class ConstructionMenu(Enum):
+    IMPROVEMENTS = "IMPROVEMENTS"
+    PROJECTS = "PROJECTS"
+    UNITS = "UNITS"
+
+
 @dataclass
 class Quad:
     """
@@ -212,6 +224,13 @@ class Improvement:
 
 
 @dataclass
+class Project:
+    type: ProjectType
+    name: str
+    description: str
+
+
+@dataclass
 class UnitPlan:
     """
     The plan for a unit that may be recruited.
@@ -256,7 +275,7 @@ class Construction:
     """
     An improvement being constructed or a unit being recruited currently in a settlement.
     """
-    construction: typing.Union[Improvement, UnitPlan]
+    construction: typing.Union[Improvement, Project, UnitPlan]
     zeal_consumed: float = 0.0
 
 
@@ -309,7 +328,7 @@ class CompletedConstruction:
     """
     An improvement or unit plan construction that has been completed.
     """
-    construction: typing.Union[Improvement, UnitPlan]
+    construction: typing.Union[Improvement, Project, UnitPlan]
     settlement: Settlement
 
 
