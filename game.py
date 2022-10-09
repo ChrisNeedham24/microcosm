@@ -101,7 +101,12 @@ class Game:
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press down.
-                    self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
+                    # Holding Ctrl will pan the map 5 spaces.
+                    if pyxel.btn(pyxel.KEY_CTRL):
+                        self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 5, -1, 69)
+                    else:
+                        self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
+
         elif pyxel.btnp(pyxel.KEY_UP):
             if self.on_menu:
                 self.menu.navigate(up=True)
@@ -119,7 +124,11 @@ class Game:
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press up.
-                    self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
+                    # Holding Ctrl will pan the map 5 spaces.
+                    if pyxel.btn(pyxel.KEY_CTRL):
+                        self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 5, -1, 69)
+                    else:
+                        self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_LEFT):
             if self.on_menu:
                 self.menu.navigate(left=True)
@@ -137,7 +146,11 @@ class Game:
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press left.
-                    self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
+                    # Holding Ctrl will pan the map 5 spaces.
+                    if pyxel.btn(pyxel.KEY_CTRL):
+                        self.map_pos = clamp(self.map_pos[0] - 5, -1, 77), self.map_pos[1]
+                    else:
+                        self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RIGHT):
             if self.on_menu:
                 self.menu.navigate(right=True)
@@ -155,7 +168,11 @@ class Game:
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press right.
-                    self.map_pos = clamp(self.map_pos[0] + 1, -1, 77), self.map_pos[1]
+                    # Holding Ctrl will pan the map 5 spaces.
+                    if pyxel.btn(pyxel.KEY_CTRL):
+                        self.map_pos = clamp(self.map_pos[0] + 5, -1, 77), self.map_pos[1]
+                    else:
+                        self.map_pos = clamp(self.map_pos[0] + 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RETURN):
             if self.on_menu:
                 if self.menu.in_game_setup and self.menu.setup_option is SetupOption.START_GAME:
