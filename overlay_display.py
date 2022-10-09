@@ -423,11 +423,11 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     pyxel.text(150, 35 + idx * 18, "Begin",
                                pyxel.COLOR_RED if overlay.selected_construction is project else pyxel.COLOR_WHITE)
                     if project.type is ProjectType.BOUNTIFUL:
-                        pyxel.text(30, 42 + idx * 18, "Converts all zeal to harvest.", pyxel.COLOR_GREEN)
+                        pyxel.text(30, 42 + idx * 18, "Converts 25% of zeal to harvest.", pyxel.COLOR_GREEN)
                     elif project.type is ProjectType.ECONOMICAL:
-                        pyxel.text(30, 42 + idx * 18, "Converts all zeal to wealth.", pyxel.COLOR_YELLOW)
+                        pyxel.text(30, 42 + idx * 18, "Converts 25% of zeal to wealth.", pyxel.COLOR_YELLOW)
                     if project.type is ProjectType.MAGICAL:
-                        pyxel.text(30, 42 + idx * 18, "Converts all zeal to fortune.", pyxel.COLOR_PURPLE)
+                        pyxel.text(30, 42 + idx * 18, "Converts 25% of zeal to fortune.", pyxel.COLOR_PURPLE)
                 pyxel.text(32, 110, "All projects continue indefinitely.", pyxel.COLOR_WHITE)
             else:
                 for idx, unit_plan in enumerate(overlay.available_unit_plans):

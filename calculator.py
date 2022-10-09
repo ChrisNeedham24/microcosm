@@ -148,7 +148,7 @@ def get_setl_totals(player: Player,
     total_wealth += (setl.level - 1) * 0.25 * total_wealth
     if setl.current_work is not None and isinstance(setl.current_work.construction, Project) and \
             setl.current_work.construction.type is ProjectType.ECONOMICAL:
-        total_wealth += total_zeal
+        total_wealth += total_zeal / 4
     if setl.economic_status is EconomicStatus.RECESSION:
         total_wealth = 0
     elif setl.economic_status is EconomicStatus.BOOM:
@@ -162,7 +162,7 @@ def get_setl_totals(player: Player,
     total_harvest += (setl.level - 1) * 0.25 * total_harvest
     if setl.current_work is not None and isinstance(setl.current_work.construction, Project) and \
             setl.current_work.construction.type is ProjectType.BOUNTIFUL:
-        total_harvest += total_zeal
+        total_harvest += total_zeal / 4
     if setl.harvest_status is HarvestStatus.POOR or setl.under_siege_by is not None:
         total_harvest = 0
     elif setl.harvest_status is HarvestStatus.PLENTIFUL:
@@ -176,7 +176,7 @@ def get_setl_totals(player: Player,
     total_fortune += (setl.level - 1) * 0.25 * total_fortune
     if setl.current_work is not None and isinstance(setl.current_work.construction, Project) and \
             setl.current_work.construction.type is ProjectType.MAGICAL:
-        total_fortune += total_zeal
+        total_fortune += total_zeal / 4
     if is_night:
         total_fortune *= 1.1
     if player.faction is Faction.SCRUTINEERS:
