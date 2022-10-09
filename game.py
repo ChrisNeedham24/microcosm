@@ -15,7 +15,7 @@ from catalogue import get_available_improvements, get_available_blessings, get_a
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
     EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, \
-    ExpansionPlaystyle, UnitPlan, OverlayType, Faction, ConstructionMenu, Project, ProjectType
+    ExpansionPlaystyle, UnitPlan, OverlayType, Faction, ConstructionMenu, Project
 from movemaker import MoveMaker
 from music_player import MusicPlayer
 from overlay import SettlementAttackType, PauseOption
@@ -393,7 +393,8 @@ class Game:
         elif pyxel.btnp(pyxel.KEY_B):
             if self.game_started and self.board.selected_settlement is not None and \
                     self.board.selected_settlement.current_work is not None and \
-                    self.players[0].faction is not Faction.FUNDAMENTALISTS:
+                    self.players[0].faction is not Faction.FUNDAMENTALISTS and \
+                    not isinstance(self.board.selected_settlement.current_work.construction, Project):
                 # Pressing B will buyout the remaining cost of the settlement's current construction. However, players
                 # using the Fundamentalists faction are barred from this.
                 current_work = self.board.selected_settlement.current_work
@@ -906,8 +907,9 @@ class Game:
                     # Another tuple-array fix.
                     s.location = (s.location[0], s.location[1])
                     if s.current_work is not None:
-                        # Get the actual Improvement or UnitPlan objects for the current work. We use hasattr() because
-                        # improvements have a type and unit plans do not.
+                        # Get the actual Improvement, Project, or UnitPlan objects for the current work. We use
+                        # hasattr() because improvements have an effect where projects do not, and projects have a type
+                        # where unit plans do not.
                         if hasattr(s.current_work.construction, "effect"):
                             s.current_work.construction = get_improvement(s.current_work.construction.name)
                         elif hasattr(s.current_work.construction, "type"):

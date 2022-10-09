@@ -174,6 +174,7 @@ IMPROVEMENTS = [
                 Effect(), BLESSINGS["anc_his"])
 ]
 
+# The list of projects that a settlement can be continuously working on.
 PROJECTS = [
     Project(ProjectType.BOUNTIFUL, "Call of the Fields", "From hand to mouth."),
     Project(ProjectType.ECONOMICAL, "Inflation by Design", "More is more, right?"),
@@ -361,6 +362,11 @@ def get_improvement(name: str) -> Improvement:
 
 
 def get_project(name: str) -> Project:
+    """
+    Get the project with the given name. Used when loading games.
+    :param name: The name of the project.
+    :return: The Project with the given name.
+    """
     return next(prj for prj in PROJECTS if prj.name == name)
 
 

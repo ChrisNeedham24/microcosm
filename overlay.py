@@ -94,6 +94,7 @@ class Overlay:
         """
         Toggle the construction overlay.
         :param available_constructions: The available improvements that the player can select from.
+        :param available_projects: The available projects that the player can select from.
         :param available_unit_plans: The available units that the player may recruit from.
         """
         if OverlayType.CONSTRUCTION in self.showing:

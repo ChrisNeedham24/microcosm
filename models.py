@@ -26,6 +26,9 @@ class ImprovementType(str, Enum):
 
 
 class ProjectType(str, Enum):
+    """
+    The three types that a project can be of.
+    """
     MAGICAL = "MAGICAL"
     ECONOMICAL = "ECONOMICAL"
     BOUNTIFUL = "BOUNTIFUL"
@@ -168,6 +171,9 @@ class PauseOption(Enum):
 
 
 class ConstructionMenu(Enum):
+    """
+    The three different views the player is presented with when selecting a settlement's construction.
+    """
     IMPROVEMENTS = "IMPROVEMENTS"
     PROJECTS = "PROJECTS"
     UNITS = "UNITS"
@@ -225,6 +231,9 @@ class Improvement:
 
 @dataclass
 class Project:
+    """
+    A project that may be worked on in a settlement.
+    """
     type: ProjectType
     name: str
     description: str
@@ -273,7 +282,7 @@ class Heathen:
 @dataclass
 class Construction:
     """
-    An improvement being constructed or a unit being recruited currently in a settlement.
+    An improvement being constructed, a project being worked on, or a unit being recruited currently in a settlement.
     """
     construction: typing.Union[Improvement, Project, UnitPlan]
     zeal_consumed: float = 0.0
@@ -328,7 +337,7 @@ class CompletedConstruction:
     """
     An improvement or unit plan construction that has been completed.
     """
-    construction: typing.Union[Improvement, Project, UnitPlan]
+    construction: typing.Union[Improvement, UnitPlan]
     settlement: Settlement
 
 
