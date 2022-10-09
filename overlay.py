@@ -1,7 +1,8 @@
 import typing
 
 from models import Settlement, Player, Improvement, Unit, Blessing, CompletedConstruction, UnitPlan, Heathen, \
-    AttackData, SetlAttackData, Victory, InvestigationResult, OverlayType, SettlementAttackType, PauseOption
+    AttackData, SetlAttackData, Victory, InvestigationResult, OverlayType, SettlementAttackType, PauseOption, Project, \
+    ConstructionMenu
 
 
 class Overlay:
@@ -18,13 +19,14 @@ class Overlay:
         self.current_settlement: typing.Optional[Settlement] = None
         self.current_player: typing.Optional[Player] = None  # Will always be the non-AI player.
         self.available_constructions: typing.List[Improvement] = []
+        self.available_projects: typing.List[Project] = []
         self.available_unit_plans: typing.List[UnitPlan] = []
-        self.selected_construction: typing.Optional[typing.Union[Improvement, UnitPlan]] = None
+        self.selected_construction: typing.Optional[typing.Union[Improvement, Project, UnitPlan]] = None
         # These boundaries are used to keep track of which improvements/units/blessings are currently displayed. This is
         # for scrolling functionality to work.
         self.construction_boundaries: typing.Tuple[int, int] = 0, 5
         self.unit_plan_boundaries: typing.Tuple[int, int] = 0, 5
-        self.constructing_improvement: bool = True  # Whether we are on the improvements or units side.
+        self.current_construction_menu: ConstructionMenu = ConstructionMenu.IMPROVEMENTS
         self.selected_unit: typing.Optional[typing.Union[Unit, Heathen]] = None
         self.available_blessings: typing.List[Blessing] = []
         self.selected_blessing: typing.Optional[Blessing] = None
@@ -88,10 +90,11 @@ class Overlay:
                     self.settlement_status_boundaries[0] - 1, self.settlement_status_boundaries[1] - 1
 
     def toggle_construction(self, available_constructions: typing.List[Improvement],
-                            available_unit_plans: typing.List[UnitPlan]):
+                            available_projects: typing.List[Project], available_unit_plans: typing.List[UnitPlan]):
         """
         Toggle the construction overlay.
         :param available_constructions: The available improvements that the player can select from.
+        :param available_projects: The available projects that the player can select from.
         :param available_unit_plans: The available units that the player may recruit from.
         """
         if OverlayType.CONSTRUCTION in self.showing:
@@ -101,33 +104,40 @@ class Overlay:
                 not self.is_deployment() and not self.is_pause() and not self.is_controls() and not self.is_victory():
             self.showing.append(OverlayType.CONSTRUCTION)
             self.available_constructions = available_constructions
+            self.available_projects = available_projects
             self.available_unit_plans = available_unit_plans
             if len(available_constructions) > 0:
-                self.constructing_improvement = True
+                self.current_construction_menu = ConstructionMenu.IMPROVEMENTS
                 self.selected_construction = self.available_constructions[0]
                 self.construction_boundaries = 0, 5
-            # If there are no available improvements, display the units instead.
+            # If there are no available improvements, display the projects instead.
             else:
-                self.constructing_improvement = False
-                self.selected_construction = self.available_unit_plans[0]
-                self.unit_plan_boundaries = 0, 5
+                self.current_construction_menu = ConstructionMenu.PROJECTS
+                self.selected_construction = self.available_projects[0]
 
     def navigate_constructions(self, down: bool):
         """
         Navigate the constructions overlay.
         :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
         """
-        list_to_use = self.available_constructions if self.constructing_improvement else self.available_unit_plans
+        list_to_use: list
+        if self.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
+            list_to_use = self.available_constructions
+        elif self.current_construction_menu is ConstructionMenu.PROJECTS:
+            list_to_use = self.available_projects
+        else:
+            list_to_use = self.available_unit_plans
+
         # Scroll up/down the improvements/units list, ensuring not to exceed the bounds in either direction.
         if down and self.selected_construction is not None:
             current_index = list_to_use.index(self.selected_construction)
             if current_index != len(list_to_use) - 1:
                 self.selected_construction = list_to_use[current_index + 1]
-                if self.constructing_improvement:
+                if self.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
                     if current_index == self.construction_boundaries[1]:
                         self.construction_boundaries = \
                             self.construction_boundaries[0] + 1, self.construction_boundaries[1] + 1
-                else:
+                elif self.current_construction_menu is ConstructionMenu.UNITS:
                     if current_index == self.unit_plan_boundaries[1]:
                         self.unit_plan_boundaries = \
                             self.unit_plan_boundaries[0] + 1, self.unit_plan_boundaries[1] + 1
@@ -140,11 +150,11 @@ class Overlay:
                 current_index = list_to_use.index(self.selected_construction)
                 if current_index != 0:
                     self.selected_construction = list_to_use[current_index - 1]
-                    if self.constructing_improvement:
+                    if self.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
                         if current_index == self.construction_boundaries[0]:
                             self.construction_boundaries = \
                                 self.construction_boundaries[0] - 1, self.construction_boundaries[1] - 1
-                    else:
+                    elif self.current_construction_menu is ConstructionMenu.UNITS:
                         if current_index == self.unit_plan_boundaries[0]:
                             self.unit_plan_boundaries = \
                                 self.unit_plan_boundaries[0] - 1, self.unit_plan_boundaries[1] - 1
@@ -688,7 +698,7 @@ class Overlay:
         elif self.is_standard():
             self.toggle_standard(self.current_turn)
         elif self.is_constructing():
-            self.toggle_construction([], [])
+            self.toggle_construction([], [], [])
         elif self.is_unit():
             self.toggle_unit(None)
             return OverlayType.UNIT
