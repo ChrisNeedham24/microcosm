@@ -579,10 +579,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(65, 25, "Available blessings", pyxel.COLOR_PURPLE)
             total_fortune = 0
             for setl in overlay.current_player.settlements:
-                fortune_to_add = 0
-                fortune_to_add += sum(quad.fortune for quad in setl.quads)
-                fortune_to_add += sum(imp.effect.fortune for imp in setl.improvements)
-                fortune_to_add += (setl.level - 1) * 0.25 * fortune_to_add
+                _, _, _, fortune_to_add = get_setl_totals(overlay.current_player, setl, is_night, strict=True)
                 total_fortune += fortune_to_add
             total_fortune = max(0.5, total_fortune)
             if overlay.current_player.faction is Faction.SCRUTINEERS:

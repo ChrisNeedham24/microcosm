@@ -360,6 +360,10 @@ def get_improvement(name: str) -> Improvement:
     return next(imp for imp in IMPROVEMENTS if imp.name == name)
 
 
+def get_project(name: str) -> Project:
+    return next(prj for prj in PROJECTS if prj.name == name)
+
+
 def get_blessing(name: str) -> Blessing:
     """
     Get the blessing with the given name. Used when loading games.

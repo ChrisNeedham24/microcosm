@@ -11,7 +11,7 @@ import pyxel
 from board import Board
 from calculator import clamp, attack, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
-    get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer, FACTION_COLOURS, PROJECTS
+    get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer, FACTION_COLOURS, PROJECTS, get_project
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
     EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, \
@@ -908,8 +908,10 @@ class Game:
                     if s.current_work is not None:
                         # Get the actual Improvement or UnitPlan objects for the current work. We use hasattr() because
                         # improvements have a type and unit plans do not.
-                        if hasattr(s.current_work.construction, "type"):
+                        if hasattr(s.current_work.construction, "effect"):
                             s.current_work.construction = get_improvement(s.current_work.construction.name)
+                        elif hasattr(s.current_work.construction, "type"):
+                            s.current_work.construction = get_project(s.current_work.construction.name)
                         else:
                             s.current_work.construction = get_unit_plan(s.current_work.construction.name)
                     for idx, imp in enumerate(s.improvements):
