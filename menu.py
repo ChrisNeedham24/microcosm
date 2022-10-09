@@ -684,6 +684,8 @@ class Menu:
                     self.setup_option = SetupOption.CLIMATIC_EFFECTS
                 elif self.setup_option is SetupOption.CLIMATIC_EFFECTS:
                     self.setup_option = SetupOption.START_GAME
+                elif self.setup_option is SetupOption.START_GAME:
+                    self.setup_option = SetupOption.PLAYER_FACTION
             elif self.loading_game:
                 if self.save_idx == self.load_game_boundaries[1] and self.save_idx < len(self.saves) - 1:
                     self.load_game_boundaries = self.load_game_boundaries[0] + 1, self.load_game_boundaries[1] + 1
@@ -713,6 +715,8 @@ class Menu:
                         self.wiki_option = WikiOption.UNITS
                     elif self.wiki_option is WikiOption.UNITS:
                         self.wiki_option = None
+                    elif self.wiki_option is None:
+                        self.wiki_option = WikiOption.VICTORIES
             else:
                 if self.menu_option is MenuOption.NEW_GAME:
                     self.menu_option = MenuOption.LOAD_GAME
@@ -720,6 +724,8 @@ class Menu:
                     self.menu_option = MenuOption.WIKI
                 elif self.menu_option is MenuOption.WIKI:
                     self.menu_option = MenuOption.EXIT
+                elif self.menu_option is MenuOption.EXIT:
+                    self.menu_option = MenuOption.NEW_GAME
         if up:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
             if self.in_game_setup and not self.showing_faction_details:
@@ -733,6 +739,8 @@ class Menu:
                     self.setup_option = SetupOption.FOG_OF_WAR
                 elif self.setup_option is SetupOption.START_GAME:
                     self.setup_option = SetupOption.CLIMATIC_EFFECTS
+                elif self.setup_option is SetupOption.PLAYER_FACTION:
+                    self.setup_option = SetupOption.START_GAME
             elif self.loading_game:
                 if self.save_idx > 0 and self.save_idx == self.load_game_boundaries[0]:
                     self.load_game_boundaries = self.load_game_boundaries[0] - 1, self.load_game_boundaries[1] - 1
@@ -762,6 +770,8 @@ class Menu:
                         self.wiki_option = WikiOption.IMPROVEMENTS
                     elif self.wiki_option is None:
                         self.wiki_option = WikiOption.UNITS
+                    elif self.wiki_option is WikiOption.VICTORIES:
+                        self.wiki_option = None
             else:
                 if self.menu_option is MenuOption.LOAD_GAME:
                     self.menu_option = MenuOption.NEW_GAME
@@ -769,6 +779,8 @@ class Menu:
                     self.menu_option = MenuOption.LOAD_GAME
                 elif self.menu_option is MenuOption.EXIT:
                     self.menu_option = MenuOption.WIKI
+                elif self.menu_option is MenuOption.NEW_GAME:
+                    self.menu_option = MenuOption.EXIT
         if left:
             if self.in_game_setup:
                 if self.setup_option is SetupOption.PLAYER_FACTION:
@@ -833,7 +845,8 @@ class Menu:
         return GameConfig(self.player_count, self.faction_colours[self.faction_idx][0], self.biome_clustering_enabled,
                           self.fog_of_war_enabled, self.climatic_effects_enabled)
 
-    def draw_paragraph(self, x_start: int, y_start: int, text: str, line_length: int) -> None:
+    @staticmethod
+    def draw_paragraph(x_start: int, y_start: int, text: str, line_length: int) -> None:
         """
         Render text to the screen while automatically accounting for line breaks.
         :param x_start: x of the text's starting position.
