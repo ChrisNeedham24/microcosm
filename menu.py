@@ -5,8 +5,8 @@ from enum import Enum
 import pyxel
 
 from calculator import clamp
-from catalogue import BLESSINGS, get_unlockable_improvements, IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS
-from models import GameConfig, VictoryType, Faction
+from catalogue import BLESSINGS, get_unlockable_improvements, IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS
+from models import GameConfig, VictoryType, Faction, ProjectType
 
 
 class MenuOption(Enum):
@@ -40,6 +40,7 @@ class WikiOption(Enum):
     CLIMATE = "CLIM"
     BLESSINGS = "BLS"
     IMPROVEMENTS = "IMP"
+    PROJECTS = "PRJ"
     UNITS = "UNITS"
 
 
@@ -742,6 +743,24 @@ class Menu:
                     pyxel.text(152, 155, "More", pyxel.COLOR_WHITE)
                     pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
                     pyxel.blt(172, 156, 0, 0, 76, 8, 8)
+            elif self.wiki_showing is WikiOption.PROJECTS:
+                pyxel.load("resources/sprites.pyxres")
+                pyxel.rectb(10, 20, 180, 154, pyxel.COLOR_WHITE)
+                pyxel.rect(11, 21, 178, 152, pyxel.COLOR_BLACK)
+                pyxel.text(86, 30, "Projects", pyxel.COLOR_WHITE)
+                for idx, project in enumerate(PROJECTS):
+                    pyxel.text(20, 42 + idx * 30, project.name, pyxel.COLOR_WHITE)
+                    pyxel.text(20, 50 + idx * 30, project.description, pyxel.COLOR_WHITE)
+                    if project.type is ProjectType.BOUNTIFUL:
+                        pyxel.text(20, 58 + idx * 30, "Converts 25% of zeal to harvest.", pyxel.COLOR_GREEN)
+                        pyxel.blt(166, 50 + idx * 30, 0, 8, 44, 8, 8)
+                    elif project.type is ProjectType.ECONOMICAL:
+                        pyxel.text(20, 58 + idx * 30, "Converts 25% of zeal to wealth.", pyxel.COLOR_YELLOW)
+                        pyxel.blt(166, 50 + idx * 30, 0, 0, 44, 8, 8)
+                    if project.type is ProjectType.MAGICAL:
+                        pyxel.text(20, 58 + idx * 30, "Converts 25% of zeal to fortune.", pyxel.COLOR_PURPLE)
+                        pyxel.blt(166, 50 + idx * 30, 0, 24, 44, 8, 8)
+                pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
             elif self.wiki_showing is WikiOption.UNITS:
                 pyxel.load("resources/sprites.pyxres")
                 pyxel.rectb(10, 20, 180, 154, pyxel.COLOR_WHITE)
@@ -767,19 +786,21 @@ class Menu:
                     pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
                     pyxel.blt(172, 156, 0, 0, 76, 8, 8)
             elif self.wiki_showing is None:
-                pyxel.rectb(60, 55, 80, 100, pyxel.COLOR_WHITE)
-                pyxel.rect(61, 56, 78, 98, pyxel.COLOR_BLACK)
-                pyxel.text(92, 60, "Wiki", pyxel.COLOR_WHITE)
-                pyxel.text(82, 75, "Victories",
+                pyxel.rectb(60, 45, 80, 110, pyxel.COLOR_WHITE)
+                pyxel.rect(61, 46, 78, 108, pyxel.COLOR_BLACK)
+                pyxel.text(92, 50, "Wiki", pyxel.COLOR_WHITE)
+                pyxel.text(82, 65, "Victories",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.VICTORIES else pyxel.COLOR_WHITE)
-                pyxel.text(85, 85, "Factions",
+                pyxel.text(85, 75, "Factions",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.FACTIONS else pyxel.COLOR_WHITE)
-                pyxel.text(86, 95, "Climate",
+                pyxel.text(86, 85, "Climate",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.CLIMATE else pyxel.COLOR_WHITE)
-                pyxel.text(82, 105, "Blessings",
+                pyxel.text(82, 95, "Blessings",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.BLESSINGS else pyxel.COLOR_WHITE)
-                pyxel.text(78, 115, "Improvements",
+                pyxel.text(78, 105, "Improvements",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.IMPROVEMENTS else pyxel.COLOR_WHITE)
+                pyxel.text(84, 115, "Projects",
+                           pyxel.COLOR_RED if self.wiki_option is WikiOption.PROJECTS else pyxel.COLOR_WHITE)
                 pyxel.text(90, 125, "Units",
                            pyxel.COLOR_RED if self.wiki_option is WikiOption.UNITS else pyxel.COLOR_WHITE)
                 pyxel.text(92, 145, "Back", pyxel.COLOR_RED if self.wiki_option is None else pyxel.COLOR_WHITE)
@@ -843,6 +864,8 @@ class Menu:
                     elif self.wiki_option is WikiOption.BLESSINGS:
                         self.wiki_option = WikiOption.IMPROVEMENTS
                     elif self.wiki_option is WikiOption.IMPROVEMENTS:
+                        self.wiki_option = WikiOption.PROJECTS
+                    elif self.wiki_option is WikiOption.PROJECTS:
                         self.wiki_option = WikiOption.UNITS
                     elif self.wiki_option is WikiOption.UNITS:
                         self.wiki_option = None
@@ -891,8 +914,10 @@ class Menu:
                         self.wiki_option = WikiOption.CLIMATE
                     elif self.wiki_option is WikiOption.IMPROVEMENTS:
                         self.wiki_option = WikiOption.BLESSINGS
-                    elif self.wiki_option is WikiOption.UNITS:
+                    elif self.wiki_option is WikiOption.PROJECTS:
                         self.wiki_option = WikiOption.IMPROVEMENTS
+                    elif self.wiki_option is WikiOption.UNITS:
+                        self.wiki_option = WikiOption.PROJECTS
                     elif self.wiki_option is None:
                         self.wiki_option = WikiOption.UNITS
             else:
