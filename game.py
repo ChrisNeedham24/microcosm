@@ -638,8 +638,8 @@ class Game:
                 self.until_night -= 1
                 if self.until_night == 0:
                     self.board.overlay.toggle_night(True)
-                    # Nights last for between 5 and 25 turns.
-                    self.nighttime_left = random.randint(5, 25)
+                    # Nights last for between 5 and 20 turns.
+                    self.nighttime_left = random.randint(5, 20)
                     for h in self.heathens:
                         h.plan.power = round(2 * h.plan.power)
                     if self.players[0].faction is Faction.NOCTURNE:
