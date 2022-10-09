@@ -5,7 +5,7 @@ from copy import deepcopy
 import pyxel
 
 from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome, Heathen, \
-    Faction
+    Faction, Project, ProjectType
 
 # The list of settlement names, for each biome.
 SETL_NAMES = {
@@ -172,6 +172,13 @@ IMPROVEMENTS = [
                 Effect(satisfaction=15), BLESSINGS["brd_fan"]),
     Improvement(ImprovementType.INDUSTRIAL, 20000, "Holy Sanctum", "To converse with the holy ones.",
                 Effect(), BLESSINGS["anc_his"])
+]
+
+# The list of projects that a settlement can be continuously working on.
+PROJECTS = [
+    Project(ProjectType.BOUNTIFUL, "Call of the Fields", "From hand to mouth."),
+    Project(ProjectType.ECONOMICAL, "Inflation by Design", "More is more, right?"),
+    Project(ProjectType.MAGICAL, "The Holy Epiphany", "Awaken the soul.")
 ]
 
 # The list of unit plans that units can be recruited according to.
@@ -352,6 +359,15 @@ def get_improvement(name: str) -> Improvement:
     :return: The Improvement with the given name.
     """
     return next(imp for imp in IMPROVEMENTS if imp.name == name)
+
+
+def get_project(name: str) -> Project:
+    """
+    Get the project with the given name. Used when loading games.
+    :param name: The name of the project.
+    :return: The Project with the given name.
+    """
+    return next(prj for prj in PROJECTS if prj.name == name)
 
 
 def get_blessing(name: str) -> Blessing:

@@ -11,11 +11,11 @@ import pyxel
 from board import Board
 from calculator import clamp, attack, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
-    get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer, FACTION_COLOURS
+    get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer, FACTION_COLOURS, PROJECTS, get_project
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
     EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, \
-    ExpansionPlaystyle, UnitPlan, OverlayType, Faction
+    ExpansionPlaystyle, UnitPlan, OverlayType, Faction, ConstructionMenu, Project
 from movemaker import MoveMaker
 from music_player import MusicPlayer
 from overlay import SettlementAttackType, PauseOption
@@ -101,7 +101,12 @@ class Game:
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press down.
-                    self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
+                    # Holding Ctrl will pan the map 5 spaces.
+                    if pyxel.btn(pyxel.KEY_CTRL):
+                        self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 5, -1, 69)
+                    else:
+                        self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
+
         elif pyxel.btnp(pyxel.KEY_UP):
             if self.on_menu:
                 self.menu.navigate(up=True)
@@ -119,35 +124,55 @@ class Game:
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press up.
-                    self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
+                    # Holding Ctrl will pan the map 5 spaces.
+                    if pyxel.btn(pyxel.KEY_CTRL):
+                        self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 5, -1, 69)
+                    else:
+                        self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_LEFT):
             if self.on_menu:
                 self.menu.navigate(left=True)
-            if self.game_started and self.board.overlay.is_constructing() and \
-                    len(self.board.overlay.available_constructions) > 0:
-                self.board.overlay.constructing_improvement = True
-                self.board.overlay.selected_construction = self.board.overlay.available_constructions[0]
+            if self.game_started and self.board.overlay.is_constructing():
+                if self.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS and \
+                        len(self.board.overlay.available_constructions) > 0:
+                    self.board.overlay.current_construction_menu = ConstructionMenu.IMPROVEMENTS
+                    self.board.overlay.selected_construction = self.board.overlay.available_constructions[0]
+                elif self.board.overlay.current_construction_menu is ConstructionMenu.UNITS:
+                    self.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
+                    self.board.overlay.selected_construction = self.board.overlay.available_projects[0]
             elif self.game_started:
                 if self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(left=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press left.
-                    self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
+                    # Holding Ctrl will pan the map 5 spaces.
+                    if pyxel.btn(pyxel.KEY_CTRL):
+                        self.map_pos = clamp(self.map_pos[0] - 5, -1, 77), self.map_pos[1]
+                    else:
+                        self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RIGHT):
             if self.on_menu:
                 self.menu.navigate(right=True)
             if self.game_started and self.board.overlay.is_constructing():
-                self.board.overlay.constructing_improvement = False
-                self.board.overlay.selected_construction = self.board.overlay.available_unit_plans[0]
-                self.board.overlay.unit_plan_boundaries = 0, 5
+                if self.board.overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
+                    self.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
+                    self.board.overlay.selected_construction = self.board.overlay.available_projects[0]
+                elif self.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS:
+                    self.board.overlay.current_construction_menu = ConstructionMenu.UNITS
+                    self.board.overlay.selected_construction = self.board.overlay.available_unit_plans[0]
+                    self.board.overlay.unit_plan_boundaries = 0, 5
             elif self.game_started:
                 if self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(right=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press right.
-                    self.map_pos = clamp(self.map_pos[0] + 1, -1, 77), self.map_pos[1]
+                    # Holding Ctrl will pan the map 5 spaces.
+                    if pyxel.btn(pyxel.KEY_CTRL):
+                        self.map_pos = clamp(self.map_pos[0] + 5, -1, 77), self.map_pos[1]
+                    else:
+                        self.map_pos = clamp(self.map_pos[0] + 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RETURN):
             if self.on_menu:
                 if self.menu.in_game_setup and self.menu.setup_option is SetupOption.START_GAME:
@@ -204,7 +229,7 @@ class Game:
             elif self.game_started and self.board.overlay.is_constructing():
                 if self.board.overlay.selected_construction is not None:
                     self.board.selected_settlement.current_work = Construction(self.board.overlay.selected_construction)
-                self.board.overlay.toggle_construction([], [])
+                self.board.overlay.toggle_construction([], [], [])
             elif self.game_started and self.board.overlay.is_blessing():
                 if self.board.overlay.selected_blessing is not None:
                     self.players[0].ongoing_blessing = OngoingBlessing(self.board.overlay.selected_blessing)
@@ -291,6 +316,7 @@ class Game:
                 # Pick a construction.
                 self.board.overlay.toggle_construction(get_available_improvements(self.players[0],
                                                                                   self.board.selected_settlement),
+                                                       PROJECTS,
                                                        get_available_unit_plans(self.players[0],
                                                                                 self.board.selected_settlement.level))
         elif pyxel.btnp(pyxel.KEY_F):
@@ -384,7 +410,8 @@ class Game:
         elif pyxel.btnp(pyxel.KEY_B):
             if self.game_started and self.board.selected_settlement is not None and \
                     self.board.selected_settlement.current_work is not None and \
-                    self.players[0].faction is not Faction.FUNDAMENTALISTS:
+                    self.players[0].faction is not Faction.FUNDAMENTALISTS and \
+                    not isinstance(self.board.selected_settlement.current_work.construction, Project):
                 # Pressing B will buyout the remaining cost of the settlement's current construction. However, players
                 # using the Fundamentalists faction are barred from this.
                 current_work = self.board.selected_settlement.current_work
@@ -541,6 +568,13 @@ class Game:
                     setl.satisfaction += 0.25
                 setl.satisfaction = clamp(setl.satisfaction, 0, 100)
 
+                # Process the current construction, completing it if it has been finished.
+                if setl.current_work is not None and not isinstance(setl.current_work.construction, Project):
+                    setl.current_work.zeal_consumed += total_zeal
+                    if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
+                        completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
+                        complete_construction(setl, player)
+
                 setl.harvest_reserves += total_harvest
                 # Settlement levels are increased if the settlement's harvest reserves exceed a certain level (specified
                 # in models.py).
@@ -549,12 +583,6 @@ class Game:
                     setl.level += 1
                     levelled_up_settlements.append(setl)
 
-                # Process the current construction, completing it if it has been finished.
-                if setl.current_work is not None:
-                    setl.current_work.zeal_consumed += total_zeal
-                    if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
-                        completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
-                        complete_construction(setl, player)
             # Show notifications if the player's constructions have completed or one of their settlements has levelled
             # up.
             if player.ai_playstyle is None and len(completed_constructions) > 0:
@@ -896,10 +924,13 @@ class Game:
                     # Another tuple-array fix.
                     s.location = (s.location[0], s.location[1])
                     if s.current_work is not None:
-                        # Get the actual Improvement or UnitPlan objects for the current work. We use hasattr() because
-                        # improvements have a type and unit plans do not.
-                        if hasattr(s.current_work.construction, "type"):
+                        # Get the actual Improvement, Project, or UnitPlan objects for the current work. We use
+                        # hasattr() because improvements have an effect where projects do not, and projects have a type
+                        # where unit plans do not.
+                        if hasattr(s.current_work.construction, "effect"):
                             s.current_work.construction = get_improvement(s.current_work.construction.name)
+                        elif hasattr(s.current_work.construction, "type"):
+                            s.current_work.construction = get_project(s.current_work.construction.name)
                         else:
                             s.current_work.construction = get_unit_plan(s.current_work.construction.name)
                     for idx, imp in enumerate(s.improvements):
