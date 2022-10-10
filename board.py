@@ -87,6 +87,12 @@ class Board:
                 for i in range(unit.location[0] - 3, unit.location[0] + 4):
                     for j in range(unit.location[1] - 3, unit.location[1] + 4):
                         quads_to_show.add((i, j))
+            # Players of the Infidels faction share vision with Heathen units.
+            if players[0].faction is Faction.INFIDELS:
+                for heathen in heathens:
+                    for i in range(heathen.location[0] - 5, heathen.location[0] + 6):
+                        for j in range(heathen.location[1] - 5, heathen.location[1] + 6):
+                            quads_to_show.add((i, j))
         else:
             quads_to_show = players[0].quads_seen
         fog_of_war_impacts: bool = self.game_config.fog_of_war or \

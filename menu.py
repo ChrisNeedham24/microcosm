@@ -194,7 +194,7 @@ class Menu:
                     pyxel.text(35, 90, "- Units have 75% of usual health", pyxel.COLOR_RED)
                     pyxel.text(35, 120, "GLUTTONY", pyxel.COLOR_GREEN)
                 elif self.faction_idx == 12:
-                    pyxel.text(35, 70, "+ Not attacked by heathens", pyxel.COLOR_GREEN)
+                    pyxel.text(35, 70, "+ Special affinity with heathens", pyxel.COLOR_GREEN)
                     pyxel.text(35, 90, "- Always attacked by AI players", pyxel.COLOR_RED)
                     pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
                 elif self.faction_idx == 13:
@@ -591,7 +591,7 @@ class Menu:
                     pyxel.text(25, 94, "sub-human, other empires engage in", pyxel.COLOR_WHITE)
                     pyxel.text(25, 100, "combat on sight with the Infidels,", pyxel.COLOR_WHITE)
                     pyxel.text(25, 106, "no matter the disguises they apply.", pyxel.COLOR_WHITE)
-                    pyxel.text(25, 140, "+ Not attacked by heathens", pyxel.COLOR_GREEN)
+                    pyxel.text(25, 140, "+ Special affinity with heathens", pyxel.COLOR_GREEN)
                     pyxel.text(25, 150, "- Always attacked by AI players", pyxel.COLOR_RED)
                     pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
                 elif self.faction_wiki_idx == 13:
