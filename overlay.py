@@ -21,13 +21,13 @@ class Overlay:
         self.available_constructions: typing.List[Improvement] = []
         self.available_projects: typing.List[Project] = []
         self.available_unit_plans: typing.List[UnitPlan] = []
-        self.selected_construction: typing.Optional[typing.Union[Improvement, Project, UnitPlan]] = None
+        self.selected_construction: typing.Optional[Improvement | Project | UnitPlan] = None
         # These boundaries are used to keep track of which improvements/units/blessings are currently displayed. This is
         # for scrolling functionality to work.
         self.construction_boundaries: typing.Tuple[int, int] = 0, 5
         self.unit_plan_boundaries: typing.Tuple[int, int] = 0, 5
         self.current_construction_menu: ConstructionMenu = ConstructionMenu.IMPROVEMENTS
-        self.selected_unit: typing.Optional[typing.Union[Unit, Heathen]] = None
+        self.selected_unit: typing.Optional[Unit | Heathen] = None
         self.available_blessings: typing.List[Blessing] = []
         self.selected_blessing: typing.Optional[Blessing] = None
         self.blessing_boundaries: typing.Tuple[int, int] = 0, 5
@@ -269,7 +269,7 @@ class Overlay:
         """
         return OverlayType.DEPLOYMENT in self.showing
 
-    def toggle_unit(self, unit: typing.Optional[typing.Union[Unit, Heathen]]):
+    def toggle_unit(self, unit: typing.Optional[Unit | Heathen]):
         """
         Toggle the unit overlay.
         :param unit: The currently-selected unit to display in the overlay.

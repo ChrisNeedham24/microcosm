@@ -1,5 +1,4 @@
 import random
-import typing
 from copy import deepcopy
 
 from models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, Settlement, Improvement, \
@@ -52,7 +51,7 @@ def clamp(number: int, min_val: int, max_val: int) -> int:
     return max(min(max_val, number), min_val)
 
 
-def attack(attacker: typing.Union[Unit, Heathen], defender: typing.Union[Unit, Heathen], ai=True) -> AttackData:
+def attack(attacker: Unit | Heathen, defender: Unit | Heathen, ai=True) -> AttackData:
     """
     Execute an attack between the two supplied units.
     :param attacker: The unit initiating the attack.

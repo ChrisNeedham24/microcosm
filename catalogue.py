@@ -323,7 +323,7 @@ def get_available_blessings(player: Player) -> typing.List[Blessing]:
     return blessings
 
 
-def get_all_unlockable(blessing: Blessing) -> typing.List[typing.Union[Improvement, UnitPlan]]:
+def get_all_unlockable(blessing: Blessing) -> typing.List[Improvement | UnitPlan]:
     """
     Retrieves all unlockable improvements and unit plans for the given blessing.
     :param blessing: The blessing to search pre-requisites for.

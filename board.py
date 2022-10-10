@@ -56,7 +56,7 @@ class Board:
         self.overlay = Overlay()
         self.selected_settlement: typing.Optional[Settlement] = None
         self.deploying_army = False
-        self.selected_unit: typing.Optional[typing.Union[Unit, Heathen]] = None
+        self.selected_unit: typing.Optional[Unit | Heathen] = None
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
              is_night: bool, turns_until_change: int):

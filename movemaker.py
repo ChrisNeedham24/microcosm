@@ -106,7 +106,7 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
     settler_units = [settler for settler in avail_units if settler.can_settle]
     # Note that if there are no available improvements for the given settlement, the 'ideal' construction will default
     # to the first available unit. Additionally, the first improvement is only selected if it won't reduce satisfaction.
-    ideal: typing.Union[Improvement, UnitPlan] = avail_imps[0] \
+    ideal: Improvement | UnitPlan = avail_imps[0] \
         if len(avail_imps) > 0 and setl.satisfaction + avail_imps[0].effect.satisfaction >= 50 \
         else avail_units[0]
     totals = get_setl_totals(player, setl, is_night)
@@ -335,7 +335,7 @@ class MoveMaker:
                 player.units.remove(unit)
         else:
             attack_over_siege = True  # If False, the unit will siege the settlement.
-            within_range: typing.Optional[typing.Union[Unit, Settlement]] = None
+            within_range: typing.Optional[Unit | Settlement] = None
             # If the unit cannot settle, then we must first check if it meets the criteria to attack another unit. A
             # unit can attack if any of its settlements are under siege or attack, or if the AI is aggressive, or if the
             # AI is neutral but with a health advantage over another unit, or lastly, if the other unit is an Infidel.
