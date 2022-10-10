@@ -820,6 +820,12 @@ class Game:
                                     clamp(heathen.location[1] + y_movement, 0, 89))
                 heathen.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
+            # Players of the Infidels faction share vision with Heathen units.
+            if self.players[0].faction is Faction.INFIDELS:
+                for i in range(heathen.location[1] - 5, heathen.location[1] + 6):
+                    for j in range(heathen.location[0] - 5, heathen.location[0] + 6):
+                        self.players[0].quads_seen.add((j, i))
+
     def initialise_ais(self):
         """
         Initialise the AI players by adding their first settlement in a random location.
