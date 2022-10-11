@@ -106,7 +106,6 @@ class Game:
                         self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 5, -1, 69)
                     else:
                         self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
-
         elif pyxel.btnp(pyxel.KEY_UP):
             if self.on_menu:
                 self.menu.navigate(up=True)
@@ -205,15 +204,16 @@ class Game:
                     else:
                         self.menu.wiki_showing = self.menu.wiki_option
                 else:
-                    if self.menu.menu_option is MenuOption.NEW_GAME:
-                        self.menu.in_game_setup = True
-                    elif self.menu.menu_option is MenuOption.LOAD_GAME:
-                        self.menu.loading_game = True
-                        self.get_saves()
-                    elif self.menu.menu_option is MenuOption.WIKI:
-                        self.menu.in_wiki = True
-                    elif self.menu.menu_option is MenuOption.EXIT:
-                        pyxel.quit()
+                    match self.menu.menu_option:
+                        case MenuOption.NEW_GAME:
+                            self.menu.in_game_setup = True
+                        case MenuOption.LOAD_GAME:
+                            self.menu.loading_game = True
+                            self.get_saves()
+                        case MenuOption.WIKI:
+                            self.menu.in_wiki = True
+                        case MenuOption.EXIT:
+                            pyxel.quit()
             elif self.game_started and (self.board.overlay.is_victory() or
                                         self.board.overlay.is_elimination() and self.players[0].eliminated):
                 # If the player has won the game, or they've just been eliminated themselves, enter will take them back
@@ -235,52 +235,54 @@ class Game:
                     self.players[0].ongoing_blessing = OngoingBlessing(self.board.overlay.selected_blessing)
                 self.board.overlay.toggle_blessing([])
             elif self.game_started and self.board.overlay.is_setl_click():
-                # If the player has chosen to attack a settlement, execute the attack.
-                if self.board.overlay.setl_attack_opt is SettlementAttackType.ATTACK:
-                    self.board.overlay.toggle_setl_click(None, None)
-                    data = attack_setl(self.board.selected_unit, self.board.overlay.attacked_settlement,
-                                       self.board.overlay.attacked_settlement_owner, False)
-                    if data.attacker_was_killed:
-                        # If the player's unit died, destroy and deselect it.
-                        self.players[0].units.remove(self.board.selected_unit)
-                        self.board.selected_unit = None
-                        self.board.overlay.toggle_unit(None)
-                    elif data.setl_was_taken:
-                        # If the settlement was taken, transfer it to the player.
-                        data.settlement.under_siege_by = None
-                        # The Concentrated can only have a single settlement, so when they take others, the settlements
-                        # simply disappear.
-                        if self.players[0].faction is not Faction.CONCENTRATED:
-                            self.players[0].settlements.append(data.settlement)
-                        for idx, p in enumerate(self.players):
-                            if data.settlement in p.settlements and idx != 0:
-                                p.settlements.remove(data.settlement)
-                                break
-                    self.board.overlay.toggle_setl_attack(data)
-                    self.board.attack_time_bank = 0
-                elif self.board.overlay.setl_attack_opt is SettlementAttackType.BESIEGE:
-                    # Alternatively, begin a siege on the settlement.
-                    self.board.selected_unit.sieging = True
-                    self.board.overlay.attacked_settlement.under_siege_by = self.board.selected_unit
-                    self.board.overlay.toggle_setl_click(None, None)
-                else:
-                    self.board.overlay.toggle_setl_click(None, None)
+                match self.board.overlay.setl_attack_opt:
+                    # If the player has chosen to attack a settlement, execute the attack.
+                    case SettlementAttackType.ATTACK:
+                        self.board.overlay.toggle_setl_click(None, None)
+                        data = attack_setl(self.board.selected_unit, self.board.overlay.attacked_settlement,
+                                           self.board.overlay.attacked_settlement_owner, False)
+                        if data.attacker_was_killed:
+                            # If the player's unit died, destroy and deselect it.
+                            self.players[0].units.remove(self.board.selected_unit)
+                            self.board.selected_unit = None
+                            self.board.overlay.toggle_unit(None)
+                        elif data.setl_was_taken:
+                            # If the settlement was taken, transfer it to the player.
+                            data.settlement.under_siege_by = None
+                            # The Concentrated can only have a single settlement, so when they take others, the
+                            # settlements simply disappear.
+                            if self.players[0].faction is not Faction.CONCENTRATED:
+                                self.players[0].settlements.append(data.settlement)
+                            for idx, p in enumerate(self.players):
+                                if data.settlement in p.settlements and idx != 0:
+                                    p.settlements.remove(data.settlement)
+                                    break
+                        self.board.overlay.toggle_setl_attack(data)
+                        self.board.attack_time_bank = 0
+                    case SettlementAttackType.BESIEGE:
+                        # Alternatively, begin a siege on the settlement.
+                        self.board.selected_unit.sieging = True
+                        self.board.overlay.attacked_settlement.under_siege_by = self.board.selected_unit
+                        self.board.overlay.toggle_setl_click(None, None)
+                    case _:
+                        self.board.overlay.toggle_setl_click(None, None)
             elif self.game_started and self.board.overlay.is_pause():
-                if self.board.overlay.pause_option is PauseOption.RESUME:
-                    self.board.overlay.toggle_pause()
-                elif self.board.overlay.pause_option is PauseOption.SAVE:
-                    self.save_game()
-                    self.board.overlay.has_saved = True
-                elif self.board.overlay.pause_option is PauseOption.CONTROLS:
-                    self.board.overlay.toggle_controls()
-                elif self.board.overlay.pause_option is PauseOption.QUIT:
-                    self.game_started = False
-                    self.on_menu = True
-                    self.menu.loading_game = False
-                    self.menu.in_game_setup = False
-                    self.menu.menu_option = MenuOption.NEW_GAME
-                    self.music_player.stop_game_music()
-                    self.music_player.play_menu_music()
+                match self.board.overlay.pause_option:
+                    case PauseOption.RESUME:
+                        self.board.overlay.toggle_pause()
+                    case PauseOption.SAVE:
+                        self.save_game()
+                        self.board.overlay.has_saved = True
+                    case PauseOption.CONTROLS:
+                        self.board.overlay.toggle_controls()
+                    case PauseOption.QUIT:
+                        self.game_started = False
+                        self.on_menu = True
+                        self.menu.loading_game = False
+                        self.menu.in_game_setup = False
+                        self.menu.menu_option = MenuOption.NEW_GAME
+                        self.music_player.stop_game_music()
+                        self.music_player.play_menu_music()
             elif self.game_started and not (self.board.overlay.is_tutorial() or self.board.overlay.is_deployment() or
                                             self.board.overlay.is_bless_notif() or
                                             self.board.overlay.is_constr_notif() or self.board.overlay.is_lvl_notif() or
@@ -838,13 +840,14 @@ class Game:
                 new_settl = Settlement(setl_name, setl_coords, [],
                                        [self.board.quads[setl_coords[1]][setl_coords[0]]],
                                        [get_default_unit(setl_coords)])
-                if player.faction is Faction.CONCENTRATED:
-                    new_settl.strength *= 2
-                elif player.faction is Faction.FRONTIERSMEN:
-                    new_settl.satisfaction = 75
-                elif player.faction is Faction.IMPERIALS:
-                    new_settl.strength /= 2
-                    new_settl.max_strength /= 2
+                match player.faction:
+                    case Faction.CONCENTRATED:
+                        new_settl.strength *= 2
+                    case Faction.FRONTIERSMEN:
+                        new_settl.satisfaction = 75
+                    case Faction.IMPERIALS:
+                        new_settl.strength /= 2
+                        new_settl.max_strength /= 2
                 player.settlements.append(new_settl)
 
     def process_ais(self):

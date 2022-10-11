@@ -288,17 +288,18 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
             elif not unit_plan.can_settle and not (player.faction is Faction.FRONTIERSMEN and setl_lvl >= 5):
                 unit_plans.append(unit_plan)
 
-    if player.faction is Faction.IMPERIALS:
-        for unit_plan in unit_plans:
-            unit_plan.power *= 1.5
-    elif player.faction is Faction.PERSISTENT:
-        for unit_plan in unit_plans:
-            unit_plan.max_health *= 1.5
-            unit_plan.power *= 0.75
-    elif player.faction is Faction.EXPLORERS:
-        for unit_plan in unit_plans:
-            unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
-            unit_plan.max_health *= 0.75
+    match player.faction:
+        case Faction.IMPERIALS:
+            for unit_plan in unit_plans:
+                unit_plan.power *= 1.5
+        case Faction.PERSISTENT:
+            for unit_plan in unit_plans:
+                unit_plan.max_health *= 1.5
+                unit_plan.power *= 0.75
+        case Faction.EXPLORERS:
+            for unit_plan in unit_plans:
+                unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
+                unit_plan.max_health *= 0.75
 
     # Sort unit plans by cost.
     unit_plans.sort(key=lambda up: up.cost)
