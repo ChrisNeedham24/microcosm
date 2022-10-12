@@ -674,6 +674,7 @@ class Menu:
         if down:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
             if self.in_game_setup and not self.showing_faction_details:
+                # self.get_next_menu_option(SetupOption, self.setup_option)
                 if self.setup_option is SetupOption.PLAYER_FACTION:
                     self.setup_option = SetupOption.PLAYER_COUNT
                 elif self.setup_option is SetupOption.PLAYER_COUNT:
@@ -703,6 +704,7 @@ class Menu:
                     if self.unit_boundaries[1] < len(UNIT_PLANS) - 1:
                         self.unit_boundaries = self.unit_boundaries[0] + 1, self.unit_boundaries[1] + 1
                 else:
+                    # self.get_next_menu_option(WikiOption, self.wiki_option)
                     if self.wiki_option is WikiOption.VICTORIES:
                         self.wiki_option = WikiOption.FACTIONS
                     elif self.wiki_option is WikiOption.FACTIONS:
@@ -873,3 +875,22 @@ class Menu:
 
         # Draw any remaining text to the final line.
         pyxel.text(x_start, text_y, text_to_draw, pyxel.COLOR_WHITE)
+
+    def get_next_menu_option(self, options_enum: Enum, current_selection: typing.Type[Enum]) -> None:
+        """
+        PYDOC IS OVERRATED
+        KITFOX SUCK EGG
+        """
+        if current_selection not in options_enum:
+            return
+
+        current_option_idx = list(options_enum).index(current_selection)
+        next_option_idx = (current_option_idx + 1) % len(options_enum)
+        next_option = list(options_enum)[next_option_idx]
+
+        if options_enum is SetupOption:
+            self.setup_option = next_option
+        elif options_enum is WikiOption:
+            self.wiki_option = next_option
+        elif options_enum is MenuOption:
+            self.menu_option = next_option
