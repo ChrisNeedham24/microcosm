@@ -757,15 +757,16 @@ class Menu:
                     for idx, project in enumerate(PROJECTS):
                         pyxel.text(20, 42 + idx * 30, project.name, pyxel.COLOR_WHITE)
                         pyxel.text(20, 50 + idx * 30, project.description, pyxel.COLOR_WHITE)
-                        if project.type is ProjectType.BOUNTIFUL:
-                            pyxel.text(20, 58 + idx * 30, "Converts 25% of zeal to harvest.", pyxel.COLOR_GREEN)
-                            pyxel.blt(166, 50 + idx * 30, 0, 8, 44, 8, 8)
-                        elif project.type is ProjectType.ECONOMICAL:
-                            pyxel.text(20, 58 + idx * 30, "Converts 25% of zeal to wealth.", pyxel.COLOR_YELLOW)
-                            pyxel.blt(166, 50 + idx * 30, 0, 0, 44, 8, 8)
-                        if project.type is ProjectType.MAGICAL:
-                            pyxel.text(20, 58 + idx * 30, "Converts 25% of zeal to fortune.", pyxel.COLOR_PURPLE)
-                            pyxel.blt(166, 50 + idx * 30, 0, 24, 44, 8, 8)
+                        match project.type:
+                            case ProjectType.BOUNTIFUL:
+                                pyxel.text(20, 58 + idx * 30, "Converts 25% of zeal to harvest.", pyxel.COLOR_GREEN)
+                                pyxel.blt(166, 50 + idx * 30, 0, 8, 44, 8, 8)
+                            case ProjectType.ECONOMICAL:
+                                pyxel.text(20, 58 + idx * 30, "Converts 25% of zeal to wealth.", pyxel.COLOR_YELLOW)
+                                pyxel.blt(166, 50 + idx * 30, 0, 0, 44, 8, 8)
+                            case ProjectType.MAGICAL:
+                                pyxel.text(20, 58 + idx * 30, "Converts 25% of zeal to fortune.", pyxel.COLOR_PURPLE)
+                                pyxel.blt(166, 50 + idx * 30, 0, 24, 44, 8, 8)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                 case WikiOption.UNITS:
                     pyxel.load("resources/sprites.pyxres")
