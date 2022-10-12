@@ -21,13 +21,13 @@ class Overlay:
         self.available_constructions: typing.List[Improvement] = []
         self.available_projects: typing.List[Project] = []
         self.available_unit_plans: typing.List[UnitPlan] = []
-        self.selected_construction: typing.Optional[typing.Union[Improvement, Project, UnitPlan]] = None
+        self.selected_construction: typing.Optional[Improvement | Project | UnitPlan] = None
         # These boundaries are used to keep track of which improvements/units/blessings are currently displayed. This is
         # for scrolling functionality to work.
         self.construction_boundaries: typing.Tuple[int, int] = 0, 5
         self.unit_plan_boundaries: typing.Tuple[int, int] = 0, 5
         self.current_construction_menu: ConstructionMenu = ConstructionMenu.IMPROVEMENTS
-        self.selected_unit: typing.Optional[typing.Union[Unit, Heathen]] = None
+        self.selected_unit: typing.Optional[Unit | Heathen] = None
         self.available_blessings: typing.List[Blessing] = []
         self.selected_blessing: typing.Optional[Blessing] = None
         self.blessing_boundaries: typing.Tuple[int, int] = 0, 5
@@ -121,12 +121,13 @@ class Overlay:
         :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
         """
         list_to_use: list
-        if self.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
-            list_to_use = self.available_constructions
-        elif self.current_construction_menu is ConstructionMenu.PROJECTS:
-            list_to_use = self.available_projects
-        else:
-            list_to_use = self.available_unit_plans
+        match self.current_construction_menu:
+            case ConstructionMenu.IMPROVEMENTS:
+                list_to_use = self.available_constructions
+            case ConstructionMenu.PROJECTS:
+                list_to_use = self.available_projects
+            case _:
+                list_to_use = self.available_unit_plans
 
         # Scroll up/down the improvements/units list, ensuring not to exceed the bounds in either direction.
         if down and self.selected_construction is not None:
@@ -269,7 +270,7 @@ class Overlay:
         """
         return OverlayType.DEPLOYMENT in self.showing
 
-    def toggle_unit(self, unit: typing.Optional[typing.Union[Unit, Heathen]]):
+    def toggle_unit(self, unit: typing.Optional[Unit | Heathen]):
         """
         Toggle the unit overlay.
         :param unit: The currently-selected unit to display in the overlay.
@@ -553,21 +554,23 @@ class Overlay:
         :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
         """
         if down:
-            if self.pause_option is PauseOption.RESUME:
-                self.pause_option = PauseOption.SAVE
-                self.has_saved = False
-            elif self.pause_option is PauseOption.SAVE:
-                self.pause_option = PauseOption.CONTROLS
-            elif self.pause_option is PauseOption.CONTROLS:
-                self.pause_option = PauseOption.QUIT
+            match self.pause_option:
+                case PauseOption.RESUME:
+                    self.pause_option = PauseOption.SAVE
+                    self.has_saved = False
+                case PauseOption.SAVE:
+                    self.pause_option = PauseOption.CONTROLS
+                case PauseOption.CONTROLS:
+                    self.pause_option = PauseOption.QUIT
         else:
-            if self.pause_option is PauseOption.SAVE:
-                self.pause_option = PauseOption.RESUME
-            elif self.pause_option is PauseOption.CONTROLS:
-                self.pause_option = PauseOption.SAVE
-                self.has_saved = False
-            elif self.pause_option is PauseOption.QUIT:
-                self.pause_option = PauseOption.CONTROLS
+            match self.pause_option:
+                case PauseOption.SAVE:
+                    self.pause_option = PauseOption.RESUME
+                case PauseOption.CONTROLS:
+                    self.pause_option = PauseOption.SAVE
+                    self.has_saved = False
+                case PauseOption.QUIT:
+                    self.pause_option = PauseOption.CONTROLS
 
     def is_pause(self) -> bool:
         """

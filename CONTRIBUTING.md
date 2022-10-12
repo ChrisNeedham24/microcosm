@@ -15,7 +15,7 @@ There are no tests in the wild west.
 ### Environment details
 
 To contribute to Microcosm, first create a fork of the repository into your own GitHub account.
-For development, Python 3.9 as well as the requirements defined in requirements.txt are needed.
+For development, Python 3.10 as well as the requirements defined in requirements.txt are needed.
 
 Please note that all changes should be made on a branch *other* than main.
 
