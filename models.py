@@ -284,7 +284,7 @@ class Construction:
     """
     An improvement being constructed, a project being worked on, or a unit being recruited currently in a settlement.
     """
-    construction: typing.Union[Improvement, Project, UnitPlan]
+    construction: Improvement | Project | UnitPlan
     zeal_consumed: float = 0.0
 
 
@@ -337,7 +337,7 @@ class CompletedConstruction:
     """
     An improvement or unit plan construction that has been completed.
     """
-    construction: typing.Union[Improvement, UnitPlan]
+    construction: Improvement | UnitPlan
     settlement: Settlement
 
 
@@ -376,8 +376,8 @@ class AttackData:
     """
     The data from an attack that has occurred.
     """
-    attacker: typing.Union[Unit, Heathen]
-    defender: typing.Union[Unit, Heathen]
+    attacker: Unit | Heathen
+    defender: Unit | Heathen
     damage_to_attacker: float
     damage_to_defender: float
     player_attack: bool
