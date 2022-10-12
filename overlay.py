@@ -121,12 +121,13 @@ class Overlay:
         :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
         """
         list_to_use: list
-        if self.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
-            list_to_use = self.available_constructions
-        elif self.current_construction_menu is ConstructionMenu.PROJECTS:
-            list_to_use = self.available_projects
-        else:
-            list_to_use = self.available_unit_plans
+        match self.current_construction_menu:
+            case ConstructionMenu.IMPROVEMENTS:
+                list_to_use = self.available_constructions
+            case ConstructionMenu.PROJECTS:
+                list_to_use = self.available_projects
+            case _:
+                list_to_use = self.available_unit_plans
 
         # Scroll up/down the improvements/units list, ensuring not to exceed the bounds in either direction.
         if down and self.selected_construction is not None:
@@ -553,21 +554,23 @@ class Overlay:
         :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
         """
         if down:
-            if self.pause_option is PauseOption.RESUME:
-                self.pause_option = PauseOption.SAVE
-                self.has_saved = False
-            elif self.pause_option is PauseOption.SAVE:
-                self.pause_option = PauseOption.CONTROLS
-            elif self.pause_option is PauseOption.CONTROLS:
-                self.pause_option = PauseOption.QUIT
+            match self.pause_option:
+                case PauseOption.RESUME:
+                    self.pause_option = PauseOption.SAVE
+                    self.has_saved = False
+                case PauseOption.SAVE:
+                    self.pause_option = PauseOption.CONTROLS
+                case PauseOption.CONTROLS:
+                    self.pause_option = PauseOption.QUIT
         else:
-            if self.pause_option is PauseOption.SAVE:
-                self.pause_option = PauseOption.RESUME
-            elif self.pause_option is PauseOption.CONTROLS:
-                self.pause_option = PauseOption.SAVE
-                self.has_saved = False
-            elif self.pause_option is PauseOption.QUIT:
-                self.pause_option = PauseOption.CONTROLS
+            match self.pause_option:
+                case PauseOption.SAVE:
+                    self.pause_option = PauseOption.RESUME
+                case PauseOption.CONTROLS:
+                    self.pause_option = PauseOption.SAVE
+                    self.has_saved = False
+                case PauseOption.QUIT:
+                    self.pause_option = PauseOption.CONTROLS
 
     def is_pause(self) -> bool:
         """
