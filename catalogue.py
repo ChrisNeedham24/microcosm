@@ -5,7 +5,7 @@ from copy import deepcopy
 import pyxel
 
 from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome, Heathen, \
-    Faction
+    Faction, Project, ProjectType
 
 # The list of settlement names, for each biome.
 SETL_NAMES = {
@@ -174,6 +174,13 @@ IMPROVEMENTS = [
                 Effect(), BLESSINGS["anc_his"])
 ]
 
+# The list of projects that a settlement can be continuously working on.
+PROJECTS = [
+    Project(ProjectType.BOUNTIFUL, "Call of the Fields", "From hand to mouth."),
+    Project(ProjectType.ECONOMICAL, "Inflation by Design", "More is more, right?"),
+    Project(ProjectType.MAGICAL, "The Holy Epiphany", "Awaken the soul.")
+]
+
 # The list of unit plans that units can be recruited according to.
 UNIT_PLANS = [
     UnitPlan(100, 100, 3, "Warrior", None, 25),
@@ -281,17 +288,18 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
             elif not unit_plan.can_settle and not (player.faction is Faction.FRONTIERSMEN and setl_lvl >= 5):
                 unit_plans.append(unit_plan)
 
-    if player.faction is Faction.IMPERIALS:
-        for unit_plan in unit_plans:
-            unit_plan.power *= 1.5
-    elif player.faction is Faction.PERSISTENT:
-        for unit_plan in unit_plans:
-            unit_plan.max_health *= 1.5
-            unit_plan.power *= 0.75
-    elif player.faction is Faction.EXPLORERS:
-        for unit_plan in unit_plans:
-            unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
-            unit_plan.max_health *= 0.75
+    match player.faction:
+        case Faction.IMPERIALS:
+            for unit_plan in unit_plans:
+                unit_plan.power *= 1.5
+        case Faction.PERSISTENT:
+            for unit_plan in unit_plans:
+                unit_plan.max_health *= 1.5
+                unit_plan.power *= 0.75
+        case Faction.EXPLORERS:
+            for unit_plan in unit_plans:
+                unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
+                unit_plan.max_health *= 0.75
 
     # Sort unit plans by cost.
     unit_plans.sort(key=lambda up: up.cost)
@@ -316,7 +324,7 @@ def get_available_blessings(player: Player) -> typing.List[Blessing]:
     return blessings
 
 
-def get_all_unlockable(blessing: Blessing) -> typing.List[typing.Union[Improvement, UnitPlan]]:
+def get_all_unlockable(blessing: Blessing) -> typing.List[Improvement | UnitPlan]:
     """
     Retrieves all unlockable improvements and unit plans for the given blessing.
     :param blessing: The blessing to search pre-requisites for.
@@ -352,6 +360,15 @@ def get_improvement(name: str) -> Improvement:
     :return: The Improvement with the given name.
     """
     return next(imp for imp in IMPROVEMENTS if imp.name == name)
+
+
+def get_project(name: str) -> Project:
+    """
+    Get the project with the given name. Used when loading games.
+    :param name: The name of the project.
+    :return: The Project with the given name.
+    """
+    return next(prj for prj in PROJECTS if prj.name == name)
 
 
 def get_blessing(name: str) -> Blessing:

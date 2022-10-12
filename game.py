@@ -11,11 +11,11 @@ import pyxel
 from board import Board
 from calculator import clamp, attack, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
-    get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer, FACTION_COLOURS
+    get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer, FACTION_COLOURS, PROJECTS, get_project
 from menu import Menu, MenuOption, SetupOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
     EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, \
-    ExpansionPlaystyle, UnitPlan, OverlayType, Faction
+    ExpansionPlaystyle, UnitPlan, OverlayType, Faction, ConstructionMenu, Project
 from movemaker import MoveMaker
 from music_player import MusicPlayer
 from overlay import SettlementAttackType, PauseOption
@@ -101,7 +101,11 @@ class Game:
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press down.
-                    self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
+                    # Holding Ctrl will pan the map 5 spaces.
+                    if pyxel.btn(pyxel.KEY_CTRL):
+                        self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 5, -1, 69)
+                    else:
+                        self.map_pos = self.map_pos[0], clamp(self.map_pos[1] + 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_UP):
             if self.on_menu:
                 self.menu.navigate(up=True)
@@ -119,35 +123,55 @@ class Game:
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press up.
-                    self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
+                    # Holding Ctrl will pan the map 5 spaces.
+                    if pyxel.btn(pyxel.KEY_CTRL):
+                        self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 5, -1, 69)
+                    else:
+                        self.map_pos = self.map_pos[0], clamp(self.map_pos[1] - 1, -1, 69)
         elif pyxel.btnp(pyxel.KEY_LEFT):
             if self.on_menu:
                 self.menu.navigate(left=True)
-            if self.game_started and self.board.overlay.is_constructing() and \
-                    len(self.board.overlay.available_constructions) > 0:
-                self.board.overlay.constructing_improvement = True
-                self.board.overlay.selected_construction = self.board.overlay.available_constructions[0]
+            if self.game_started and self.board.overlay.is_constructing():
+                if self.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS and \
+                        len(self.board.overlay.available_constructions) > 0:
+                    self.board.overlay.current_construction_menu = ConstructionMenu.IMPROVEMENTS
+                    self.board.overlay.selected_construction = self.board.overlay.available_constructions[0]
+                elif self.board.overlay.current_construction_menu is ConstructionMenu.UNITS:
+                    self.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
+                    self.board.overlay.selected_construction = self.board.overlay.available_projects[0]
             elif self.game_started:
                 if self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(left=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press left.
-                    self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
+                    # Holding Ctrl will pan the map 5 spaces.
+                    if pyxel.btn(pyxel.KEY_CTRL):
+                        self.map_pos = clamp(self.map_pos[0] - 5, -1, 77), self.map_pos[1]
+                    else:
+                        self.map_pos = clamp(self.map_pos[0] - 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RIGHT):
             if self.on_menu:
                 self.menu.navigate(right=True)
             if self.game_started and self.board.overlay.is_constructing():
-                self.board.overlay.constructing_improvement = False
-                self.board.overlay.selected_construction = self.board.overlay.available_unit_plans[0]
-                self.board.overlay.unit_plan_boundaries = 0, 5
+                if self.board.overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
+                    self.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
+                    self.board.overlay.selected_construction = self.board.overlay.available_projects[0]
+                elif self.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS:
+                    self.board.overlay.current_construction_menu = ConstructionMenu.UNITS
+                    self.board.overlay.selected_construction = self.board.overlay.available_unit_plans[0]
+                    self.board.overlay.unit_plan_boundaries = 0, 5
             elif self.game_started:
                 if self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(right=True)
                 else:
                     self.board.overlay.remove_warning_if_possible()
                     # If we're not on a menu, pan the map when you press right.
-                    self.map_pos = clamp(self.map_pos[0] + 1, -1, 77), self.map_pos[1]
+                    # Holding Ctrl will pan the map 5 spaces.
+                    if pyxel.btn(pyxel.KEY_CTRL):
+                        self.map_pos = clamp(self.map_pos[0] + 5, -1, 77), self.map_pos[1]
+                    else:
+                        self.map_pos = clamp(self.map_pos[0] + 1, -1, 77), self.map_pos[1]
         elif pyxel.btnp(pyxel.KEY_RETURN):
             if self.on_menu:
                 if self.menu.in_game_setup and self.menu.setup_option is SetupOption.START_GAME:
@@ -180,15 +204,16 @@ class Game:
                     else:
                         self.menu.wiki_showing = self.menu.wiki_option
                 else:
-                    if self.menu.menu_option is MenuOption.NEW_GAME:
-                        self.menu.in_game_setup = True
-                    elif self.menu.menu_option is MenuOption.LOAD_GAME:
-                        self.menu.loading_game = True
-                        self.get_saves()
-                    elif self.menu.menu_option is MenuOption.WIKI:
-                        self.menu.in_wiki = True
-                    elif self.menu.menu_option is MenuOption.EXIT:
-                        pyxel.quit()
+                    match self.menu.menu_option:
+                        case MenuOption.NEW_GAME:
+                            self.menu.in_game_setup = True
+                        case MenuOption.LOAD_GAME:
+                            self.menu.loading_game = True
+                            self.get_saves()
+                        case MenuOption.WIKI:
+                            self.menu.in_wiki = True
+                        case MenuOption.EXIT:
+                            pyxel.quit()
             elif self.game_started and (self.board.overlay.is_victory() or
                                         self.board.overlay.is_elimination() and self.players[0].eliminated):
                 # If the player has won the game, or they've just been eliminated themselves, enter will take them back
@@ -204,58 +229,60 @@ class Game:
             elif self.game_started and self.board.overlay.is_constructing():
                 if self.board.overlay.selected_construction is not None:
                     self.board.selected_settlement.current_work = Construction(self.board.overlay.selected_construction)
-                self.board.overlay.toggle_construction([], [])
+                self.board.overlay.toggle_construction([], [], [])
             elif self.game_started and self.board.overlay.is_blessing():
                 if self.board.overlay.selected_blessing is not None:
                     self.players[0].ongoing_blessing = OngoingBlessing(self.board.overlay.selected_blessing)
                 self.board.overlay.toggle_blessing([])
             elif self.game_started and self.board.overlay.is_setl_click():
-                # If the player has chosen to attack a settlement, execute the attack.
-                if self.board.overlay.setl_attack_opt is SettlementAttackType.ATTACK:
-                    self.board.overlay.toggle_setl_click(None, None)
-                    data = attack_setl(self.board.selected_unit, self.board.overlay.attacked_settlement,
-                                       self.board.overlay.attacked_settlement_owner, False)
-                    if data.attacker_was_killed:
-                        # If the player's unit died, destroy and deselect it.
-                        self.players[0].units.remove(self.board.selected_unit)
-                        self.board.selected_unit = None
-                        self.board.overlay.toggle_unit(None)
-                    elif data.setl_was_taken:
-                        # If the settlement was taken, transfer it to the player.
-                        data.settlement.under_siege_by = None
-                        # The Concentrated can only have a single settlement, so when they take others, the settlements
-                        # simply disappear.
-                        if self.players[0].faction is not Faction.CONCENTRATED:
-                            self.players[0].settlements.append(data.settlement)
-                        for idx, p in enumerate(self.players):
-                            if data.settlement in p.settlements and idx != 0:
-                                p.settlements.remove(data.settlement)
-                                break
-                    self.board.overlay.toggle_setl_attack(data)
-                    self.board.attack_time_bank = 0
-                elif self.board.overlay.setl_attack_opt is SettlementAttackType.BESIEGE:
-                    # Alternatively, begin a siege on the settlement.
-                    self.board.selected_unit.sieging = True
-                    self.board.overlay.attacked_settlement.under_siege_by = self.board.selected_unit
-                    self.board.overlay.toggle_setl_click(None, None)
-                else:
-                    self.board.overlay.toggle_setl_click(None, None)
+                match self.board.overlay.setl_attack_opt:
+                    # If the player has chosen to attack a settlement, execute the attack.
+                    case SettlementAttackType.ATTACK:
+                        self.board.overlay.toggle_setl_click(None, None)
+                        data = attack_setl(self.board.selected_unit, self.board.overlay.attacked_settlement,
+                                           self.board.overlay.attacked_settlement_owner, False)
+                        if data.attacker_was_killed:
+                            # If the player's unit died, destroy and deselect it.
+                            self.players[0].units.remove(self.board.selected_unit)
+                            self.board.selected_unit = None
+                            self.board.overlay.toggle_unit(None)
+                        elif data.setl_was_taken:
+                            # If the settlement was taken, transfer it to the player.
+                            data.settlement.under_siege_by = None
+                            # The Concentrated can only have a single settlement, so when they take others, the
+                            # settlements simply disappear.
+                            if self.players[0].faction is not Faction.CONCENTRATED:
+                                self.players[0].settlements.append(data.settlement)
+                            for idx, p in enumerate(self.players):
+                                if data.settlement in p.settlements and idx != 0:
+                                    p.settlements.remove(data.settlement)
+                                    break
+                        self.board.overlay.toggle_setl_attack(data)
+                        self.board.attack_time_bank = 0
+                    case SettlementAttackType.BESIEGE:
+                        # Alternatively, begin a siege on the settlement.
+                        self.board.selected_unit.sieging = True
+                        self.board.overlay.attacked_settlement.under_siege_by = self.board.selected_unit
+                        self.board.overlay.toggle_setl_click(None, None)
+                    case _:
+                        self.board.overlay.toggle_setl_click(None, None)
             elif self.game_started and self.board.overlay.is_pause():
-                if self.board.overlay.pause_option is PauseOption.RESUME:
-                    self.board.overlay.toggle_pause()
-                elif self.board.overlay.pause_option is PauseOption.SAVE:
-                    self.save_game()
-                    self.board.overlay.has_saved = True
-                elif self.board.overlay.pause_option is PauseOption.CONTROLS:
-                    self.board.overlay.toggle_controls()
-                elif self.board.overlay.pause_option is PauseOption.QUIT:
-                    self.game_started = False
-                    self.on_menu = True
-                    self.menu.loading_game = False
-                    self.menu.in_game_setup = False
-                    self.menu.menu_option = MenuOption.NEW_GAME
-                    self.music_player.stop_game_music()
-                    self.music_player.play_menu_music()
+                match self.board.overlay.pause_option:
+                    case PauseOption.RESUME:
+                        self.board.overlay.toggle_pause()
+                    case PauseOption.SAVE:
+                        self.save_game()
+                        self.board.overlay.has_saved = True
+                    case PauseOption.CONTROLS:
+                        self.board.overlay.toggle_controls()
+                    case PauseOption.QUIT:
+                        self.game_started = False
+                        self.on_menu = True
+                        self.menu.loading_game = False
+                        self.menu.in_game_setup = False
+                        self.menu.menu_option = MenuOption.NEW_GAME
+                        self.music_player.stop_game_music()
+                        self.music_player.play_menu_music()
             elif self.game_started and not (self.board.overlay.is_tutorial() or self.board.overlay.is_deployment() or
                                             self.board.overlay.is_bless_notif() or
                                             self.board.overlay.is_constr_notif() or self.board.overlay.is_lvl_notif() or
@@ -291,6 +318,7 @@ class Game:
                 # Pick a construction.
                 self.board.overlay.toggle_construction(get_available_improvements(self.players[0],
                                                                                   self.board.selected_settlement),
+                                                       PROJECTS,
                                                        get_available_unit_plans(self.players[0],
                                                                                 self.board.selected_settlement.level))
         elif pyxel.btnp(pyxel.KEY_F):
@@ -384,7 +412,8 @@ class Game:
         elif pyxel.btnp(pyxel.KEY_B):
             if self.game_started and self.board.selected_settlement is not None and \
                     self.board.selected_settlement.current_work is not None and \
-                    self.players[0].faction is not Faction.FUNDAMENTALISTS:
+                    self.players[0].faction is not Faction.FUNDAMENTALISTS and \
+                    not isinstance(self.board.selected_settlement.current_work.construction, Project):
                 # Pressing B will buyout the remaining cost of the settlement's current construction. However, players
                 # using the Fundamentalists faction are barred from this.
                 current_work = self.board.selected_settlement.current_work
@@ -541,6 +570,13 @@ class Game:
                     setl.satisfaction += 0.25
                 setl.satisfaction = clamp(setl.satisfaction, 0, 100)
 
+                # Process the current construction, completing it if it has been finished.
+                if setl.current_work is not None and not isinstance(setl.current_work.construction, Project):
+                    setl.current_work.zeal_consumed += total_zeal
+                    if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
+                        completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
+                        complete_construction(setl, player)
+
                 setl.harvest_reserves += total_harvest
                 # Settlement levels are increased if the settlement's harvest reserves exceed a certain level (specified
                 # in models.py).
@@ -549,12 +585,6 @@ class Game:
                     setl.level += 1
                     levelled_up_settlements.append(setl)
 
-                # Process the current construction, completing it if it has been finished.
-                if setl.current_work is not None:
-                    setl.current_work.zeal_consumed += total_zeal
-                    if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
-                        completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
-                        complete_construction(setl, player)
             # Show notifications if the player's constructions have completed or one of their settlements has levelled
             # up.
             if player.ai_playstyle is None and len(completed_constructions) > 0:
@@ -610,8 +640,8 @@ class Game:
                 self.until_night -= 1
                 if self.until_night == 0:
                     self.board.overlay.toggle_night(True)
-                    # Nights last for between 5 and 25 turns.
-                    self.nighttime_left = random.randint(5, 25)
+                    # Nights last for between 5 and 20 turns.
+                    self.nighttime_left = random.randint(5, 20)
                     for h in self.heathens:
                         h.plan.power = round(2 * h.plan.power)
                     if self.players[0].faction is Faction.NOCTURNE:
@@ -792,6 +822,12 @@ class Game:
                                     clamp(heathen.location[1] + y_movement, 0, 89))
                 heathen.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
+            # Players of the Infidels faction share vision with Heathen units.
+            if self.players[0].faction is Faction.INFIDELS:
+                for i in range(heathen.location[1] - 5, heathen.location[1] + 6):
+                    for j in range(heathen.location[0] - 5, heathen.location[0] + 6):
+                        self.players[0].quads_seen.add((j, i))
+
     def initialise_ais(self):
         """
         Initialise the AI players by adding their first settlement in a random location.
@@ -804,13 +840,14 @@ class Game:
                 new_settl = Settlement(setl_name, setl_coords, [],
                                        [self.board.quads[setl_coords[1]][setl_coords[0]]],
                                        [get_default_unit(setl_coords)])
-                if player.faction is Faction.CONCENTRATED:
-                    new_settl.strength *= 2
-                elif player.faction is Faction.FRONTIERSMEN:
-                    new_settl.satisfaction = 75
-                elif player.faction is Faction.IMPERIALS:
-                    new_settl.strength /= 2
-                    new_settl.max_strength /= 2
+                match player.faction:
+                    case Faction.CONCENTRATED:
+                        new_settl.strength *= 2
+                    case Faction.FRONTIERSMEN:
+                        new_settl.satisfaction = 75
+                    case Faction.IMPERIALS:
+                        new_settl.strength /= 2
+                        new_settl.max_strength /= 2
                 player.settlements.append(new_settl)
 
     def process_ais(self):
@@ -896,10 +933,13 @@ class Game:
                     # Another tuple-array fix.
                     s.location = (s.location[0], s.location[1])
                     if s.current_work is not None:
-                        # Get the actual Improvement or UnitPlan objects for the current work. We use hasattr() because
-                        # improvements have a type and unit plans do not.
-                        if hasattr(s.current_work.construction, "type"):
+                        # Get the actual Improvement, Project, or UnitPlan objects for the current work. We use
+                        # hasattr() because improvements have an effect where projects do not, and projects have a type
+                        # where unit plans do not.
+                        if hasattr(s.current_work.construction, "effect"):
                             s.current_work.construction = get_improvement(s.current_work.construction.name)
+                        elif hasattr(s.current_work.construction, "type"):
+                            s.current_work.construction = get_project(s.current_work.construction.name)
                         else:
                             s.current_work.construction = get_unit_plan(s.current_work.construction.name)
                     for idx, imp in enumerate(s.improvements):

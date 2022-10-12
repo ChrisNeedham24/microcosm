@@ -56,7 +56,7 @@ class Board:
         self.overlay = Overlay()
         self.selected_settlement: typing.Optional[Settlement] = None
         self.deploying_army = False
-        self.selected_unit: typing.Optional[typing.Union[Unit, Heathen]] = None
+        self.selected_unit: typing.Optional[Unit | Heathen] = None
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
              is_night: bool, turns_until_change: int):
@@ -87,6 +87,12 @@ class Board:
                 for i in range(unit.location[0] - 3, unit.location[0] + 4):
                     for j in range(unit.location[1] - 3, unit.location[1] + 4):
                         quads_to_show.add((i, j))
+            # Players of the Infidels faction share vision with Heathen units.
+            if players[0].faction is Faction.INFIDELS:
+                for heathen in heathens:
+                    for i in range(heathen.location[0] - 5, heathen.location[0] + 6):
+                        for j in range(heathen.location[1] - 5, heathen.location[1] + 6):
+                            quads_to_show.add((i, j))
         else:
             quads_to_show = players[0].quads_seen
         fog_of_war_impacts: bool = self.game_config.fog_of_war or \
@@ -99,13 +105,15 @@ class Board:
                     # This same logic applies to all subsequent draws.
                     if (i, j) in quads_to_show or len(players[0].settlements) == 0 or not fog_of_war_impacts:
                         quad = self.quads[j][i]
-                        quad_x: int = 0
-                        if quad.biome is Biome.FOREST:
-                            quad_x = 8
-                        elif quad.biome is Biome.SEA:
-                            quad_x = 16
-                        elif quad.biome is Biome.MOUNTAIN:
-                            quad_x = 24
+                        match quad.biome:
+                            case Biome.DESERT:
+                                quad_x = 0
+                            case Biome.FOREST:
+                                quad_x = 8
+                            case Biome.SEA:
+                                quad_x = 16
+                            case _:
+                                quad_x = 24
                         quad_y = 20 if quad.is_relic else 4
                         if is_night:
                             quad_x += 32
@@ -123,13 +131,15 @@ class Board:
                     map_pos[0] <= heathen.location[0] < map_pos[0] + 24 and \
                     map_pos[1] <= heathen.location[1] < map_pos[1] + 22:
                 quad: Quad = self.quads[heathen.location[1]][heathen.location[0]]
-                heathen_x: int = 0
-                if quad.biome is Biome.FOREST:
-                    heathen_x = 8
-                elif quad.biome is Biome.SEA:
-                    heathen_x = 16
-                elif quad.biome is Biome.MOUNTAIN:
-                    heathen_x = 24
+                match quad.biome:
+                    case Biome.DESERT:
+                        heathen_x = 0
+                    case Biome.FOREST:
+                        heathen_x = 8
+                    case Biome.SEA:
+                        heathen_x = 16
+                    case _:
+                        heathen_x = 24
                 if is_night:
                     heathen_x += 32
                 pyxel.blt((heathen.location[0] - map_pos[0]) * 8 + 4,
@@ -148,13 +158,15 @@ class Board:
                         map_pos[0] <= unit.location[0] < map_pos[0] + 24 and \
                         map_pos[1] <= unit.location[1] < map_pos[1] + 22:
                     quad: Quad = self.quads[unit.location[1]][unit.location[0]]
-                    unit_x: int = 0
-                    if quad.biome is Biome.FOREST:
-                        unit_x = 8
-                    elif quad.biome is Biome.SEA:
-                        unit_x = 16
-                    elif quad.biome is Biome.MOUNTAIN:
-                        unit_x = 24
+                    match quad.biome:
+                        case Biome.DESERT:
+                            unit_x = 0
+                        case Biome.FOREST:
+                            unit_x = 8
+                        case Biome.SEA:
+                            unit_x = 16
+                        case _:
+                            unit_x = 24
                     if is_night:
                         unit_x += 32
                     pyxel.blt((unit.location[0] - map_pos[0]) * 8 + 4,
@@ -174,13 +186,15 @@ class Board:
                         map_pos[0] <= settlement.location[0] < map_pos[0] + 24 and \
                         map_pos[1] <= settlement.location[1] < map_pos[1] + 22:
                     quad: Quad = self.quads[settlement.location[1]][settlement.location[0]]
-                    setl_x: int = 0
-                    if quad.biome is Biome.FOREST:
-                        setl_x = 8
-                    elif quad.biome is Biome.SEA:
-                        setl_x = 16
-                    elif quad.biome is Biome.MOUNTAIN:
-                        setl_x = 24
+                    match quad.biome:
+                        case Biome.DESERT:
+                            setl_x = 0
+                        case Biome.FOREST:
+                            setl_x = 8
+                        case Biome.SEA:
+                            setl_x = 16
+                        case _:
+                            setl_x = 24
                     if is_night and settlement.under_siege_by is None:
                         setl_x += 32
                     pyxel.blt((settlement.location[0] - map_pos[0]) * 8 + 4,
@@ -266,16 +280,17 @@ class Board:
         self.help_time_bank += elapsed_time
         # Each help text is displayed for three seconds before changing.
         if self.help_time_bank > 3:
-            if self.current_help is HelpOption.SETTLEMENT:
-                self.current_help = HelpOption.UNIT
-            elif self.current_help is HelpOption.UNIT:
-                self.current_help = HelpOption.OVERLAY
-            elif self.current_help is HelpOption.OVERLAY:
-                self.current_help = HelpOption.PAUSE
-            elif self.current_help is HelpOption.PAUSE:
-                self.current_help = HelpOption.END_TURN
-            elif self.current_help is HelpOption.END_TURN:
-                self.current_help = HelpOption.SETTLEMENT
+            match self.current_help:
+                case HelpOption.SETTLEMENT:
+                    self.current_help = HelpOption.UNIT
+                case HelpOption.UNIT:
+                    self.current_help = HelpOption.OVERLAY
+                case HelpOption.OVERLAY:
+                    self.current_help = HelpOption.PAUSE
+                case HelpOption.PAUSE:
+                    self.current_help = HelpOption.END_TURN
+                case HelpOption.END_TURN:
+                    self.current_help = HelpOption.SETTLEMENT
             self.help_time_bank = 0
         # If an attack has occurred, it is similarly displayed for three seconds before disappearing.
         if self.overlay.is_attack() or self.overlay.is_setl_attack():
@@ -402,13 +417,14 @@ class Board:
                     setl_name = self.namer.get_settlement_name(quad_biome)
                     new_settl = Settlement(setl_name, (adj_x, adj_y), [], [self.quads[adj_y][adj_x]],
                                            [get_default_unit((adj_x, adj_y))])
-                    if player.faction is Faction.CONCENTRATED:
-                        new_settl.strength *= 2
-                    elif player.faction is Faction.FRONTIERSMEN:
-                        new_settl.satisfaction = 75
-                    elif player.faction is Faction.IMPERIALS:
-                        new_settl.strength /= 2
-                        new_settl.max_strength /= 2
+                    match player.faction:
+                        case Faction.CONCENTRATED:
+                            new_settl.strength *= 2
+                        case Faction.FRONTIERSMEN:
+                            new_settl.satisfaction = 75
+                        case Faction.IMPERIALS:
+                            new_settl.strength /= 2
+                            new_settl.max_strength /= 2
                     player.settlements.append(new_settl)
                     # Automatically add 5 quads in either direction to the player's seen.
                     for i in range(adj_y - 5, adj_y + 6):

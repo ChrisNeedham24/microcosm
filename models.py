@@ -25,6 +25,15 @@ class ImprovementType(str, Enum):
     PANDERING = "PANDERING"
 
 
+class ProjectType(str, Enum):
+    """
+    The three types that a project can be of.
+    """
+    MAGICAL = "MAGICAL"
+    ECONOMICAL = "ECONOMICAL"
+    BOUNTIFUL = "BOUNTIFUL"
+
+
 class HarvestStatus(str, Enum):
     """
     The three harvest statuses that are used to regulate harvest levels in a settlement.
@@ -161,6 +170,15 @@ class PauseOption(Enum):
     QUIT = "QUIT"
 
 
+class ConstructionMenu(Enum):
+    """
+    The three different views the player is presented with when selecting a settlement's construction.
+    """
+    IMPROVEMENTS = "IMPROVEMENTS"
+    PROJECTS = "PROJECTS"
+    UNITS = "UNITS"
+
+
 @dataclass
 class Quad:
     """
@@ -212,6 +230,16 @@ class Improvement:
 
 
 @dataclass
+class Project:
+    """
+    A project that may be worked on in a settlement.
+    """
+    type: ProjectType
+    name: str
+    description: str
+
+
+@dataclass
 class UnitPlan:
     """
     The plan for a unit that may be recruited.
@@ -254,9 +282,9 @@ class Heathen:
 @dataclass
 class Construction:
     """
-    An improvement being constructed or a unit being recruited currently in a settlement.
+    An improvement being constructed, a project being worked on, or a unit being recruited currently in a settlement.
     """
-    construction: typing.Union[Improvement, UnitPlan]
+    construction: Improvement | Project | UnitPlan
     zeal_consumed: float = 0.0
 
 
@@ -309,7 +337,7 @@ class CompletedConstruction:
     """
     An improvement or unit plan construction that has been completed.
     """
-    construction: typing.Union[Improvement, UnitPlan]
+    construction: Improvement | UnitPlan
     settlement: Settlement
 
 
@@ -348,8 +376,8 @@ class AttackData:
     """
     The data from an attack that has occurred.
     """
-    attacker: typing.Union[Unit, Heathen]
-    defender: typing.Union[Unit, Heathen]
+    attacker: Unit | Heathen
+    defender: Unit | Heathen
     damage_to_attacker: float
     damage_to_defender: float
     player_attack: bool

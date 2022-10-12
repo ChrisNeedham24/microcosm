@@ -6,7 +6,7 @@ import pyxel
 from calculator import get_setl_totals
 from catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units
 from models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, OverlayType, \
-    SettlementAttackType, PauseOption, Faction, HarvestStatus
+    SettlementAttackType, PauseOption, Faction, HarvestStatus, ConstructionMenu, ProjectType, Project
 from overlay import Overlay
 
 
@@ -28,18 +28,18 @@ def display_overlay(overlay: Overlay, is_night: bool):
             beginning = f"{overlay.current_victory.player.name} has"
             pyxel.text(82, 65, "Game over!", pyxel.COLOR_RED)
 
-        if overlay.current_victory.type is VictoryType.ELIMINATION:
-            pyxel.text(22, 75, f"{beginning} achieved an ELIMINATION victory.", pyxel.COLOR_RED)
-        elif overlay.current_victory.type is VictoryType.JUBILATION or \
-                overlay.current_victory.type is VictoryType.GLUTTONY:
-            pyxel.text(22, 75, f"{beginning} achieved a {overlay.current_victory.type.value} victory.",
-                       pyxel.COLOR_GREEN)
-        elif overlay.current_victory.type is VictoryType.AFFLUENCE:
-            pyxel.text(22, 75, f"{beginning} achieved an AFFLUENCE victory.", pyxel.COLOR_YELLOW)
-        elif overlay.current_victory.type is VictoryType.VIGOUR:
-            pyxel.text(30, 75, f"{beginning} achieved a VIGOUR victory.", pyxel.COLOR_ORANGE)
-        else:
-            pyxel.text(22, 75, f"{beginning} achieved a SERENDIPITY victory.", pyxel.COLOR_PURPLE)
+        match overlay.current_victory.type:
+            case VictoryType.ELIMINATION:
+                pyxel.text(22, 75, f"{beginning} achieved an ELIMINATION victory.", pyxel.COLOR_RED)
+            case VictoryType.JUBILATION | VictoryType.GLUTTONY:
+                pyxel.text(22, 75, f"{beginning} achieved a {overlay.current_victory.type.value} victory.",
+                           pyxel.COLOR_GREEN)
+            case VictoryType.AFFLUENCE:
+                pyxel.text(22, 75, f"{beginning} achieved an AFFLUENCE victory.", pyxel.COLOR_YELLOW)
+            case VictoryType.VIGOUR:
+                pyxel.text(30, 75, f"{beginning} achieved a VIGOUR victory.", pyxel.COLOR_ORANGE)
+            case _:
+                pyxel.text(22, 75, f"{beginning} achieved a SERENDIPITY victory.", pyxel.COLOR_PURPLE)
 
         pyxel.text(35, 85, "Press ENTER to return to the menu.", pyxel.COLOR_WHITE)
     # The deployment overlay displays a message instructing the player.
@@ -94,18 +94,19 @@ def display_overlay(overlay: Overlay, is_night: bool):
             vic_x = 32 if vic.type is VictoryType.VIGOUR else 22
             pyxel.text(vic_x, 75 + idx * 20, f"{beginning} close to {qualifier} {vic.type.value} victory.",
                        vic.player.colour)
-            if vic.type is VictoryType.ELIMINATION:
-                pyxel.text(25, 85 + idx * 20, "(Needs to control one more settlement)", pyxel.COLOR_RED)
-            elif vic.type is VictoryType.JUBILATION:
-                pyxel.text(20, 85 + idx * 20, "(Needs 25 turns of current satisfaction)", pyxel.COLOR_GREEN)
-            elif vic.type is VictoryType.GLUTTONY:
-                pyxel.text(28, 85 + idx * 20, "(Needs 2 more level 10 settlements)", pyxel.COLOR_GREEN)
-            elif vic.type is VictoryType.AFFLUENCE:
-                pyxel.text(27, 85 + idx * 20, "(Needs to accumulate 25k more wealth)", pyxel.COLOR_YELLOW)
-            elif vic.type is VictoryType.VIGOUR:
-                pyxel.text(25, 85 + idx * 20, "(Needs to complete begun Holy Sanctum)", pyxel.COLOR_ORANGE)
-            elif vic.type is VictoryType.SERENDIPITY:
-                pyxel.text(20, 85 + idx * 20, "(Needs to undergo final ardour blessing)", pyxel.COLOR_PURPLE)
+            match vic.type:
+                case VictoryType.ELIMINATION:
+                    pyxel.text(25, 85 + idx * 20, "(Needs to control one more settlement)", pyxel.COLOR_RED)
+                case VictoryType.JUBILATION:
+                    pyxel.text(20, 85 + idx * 20, "(Needs 25 turns of current satisfaction)", pyxel.COLOR_GREEN)
+                case VictoryType.GLUTTONY:
+                    pyxel.text(28, 85 + idx * 20, "(Needs 2 more level 10 settlements)", pyxel.COLOR_GREEN)
+                case VictoryType.AFFLUENCE:
+                    pyxel.text(27, 85 + idx * 20, "(Needs to accumulate 25k more wealth)", pyxel.COLOR_YELLOW)
+                case VictoryType.VIGOUR:
+                    pyxel.text(25, 85 + idx * 20, "(Needs to complete begun Holy Sanctum)", pyxel.COLOR_ORANGE)
+                case VictoryType.SERENDIPITY:
+                    pyxel.text(20, 85 + idx * 20, "(Needs to undergo final ardour blessing)", pyxel.COLOR_PURPLE)
         pyxel.text(70, 95 + extension, "SPACE: Dismiss", pyxel.COLOR_WHITE)
     # The blessing notification overlay displays any blessing completed by the player in the last turn, and what has
     # been unlocked as a result.
@@ -177,29 +178,30 @@ def display_overlay(overlay: Overlay, is_night: bool):
         pyxel.rectb(12, 60, 176, 48, pyxel.COLOR_WHITE)
         pyxel.rect(13, 61, 174, 46, pyxel.COLOR_BLACK)
         pyxel.text(60, 65, "Relic investigation", pyxel.COLOR_ORANGE)
-        if overlay.investigation_result is InvestigationResult.WEALTH:
-            pyxel.text(15, 75, "Your unit found a chest bursting with gold.", pyxel.COLOR_WHITE)
-            pyxel.text(77, 85, "+25 wealth", pyxel.COLOR_YELLOW)
-        elif overlay.investigation_result is InvestigationResult.FORTUNE:
-            pyxel.text(18, 75, "Your unit found a temple with holy texts.", pyxel.COLOR_WHITE)
-            pyxel.text(55, 85, "+25% blessing progress", pyxel.COLOR_PURPLE)
-        elif overlay.investigation_result is InvestigationResult.VISION:
-            pyxel.text(20, 75, "A vantage point was found, giving sight.", pyxel.COLOR_WHITE)
-            pyxel.text(22, 85, "10 quads of vision around unit granted", pyxel.COLOR_GREEN)
-        elif overlay.investigation_result is InvestigationResult.HEALTH:
-            pyxel.text(22, 75, "A concoction found yields constitution.", pyxel.COLOR_WHITE)
-            pyxel.text(44, 85, "Permanent +5 health to unit", pyxel.COLOR_GREEN)
-        elif overlay.investigation_result is InvestigationResult.POWER:
-            pyxel.text(20, 75, "An exhilarant aura strengthens the unit.", pyxel.COLOR_WHITE)
-            pyxel.text(45, 85, "Permanent +5 power to unit", pyxel.COLOR_GREEN)
-        elif overlay.investigation_result is InvestigationResult.STAMINA:
-            pyxel.text(25, 75, "A mixture found invigorates the unit.", pyxel.COLOR_WHITE)
-            pyxel.text(42, 85, "Permanent +1 stamina to unit", pyxel.COLOR_GREEN)
-        elif overlay.investigation_result is InvestigationResult.UPKEEP:
-            pyxel.text(20, 75, "Returning their coin, the unit walks on.", pyxel.COLOR_WHITE)
-            pyxel.text(45, 85, "Permanent 0 upkeep for unit", pyxel.COLOR_YELLOW)
-        elif overlay.investigation_result is InvestigationResult.NONE:
-            pyxel.text(40, 80, "Nothing of interest was found.", pyxel.COLOR_GRAY)
+        match overlay.investigation_result:
+            case InvestigationResult.WEALTH:
+                pyxel.text(15, 75, "Your unit found a chest bursting with gold.", pyxel.COLOR_WHITE)
+                pyxel.text(77, 85, "+25 wealth", pyxel.COLOR_YELLOW)
+            case InvestigationResult.FORTUNE:
+                pyxel.text(18, 75, "Your unit found a temple with holy texts.", pyxel.COLOR_WHITE)
+                pyxel.text(55, 85, "+25% blessing progress", pyxel.COLOR_PURPLE)
+            case InvestigationResult.VISION:
+                pyxel.text(20, 75, "A vantage point was found, giving sight.", pyxel.COLOR_WHITE)
+                pyxel.text(22, 85, "10 quads of vision around unit granted", pyxel.COLOR_GREEN)
+            case InvestigationResult.HEALTH:
+                pyxel.text(22, 75, "A concoction found yields constitution.", pyxel.COLOR_WHITE)
+                pyxel.text(44, 85, "Permanent +5 health to unit", pyxel.COLOR_GREEN)
+            case InvestigationResult.POWER:
+                pyxel.text(20, 75, "An exhilarant aura strengthens the unit.", pyxel.COLOR_WHITE)
+                pyxel.text(45, 85, "Permanent +5 power to unit", pyxel.COLOR_GREEN)
+            case InvestigationResult.STAMINA:
+                pyxel.text(25, 75, "A mixture found invigorates the unit.", pyxel.COLOR_WHITE)
+                pyxel.text(42, 85, "Permanent +1 stamina to unit", pyxel.COLOR_GREEN)
+            case InvestigationResult.UPKEEP:
+                pyxel.text(20, 75, "Returning their coin, the unit walks on.", pyxel.COLOR_WHITE)
+                pyxel.text(45, 85, "Permanent 0 upkeep for unit", pyxel.COLOR_YELLOW)
+            case InvestigationResult.NONE:
+                pyxel.text(40, 80, "Nothing of interest was found.", pyxel.COLOR_GRAY)
         pyxel.text(70, 95, "SPACE: Dismiss", pyxel.COLOR_WHITE)
     else:
         # The attack overlay displays the results of an attack that occurred involving one of the player's units,
@@ -278,7 +280,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(174, 14, str(round(total_fortune)), pyxel.COLOR_PURPLE)
 
             y_offset = 0
-            if overlay.current_settlement.current_work is not None and \
+            curr_work = overlay.current_settlement.current_work
+            if curr_work is not None and not isinstance(curr_work.construction, Project) and \
                     overlay.current_player.wealth >= \
                     (overlay.current_settlement.current_work.construction.cost -
                      overlay.current_settlement.current_work.zeal_consumed) and \
@@ -288,26 +291,37 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.rect(13, 131 - y_offset, 174, 38 + y_offset, pyxel.COLOR_BLACK)
             pyxel.line(100, 130 - y_offset, 100, 168, pyxel.COLOR_WHITE)
             pyxel.text(20, 134 - y_offset, "Construction", pyxel.COLOR_RED)
-            if overlay.current_settlement.current_work is not None:
-                current_work = overlay.current_settlement.current_work
-                remaining_work = current_work.construction.cost - current_work.zeal_consumed
-                total_zeal = max(sum(quad.zeal for quad in overlay.current_settlement.quads) +
-                                 sum(imp.effect.zeal for imp in overlay.current_settlement.improvements), 0.5)
-                total_zeal += (overlay.current_settlement.level - 1) * 0.25 * total_zeal
-                if overlay.current_player.faction is Faction.AGRICULTURISTS:
-                    total_zeal *= 0.75
-                elif overlay.current_player.faction is Faction.FUNDAMENTALISTS:
-                    total_zeal *= 1.25
-                remaining_turns = math.ceil(remaining_work / total_zeal)
-                pyxel.text(20, 145 - y_offset, current_work.construction.name, pyxel.COLOR_WHITE)
-                pyxel.text(20, 155 - y_offset, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
-                if overlay.current_player.wealth >= remaining_work and \
-                        overlay.current_player.faction is not Faction.FUNDAMENTALISTS:
-                    pyxel.blt(20, 153, 0, 0, 52, 8, 8)
-                    pyxel.text(30, 155, "Buyout:", pyxel.COLOR_WHITE)
-                    pyxel.blt(60, 153, 0, 0, 44, 8, 8)
-                    pyxel.text(70, 155, str(round(remaining_work)), pyxel.COLOR_WHITE)
-                    pyxel.text(87, 155, "(B)", pyxel.COLOR_WHITE)
+            if curr_work is not None:
+                if not isinstance(curr_work.construction, Project):
+                    pyxel.text(20, 145 - y_offset, curr_work.construction.name, pyxel.COLOR_WHITE)
+                    remaining_work = curr_work.construction.cost - curr_work.zeal_consumed
+                    total_zeal = max(sum(quad.zeal for quad in overlay.current_settlement.quads) +
+                                     sum(imp.effect.zeal for imp in overlay.current_settlement.improvements), 0.5)
+                    total_zeal += (overlay.current_settlement.level - 1) * 0.25 * total_zeal
+                    if overlay.current_player.faction is Faction.AGRICULTURISTS:
+                        total_zeal *= 0.75
+                    elif overlay.current_player.faction is Faction.FUNDAMENTALISTS:
+                        total_zeal *= 1.25
+                    remaining_turns = math.ceil(remaining_work / total_zeal)
+                    pyxel.text(20, 155 - y_offset, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
+                    if overlay.current_player.wealth >= remaining_work and \
+                            overlay.current_player.faction is not Faction.FUNDAMENTALISTS:
+                        pyxel.blt(20, 153, 0, 0, 52, 8, 8)
+                        pyxel.text(30, 155, "Buyout:", pyxel.COLOR_WHITE)
+                        pyxel.blt(60, 153, 0, 0, 44, 8, 8)
+                        pyxel.text(70, 155, str(round(remaining_work)), pyxel.COLOR_WHITE)
+                        pyxel.text(87, 155, "(B)", pyxel.COLOR_WHITE)
+                else:
+                    project_colour: int
+                    match curr_work.construction.type:
+                        case ProjectType.BOUNTIFUL:
+                            project_colour = pyxel.COLOR_GREEN
+                        case ProjectType.ECONOMICAL:
+                            project_colour = pyxel.COLOR_YELLOW
+                        case _:
+                            project_colour = pyxel.COLOR_PURPLE
+                    pyxel.text(20, 145 - y_offset, curr_work.construction.name, project_colour)
+                    pyxel.text(20, 155 - y_offset, "Press C to cease.", pyxel.COLOR_WHITE)
             else:
                 pyxel.text(20, 145 - y_offset, "None", pyxel.COLOR_RED)
                 pyxel.text(20, 155 - y_offset, "Press C to add one!", pyxel.COLOR_WHITE)
@@ -363,7 +377,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 total_zeal *= 0.75
             elif overlay.current_player.faction is Faction.FUNDAMENTALISTS:
                 total_zeal *= 1.25
-            if overlay.constructing_improvement:
+            if overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
                 for idx, construction in enumerate(overlay.available_constructions):
                     if overlay.construction_boundaries[0] <= idx <= overlay.construction_boundaries[1]:
                         adj_idx = idx - overlay.construction_boundaries[0]
@@ -406,6 +420,19 @@ def display_overlay(overlay: Overlay, is_night: bool):
                             pyxel.blt(30 + effects * 25, 42 + adj_idx * 18, 0, satisfaction_u, 28, 8, 8)
                             pyxel.text(40 + effects * 25, 42 + adj_idx * 18,
                                        f"{sign}{abs(construction.effect.satisfaction)}", pyxel.COLOR_WHITE)
+            elif overlay.current_construction_menu is ConstructionMenu.PROJECTS:
+                for idx, project in enumerate(overlay.available_projects):
+                    pyxel.text(30, 35 + idx * 18, project.name, pyxel.COLOR_WHITE)
+                    pyxel.text(150, 35 + idx * 18, "Begin",
+                               pyxel.COLOR_RED if overlay.selected_construction is project else pyxel.COLOR_WHITE)
+                    match project.type:
+                        case ProjectType.BOUNTIFUL:
+                            pyxel.text(30, 42 + idx * 18, "Converts 25% of zeal to harvest.", pyxel.COLOR_GREEN)
+                        case ProjectType.ECONOMICAL:
+                            pyxel.text(30, 42 + idx * 18, "Converts 25% of zeal to wealth.", pyxel.COLOR_YELLOW)
+                        case ProjectType.MAGICAL:
+                            pyxel.text(30, 42 + idx * 18, "Converts 25% of zeal to fortune.", pyxel.COLOR_PURPLE)
+                pyxel.text(32, 110, "All projects continue indefinitely.", pyxel.COLOR_WHITE)
             else:
                 for idx, unit_plan in enumerate(overlay.available_unit_plans):
                     if overlay.unit_plan_boundaries[0] <= idx <= overlay.unit_plan_boundaries[1]:
@@ -426,10 +453,15 @@ def display_overlay(overlay: Overlay, is_night: bool):
                             pyxel.text(115, 42 + adj_idx * 18, "-1 LVL", pyxel.COLOR_WHITE)
             pyxel.text(90, 150, "Cancel",
                        pyxel.COLOR_RED if overlay.selected_construction is None else pyxel.COLOR_WHITE)
-            if overlay.constructing_improvement:
-                pyxel.text(140, 150, "Units ->", pyxel.COLOR_WHITE)
-            elif len(overlay.available_constructions) > 0:
-                pyxel.text(25, 150, "<- Improvements", pyxel.COLOR_WHITE)
+            match overlay.current_construction_menu:
+                case ConstructionMenu.IMPROVEMENTS:
+                    pyxel.text(130, 150, "Projects ->", pyxel.COLOR_WHITE)
+                case ConstructionMenu.PROJECTS:
+                    if len(overlay.available_constructions) > 0:
+                        pyxel.text(25, 150, "<- Improvements", pyxel.COLOR_WHITE)
+                    pyxel.text(140, 150, "Units ->", pyxel.COLOR_WHITE)
+                case _:
+                    pyxel.text(25, 150, "<- Projects", pyxel.COLOR_WHITE)
         # The standard overlay displays the current turn, ongoing blessing, player wealth, and player settlement
         # statistics.
         if OverlayType.STANDARD in overlay.showing:
@@ -443,10 +475,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 remaining_work = ong_blessing.blessing.cost - ong_blessing.fortune_consumed
                 total_fortune = 0
                 for setl in overlay.current_player.settlements:
-                    fortune_to_add = 0
-                    fortune_to_add += sum(quad.fortune for quad in setl.quads)
-                    fortune_to_add += sum(imp.effect.fortune for imp in setl.improvements)
-                    fortune_to_add += (setl.level - 1) * 0.25 * fortune_to_add
+                    _, _, _, fortune_to_add = get_setl_totals(overlay.current_player, setl, is_night, strict=True)
                     total_fortune += fortune_to_add
                 total_fortune = max(0.5, total_fortune)
                 if is_night:
@@ -464,18 +493,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(30, 72, "Wealth", pyxel.COLOR_YELLOW)
             wealth_per_turn = 0
             for setl in overlay.current_player.settlements:
-                wealth_to_add = 0
-                wealth_to_add += sum(quad.wealth for quad in setl.quads)
-                wealth_to_add += sum(imp.effect.wealth for imp in setl.improvements)
-                wealth_to_add += (setl.level - 1) * 0.25 * wealth_to_add
-                if setl.economic_status is EconomicStatus.RECESSION:
-                    wealth_to_add = 0
-                elif setl.economic_status is EconomicStatus.BOOM:
-                    wealth_to_add *= 1.5
-                if overlay.current_player.faction is Faction.GODLESS:
-                    wealth_to_add *= 1.25
-                elif overlay.current_player.faction is Faction.ORTHODOX:
-                    wealth_to_add *= 0.75
+                wealth_to_add, _, _, _ = get_setl_totals(overlay.current_player, setl, is_night, strict=True)
                 wealth_per_turn += wealth_to_add
             for unit in overlay.current_player.units:
                 if not unit.garrisoned:
@@ -507,7 +525,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                            pyxel.COLOR_RED if setl.under_siege_by is not None else pyxel.COLOR_WHITE)
 
                 current_work = setl.current_work
-                if current_work is not None:
+                if current_work is not None and not isinstance(current_work.construction, Project):
                     remaining_work = current_work.construction.cost - current_work.zeal_consumed
                     total_zeal = max(sum(quad.zeal for quad in setl.quads) +
                                      sum(imp.effect.zeal for imp in setl.improvements), 0.5)
@@ -524,21 +542,23 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(140, 104 + idx * 8, str(len(setl.garrison)), pyxel.COLOR_WHITE)
 
                 harvest_u: int
-                if setl.harvest_status == HarvestStatus.STANDARD:
-                    harvest_u = 0
-                elif setl.harvest_status == HarvestStatus.PLENTIFUL:
-                    harvest_u = 8
-                else:
-                    harvest_u = 16
+                match setl.harvest_status:
+                    case HarvestStatus.STANDARD:
+                        harvest_u = 0
+                    case HarvestStatus.PLENTIFUL:
+                        harvest_u = 8
+                    case _:
+                        harvest_u = 16
                 pyxel.blt(155, 102 + idx * 8, 0, harvest_u, 100, 8, 8)
 
                 wealth_u: int
-                if setl.economic_status == EconomicStatus.RECESSION:
-                    wealth_u = 0
-                elif setl.economic_status == EconomicStatus.STANDARD:
-                    wealth_u = 8
-                else:
-                    wealth_u = 16
+                match setl.economic_status:
+                    case EconomicStatus.RECESSION:
+                        wealth_u = 0
+                    case EconomicStatus.STANDARD:
+                        wealth_u = 8
+                    case _:
+                        wealth_u = 16
                 pyxel.blt(165, 102 + idx * 8, 0, wealth_u, 108, 8, 8)
         # The settlement click overlay displays the two options available to the player when interacting with an
         # enemy settlement: attack or besiege.
@@ -566,10 +586,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(65, 25, "Available blessings", pyxel.COLOR_PURPLE)
             total_fortune = 0
             for setl in overlay.current_player.settlements:
-                fortune_to_add = 0
-                fortune_to_add += sum(quad.fortune for quad in setl.quads)
-                fortune_to_add += sum(imp.effect.fortune for imp in setl.improvements)
-                fortune_to_add += (setl.level - 1) * 0.25 * fortune_to_add
+                _, _, _, fortune_to_add = get_setl_totals(overlay.current_player, setl, is_night, strict=True)
                 total_fortune += fortune_to_add
             total_fortune = max(0.5, total_fortune)
             if overlay.current_player.faction is Faction.SCRUTINEERS:
@@ -605,19 +622,21 @@ def display_overlay(overlay: Overlay, is_night: bool):
                                 types_unlockable.append(ImprovementType.PANDERING)
                         if len(types_unlockable) > 0:
                             for type_idx, unl_type in enumerate(set(types_unlockable)):
-                                uv_coords: (int, int) = 0, 44
-                                if unl_type is ImprovementType.BOUNTIFUL:
-                                    uv_coords = 8, 44
-                                elif unl_type is ImprovementType.INDUSTRIAL:
-                                    uv_coords = 16, 44
-                                elif unl_type is ImprovementType.MAGICAL:
-                                    uv_coords = 24, 44
-                                elif unl_type is ImprovementType.INTIMIDATORY:
-                                    uv_coords = 0, 28
-                                elif unl_type is ImprovementType.PANDERING:
-                                    uv_coords = 8, 28
-                                pyxel.blt(65 + type_idx * 10, 41 + adj_idx * 18, 0, uv_coords[0], uv_coords[1], 8,
-                                          8)
+                                uv_coords: (int, int)
+                                match unl_type:
+                                    case ImprovementType.ECONOMICAL:
+                                        uv_coords = 0, 44
+                                    case ImprovementType.BOUNTIFUL:
+                                        uv_coords = 8, 44
+                                    case ImprovementType.INDUSTRIAL:
+                                        uv_coords = 16, 44
+                                    case ImprovementType.MAGICAL:
+                                        uv_coords = 24, 44
+                                    case ImprovementType.INTIMIDATORY:
+                                        uv_coords = 0, 28
+                                    case _:
+                                        uv_coords = 8, 28
+                                pyxel.blt(65 + type_idx * 10, 41 + adj_idx * 18, 0, uv_coords[0], uv_coords[1], 8, 8)
                             if units:
                                 pyxel.blt(65 + len(set(types_unlockable)) * 10, 41 + adj_idx * 18, 0, 0, 36, 8, 8)
                         else:

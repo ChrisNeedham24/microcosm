@@ -20,66 +20,67 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
         ideal: Blessing = avail_bless[0]
         # The 'ideal' blessing is determined by finding the blessing that boosts the category the AI player is most
         # lacking in.
-        lowest = player_totals.index(min(player_totals))
-        if lowest == 0:
-            highest_wealth: (float, Blessing) = 0, avail_bless[0]
-            for bless in avail_bless:
-                cumulative_wealth: float = 0
-                for imp in get_unlockable_improvements(bless):
-                    cumulative_wealth += imp.effect.wealth
-                if cumulative_wealth > highest_wealth[0]:
-                    highest_wealth = cumulative_wealth, bless
-            ideal = highest_wealth[1]
-        if lowest == 1:
-            highest_harvest: (float, Blessing) = 0, avail_bless[0]
-            for bless in avail_bless:
-                cumulative_harvest: float = 0
-                for imp in get_unlockable_improvements(bless):
-                    cumulative_harvest += imp.effect.harvest
-                if cumulative_harvest > highest_harvest[0]:
-                    highest_harvest = cumulative_harvest, bless
-            ideal = highest_harvest[1]
-        if lowest == 2:
-            highest_zeal: (float, Blessing) = 0, avail_bless[0]
-            for bless in avail_bless:
-                cumulative_zeal: float = 0
-                for imp in get_unlockable_improvements(bless):
-                    cumulative_zeal += imp.effect.zeal
-                if cumulative_zeal > highest_zeal[0]:
-                    highest_zeal = cumulative_zeal, bless
-            ideal = highest_zeal[1]
-        if lowest == 3:
-            highest_fortune: (float, Blessing) = 0, avail_bless[0]
-            for bless in avail_bless:
-                cumulative_fortune: float = 0
-                for imp in get_unlockable_improvements(bless):
-                    cumulative_fortune += imp.effect.fortune
-                if cumulative_fortune > highest_fortune[0]:
-                    highest_fortune = cumulative_fortune, bless
-            ideal = highest_fortune[1]
+        match player_totals.index(min(player_totals)):
+            case 0:
+                highest_wealth: (float, Blessing) = 0, avail_bless[0]
+                for bless in avail_bless:
+                    cumulative_wealth: float = 0
+                    for imp in get_unlockable_improvements(bless):
+                        cumulative_wealth += imp.effect.wealth
+                    if cumulative_wealth > highest_wealth[0]:
+                        highest_wealth = cumulative_wealth, bless
+                ideal = highest_wealth[1]
+            case 1:
+                highest_harvest: (float, Blessing) = 0, avail_bless[0]
+                for bless in avail_bless:
+                    cumulative_harvest: float = 0
+                    for imp in get_unlockable_improvements(bless):
+                        cumulative_harvest += imp.effect.harvest
+                    if cumulative_harvest > highest_harvest[0]:
+                        highest_harvest = cumulative_harvest, bless
+                ideal = highest_harvest[1]
+            case 2:
+                highest_zeal: (float, Blessing) = 0, avail_bless[0]
+                for bless in avail_bless:
+                    cumulative_zeal: float = 0
+                    for imp in get_unlockable_improvements(bless):
+                        cumulative_zeal += imp.effect.zeal
+                    if cumulative_zeal > highest_zeal[0]:
+                        highest_zeal = cumulative_zeal, bless
+                ideal = highest_zeal[1]
+            case 3:
+                highest_fortune: (float, Blessing) = 0, avail_bless[0]
+                for bless in avail_bless:
+                    cumulative_fortune: float = 0
+                    for imp in get_unlockable_improvements(bless):
+                        cumulative_fortune += imp.effect.fortune
+                    if cumulative_fortune > highest_fortune[0]:
+                        highest_fortune = cumulative_fortune, bless
+                ideal = highest_fortune[1]
         # Aggressive AIs will choose the first blessing that unlocks a unit, if there is one. If there aren't any, they
         # will undergo the 'ideal' blessing.
-        if player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE:
-            for bless in avail_bless:
-                unlockable = get_unlockable_units(bless)
-                if len(unlockable) > 0:
-                    player.ongoing_blessing = OngoingBlessing(bless)
-                    break
-            if player.ongoing_blessing is None:
+        match player.ai_playstyle.attacking:
+            case AttackPlaystyle.AGGRESSIVE:
+                for bless in avail_bless:
+                    unlockable = get_unlockable_units(bless)
+                    if len(unlockable) > 0:
+                        player.ongoing_blessing = OngoingBlessing(bless)
+                        break
+                if player.ongoing_blessing is None:
+                    player.ongoing_blessing = OngoingBlessing(ideal)
+            # Defensive AIs will choose the first blessing that unlocks an improvement that increases settlement
+            # strength. If there aren't any, they will undergo the 'ideal' blessing.
+            case AttackPlaystyle.DEFENSIVE:
+                for bless in avail_bless:
+                    unlockable = get_unlockable_improvements(bless)
+                    if len([imp for imp in unlockable if imp.effect.strength > 0]) > 0:
+                        player.ongoing_blessing = OngoingBlessing(bless)
+                        break
+                if player.ongoing_blessing is None:
+                    player.ongoing_blessing = OngoingBlessing(ideal)
+            # Neutral AIs will always choose the 'ideal' blessing.
+            case _:
                 player.ongoing_blessing = OngoingBlessing(ideal)
-        # Defensive AIs will choose the first blessing that unlocks an improvement that increases settlement strength.
-        # If there aren't any, they will undergo the 'ideal' blessing.
-        elif player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE:
-            for bless in avail_bless:
-                unlockable = get_unlockable_improvements(bless)
-                if len([imp for imp in unlockable if imp.effect.strength > 0]) > 0:
-                    player.ongoing_blessing = OngoingBlessing(bless)
-                    break
-            if player.ongoing_blessing is None:
-                player.ongoing_blessing = OngoingBlessing(ideal)
-        # Neutral AIs will always choose the 'ideal' blessing.
-        else:
-            player.ongoing_blessing = OngoingBlessing(ideal)
 
 
 def set_construction(player: Player, setl: Settlement, is_night: bool):
@@ -106,7 +107,7 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
     settler_units = [settler for settler in avail_units if settler.can_settle]
     # Note that if there are no available improvements for the given settlement, the 'ideal' construction will default
     # to the first available unit. Additionally, the first improvement is only selected if it won't reduce satisfaction.
-    ideal: typing.Union[Improvement, UnitPlan] = avail_imps[0] \
+    ideal: Improvement | UnitPlan = avail_imps[0] \
         if len(avail_imps) > 0 and setl.satisfaction + avail_imps[0].effect.satisfaction >= 50 \
         else avail_units[0]
     totals = get_setl_totals(player, setl, is_night)
@@ -126,31 +127,33 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
         if len(avail_imps) > 0:
             # The 'ideal' construction in all other cases is the one that will yield the effect that boosts the
             # category the settlement is most lacking in, and doesn't reduce satisfaction below 50.
-            lowest = totals.index(min(totals))
-            if lowest == 0:
-                highest_wealth: (float, Improvement) = avail_imps[0].effect.wealth, avail_imps[0]
-                for imp in avail_imps:
-                    if imp.effect.wealth > highest_wealth[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
-                        highest_wealth = imp.effect.wealth, imp
-                ideal = highest_wealth[1]
-            if lowest == 1:
-                highest_harvest: (float, Improvement) = avail_imps[0].effect.harvest, avail_imps[0]
-                for imp in avail_imps:
-                    if imp.effect.harvest > highest_harvest[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
-                        highest_harvest = imp.effect.harvest, imp
-                ideal = highest_harvest[1]
-            if lowest == 2:
-                highest_zeal: (float, Improvement) = avail_imps[0].effect.zeal, avail_imps[0]
-                for imp in avail_imps:
-                    if imp.effect.zeal > highest_zeal[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
-                        highest_zeal = imp.effect.zeal, imp
-                ideal = highest_zeal[1]
-            if lowest == 3:
-                highest_fortune: (float, Improvement) = avail_imps[0].effect.fortune, avail_imps[0]
-                for imp in avail_imps:
-                    if imp.effect.fortune > highest_fortune[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
-                        highest_fortune = imp.effect.fortune, imp
-                ideal = highest_fortune[1]
+            match totals.index(min(totals)):
+                case 0:
+                    highest_wealth: (float, Improvement) = avail_imps[0].effect.wealth, avail_imps[0]
+                    for imp in avail_imps:
+                        if imp.effect.wealth > highest_wealth[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
+                            highest_wealth = imp.effect.wealth, imp
+                    ideal = highest_wealth[1]
+                case 1:
+                    highest_harvest: (float, Improvement) = avail_imps[0].effect.harvest, avail_imps[0]
+                    for imp in avail_imps:
+                        if imp.effect.harvest > highest_harvest[0] and \
+                                setl.satisfaction + imp.effect.satisfaction >= 50:
+                            highest_harvest = imp.effect.harvest, imp
+                    ideal = highest_harvest[1]
+                case 2:
+                    highest_zeal: (float, Improvement) = avail_imps[0].effect.zeal, avail_imps[0]
+                    for imp in avail_imps:
+                        if imp.effect.zeal > highest_zeal[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
+                            highest_zeal = imp.effect.zeal, imp
+                    ideal = highest_zeal[1]
+                case 3:
+                    highest_fortune: (float, Improvement) = avail_imps[0].effect.fortune, avail_imps[0]
+                    for imp in avail_imps:
+                        if imp.effect.fortune > highest_fortune[0] and \
+                                setl.satisfaction + imp.effect.satisfaction >= 50:
+                            highest_fortune = imp.effect.fortune, imp
+                    ideal = highest_fortune[1]
 
         sat_imps = [imp for imp in avail_imps if imp.effect.satisfaction > 0]
         harv_imps = [imp for imp in avail_imps if imp.effect.harvest > 0]
@@ -191,32 +194,33 @@ def set_construction(player: Player, setl: Settlement, is_night: bool):
         else:
             # Aggressive AIs will, in most cases, pick the available unit with the most power, if the settlement level
             # is high enough.
-            if player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE:
-                if len(player.units) < setl.level:
-                    most_power: (float, UnitPlan) = avail_units[0].power, avail_units[0]
-                    for up in avail_units:
-                        if up.power >= most_power[0]:
-                            most_power = up.power, up
-                    setl.current_work = Construction(most_power[1])
-                else:
+            match player.ai_playstyle.attacking:
+                case AttackPlaystyle.AGGRESSIVE:
+                    if len(player.units) < setl.level:
+                        most_power: (float, UnitPlan) = avail_units[0].power, avail_units[0]
+                        for up in avail_units:
+                            if up.power >= most_power[0]:
+                                most_power = up.power, up
+                        setl.current_work = Construction(most_power[1])
+                    else:
+                        setl.current_work = Construction(ideal)
+                # Defensive AIs will pick the available unit with the most health if they are lacking in units.
+                # Alternatively, they will choose the improvement that yields the most strength for the settlement, if
+                # there is one, otherwise, they will choose the 'ideal' construction.
+                case AttackPlaystyle.DEFENSIVE:
+                    if len(player.units) * 2 < setl.level:
+                        most_health: (float, UnitPlan) = avail_units[0].max_health, avail_units[0]
+                        for up in avail_units:
+                            if up.max_health >= most_health[0]:
+                                most_health = up.max_health, up
+                        setl.current_work = Construction(most_health[1])
+                    elif len(strength_imps := [imp for imp in avail_imps if imp.effect.strength > 0]) > 0:
+                        setl.current_work = Construction(strength_imps[0])
+                    else:
+                        setl.current_work = Construction(ideal)
+                # Neutral AIs will always choose the 'ideal' construction.
+                case _:
                     setl.current_work = Construction(ideal)
-            # Defensive AIs will pick the available unit with the most health if they are lacking in units.
-            # Alternatively, they will choose the improvement that yields the most strength for the settlement, if there
-            # is one, otherwise, they will choose the 'ideal' construction.
-            elif player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE:
-                if len(player.units) * 2 < setl.level:
-                    most_health: (float, UnitPlan) = avail_units[0].max_health, avail_units[0]
-                    for up in avail_units:
-                        if up.max_health >= most_health[0]:
-                            most_health = up.max_health, up
-                    setl.current_work = Construction(most_health[1])
-                elif len(strength_imps := [imp for imp in avail_imps if imp.effect.strength > 0]) > 0:
-                    setl.current_work = Construction(strength_imps[0])
-                else:
-                    setl.current_work = Construction(ideal)
-            # Neutral AIs will always choose the 'ideal' construction.
-            else:
-                setl.current_work = Construction(ideal)
 
 
 class MoveMaker:
@@ -335,7 +339,7 @@ class MoveMaker:
                 player.units.remove(unit)
         else:
             attack_over_siege = True  # If False, the unit will siege the settlement.
-            within_range: typing.Optional[typing.Union[Unit, Settlement]] = None
+            within_range: typing.Optional[Unit | Settlement] = None
             # If the unit cannot settle, then we must first check if it meets the criteria to attack another unit. A
             # unit can attack if any of its settlements are under siege or attack, or if the AI is aggressive, or if the
             # AI is neutral but with a health advantage over another unit, or lastly, if the other unit is an Infidel.
