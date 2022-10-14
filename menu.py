@@ -798,6 +798,60 @@ class Menu:
         return GameConfig(self.player_count, self.faction_colours[self.faction_idx][0], self.biome_clustering_enabled,
                           self.fog_of_war_enabled, self.climatic_effects_enabled)
 
+    def next_menu_option(self, current_option: typing.Type[Enum], wrap_around: bool = False) -> None:
+        """
+        Given a menu option, go to the next item within the list of the option's enums.
+        :param current_option: The currently selected option.
+        :param wrap_around: If true, then choosing to go the next option when at the end of the list will wrap around
+                            to the start of the list.
+        """
+        current_option_idx = list(options_enum := type(current_option)).index(current_option)
+
+        # Determine the index of the next option value.
+        target_option_idx = (current_option_idx + 1) % len(options_enum)
+        # If the currently selected option is the last option in the list and wrap-around is disabled, revert the index
+        # to its original value. In other words, we're staying at the bottom of the list and not going back up.
+        if (current_option_idx + 1) == len(options_enum) and not wrap_around:
+            target_option_idx = current_option_idx
+
+        target_option = list(options_enum)[target_option_idx]
+        self.change_menu_option(target_option)
+
+    def previous_menu_option(self, current_option: typing.Type[Enum], wrap_around: bool = False) -> None:
+        """
+        Given a menu option, go to the previous item within the list of the option's enums.
+        :param current_option: The currently selected option.
+        :param wrap_around: If true, then choosing to go the previous option when at the start of the list will wrap
+                            around to the end of the list.
+        """
+        current_option_idx = list(options_enum := type(current_option)).index(current_option)
+
+        # Determine the index of the previous option value.
+        target_option_idx = (current_option_idx - 1) % len(options_enum)
+        # If the currently selected option is the first option in the list and wrap-around is disabled, revert the
+        # index to its original value. In other words, we're staying at the top of the list and not going back down.
+        if (current_option_idx - 1) < 0 and not wrap_around:
+            target_option_idx = current_option_idx
+
+        target_option = list(options_enum)[target_option_idx]
+        self.change_menu_option(target_option)
+
+    def change_menu_option(self, target_option: typing.Type[Enum]) -> None:
+        """
+        Select the given menu option.
+        :param target_option: The target option to be selected.
+        """
+        # Based on the enum type of the target option, figure out which corresponding field we need to change.
+        match target_option:
+            case SetupOption():
+                self.setup_option = target_option
+            case WikiOption():
+                self.wiki_option = target_option
+            case MainMenuOption():
+                self.main_menu_option = target_option
+            case VictoryType():
+                self.victory_type = target_option
+
     @staticmethod
     def draw_paragraph(x_start: int, y_start: int, text: str, line_length: int) -> None:
         """
@@ -826,50 +880,3 @@ class Menu:
 
         # Draw any remaining text to the final line.
         pyxel.text(x_start, y_current, text_to_draw, pyxel.COLOR_WHITE)
-
-    def next_menu_option(self, current_option: typing.Type[Enum], wrap_around: bool = False) -> None:
-        """
-        Given a menu option, go to the next item within the list of the option's enums.
-        :param current_option: The currently selected option.
-        :param wrap_around: If true, then choosing to go the next option when at the end of the list will wrap around 
-                            to the start of the list.
-        """
-        current_option_idx = list(options_enum := type(current_option)).index(current_option)
-
-        target_option_idx = (current_option_idx + 1) % len(options_enum)
-        if (current_option_idx + 1) == len(options_enum) and not wrap_around:
-            target_option_idx = current_option_idx
-
-        target_option = list(options_enum)[target_option_idx]
-        self.change_menu_option(target_option)
-
-    def previous_menu_option(self, current_option: typing.Type[Enum], wrap_around: bool = False) -> None:
-        """
-        Given a menu option, go to the previous item within the list of the option's enums.
-        :param current_option: The currently selected option.
-        :param wrap_around: If true, then choosing to go the previous option when at the start of the list will wrap 
-                            around to the end of the list.
-        """
-        current_option_idx = list(options_enum := type(current_option)).index(current_option)
-
-        target_option_idx = (current_option_idx - 1) % len(options_enum)
-        if (current_option_idx - 1) < 0 and not wrap_around:
-            target_option_idx = current_option_idx
-
-        target_option = list(options_enum)[target_option_idx]
-        self.change_menu_option(target_option)
-
-    def change_menu_option(self, target_option: typing.Type[Enum]) -> None:
-        """
-        Select the given menu option.
-        :param target_option: The target option to be selected.
-        """
-        match target_option:
-            case SetupOption():
-                self.setup_option = target_option
-            case WikiOption():
-                self.wiki_option = target_option
-            case MainMenuOption():
-                self.main_menu_option = target_option
-            case VictoryType():
-                self.victory_type = target_option
