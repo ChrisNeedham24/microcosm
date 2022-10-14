@@ -243,11 +243,11 @@ class Menu:
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
                             pyxel.text(30, 60, "Take control of all settlements", pyxel.COLOR_WHITE)
                             pyxel.line(24, 70, 175, 70, pyxel.COLOR_GRAY)
-                            self.draw_paragraph(25, 75, """Like any strong leader, you want the best for your people. However,
-                                                constant attacks by filthy Heathens and enemy troops are enough to wear any 
-                                                great leader down. It is time to put an end to this, and become the one true 
-                                                empire. Other empires will wither at your blade, and they will be all the more 
-                                                thankful for it.""", 38)
+                            self.draw_paragraph(25, 75, """Like any strong leader, you want the best for your people.
+                                                However, constant attacks by filthy Heathens and enemy troops are
+                                                enough to wear any great leader down. It is time to put an end to this,
+                                                and become the one true empire. Other empires will wither at your
+                                                blade, and they will be all the more thankful for it.""", 38)
                             pyxel.blt(158, 150, 0, 8, 28, 8, 8)
                             pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
                         case VictoryType.JUBILATION:
@@ -256,11 +256,11 @@ class Menu:
                             pyxel.text(30, 60, "Maintain 100% satisfaction in 5+", pyxel.COLOR_WHITE)
                             pyxel.text(30, 66, "settlements for 25 turns", pyxel.COLOR_WHITE)
                             pyxel.line(24, 76, 175, 76, pyxel.COLOR_GRAY)
-                            self.draw_paragraph(25, 81, """Your rule as leader is solid, your subjects faithful. But there is
-                                                something missing. Your subjects, while not rebellious, do not have the love 
-                                                for you that you so desire. So be it. You will fill your empire with bread and 
-                                                circuses; your subjects will be the envy of all! And quietly, your rule will be 
-                                                unquestioned.""", 38)
+                            self.draw_paragraph(25, 81, """Your rule as leader is solid, your subjects faithful. But
+                                                there is something missing. Your subjects, while not rebellious, do not
+                                                have the love for you that you so desire. So be it. You will fill your
+                                                empire with bread and circuses; your subjects will be the envy of all!
+                                                And quietly, your rule will be unquestioned.""", 38)
                             pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                             pyxel.blt(35, 150, 0, 0, 36, 8, 8)
                             pyxel.blt(158, 150, 0, 8, 44, 8, 8)
@@ -270,10 +270,11 @@ class Menu:
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
                             pyxel.text(30, 60, "Reach level 10 in 10+ settlements", pyxel.COLOR_WHITE)
                             pyxel.line(24, 70, 175, 70, pyxel.COLOR_GRAY)
-                            self.draw_paragraph(25, 75, """There is nothing more satisfying as a leader than tucking into a
-                                                generous meal prepared by your servants. But as a benevolent leader, you 
-                                                question why you alone can enjoy such luxuries. You resolve to make it your 
-                                                mission to feed the masses, grow your empire and spread around the plains!""",
+                            self.draw_paragraph(25, 75, """There is nothing more satisfying as a leader than tucking
+                                                into a generous meal prepared by your servants. But as a benevolent
+                                                leader, you question why you alone can enjoy such luxuries. You resolve
+                                                to make it your mission to feed the masses, grow your empire and spread
+                                                around the plains!""",
                                                 38)
                             pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                             pyxel.blt(35, 150, 0, 8, 28, 8, 8)
@@ -285,11 +286,12 @@ class Menu:
                             pyxel.text(30, 60, "Accumulate 100,000 wealth over the", pyxel.COLOR_WHITE)
                             pyxel.text(30, 66, "course of the game", pyxel.COLOR_WHITE)
                             pyxel.line(24, 76, 175, 76, pyxel.COLOR_GRAY)
-                            self.draw_paragraph(25, 81, """Your empire has fallen on hard times. Recent conflicts have not gone
-                                                your way, your lands have been seized, and your treasuries are empty. This is 
-                                                no way for an empire to be. Your advisors tell you of untapped riches in the 
-                                                vast deserts. You make it your mission to squeeze every last copper out of 
-                                                those dunes, and out of the whole world!""", 38)
+                            self.draw_paragraph(25, 81, """Your empire has fallen on hard times. Recent conflicts have
+                                                not gone your way, your lands have been seized, and your treasuries are
+                                                empty. This is no way for an empire to be. Your advisors tell you of
+                                                untapped riches in the vast deserts. You make it your mission to
+                                                squeeze every last copper out of those dunes, and out of the whole
+                                                world!""", 38)
                             pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                             pyxel.blt(35, 150, 0, 8, 44, 8, 8)
                             pyxel.blt(158, 150, 0, 16, 44, 8, 8)
@@ -301,12 +303,12 @@ class Menu:
                             pyxel.text(30, 65, "Construct the holy sanctum in a", pyxel.COLOR_WHITE)
                             pyxel.text(30, 71, "settlement", pyxel.COLOR_WHITE)
                             pyxel.line(24, 77, 175, 77, pyxel.COLOR_GRAY)
-                            self.draw_paragraph(25, 80, """You have always been fascinated with the bygone times of your empire
-                                                and its rich history. There is never a better time than the present to devote 
-                                                some time to your studies. Your advisors tell you that the educated among your 
-                                                subjects have been doing some research recently, and have unearthed the plans 
-                                                for some form of Holy Sanctum. You make it your mission to construct said 
-                                                sanctum.""", 38)
+                            self.draw_paragraph(25, 80, """You have always been fascinated with the bygone times of
+                                                your empire and its rich history. There is never a better time than
+                                                the present to devote some time to your studies. Your advisors tell
+                                                you that the educated among your subjects have been doing some
+                                                research recently, and have unearthed the plans for some form of Holy
+                                                Sanctum. You make it your mission to construct said sanctum.""", 38)
                             pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                             pyxel.blt(35, 150, 0, 0, 44, 8, 8)
                             pyxel.blt(158, 151, 0, 24, 44, 8, 8)
@@ -318,11 +320,12 @@ class Menu:
                             pyxel.text(30, 66, "ardour: the pieces of strength,", pyxel.COLOR_WHITE)
                             pyxel.text(30, 72, "passion, and divinity.", pyxel.COLOR_WHITE)
                             pyxel.line(24, 82, 175, 82, pyxel.COLOR_GRAY)
-                            self.draw_paragraph(25, 87, """Local folklore has always said that a man of the passions was a man
-                                                unparalleled amongst his peers. You have long aspired to be such a man, and 
-                                                such a leader. You consult your local sects and are informed that you are now 
-                                                ready to make the arduous journey of enlightenment and fulfillment. You grasp 
-                                                the opportunity with two hands, as a blessed man.""", 38)
+                            self.draw_paragraph(25, 87, """Local folklore has always said that a man of the passions
+                                                was a man unparalleled amongst his peers. You have long aspired to be
+                                                such a man, and such a leader. You consult your local sects and are
+                                                informed that you are now ready to make the arduous journey of
+                                                enlightenment and fulfillment. You grasp the opportunity with two
+                                                hands, as a blessed man.""", 38)
                             pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                             pyxel.blt(35, 150, 0, 16, 44, 8, 8)
                 case WikiOption.FACTIONS:
@@ -331,7 +334,7 @@ class Menu:
                     pyxel.rect(21, 11, 158, 182, pyxel.COLOR_BLACK)
                     pyxel.text(85, 15, "Factions", pyxel.COLOR_WHITE)
                     pyxel.text(25, 30, str(self.faction_colours[self.faction_wiki_idx][0].value),
-                            self.faction_colours[self.faction_wiki_idx][1])
+                        self.faction_colours[self.faction_wiki_idx][1])
                     pyxel.blt(160, 28, 0, self.faction_wiki_idx * 8, 92, 8, 8)
                     pyxel.line(24, 137, 175, 137, pyxel.COLOR_GRAY)
                     pyxel.text(25, 160, "Recommended victory:", pyxel.COLOR_WHITE)
@@ -346,155 +349,166 @@ class Menu:
                     match self.faction_wiki_idx:
                         case 0:
                             self.draw_paragraph(25, 40, """Using techniques passed down through the generations, the
-                                                Agriculturists are able to sustain their populace through famine and indeed 
-                                                through feast. Some of this land's greatest delicacies are grown by these 
-                                                humble people, who insist that anyone could grow what they do, winking at one 
-                                                another as they say it. Without the spectre of hunger on the horizon, the 
-                                                Agriculturists lead the slow life, indulging in pleasures at their own pace.
-                                                """, 38)
+                                                Agriculturists are able to sustain their populace through famine and
+                                                indeed through feast. Some of this land's greatest delicacies are
+                                                grown by these humble people, who insist that anyone could grow what
+                                                they do, winking at one another as they say it. Without the spectre of
+                                                hunger on the horizon, the Agriculturists lead the slow life,
+                                                indulging in pleasures at their own pace.""", 38)
                             pyxel.text(25, 140, "+ Immune to poor harvest", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Generates 75% of usual zeal", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "GLUTTONY", pyxel.COLOR_GREEN)
                         case 1:
-                            self.draw_paragraph(25, 40, """The sky-high towers and luxurious dwellings found throughout their
-                                                cities represent the Capitalists to the fullest. They value the clink of coins 
-                                                over anything else, and it has served them well so far. However, if you take a 
-                                                look around the corner, things are clearly not as the seem. And as the slums 
-                                                fill up, there better be enough food to go around, lest something... dangerous 
-                                                happens.""", 38)
+                            self.draw_paragraph(25, 40, """The sky-high towers and luxurious dwellings found
+                                                throughout their cities represent the Capitalists to the fullest. They
+                                                value the clink of coins over anything else, and it has served them
+                                                well so far. However, if you take a look around the corner, things are
+                                                clearly not as the seem. And as the slums fill up, there better be
+                                                enough food to go around, lest something... dangerous happens.""", 38)
                             pyxel.text(25, 140, "+ Immune to recession", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Double low harvest penalty", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "AFFLUENCE", pyxel.COLOR_YELLOW)
                         case 2:
                             self.draw_paragraph(25, 40, """Due to a genetic trait, the Scrutineers have always had good
-                                                eyesight and they use it to full effect. Nothing gets past them, from the 
-                                                temples of the outlands to the streets of their cities. But, as it goes, the 
-                                                devil is in the details, as the local clergy certainly aren't exempt from the 
-                                                all-seeing eye, with blessings being stymied as much as is humanly possible.
+                                                eyesight and they use it to full effect. Nothing gets past them, from
+                                                the temples of the outlands to the streets of their cities. But, as it
+                                                goes, the devil is in the details, as the local clergy certainly
+                                                aren't exempt from the all-seeing eye, with blessings being stymied as
+                                                much as is humanly possible.
                                                 """, 38)
                             pyxel.text(25, 140, "+ Investigations always succeed", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Generates 75% of usual fortune", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
                         case 3:
-                            self.draw_paragraph(25, 40, """Many eons ago, a subsection of the population of these lands began
-                                                to question the effectiveness of their blessings after years of squalor and 
-                                                oppression. They shook free their bonds and formed their own community based 
-                                                around the one thing that proved valuable to all people: currency. However, 
-                                                despite shunning blessings at every opportunity, The Godless, as they became 
-                                                known, are wont to dabble in blessings in moments of weakness, and what's left 
-                                                of their clergy makes sure to sink the boot in.""", 38)
+                            self.draw_paragraph(25, 40, """Many eons ago, a subsection of the population of these
+                                                lands began to question the effectiveness of their blessings after
+                                                years of squalor and oppression. They shook free their bonds and formed
+                                                their own community based around the one thing that proved valuable to
+                                                all people: currency. However, despite shunning blessings at every
+                                                opportunity, The Godless, as they became known, are wont to dabble in
+                                                blessings in moments of weakness, and what's left of their clergy makes
+                                                sure to sink the boot in.""", 38)
                             pyxel.text(25, 140, "+ Generates 125% of usual wealth", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Blessings cost 125% of usual", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "AFFLUENCE", pyxel.COLOR_YELLOW)
                         case 4:
-                            self.draw_paragraph(25, 40, """Originating from a particular fertile part of these lands, The
-                                                Ravenous have enjoyed bountiful harvests for centuries. No matter the skill of 
-                                                the farmer, or the quality of the seeds, a cultivation of significant size is 
-                                                always created after some months. But with such consistency, comes complacency.
-                                                Those that have resided in settlements occupied by The Ravenous, over time, 
-                                                grow greedy. As populations increase, and more food is available, the existing 
-                                                residents seek to keep it all for themselves, as newcomers are given the 
-                                                unbearable choice of starving or leaving.""", 38)
+                            self.draw_paragraph(25, 40, """Originating from a particular fertile part of these lands,
+                                                The Ravenous have enjoyed bountiful harvests for centuries. No matter
+                                                the skill of the farmer, or the quality of the seeds, a cultivation of
+                                                significant size is always created after some months. But with such
+                                                consistency, comes complacency. Those that have resided in settlements
+                                                occupied by The Ravenous, over time, grow greedy. As populations
+                                                increase, and more food is available, the existing residents seek to
+                                                keep it all for themselves, as newcomers are given the unbearable
+                                                choice of starving or leaving.""", 38)
                             pyxel.text(25, 140, "+ Generates 125% of usual harvest", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Settlements capped at level 5", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "JUBILATION", pyxel.COLOR_GREEN)
                         case 5:
-                            self.draw_paragraph(25, 40, """There's nothing quite like the clang of iron striking iron to truly
-                                                ground a person in their surroundings. This is a fact that the Fundamentalists 
-                                                know well, as every child of a certain age is required to serve as an 
-                                                apprentice in a local forge or refinery. With such resources at their disposal, 
-                                                work is done quickly. And yet, suggestions that constructions should be made 
-                                                quicker, and in some cases instantaneous, through the use of empire funds are 
-                                                met with utter disgust by the people. For the Fundamentalists, everything must 
-                                                be done the right way.""", 38)
+                            self.draw_paragraph(25, 40, """There's nothing quite like the clang of iron striking iron
+                                                to truly ground a person in their surroundings. This is a fact that the
+                                                Fundamentalists know well, as every child of a certain age is required
+                                                to serve as an apprentice in a local forge or refinery. With such
+                                                resources at their disposal, work is done quickly. And yet, suggestions
+                                                that constructions should be made quicker, and in some cases
+                                                instantaneous, through the use of empire funds are met with utter
+                                                disgust by the people. For the Fundamentalists, everything must be done
+                                                the right way.""", 38)
                             pyxel.text(25, 140, "+ Generates 125% of usual zeal", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Construction buyouts disabled", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "VIGOUR", pyxel.COLOR_ORANGE)
                         case 6:
-                            self.draw_paragraph(25, 40, """Glory to the ancient ones, and glory to the passionate. The Orthodox
-                                                look to those that came before them for guidance, and they are justly rewarded 
-                                                that, with enlightenment and discoveries occurring frequently. As the 
-                                                passionate tend to do, however, the clatter of coin in the palm is met with a 
-                                                stern decline. Content they are with their existence, The Orthodox rely on 
-                                                seeing what others cannot.""", 38)
+                            self.draw_paragraph(25, 40, """Glory to the ancient ones, and glory to the passionate. The
+                                                Orthodox look to those that came before them for guidance, and they are
+                                                justly rewarded that, with enlightenment and discoveries occurring
+                                                frequently. As the passionate tend to do, however, the clatter of coin
+                                                in the palm is met with a stern decline. Content they are with their
+                                                existence, The Orthodox rely on seeing what others cannot.""", 38)
                             pyxel.text(25, 140, "+ Generates 125% of usual fortune", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Generates 75% of usual wealth", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "SERENDIPITY", pyxel.COLOR_PURPLE)
                         case 7:
-                            self.draw_paragraph(25, 40, """For the unfamiliar, visiting the settlement of The Concentrated can
-                                                be overwhelming. The sheer mass of people everywhere one looks along with the 
-                                                cloud-breaching towers can make one feel like they have been transported to 
-                                                some distant future. It is this intimidatory factor, in combination with the 
-                                                colossal ramparts surrounding the megapolis that have kept The Concentrated 
-                                                safe and sound for many years.""", 38)
+                            self.draw_paragraph(25, 40, """For the unfamiliar, visiting the settlement of The
+                                                Concentrated can be overwhelming. The sheer mass of people everywhere
+                                                one looks along with the cloud-breaching towers can make one feel like
+                                                they have been transported to some distant future. It is this
+                                                intimidatory factor, in combination with the colossal ramparts
+                                                surrounding the megapolis that have kept The Concentrated safe and
+                                                sound for many years.""", 38)
                             pyxel.text(25, 140, "+ Settlements have 200% strength", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Limited to a single settlement", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
                         case 8:
-                            self.draw_paragraph(25, 40, """Blink and you'll miss it; that's the story of the settlements of the
-                                                Frontier. The Frontiersmen have a near obsession with the thrill of the 
-                                                frontier and making something of inhospitable terrain, in situations where 
-                                                others could not. Residing in a new settlement is considered to be the pinnacle 
-                                                of Frontier achievement, but the shine wears off quickly. After some time, the 
-                                                people become restless and seek to expand further. And thus the cycle repeats.
-                                                """, 38)
+                            self.draw_paragraph(25, 40, """Blink and you'll miss it; that's the story of the
+                                                settlements of the Frontier. The Frontiersmen have a near obsession
+                                                with the thrill of the frontier and making something of inhospitable
+                                                terrain, in situations where others could not. Residing in a new
+                                                settlement is considered to be the pinnacle of Frontier achievement,
+                                                but the shine wears off quickly. After some time, the people become
+                                                restless and seek to expand further. And thus the cycle repeats.""",
+                                                38)
                             pyxel.text(25, 140, "+ Base satisfaction is 75", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Settlers only at level 5", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "JUBILATION", pyxel.COLOR_GREEN)
                         case 9:
-                            self.draw_paragraph(25, 40, """The concept of raw power and strength has long been a core tenet of
-                                                the self-dubbed Empire, with compulsory military service a cultural feature. 
-                                                Drilled into the populace for such an extensive period, the armed forces of the 
-                                                Imperials are a fearsome sight to behold. Those opposite gaze at one another, 
-                                                gauging whether it might be preferred to retreat. But this superiority leads to 
-                                                carelessness, as the Imperials assume that no one would dare attack one of 
-                                                their settlements for fear of retribution, and thus leave them relatively 
+                            self.draw_paragraph(25, 40, """The concept of raw power and strength has long been a core
+                                                tenet of the self-dubbed Empire, with compulsory military service a
+                                                cultural feature. Drilled into the populace for such an extensive
+                                                period, the armed forces of the Imperials are a fearsome sight to
+                                                behold. Those opposite gaze at one another, gauging whether it might be
+                                                preferred to retreat. But this superiority leads to carelessness, as
+                                                the Imperials assume that no one would dare attack one of their
+                                                settlements for fear of retribution, and thus leave them relatively
                                                 undefended.""", 38)
                             pyxel.text(25, 140, "+ Units have 50% more power", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Settlements have 50% strength", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
                         case 10:
-                            self.draw_paragraph(25, 40, """Atop a mountain in the north of these lands, there is a people of a
-                                                certain philosophical nature. Instilled in all from birth to death is the ideal 
-                                                of determination, and achieving one's goals no matter the cost, in time or in 
-                                                life. Aptly dubbed by others as The Persistent, these militaristic people often 
-                                                elect to wear others down through sieges and defensive manoeuvres. Of course, 
-                                                such strategies become ineffective against the well-prepared, but this does not 
-                                                bother The Persistent; they simply continue on.""", 38)
+                            self.draw_paragraph(25, 40, """Atop a mountain in the north of these lands, there is a
+                                                people of a certain philosophical nature. Instilled in all from birth
+                                                to death is the ideal of determination, and achieving one's goals no
+                                                matter the cost, in time or in life. Aptly dubbed by others as The
+                                                Persistent, these militaristic people often elect to wear others down
+                                                through sieges and defensive manoeuvres. Of course, such strategies
+                                                become ineffective against the well-prepared, but this does not bother
+                                                The Persistent; they simply continue on.""", 38)
                             pyxel.text(25, 140, "+ Units have 50% more health", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Units have 75% of usual power", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
                         case 11:
-                            self.draw_paragraph(25, 40, """Originating from an isolated part of the globe, the Explorers were
-                                                first introduced to the wider world when a lost trader stumbled across their 
-                                                crude and underdeveloped settlement. Guiding the leaders of the settlement out 
-                                                to the nearest other settlement, and returning to explain to the masses was 
-                                                significant. Once the Explorers got a taste, they have not been able to stop. 
-                                                They look higher, run farther and dig deeper, at the expense of their energy 
-                                                levels. Unfortunately for the Explorers, the required rest during the journey 
+                            self.draw_paragraph(25, 40, """Originating from an isolated part of the globe, the
+                                                Explorers were first introduced to the wider world when a lost trader
+                                                stumbled across their crude and underdeveloped settlement. Guiding the
+                                                leaders of the settlement out to the nearest other settlement, and
+                                                returning to explain to the masses was significant. Once the Explorers
+                                                got a taste, they have not been able to stop. They look higher, run
+                                                farther and dig deeper, at the expense of their energy levels.
+                                                Unfortunately for the Explorers, the required rest during the journey
                                                 makes them easy targets for Heathens.""", 38)
                             pyxel.text(25, 140, "+ Units have 50% more stamina", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Units have 75% of usual health", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "GLUTTONY", pyxel.COLOR_GREEN)
                         case 12:
-                            self.draw_paragraph(25, 40, """Some say they were raised by Heathens, and some say that their DNA
-                                                is actually closer to Heathen than human. Regardless of their biological 
-                                                makeup, if you approach someone on the street of any settlement and bring up 
-                                                the Infidels, you will be met with a look of disgust and the question 'you're 
-                                                not one of them, are you?'. Seen as sub-human, other empires engage in combat 
-                                                on sight with the Infidels, no matter the disguises they apply.""", 38)
+                            self.draw_paragraph(25, 40, """Some say they were raised by Heathens, and some say that
+                                                their DNA is actually closer to Heathen than human. Regardless of their
+                                                biological makeup, if you approach someone on the street of any
+                                                settlement and bring up the Infidels, you will be met with a look of
+                                                disgust and the question 'you're not one of them, are you?'. Seen as
+                                                sub-human, other empires engage in combat on sight with the Infidels,
+                                                no matter the disguises they apply.""", 38)
                             pyxel.text(25, 140, "+ Not attacked by heathens", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Always attacked by AI players", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
                         case 13:
-                            self.draw_paragraph(25, 40, """Long have The Nocturne worshipped the holy moons of this world, and
-                                                through repeated attempts to modify their circadian rhythm, the strongest among 
-                                                them have developed genetic abilities. These abilities go further than simply 
-                                                making them nocturnal, no, they see farther and become stronger during the 
-                                                nighttime, and have perfected the art of predicting the sundown. As all things 
-                                                are, however, there is a trade-off. When the sun is out, those of The Nocturne 
-                                                are weakened, and largely huddle together waiting for their precious darkness 
-                                                to return.""", 38)
+                            self.draw_paragraph(25, 40, """Long have The Nocturne worshipped the holy moons of this
+                                                world, and through repeated attempts to modify their circadian rhythm,
+                                                the strongest among them have developed genetic abilities. These
+                                                abilities go further than simply making them nocturnal, no, they see
+                                                farther and become stronger during the nighttime, and have perfected
+                                                the art of predicting the sundown. As all things are, however, there is
+                                                a trade-off. When the sun is out, those of The Nocturne are weakened,
+                                                and largely huddle together waiting for their precious darkness to
+                                                return.""", 38)
                             pyxel.text(25, 140, "+ Thrive during the night", pyxel.COLOR_GREEN)
                             pyxel.text(25, 150, "- Units weakened during the day", pyxel.COLOR_RED)
                             pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
@@ -507,13 +521,13 @@ class Menu:
                     if self.showing_night:
                         pyxel.blt(96, 25, 0, 8, 84, 8, 8)
                         pyxel.text(60, 35, "The Everlasting Night", pyxel.COLOR_DARK_BLUE)
-                        self.draw_paragraph(25, 45, """It's part of the life in this world. It's the feeling running down
-                                            your spine when you're walking the streets alone with only a torch to guide 
-                                            you. It's the devastation when this month's cultivation is smaller than the 
-                                            last. It's the agony of looking out on a field of crops that won't grow. It's 
-                                            the fear of cursed heathens that could be lurking around every corner, ready to 
-                                            pounce. It's life during the nighttime, and you pray to the passions that the 
-                                            dawn soon comes.""", 38)
+                        self.draw_paragraph(25, 45, """It's part of the life in this world. It's the feeling running
+                                            down your spine when you're walking the streets alone with only a torch to
+                                            guide you. It's the devastation when this month's cultivation is smaller
+                                            than the last. It's the agony of looking out on a field of crops that won't
+                                            grow. It's the fear of cursed heathens that could be lurking around every
+                                            corner, ready to pounce. It's life during the nighttime, and you pray to
+                                            the passions that the dawn soon comes.""", 38)
                         pyxel.line(24, 127, 175, 127, pyxel.COLOR_GRAY)
                         pyxel.text(25, 130, "Effects", pyxel.COLOR_WHITE)
                         pyxel.text(25, 138, "Reduced vision/harvest", pyxel.COLOR_RED)
@@ -524,11 +538,12 @@ class Menu:
                     else:
                         pyxel.blt(96, 25, 0, 0, 84, 8, 8)
                         pyxel.text(62, 35, "The Heat of the Sun", pyxel.COLOR_YELLOW)
-                        self.draw_paragraph(25, 45, """Each of those on this land can testify to the toll it takes on you.
-                                            From the heat of the sun when toiling in the fields, to the icy chill of the 
-                                            wind atop a mountain, it changes a man. But the climb is always worth the 
-                                            reward, and you truly feel one with the land as you gaze outward from the peak 
-                                            and fully absorb the graciousness of this world. This is home.""", 38)
+                        self.draw_paragraph(25, 45, """Each of those on this land can testify to the toll it takes on
+                                            you. From the heat of the sun when toiling in the fields, to the icy chill
+                                            of the wind atop a mountain, it changes a man. But the climb is always
+                                            worth the reward, and you truly feel one with the land as you gaze outward
+                                            from the peak and fully absorb the graciousness of this world. This is
+                                            home.""", 38)
                         pyxel.line(24, 109, 175, 109, pyxel.COLOR_GRAY)
                         pyxel.text(25, 114, "Effects", pyxel.COLOR_WHITE)
                         pyxel.text(25, 124, "Persistent map and vision", pyxel.COLOR_GREEN)
@@ -678,7 +693,8 @@ class Menu:
                                pyxel.COLOR_RED if self.wiki_option is WikiOption.PROJECTS else pyxel.COLOR_WHITE)
                     pyxel.text(90, 125, "Units",
                                pyxel.COLOR_RED if self.wiki_option is WikiOption.UNITS else pyxel.COLOR_WHITE)
-                    pyxel.text(92, 145, "Back", pyxel.COLOR_RED if self.wiki_option is WikiOption.BACK else pyxel.COLOR_WHITE)
+                    pyxel.text(
+                        92, 145, "Back", pyxel.COLOR_RED if self.wiki_option is WikiOption.BACK else pyxel.COLOR_WHITE)
         else:
             pyxel.rectb(75, 120, 50, 60, pyxel.COLOR_WHITE)
             pyxel.rect(76, 121, 48, 58, pyxel.COLOR_BLACK)
@@ -798,7 +814,9 @@ class Menu:
         return GameConfig(self.player_count, self.faction_colours[self.faction_idx][0], self.biome_clustering_enabled,
                           self.fog_of_war_enabled, self.climatic_effects_enabled)
 
-    def next_menu_option(self, current_option: typing.Type[Enum], wrap_around: bool = False) -> None:
+    def next_menu_option(self,
+                         current_option: SetupOption | WikiOption | MainMenuOption | VictoryType,
+                         wrap_around: bool = False) -> None:
         """
         Given a menu option, go to the next item within the list of the option's enums.
         :param current_option: The currently selected option.
@@ -817,7 +835,9 @@ class Menu:
         target_option = list(options_enum)[target_option_idx]
         self.change_menu_option(target_option)
 
-    def previous_menu_option(self, current_option: typing.Type[Enum], wrap_around: bool = False) -> None:
+    def previous_menu_option(self,
+                             current_option: SetupOption | WikiOption | MainMenuOption | VictoryType,
+                             wrap_around: bool = False) -> None:
         """
         Given a menu option, go to the previous item within the list of the option's enums.
         :param current_option: The currently selected option.
@@ -836,7 +856,8 @@ class Menu:
         target_option = list(options_enum)[target_option_idx]
         self.change_menu_option(target_option)
 
-    def change_menu_option(self, target_option: typing.Type[Enum]) -> None:
+    def change_menu_option(self,
+                           target_option: SetupOption | WikiOption | MainMenuOption | VictoryType) -> None:
         """
         Select the given menu option.
         :param target_option: The target option to be selected.
