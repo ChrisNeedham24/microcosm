@@ -862,7 +862,6 @@ class Menu:
         :param line_length: The maximum character length of each line.
         """
         text_to_draw = ""
-        y_current = y_start
 
         for word in text.split():
             # Iterate through each word and check if there's enough space on the current line to add it. Otherwise,
@@ -870,13 +869,13 @@ class Menu:
             if len(text_to_draw) + len(word) <= line_length:
                 text_to_draw += word
             else:
-                pyxel.text(x_start, y_current, text_to_draw, pyxel.COLOR_WHITE)
+                pyxel.text(x_start, y_start, text_to_draw, pyxel.COLOR_WHITE)
                 text_to_draw = word
                 # Increment the y position of the text at the end of each line.
-                y_current += 6
+                y_start += 6
 
             # Add a space after each word (so that the reader doesn't run out of breath).
             text_to_draw += " "
 
         # Draw any remaining text to the final line.
-        pyxel.text(x_start, y_current, text_to_draw, pyxel.COLOR_WHITE)
+        pyxel.text(x_start, y_start, text_to_draw, pyxel.COLOR_WHITE)
