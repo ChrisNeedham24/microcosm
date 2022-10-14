@@ -12,7 +12,7 @@ from board import Board
 from calculator import clamp, attack, get_setl_totals, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, get_heathen, \
     get_default_unit, get_improvement, get_blessing, get_unit_plan, Namer, FACTION_COLOURS, PROJECTS, get_project
-from menu import Menu, MenuOption, SetupOption
+from menu import Menu, MainMenuOption, SetupOption, WikiOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
     EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, \
     ExpansionPlaystyle, UnitPlan, OverlayType, Faction, ConstructionMenu, Project
@@ -199,20 +199,20 @@ class Game:
                     else:
                         self.load_game(self.menu.save_idx)
                 elif self.menu.in_wiki:
-                    if self.menu.wiki_option is None:
+                    if self.menu.wiki_option is WikiOption.BACK:
                         self.menu.in_wiki = False
                     else:
                         self.menu.wiki_showing = self.menu.wiki_option
                 else:
-                    match self.menu.menu_option:
-                        case MenuOption.NEW_GAME:
+                    match self.menu.main_menu_option:
+                        case MainMenuOption.NEW_GAME:
                             self.menu.in_game_setup = True
-                        case MenuOption.LOAD_GAME:
+                        case MainMenuOption.LOAD_GAME:
                             self.menu.loading_game = True
                             self.get_saves()
-                        case MenuOption.WIKI:
+                        case MainMenuOption.WIKI:
                             self.menu.in_wiki = True
-                        case MenuOption.EXIT:
+                        case MainMenuOption.EXIT:
                             pyxel.quit()
             elif self.game_started and (self.board.overlay.is_victory() or
                                         self.board.overlay.is_elimination() and self.players[0].eliminated):
@@ -222,7 +222,7 @@ class Game:
                 self.on_menu = True
                 self.menu.loading_game = False
                 self.menu.in_game_setup = False
-                self.menu.menu_option = MenuOption.NEW_GAME
+                self.menu.main_menu_option = MainMenuOption.NEW_GAME
                 self.music_player.stop_game_music()
                 self.music_player.play_menu_music()
             # If the player is choosing a blessing or construction, enter will select it.
@@ -280,7 +280,7 @@ class Game:
                         self.on_menu = True
                         self.menu.loading_game = False
                         self.menu.in_game_setup = False
-                        self.menu.menu_option = MenuOption.NEW_GAME
+                        self.menu.main_menu_option = MainMenuOption.NEW_GAME
                         self.music_player.stop_game_music()
                         self.music_player.play_menu_music()
             elif self.game_started and not (self.board.overlay.is_tutorial() or self.board.overlay.is_deployment() or

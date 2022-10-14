@@ -9,7 +9,7 @@ from catalogue import BLESSINGS, get_unlockable_improvements, IMPROVEMENTS, UNIT
 from models import GameConfig, VictoryType, Faction, ProjectType
 
 
-class MenuOption(Enum):
+class MainMenuOption(Enum):
     """
     Represents the options the player can choose from the main menu.
     """
@@ -42,6 +42,7 @@ class WikiOption(Enum):
     IMPROVEMENTS = "IMP"
     PROJECTS = "PRJ"
     UNITS = "UNITS"
+    BACK = "BACK"
 
 
 class Menu:
@@ -52,7 +53,7 @@ class Menu:
         """
         Initialise the menu with a random background image on the main menu.
         """
-        self.menu_option = MenuOption.NEW_GAME
+        self.main_menu_option = MainMenuOption.NEW_GAME
         random.seed()
         self.image = random.randint(0, 5)
         self.in_game_setup = False
@@ -677,19 +678,19 @@ class Menu:
                                pyxel.COLOR_RED if self.wiki_option is WikiOption.PROJECTS else pyxel.COLOR_WHITE)
                     pyxel.text(90, 125, "Units",
                                pyxel.COLOR_RED if self.wiki_option is WikiOption.UNITS else pyxel.COLOR_WHITE)
-                    pyxel.text(92, 145, "Back", pyxel.COLOR_RED if self.wiki_option is None else pyxel.COLOR_WHITE)
+                    pyxel.text(92, 145, "Back", pyxel.COLOR_RED if self.wiki_option is WikiOption.BACK else pyxel.COLOR_WHITE)
         else:
             pyxel.rectb(75, 120, 50, 60, pyxel.COLOR_WHITE)
             pyxel.rect(76, 121, 48, 58, pyxel.COLOR_BLACK)
             pyxel.text(82, 125, "MICROCOSM", pyxel.COLOR_WHITE)
             pyxel.text(85, 140, "New Game",
-                       pyxel.COLOR_RED if self.menu_option is MenuOption.NEW_GAME else pyxel.COLOR_WHITE)
+                       pyxel.COLOR_RED if self.main_menu_option is MainMenuOption.NEW_GAME else pyxel.COLOR_WHITE)
             pyxel.text(82, 150, "Load Game",
-                       pyxel.COLOR_RED if self.menu_option is MenuOption.LOAD_GAME else pyxel.COLOR_WHITE)
+                       pyxel.COLOR_RED if self.main_menu_option is MainMenuOption.LOAD_GAME else pyxel.COLOR_WHITE)
             pyxel.text(92, 160, "Wiki",
-                       pyxel.COLOR_RED if self.menu_option is MenuOption.WIKI else pyxel.COLOR_WHITE)
+                       pyxel.COLOR_RED if self.main_menu_option is MainMenuOption.WIKI else pyxel.COLOR_WHITE)
             pyxel.text(92, 170, "Exit",
-                       pyxel.COLOR_RED if self.menu_option is MenuOption.EXIT else pyxel.COLOR_WHITE)
+                       pyxel.COLOR_RED if self.main_menu_option is MainMenuOption.EXIT else pyxel.COLOR_WHITE)
 
     def navigate(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
         """
@@ -702,19 +703,7 @@ class Menu:
         if down:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
             if self.in_game_setup and not self.showing_faction_details:
-                match self.setup_option:
-                    case SetupOption.PLAYER_FACTION:
-                        self.setup_option = SetupOption.PLAYER_COUNT
-                    case SetupOption.PLAYER_COUNT:
-                        self.setup_option = SetupOption.BIOME_CLUSTERING
-                    case SetupOption.BIOME_CLUSTERING:
-                        self.setup_option = SetupOption.FOG_OF_WAR
-                    case SetupOption.FOG_OF_WAR:
-                        self.setup_option = SetupOption.CLIMATIC_EFFECTS
-                    case SetupOption.CLIMATIC_EFFECTS:
-                        self.setup_option = SetupOption.START_GAME
-                    case SetupOption.START_GAME:
-                        self.setup_option = SetupOption.PLAYER_FACTION
+                self.next_menu_option(self.setup_option, wrap_around=True)
             elif self.loading_game:
                 if self.save_idx == self.load_game_boundaries[1] and self.save_idx < len(self.saves) - 1:
                     self.load_game_boundaries = self.load_game_boundaries[0] + 1, self.load_game_boundaries[1] + 1
@@ -733,49 +722,13 @@ class Menu:
                         if self.unit_boundaries[1] < len(UNIT_PLANS) - 1:
                             self.unit_boundaries = self.unit_boundaries[0] + 1, self.unit_boundaries[1] + 1
                     case _:
-                        match self.wiki_option:
-                            case WikiOption.VICTORIES:
-                                self.wiki_option = WikiOption.FACTIONS
-                            case WikiOption.FACTIONS:
-                                self.wiki_option = WikiOption.CLIMATE
-                            case WikiOption.CLIMATE:
-                                self.wiki_option = WikiOption.BLESSINGS
-                            case WikiOption.BLESSINGS:
-                                self.wiki_option = WikiOption.IMPROVEMENTS
-                            case WikiOption.IMPROVEMENTS:
-                                self.wiki_option = WikiOption.PROJECTS
-                            case WikiOption.PROJECTS:
-                                self.wiki_option = WikiOption.UNITS
-                            case WikiOption.UNITS:
-                                self.wiki_option = None
-                            case None:
-                                self.wiki_option = WikiOption.VICTORIES
+                        self.next_menu_option(self.wiki_option, wrap_around=True)
             else:
-                match self.menu_option:
-                    case MenuOption.NEW_GAME:
-                        self.menu_option = MenuOption.LOAD_GAME
-                    case MenuOption.LOAD_GAME:
-                        self.menu_option = MenuOption.WIKI
-                    case MenuOption.WIKI:
-                        self.menu_option = MenuOption.EXIT
-                    case MenuOption.EXIT:
-                        self.menu_option = MenuOption.NEW_GAME
+                self.next_menu_option(self.main_menu_option, wrap_around=True)
         if up:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
             if self.in_game_setup and not self.showing_faction_details:
-                match self.setup_option:
-                    case SetupOption.PLAYER_COUNT:
-                        self.setup_option = SetupOption.PLAYER_FACTION
-                    case SetupOption.BIOME_CLUSTERING:
-                        self.setup_option = SetupOption.PLAYER_COUNT
-                    case SetupOption.FOG_OF_WAR:
-                        self.setup_option = SetupOption.BIOME_CLUSTERING
-                    case SetupOption.CLIMATIC_EFFECTS:
-                        self.setup_option = SetupOption.FOG_OF_WAR
-                    case SetupOption.START_GAME:
-                        self.setup_option = SetupOption.CLIMATIC_EFFECTS
-                    case SetupOption.PLAYER_FACTION:
-                        self.setup_option = SetupOption.START_GAME
+                self.previous_menu_option(self.setup_option, wrap_around=True)
             elif self.loading_game:
                 if self.save_idx > 0 and self.save_idx == self.load_game_boundaries[0]:
                     self.load_game_boundaries = self.load_game_boundaries[0] - 1, self.load_game_boundaries[1] - 1
@@ -794,33 +747,9 @@ class Menu:
                         if self.unit_boundaries[0] > 0:
                             self.unit_boundaries = self.unit_boundaries[0] - 1, self.unit_boundaries[1] - 1
                     case _:
-                        match self.wiki_option:
-                            case WikiOption.FACTIONS:
-                                self.wiki_option = WikiOption.VICTORIES
-                            case WikiOption.CLIMATE:
-                                self.wiki_option = WikiOption.FACTIONS
-                            case WikiOption.BLESSINGS:
-                                self.wiki_option = WikiOption.CLIMATE
-                            case WikiOption.IMPROVEMENTS:
-                                self.wiki_option = WikiOption.BLESSINGS
-                            case WikiOption.PROJECTS:
-                                self.wiki_option = WikiOption.IMPROVEMENTS
-                            case WikiOption.UNITS:
-                                self.wiki_option = WikiOption.PROJECTS
-                            case WikiOption.VICTORIES:
-                                self.wiki_option = None
-                            case _:
-                                self.wiki_option = WikiOption.UNITS
+                        self.previous_menu_option(self.wiki_option, wrap_around=True)
             else:
-                match self.menu_option:
-                    case MenuOption.LOAD_GAME:
-                        self.menu_option = MenuOption.NEW_GAME
-                    case MenuOption.WIKI:
-                        self.menu_option = MenuOption.LOAD_GAME
-                    case MenuOption.EXIT:
-                        self.menu_option = MenuOption.WIKI
-                    case MenuOption.NEW_GAME:
-                        self.menu_option = MenuOption.EXIT
+                self.previous_menu_option(self.main_menu_option, wrap_around=True)
         if left:
             if self.in_game_setup:
                 match self.setup_option:
@@ -835,17 +764,7 @@ class Menu:
                     case SetupOption.CLIMATIC_EFFECTS:
                         self.climatic_effects_enabled = False
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:
-                match self.victory_type:
-                    case VictoryType.JUBILATION:
-                        self.victory_type = VictoryType.ELIMINATION
-                    case VictoryType.GLUTTONY:
-                        self.victory_type = VictoryType.JUBILATION
-                    case VictoryType.AFFLUENCE:
-                        self.victory_type = VictoryType.GLUTTONY
-                    case VictoryType.VIGOUR:
-                        self.victory_type = VictoryType.AFFLUENCE
-                    case VictoryType.SERENDIPITY:
-                        self.victory_type = VictoryType.VIGOUR
+                self.previous_menu_option(self.victory_type)
             elif self.in_wiki and self.wiki_showing is WikiOption.FACTIONS and self.faction_wiki_idx != 0:
                 self.faction_wiki_idx -= 1
             elif self.in_wiki and self.wiki_showing is WikiOption.CLIMATE:
@@ -864,17 +783,7 @@ class Menu:
                     case SetupOption.CLIMATIC_EFFECTS:
                         self.climatic_effects_enabled = True
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:
-                match self.victory_type:
-                    case VictoryType.ELIMINATION:
-                        self.victory_type = VictoryType.JUBILATION
-                    case VictoryType.JUBILATION:
-                        self.victory_type = VictoryType.GLUTTONY
-                    case VictoryType.GLUTTONY:
-                        self.victory_type = VictoryType.AFFLUENCE
-                    case VictoryType.AFFLUENCE:
-                        self.victory_type = VictoryType.VIGOUR
-                    case VictoryType.VIGOUR:
-                        self.victory_type = VictoryType.SERENDIPITY
+                self.next_menu_option(self.victory_type)
             elif self.in_wiki and self.wiki_showing is WikiOption.FACTIONS and \
                     self.faction_wiki_idx != len(self.faction_colours) - 1:
                 self.faction_wiki_idx += 1
@@ -899,7 +808,7 @@ class Menu:
         :param line_length: The maximum character length of each line.
         """
         text_to_draw = ""
-        text_y = y_start
+        y_current = y_start
 
         for word in text.split():
             # Iterate through each word and check if there's enough space on the current line to add it. Otherwise,
@@ -907,32 +816,60 @@ class Menu:
             if len(text_to_draw) + len(word) <= line_length:
                 text_to_draw += word
             else:
-                pyxel.text(x_start, text_y, text_to_draw, pyxel.COLOR_WHITE)
+                pyxel.text(x_start, y_current, text_to_draw, pyxel.COLOR_WHITE)
                 text_to_draw = word
                 # Increment the y position of the text at the end of each line.
-                text_y += 6
+                y_current += 6
 
             # Add a space after each word (so that the reader doesn't run out of breath).
             text_to_draw += " "
 
         # Draw any remaining text to the final line.
-        pyxel.text(x_start, text_y, text_to_draw, pyxel.COLOR_WHITE)
+        pyxel.text(x_start, y_current, text_to_draw, pyxel.COLOR_WHITE)
 
-    def get_next_menu_option(self, options_enum: Enum, current_selection: typing.Type[Enum]) -> None:
+    def next_menu_option(self, current_option: typing.Type[Enum], wrap_around: bool = False) -> None:
         """
-        PYDOC IS OVERRATED
-        KITFOX SUCK EGG
+        Given a menu option, go to the next item within the list of the option's enums.
+        :param current_option: The currently selected option.
+        :param wrap_around: If true, then choosing to go the next option when at the end of the list will wrap around 
+                            to the start of the list.
         """
-        if current_selection not in options_enum:
-            return
+        current_option_idx = list(options_enum := type(current_option)).index(current_option)
 
-        current_option_idx = list(options_enum).index(current_selection)
-        next_option_idx = (current_option_idx + 1) % len(options_enum)
-        next_option = list(options_enum)[next_option_idx]
+        target_option_idx = (current_option_idx + 1) % len(options_enum)
+        if (current_option_idx + 1) == len(options_enum) and not wrap_around:
+            target_option_idx = current_option_idx
 
-        if options_enum is SetupOption:
-            self.setup_option = next_option
-        elif options_enum is WikiOption:
-            self.wiki_option = next_option
-        elif options_enum is MenuOption:
-            self.menu_option = next_option
+        target_option = list(options_enum)[target_option_idx]
+        self.change_menu_option(target_option)
+
+    def previous_menu_option(self, current_option: typing.Type[Enum], wrap_around: bool = False) -> None:
+        """
+        Given a menu option, go to the previous item within the list of the option's enums.
+        :param current_option: The currently selected option.
+        :param wrap_around: If true, then choosing to go the previous option when at the start of the list will wrap 
+                            around to the end of the list.
+        """
+        current_option_idx = list(options_enum := type(current_option)).index(current_option)
+
+        target_option_idx = (current_option_idx - 1) % len(options_enum)
+        if (current_option_idx - 1) < 0 and not wrap_around:
+            target_option_idx = current_option_idx
+
+        target_option = list(options_enum)[target_option_idx]
+        self.change_menu_option(target_option)
+
+    def change_menu_option(self, target_option: typing.Type[Enum]) -> None:
+        """
+        Select the given menu option.
+        :param target_option: The target option to be selected.
+        """
+        match target_option:
+            case SetupOption():
+                self.setup_option = target_option
+            case WikiOption():
+                self.wiki_option = target_option
+            case MainMenuOption():
+                self.main_menu_option = target_option
+            case VictoryType():
+                self.victory_type = target_option
