@@ -334,7 +334,7 @@ class Menu:
                     pyxel.rect(21, 11, 158, 182, pyxel.COLOR_BLACK)
                     pyxel.text(85, 15, "Factions", pyxel.COLOR_WHITE)
                     pyxel.text(25, 30, str(self.faction_colours[self.faction_wiki_idx][0].value),
-                        self.faction_colours[self.faction_wiki_idx][1])
+                               self.faction_colours[self.faction_wiki_idx][1])
                     pyxel.blt(160, 28, 0, self.faction_wiki_idx * 8, 92, 8, 8)
                     pyxel.line(24, 137, 175, 137, pyxel.COLOR_GRAY)
                     pyxel.text(25, 160, "Recommended victory:", pyxel.COLOR_WHITE)
