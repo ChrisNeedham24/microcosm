@@ -16,7 +16,7 @@ from menu import Menu, MainMenuOption, SetupOption, WikiOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
     EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, \
     ExpansionPlaystyle, UnitPlan, OverlayType, Faction, ConstructionMenu, Project
-from movemaker import MoveMaker
+from movemaker import MoveMaker, set_player_construction
 from music_player import MusicPlayer
 from overlay import SettlementAttackType, PauseOption
 from save_encoder import SaveEncoder, ObjectConverter
@@ -440,6 +440,13 @@ class Game:
                         self.board.selected_unit = None
                     elif to_reset == OverlayType.SETTLEMENT:
                         self.board.selected_settlement = None
+        elif pyxel.btnp(pyxel.KEY_A):
+            if self.game_started and self.board.overlay.is_setl() and \
+                    self.board.selected_settlement.current_work is None:
+                # Pressing the A key while a player settlement with no active construction is selected results in the
+                # selection being made automatically (in much the same way that AI settlements have their constructions
+                # selected).
+                set_player_construction(self.players[0], self.board.selected_settlement, self.nighttime_left > 0)
 
     def draw(self):
         """
