@@ -83,7 +83,101 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
                 player.ongoing_blessing = OngoingBlessing(ideal)
 
 
-def set_construction(player: Player, setl: Settlement, is_night: bool):
+def set_player_construction(player: Player, setl: Settlement, is_night: bool):
+    """
+    Choose and begin a construction for the player's settlement. Note that this function is adapted from the below
+    set_ai_construction() function.
+    :param player: The non-AI player.
+    :param setl: The settlement having its construction chosen.
+    :param is_night: Whether it is night.
+    """
+
+    avail_imps = get_available_improvements(player, setl)
+    avail_units = get_available_unit_plans(player, setl.level)
+    # Note that if there are no available improvements for the given settlement, the 'ideal' construction will default
+    # to the first available unit. Additionally, the first improvement is only selected if it won't reduce satisfaction.
+    ideal: Improvement | UnitPlan = avail_imps[0] \
+        if len(avail_imps) > 0 and setl.satisfaction + avail_imps[0].effect.satisfaction >= 50 \
+        else avail_units[0]
+    totals = get_setl_totals(player, setl, is_night)
+
+    # If the player has neither units on the board nor garrisoned, construct the first available.
+    if len(player.units) == 0 and len(setl.garrison) == 0:
+        setl.current_work = Construction(avail_units[0])
+    else:
+        if len(avail_imps) > 0:
+            # The 'ideal' construction in all other cases is the one that will yield the effect that boosts the
+            # category the settlement is most lacking in, and doesn't reduce satisfaction below 50.
+            match totals.index(min(totals)):
+                case 0:
+                    highest_wealth: (float, Improvement) = avail_imps[0].effect.wealth, avail_imps[0]
+                    for imp in avail_imps:
+                        if imp.effect.wealth > highest_wealth[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
+                            highest_wealth = imp.effect.wealth, imp
+                    ideal = highest_wealth[1]
+                case 1:
+                    highest_harvest: (float, Improvement) = avail_imps[0].effect.harvest, avail_imps[0]
+                    for imp in avail_imps:
+                        if imp.effect.harvest > highest_harvest[0] and \
+                                setl.satisfaction + imp.effect.satisfaction >= 50:
+                            highest_harvest = imp.effect.harvest, imp
+                    ideal = highest_harvest[1]
+                case 2:
+                    highest_zeal: (float, Improvement) = avail_imps[0].effect.zeal, avail_imps[0]
+                    for imp in avail_imps:
+                        if imp.effect.zeal > highest_zeal[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
+                            highest_zeal = imp.effect.zeal, imp
+                    ideal = highest_zeal[1]
+                case 3:
+                    highest_fortune: (float, Improvement) = avail_imps[0].effect.fortune, avail_imps[0]
+                    for imp in avail_imps:
+                        if imp.effect.fortune > highest_fortune[0] and \
+                                setl.satisfaction + imp.effect.satisfaction >= 50:
+                            highest_fortune = imp.effect.fortune, imp
+                    ideal = highest_fortune[1]
+
+        sat_imps = [imp for imp in avail_imps if imp.effect.satisfaction > 0]
+        harv_imps = [imp for imp in avail_imps if imp.effect.harvest > 0]
+        # If the settlement is dissatisfied, the easiest way to increase satisfaction is by constructing improvements
+        # that either directly increase satisfaction, or by indirectly increasing satisfaction through increasing
+        # harvest, which contributes to settlement satisfaction.
+        if setl.satisfaction < 50 and (sat_imps or harv_imps):
+            # The improvement with the lowest cost and the highest combined satisfaction and harvest is chosen.
+            imps = sat_imps + harv_imps
+            # Combined benefit, cost, Improvement.
+            most_beneficial: (int, float, Improvement) = \
+                imps[0].effect.satisfaction + imps[0].effect.harvest, imps[0].cost, imps[0]
+            for i in imps:
+                # Pick the improvement that yields the highest combined benefit while also not costing more than the
+                # current ideal one. We do this to stop improvements being selected that will take 50 turns to
+                # construct, all the while, the satisfaction is decreasing.
+                if benefit := (i.effect.satisfaction + i.effect.harvest) > most_beneficial[0] and \
+                              i.cost <= most_beneficial[1]:
+                    most_beneficial = benefit, i.cost, i
+            # Even still, if the improvement will take a long time relative to other non-harvest/satisfaction
+            # improvements, just do the ideal instead.
+            if avail_imps[0].cost * 5 < most_beneficial[1]:
+                setl.current_work = Construction(ideal)
+            else:
+                setl.current_work = Construction(most_beneficial[2])
+        # Alternatively, if we are below the benchmark for harvest for this settlement (i.e. the harvest is low enough
+        # that it is decreasing satisfaction), try to construct an improvement that will increase it.
+        elif totals[1] < setl.level * 4 and harv_imps:
+            most_harvest: (int, float, Improvement) = harv_imps[0].effect.harvest, harv_imps[0].cost, harv_imps[0]
+            for i in harv_imps:
+                if i.effect.harvest > most_harvest[0] and i.cost <= most_harvest[1]:
+                    most_harvest = i.effect.harvest, i.cost, i
+            # Again, don't do the improvement if it takes too long relatively.
+            if avail_imps[0].cost * 5 < most_harvest[1]:
+                setl.current_work = Construction(ideal)
+            else:
+                setl.current_work = Construction(most_harvest[2])
+        # In all other circumstances, i.e. most of the time, just construct the ideal improvement.
+        else:
+            setl.current_work = Construction(ideal)
+
+
+def set_ai_construction(player: Player, setl: Settlement, is_night: bool):
     """
     Choose and begin a construction for the given AI player's settlement.
     :param player: The AI owner of the given settlement.
@@ -253,7 +347,7 @@ class MoveMaker:
             set_blessing(player, player_totals)
         for setl in player.settlements:
             if setl.current_work is None:
-                set_construction(player, setl, is_night)
+                set_ai_construction(player, setl, is_night)
             elif player.faction is not Faction.FUNDAMENTALISTS:
                 constr = setl.current_work.construction
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out. In

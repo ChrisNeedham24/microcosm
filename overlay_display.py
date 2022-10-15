@@ -324,7 +324,10 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     pyxel.text(20, 155 - y_offset, "Press C to cease.", pyxel.COLOR_WHITE)
             else:
                 pyxel.text(20, 145 - y_offset, "None", pyxel.COLOR_RED)
-                pyxel.text(20, 155 - y_offset, "Press C to add one!", pyxel.COLOR_WHITE)
+                if overlay.show_auto_construction_prompt:
+                    pyxel.text(20, 155 - y_offset, "Press A for auto!", pyxel.COLOR_WHITE)
+                else:
+                    pyxel.text(20, 155 - y_offset, "Press C to add one!", pyxel.COLOR_WHITE)
             pyxel.text(110, 134 - y_offset, "Garrison", pyxel.COLOR_RED)
             if len(overlay.current_settlement.garrison) > 0:
                 pluralisation = "s" if len(overlay.current_settlement.garrison) > 1 else ""
@@ -671,7 +674,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
         if OverlayType.CONTROLS in overlay.showing:
             pyxel.rectb(10, 20, 180, 144, pyxel.COLOR_WHITE)
             pyxel.rect(11, 21, 178, 142, pyxel.COLOR_BLACK)
-            pyxel.text(80, 30, "Controls", pyxel.COLOR_WHITE)
+            pyxel.text(85, 30, "Controls", pyxel.COLOR_WHITE)
             pyxel.text(23, 45, "ARROWS", pyxel.COLOR_WHITE)
             pyxel.text(83, 45, "Navigate menus/pan map", pyxel.COLOR_WHITE)
             pyxel.text(23, 55, "CTRL + ARROWS", pyxel.COLOR_WHITE)
@@ -690,4 +693,6 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(83, 115, "Next song", pyxel.COLOR_WHITE)
             pyxel.text(23, 125, "B", pyxel.COLOR_WHITE)
             pyxel.text(83, 125, "Buyout construction", pyxel.COLOR_WHITE)
+            pyxel.text(23, 135, "A", pyxel.COLOR_WHITE)
+            pyxel.text(83, 135, "Auto-select construction", pyxel.COLOR_WHITE)
             pyxel.text(54, 150, "Press SPACE to go back.", pyxel.COLOR_WHITE)
