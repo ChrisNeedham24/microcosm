@@ -340,8 +340,10 @@ def display_overlay(overlay: Overlay, is_night: bool):
         # unit is the player's and they are currently placing an enemy settlement under siege.
         if OverlayType.UNIT in overlay.showing:
             y_offset = 0 if overlay.selected_unit in overlay.current_player.units else 20
-            pyxel.rectb(12, 110 + y_offset, 56, 60 - y_offset, pyxel.COLOR_WHITE)
-            pyxel.rect(13, 111 + y_offset, 54, 58 - y_offset, pyxel.COLOR_BLACK)
+            x_offset = 8 if round(overlay.selected_unit.plan.cost / 10) >= 10 and \
+                overlay.selected_unit in overlay.current_player.units else 0
+            pyxel.rectb(12, 110 + y_offset, 56 + x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 111 + y_offset, 54 + x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
             pyxel.text(20, 114 + y_offset, overlay.selected_unit.plan.name, pyxel.COLOR_WHITE)
             if overlay.selected_unit.plan.can_settle:
                 pyxel.blt(55, 113 + y_offset, 0, 24, 36, 8, 8)
@@ -362,7 +364,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             if overlay.selected_unit in overlay.current_player.units:
                 pyxel.blt(20, 150, 0, 0, 44, 8, 8)
                 pyxel.text(30, 152,
-                           f"{overlay.selected_unit.plan.cost} (-{round(overlay.selected_unit.plan.cost / 25)}/T)",
+                           f"{overlay.selected_unit.plan.cost} (-{round(overlay.selected_unit.plan.cost / 10)}/T)",
                            pyxel.COLOR_WHITE)
                 pyxel.blt(20, 160, 0, 8, 52, 8, 8)
                 pyxel.text(30, 162, "Disb. (D)", pyxel.COLOR_RED)
@@ -500,7 +502,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 wealth_per_turn += wealth_to_add
             for unit in overlay.current_player.units:
                 if not unit.garrisoned:
-                    wealth_per_turn -= unit.plan.cost / 25
+                    wealth_per_turn -= unit.plan.cost / 10
             sign = "+" if wealth_per_turn > 0 else "-"
             pyxel.text(30, 82,
                        f"{round(overlay.current_player.wealth)} ({sign}{abs(round(wealth_per_turn, 2))})",

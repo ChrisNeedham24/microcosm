@@ -496,7 +496,7 @@ class Game:
                 total_wealth *= 1.5
         for unit in self.players[0].units:
             if not unit.garrisoned:
-                total_wealth -= unit.plan.cost / 25
+                total_wealth -= unit.plan.cost / 10
         if self.players[0].faction is Faction.GODLESS:
             total_wealth *= 1.25
         elif self.players[0].faction is Faction.ORTHODOX:
@@ -605,7 +605,7 @@ class Game:
                 if unit.health < unit.plan.max_health:
                     unit.health = min(unit.health + unit.plan.max_health * 0.1, unit.plan.max_health)
                 unit.has_attacked = False
-                overall_wealth -= unit.plan.cost / 25
+                overall_wealth -= unit.plan.cost / 10
             # Process the current blessing, completing it if it was finished.
             if player.ongoing_blessing is not None:
                 player.ongoing_blessing.fortune_consumed += overall_fortune
