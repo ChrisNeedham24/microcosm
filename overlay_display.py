@@ -347,7 +347,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(20, 114 + y_offset, overlay.selected_unit.plan.name, pyxel.COLOR_WHITE)
             if overlay.selected_unit.plan.can_settle:
                 pyxel.blt(55, 113 + y_offset, 0, 24, 36, 8, 8)
-            if not isinstance(overlay.selected_unit, Heathen) and overlay.selected_unit.sieging and \
+            if not isinstance(overlay.selected_unit, Heathen) and overlay.selected_unit.besieging and \
                     overlay.selected_unit in overlay.current_player.units:
                 pyxel.blt(55, 113, 0, 32, 36, 8, 8)
                 pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)

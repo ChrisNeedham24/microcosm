@@ -264,7 +264,7 @@ class Unit:
     garrisoned: bool
     plan: UnitPlan
     has_attacked: bool = False  # Units can only attack once per turn.
-    sieging: bool = False
+    besieging: bool = False
 
 
 @dataclass
