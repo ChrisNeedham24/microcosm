@@ -196,11 +196,11 @@ class Board:
                             setl_x = 16
                         case _:
                             setl_x = 24
-                    if is_night and settlement.under_siege_by is None:
+                    if is_night and not settlement.besieged:
                         setl_x += 32
                     pyxel.blt((settlement.location[0] - map_pos[0]) * 8 + 4,
                               (settlement.location[1] - map_pos[1]) * 8 + 4, 0, setl_x,
-                              68 if settlement.under_siege_by is not None else 4, 8, 8)
+                              68 if settlement.besieged else 4, 8, 8)
 
         for player in players:
             for settlement in player.settlements:
@@ -211,11 +211,28 @@ class Board:
                         x_offset = 11 - name_len
                         base_x_pos = (settlement.location[0] - map_pos[0]) * 8
                         base_y_pos = (settlement.location[1] - map_pos[1]) * 8
-                        # Sieged settlements are displayed with a black background.
-                        if settlement.under_siege_by is not None:
+                        # Besieged settlements are displayed with a black background, along with their remaining
+                        # strength.
+                        if settlement.besieged:
                             pyxel.rect(base_x_pos - 17, base_y_pos - 8, 52, 10,
                                        pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
                             pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, player.colour)
+                            # We need to base the size of the strength container on the length of the string, so that it
+                            # is centred.
+                            strength_as_str = str(round(settlement.strength))
+                            match len(strength_as_str):
+                                case 3:
+                                    pyxel.rect(base_x_pos, base_y_pos - 16, 16, 10,
+                                               pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                    pyxel.text(base_x_pos + 2, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
+                                case 2:
+                                    pyxel.rect(base_x_pos + 3, base_y_pos - 16, 11, 10,
+                                               pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                    pyxel.text(base_x_pos + 5, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
+                                case 1:
+                                    pyxel.rect(base_x_pos + 4, base_y_pos - 16, 8, 10,
+                                               pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                    pyxel.text(base_x_pos + 7, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
                         else:
                             pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10,
                                         pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
@@ -555,16 +572,17 @@ class Board:
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
                             self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
                             self.selected_unit.location[1] + self.selected_unit.remaining_stamina:
-                        # Any unit that moves while sieging ends their siege on the settlement.
-                        if self.selected_unit.sieging:
-                            self.selected_unit.sieging = False
-                            for setl in other_setls:
-                                if setl.under_siege_by is self.selected_unit:
-                                    setl.under_siege_by = None
                         initial = self.selected_unit.location
                         distance_travelled = max(abs(initial[0] - adj_x), abs(initial[1] - adj_y))
                         self.selected_unit.remaining_stamina -= distance_travelled
                         self.selected_unit.location = adj_x, adj_y
+                        # Any unit that moves more than 1 quad away while sieging ends their siege on the settlement.
+                        found_besieged_setl = False
+                        for setl in other_setls:
+                            if setl.besieged and abs(self.selected_unit.location[0] - setl.location[0]) <= 1 and \
+                                        abs(self.selected_unit.location[1] - setl.location[1]) <= 1:
+                                found_besieged_setl = True
+                        self.selected_unit.sieging = found_besieged_setl
                         # Update the player's seen quads.
                         for i in range(adj_y - 5, adj_y + 6):
                             for j in range(adj_x - 5, adj_x + 6):

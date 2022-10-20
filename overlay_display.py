@@ -262,9 +262,9 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
             pyxel.text(20, 14, f"{overlay.current_settlement.name} ({overlay.current_settlement.level})",
                        overlay.current_player.colour)
-            pyxel.blt(80, 12, 0, 24 if overlay.current_settlement.under_siege_by is not None else 0, 28, 8, 8)
+            pyxel.blt(80, 12, 0, 24 if overlay.current_settlement.besieged else 0, 28, 8, 8)
             pyxel.text(90, 14, str(round(overlay.current_settlement.strength)),
-                       pyxel.COLOR_RED if overlay.current_settlement.under_siege_by is not None else pyxel.COLOR_WHITE)
+                       pyxel.COLOR_RED if overlay.current_settlement.besieged else pyxel.COLOR_WHITE)
             satisfaction_u = 8 if overlay.current_settlement.satisfaction >= 50 else 16
             pyxel.blt(105, 12, 0, satisfaction_u, 28, 8, 8)
             pyxel.text(115, 14, str(round(overlay.current_settlement.satisfaction)), pyxel.COLOR_WHITE)
@@ -352,7 +352,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.blt(55, 113, 0, 32, 36, 8, 8)
                 pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
                 pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
-                pyxel.text(18, 14, "Remember: the siege will end if you move!", pyxel.COLOR_RED)
+                pyxel.text(18, 14, "Remember: the siege will end if all leave!", pyxel.COLOR_RED)
             pyxel.blt(20, 120 + y_offset, 0, 8, 36, 8, 8)
             pyxel.text(30, 122 + y_offset, str(round(overlay.selected_unit.health)), pyxel.COLOR_WHITE)
             pyxel.blt(20, 130 + y_offset, 0, 0, 36, 8, 8)
@@ -523,11 +523,11 @@ def display_overlay(overlay: Overlay, is_night: bool):
             player_setls.sort(key=lambda s: s.level, reverse=True)
             for idx, setl in enumerate(player_setls[start_idx:end_idx]):
                 pyxel.text(30, 104 + idx * 8, f"{setl.name} ({setl.level})",
-                           pyxel.COLOR_RED if setl.under_siege_by is not None else pyxel.COLOR_WHITE)
+                           pyxel.COLOR_RED if setl.besieged else pyxel.COLOR_WHITE)
                 pyxel.text(100, 104 + idx * 8, str(round(setl.satisfaction)),
                            pyxel.COLOR_RED if setl.satisfaction < 50 else pyxel.COLOR_GREEN)
                 pyxel.text(115, 104 + idx * 8, str(round(setl.strength)),
-                           pyxel.COLOR_RED if setl.under_siege_by is not None else pyxel.COLOR_WHITE)
+                           pyxel.COLOR_RED if setl.besieged else pyxel.COLOR_WHITE)
 
                 current_work = setl.current_work
                 if current_work is not None and not isinstance(current_work.construction, Project):
