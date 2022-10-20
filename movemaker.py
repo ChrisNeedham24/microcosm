@@ -539,10 +539,10 @@ class MoveMaker:
                                 player.units.remove(data.attacker)
                             elif data.setl_was_taken:
                                 data.settlement.besieged = False
-                                for unit in player.units:
-                                    if abs(unit.location[0] - data.settlement.location[0]) <= 1 and \
-                                            abs(unit.location[1] - data.settlement.location[1]) <= 1:
-                                        unit.sieging = False
+                                for u in player.units:
+                                    if abs(u.location[0] - data.settlement.location[0]) <= 1 and \
+                                            abs(u.location[1] - data.settlement.location[1]) <= 1:
+                                        u.sieging = False
                                 if player.faction is not Faction.CONCENTRATED:
                                     player.settlements.append(data.settlement)
                                 setl_owner.settlements.remove(data.settlement)
