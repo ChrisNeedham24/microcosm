@@ -248,12 +248,12 @@ class Game:
                             self.board.overlay.toggle_unit(None)
                         elif data.setl_was_taken:
                             # If the settlement was taken, transfer it to the player, while also marking any units that
-                            # were involved in the siege as no longer sieging.
+                            # were involved in the siege as no longer besieging.
                             data.settlement.besieged = False
                             for unit in self.players[0].units:
                                 if abs(unit.location[0] - data.settlement.location[0]) <= 1 and \
                                         abs(unit.location[1] - data.settlement.location[1]) <= 1:
-                                    unit.sieging = False
+                                    unit.besieging = False
                             # The Concentrated can only have a single settlement, so when they take others, the
                             # settlements simply disappear.
                             if self.players[0].faction is not Faction.CONCENTRATED:
@@ -266,7 +266,7 @@ class Game:
                         self.board.attack_time_bank = 0
                     case SettlementAttackType.BESIEGE:
                         # Alternatively, begin a siege on the settlement.
-                        self.board.selected_unit.sieging = True
+                        self.board.selected_unit.besieging = True
                         self.board.overlay.attacked_settlement.besieged = True
                         self.board.overlay.toggle_setl_click(None, None)
                     case _:
@@ -547,22 +547,22 @@ class Game:
                 overall_fortune += total_fortune
                 overall_wealth += total_wealth
 
-                # If the settlement is under siege, decrease its strength based on the number of sieging units.
+                # If the settlement is under siege, decrease its strength based on the number of besieging units.
                 if setl.besieged:
-                    sieging_units: typing.List[Unit] = []
+                    besieging_units: typing.List[Unit] = []
                     for p in self.players:
                         if p is not player:
                             for u in p.units:
                                 if abs(u.location[0] - setl.location[0]) <= 1 and \
                                         abs(u.location[1] - setl.location[1]) <= 1:
-                                    sieging_units.append(u)
-                    if not sieging_units:
+                                    besieging_units.append(u)
+                    if not besieging_units:
                         setl.besieged = False
                     else:
-                        if all(u.health <= 0 for u in sieging_units):
+                        if all(u.health <= 0 for u in besieging_units):
                             setl.besieged = False
                         else:
-                            setl.strength = max(0.0, setl.strength - 10 * len(sieging_units))
+                            setl.strength = max(0.0, setl.strength - 10 * len(besieging_units))
                 else:
                     # Otherwise, increase the settlement's strength if it was recently under siege and is not at full
                     # strength.
@@ -939,7 +939,7 @@ class Game:
                     p.units[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]), u.garrisoned,
                                         UnitPlan(u.plan.power, u.plan.max_health, u.plan.total_stamina,
                                                  u.plan.name, plan_prereq, u.plan.cost, u.plan.can_settle),
-                                        u.has_attacked, u.sieging)
+                                        u.has_attacked, u.besieging)
                 for s in p.settlements:
                     # Make sure we remove the settlement's name so that we don't get duplicates.
                     self.namer.remove_settlement_name(s.name, s.quads[0].biome)
@@ -961,7 +961,7 @@ class Game:
                     # Also convert all units in garrisons to Unit objects.
                     for idx, u in enumerate(s.garrison):
                         s.garrison[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]),
-                                               u.garrisoned, u.plan, u.has_attacked, u.sieging)
+                                               u.garrisoned, u.plan, u.has_attacked, u.besieging)
                 # We also do direct conversions to Blessing objects for the ongoing one, if there is one, as well as any
                 # previously-completed ones.
                 if p.ongoing_blessing:

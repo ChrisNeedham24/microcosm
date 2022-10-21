@@ -511,7 +511,7 @@ class MoveMaker:
                     if attack_over_siege:
                         # If we are attacking another unit, we stop our siege first, and then attack.
                         if isinstance(within_range, Unit):
-                            unit.sieging = False
+                            unit.besieging = False
                             data = attack(unit, within_range)
 
                             # Show the attack notification if we attacked the player.
@@ -542,14 +542,14 @@ class MoveMaker:
                                 for u in player.units:
                                     if abs(u.location[0] - data.settlement.location[0]) <= 1 and \
                                             abs(u.location[1] - data.settlement.location[1]) <= 1:
-                                        u.sieging = False
+                                        u.besieging = False
                                 if player.faction is not Faction.CONCENTRATED:
                                     player.settlements.append(data.settlement)
                                 setl_owner.settlements.remove(data.settlement)
-                    # If we have chosen to place a settlement under siege, and the unit is not already sieging another
+                    # If we have chosen to place a settlement under siege, and the unit is not already besieging another
                     # settlement, do so.
-                    elif not unit.sieging:
-                        unit.sieging = True
+                    elif not unit.besieging:
+                        unit.besieging = True
                         if not within_range.besieged:
                             within_range.besieged = True
                             # Show the siege notification if we have placed one of the player's settlements under siege.

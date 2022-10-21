@@ -262,7 +262,7 @@ class Board:
                         (self.selected_settlement.location[1] - map_pos[1]) * 8 - 4, 24, 24, pyxel.COLOR_WHITE)
 
         # Also display the number of units the player can move at the bottom-right of the screen.
-        movable_units = [unit for unit in players[0].units if unit.remaining_stamina > 0 and not unit.sieging]
+        movable_units = [unit for unit in players[0].units if unit.remaining_stamina > 0 and not unit.besieging]
         if len(movable_units) > 0:
             pluralisation = "s" if len(movable_units) > 1 else ""
             pyxel.rectb(150, 147, 40, 20, pyxel.COLOR_WHITE)
@@ -576,13 +576,13 @@ class Board:
                         distance_travelled = max(abs(initial[0] - adj_x), abs(initial[1] - adj_y))
                         self.selected_unit.remaining_stamina -= distance_travelled
                         self.selected_unit.location = adj_x, adj_y
-                        # Any unit that moves more than 1 quad away while sieging ends their siege on the settlement.
+                        # Any unit that moves more than 1 quad away while besieging ends their siege on the settlement.
                         found_besieged_setl = False
                         for setl in other_setls:
                             if setl.besieged and abs(self.selected_unit.location[0] - setl.location[0]) <= 1 and \
                                         abs(self.selected_unit.location[1] - setl.location[1]) <= 1:
                                 found_besieged_setl = True
-                        self.selected_unit.sieging = found_besieged_setl
+                        self.selected_unit.besieging = found_besieged_setl
                         # Update the player's seen quads.
                         for i in range(adj_y - 5, adj_y + 6):
                             for j in range(adj_x - 5, adj_x + 6):
