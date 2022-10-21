@@ -283,6 +283,7 @@ class Game:
                         self.save_game()
                         self.board.overlay.has_saved = True
                     case PauseOption.CONTROLS:
+                        self.board.overlay.show_additional_controls = False
                         self.board.overlay.toggle_controls()
                     case PauseOption.QUIT:
                         self.game_started = False
