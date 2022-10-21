@@ -56,6 +56,7 @@ class Overlay:
         self.night_beginning: bool = False
         self.settlement_status_boundaries: typing.Tuple[int, int] = 0, 7
         self.show_auto_construction_prompt: bool = False
+        self.show_additional_controls: bool = False
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be

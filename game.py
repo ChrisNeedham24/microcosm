@@ -94,6 +94,8 @@ class Game:
                     self.board.overlay.navigate_blessings(down=True)
                 elif self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(down=True)
+                elif self.board.overlay.is_controls():
+                    self.board.overlay.show_additional_controls = True
                 elif self.board.overlay.is_pause():
                     self.board.overlay.navigate_pause(down=True)
                 elif self.board.overlay.is_standard():
@@ -116,6 +118,8 @@ class Game:
                     self.board.overlay.navigate_blessings(down=False)
                 elif self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(up=True)
+                elif self.board.overlay.is_controls():
+                    self.board.overlay.show_additional_controls = False
                 elif self.board.overlay.is_pause():
                     self.board.overlay.navigate_pause(down=False)
                 elif self.board.overlay.is_standard():
