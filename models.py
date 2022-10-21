@@ -264,7 +264,7 @@ class Unit:
     garrisoned: bool
     plan: UnitPlan
     has_attacked: bool = False  # Units can only attack once per turn.
-    sieging: bool = False
+    besieging: bool = False
 
 
 @dataclass
@@ -329,7 +329,7 @@ class Settlement:
     harvest_status: HarvestStatus = HarvestStatus.STANDARD
     economic_status: EconomicStatus = EconomicStatus.STANDARD
     produced_settler: bool = False  # Used for AI players so that settlements don't get stuck producing settlers.
-    under_siege_by: typing.Optional[Unit] = None
+    besieged: bool = False
 
 
 @dataclass

@@ -371,7 +371,7 @@ class MoveMaker:
             # Deploy a unit from the garrison if the AI is not defensive, or the settlement is under siege or attack, or
             # there are too many units garrisoned.
             if (len(setl.garrison) > 0 and
-                (player.ai_playstyle.attacking is not AttackPlaystyle.DEFENSIVE or setl.under_siege_by is not None
+                (player.ai_playstyle.attacking is not AttackPlaystyle.DEFENSIVE or setl.besieged
                  or setl.strength < setl.max_strength / 2)) or len(setl.garrison) > 3:
                 deployed = setl.garrison.pop()
                 deployed.garrisoned = False
@@ -443,7 +443,7 @@ class MoveMaker:
                     if pl.faction is Faction.INFIDELS and other_u in pl.units:
                         is_infidel = True
                         break
-                could_attack: bool = any(setl.under_siege_by is not None or setl.strength < setl.max_strength / 2
+                could_attack: bool = any(setl.besieged or setl.strength < setl.max_strength / 2
                                          for setl in player.settlements) or \
                     player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
                     (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
@@ -511,11 +511,7 @@ class MoveMaker:
                     if attack_over_siege:
                         # If we are attacking another unit, we stop our siege first, and then attack.
                         if isinstance(within_range, Unit):
-                            unit.sieging = False
-                            for p in all_players:
-                                for s in p.settlements:
-                                    if s.under_siege_by is unit:
-                                        s.under_siege_by = None
+                            unit.besieging = False
                             data = attack(unit, within_range)
 
                             # Show the attack notification if we attacked the player.
@@ -542,16 +538,20 @@ class MoveMaker:
                             if data.attacker_was_killed:
                                 player.units.remove(data.attacker)
                             elif data.setl_was_taken:
-                                data.settlement.under_siege_by = None
+                                data.settlement.besieged = False
+                                for u in player.units:
+                                    if abs(u.location[0] - data.settlement.location[0]) <= 1 and \
+                                            abs(u.location[1] - data.settlement.location[1]) <= 1:
+                                        u.besieging = False
                                 if player.faction is not Faction.CONCENTRATED:
                                     player.settlements.append(data.settlement)
                                 setl_owner.settlements.remove(data.settlement)
-                    # If we have chosen to place a settlement under siege, and the unit is not already sieging another
+                    # If we have chosen to place a settlement under siege, and the unit is not already besieging another
                     # settlement, do so.
-                    elif not unit.sieging:
-                        unit.sieging = True
-                        if within_range.under_siege_by is None:
-                            within_range.under_siege_by = unit
+                    elif not unit.besieging:
+                        unit.besieging = True
+                        if not within_range.besieged:
+                            within_range.besieged = True
                             # Show the siege notification if we have placed one of the player's settlements under siege.
                             if within_range in all_players[0].settlements:
                                 self.board_ref.overlay.toggle_siege_notif(within_range, player)
