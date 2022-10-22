@@ -413,29 +413,7 @@ class Game:
                 self.map_pos = (clamp(self.board.selected_unit.location[0] - 12, -1, 77),
                                 clamp(self.board.selected_unit.location[1] - 11, -1, 69))
         elif pyxel.btnp(pyxel.KEY_M):
-            if self.on_menu and self.menu.in_wiki and self.menu.wiki_showing is not None:
-                self.menu.wiki_showing = None
-            if self.on_menu and self.menu.in_game_setup:
-                self.menu.in_game_setup = False
-            if self.on_menu and self.menu.loading_game:
-                self.menu.loading_game = False
-            if self.game_started and self.board.overlay.is_elimination():
-                self.board.overlay.toggle_elimination(None)
-            elif self.game_started and self.board.overlay.is_night():
-                self.board.overlay.toggle_night(None)
-            elif self.game_started and self.board.overlay.is_close_to_vic():
-                self.board.overlay.toggle_close_to_vic([])
-            elif self.game_started and self.board.overlay.is_bless_notif():
-                self.board.overlay.toggle_blessing_notification(None)
-            elif self.game_started and self.board.overlay.is_constr_notif():
-                self.board.overlay.toggle_construction_notification(None)
-            elif self.game_started and self.board.overlay.is_lvl_notif():
-                self.board.overlay.toggle_level_up_notification(None)
-            elif self.game_started and self.board.overlay.is_controls():
-                self.board.overlay.toggle_controls()
-            elif self.game_started and self.board.overlay.is_investigation():
-                self.board.overlay.toggle_investigation(None)
-            elif self.game_started and self.board.overlay.can_iter_settlements_units() and \
+            if self.game_started and self.board.overlay.can_iter_settlements_units() and \
                     len(self.players[0].units) > 0:
                 self.board.overlay.remove_warning_if_possible()
                 if self.board.overlay.is_setl():
@@ -447,7 +425,7 @@ class Game:
                 elif len(self.players[0].units) > 1:
                     current_selected_unit = self.board.selected_unit
                     units = self.players[0].units
-                    filtered_units = [unit for unit in units if not unit.sieging and unit.remaining_stamina > 0]
+                    filtered_units = [unit for unit in units if not unit.besieging and unit.remaining_stamina > 0]
                     new_idx = 0
 
                     if len(filtered_units) > 0:
