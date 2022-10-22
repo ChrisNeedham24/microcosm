@@ -237,6 +237,7 @@ class Menu:
                             pyxel.text(80, 40, "ELIMINATION", pyxel.COLOR_RED)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
                             pyxel.text(30, 60, "Take control of all settlements", pyxel.COLOR_WHITE)
+                            self.draw_paragraph(30, 60, "Take control of all settlements", 36)
                             pyxel.line(24, 70, 175, 70, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 75, """Like any strong leader, you want the best for your people.
                                                 However, constant attacks by filthy Heathens and enemy troops are
@@ -248,8 +249,7 @@ class Menu:
                         case VictoryType.JUBILATION:
                             pyxel.text(80, 40, "JUBILATION", pyxel.COLOR_GREEN)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 60, "Maintain 100% satisfaction in 5+", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 66, "settlements for 25 turns", pyxel.COLOR_WHITE)
+                            self.draw_paragraph(30, 60, "Maintain 100% satisfaction in 5+ settlements for 25 turns", 36)
                             pyxel.line(24, 76, 175, 76, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 81, """Your rule as leader is solid, your subjects faithful. But
                                                 there is something missing. Your subjects, while not rebellious, do not
@@ -263,7 +263,7 @@ class Menu:
                         case VictoryType.GLUTTONY:
                             pyxel.text(84, 40, "GLUTTONY", pyxel.COLOR_GREEN)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 60, "Reach level 10 in 10+ settlements", pyxel.COLOR_WHITE)
+                            self.draw_paragraph(30, 60, "Reach level 10 in 10+ settlements", 36)
                             pyxel.line(24, 70, 175, 70, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 75, """There is nothing more satisfying as a leader than tucking
                                                 into a generous meal prepared by your servants. But as a benevolent
@@ -278,8 +278,7 @@ class Menu:
                         case VictoryType.AFFLUENCE:
                             pyxel.text(82, 40, "AFFLUENCE", pyxel.COLOR_YELLOW)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 60, "Accumulate 100,000 wealth over the", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 66, "course of the game", pyxel.COLOR_WHITE)
+                            self.draw_paragraph(30, 60, "Accumulate 100,000 wealth over the course of the game", 36)
                             pyxel.line(24, 76, 175, 76, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 81, """Your empire has fallen on hard times. Recent conflicts have
                                                 not gone your way, your lands have been seized, and your treasuries are
@@ -294,9 +293,8 @@ class Menu:
                         case VictoryType.VIGOUR:
                             pyxel.text(88, 40, "VIGOUR", pyxel.COLOR_ORANGE)
                             pyxel.text(25, 45, "Objectives:", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 55, "Undergo the Ancient History blessing", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 65, "Construct the holy sanctum in a", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 71, "settlement", pyxel.COLOR_WHITE)
+                            self.draw_paragraph(30, 55, "Undergo the Ancient History blessing", 36)
+                            self.draw_paragraph(30, 65, "Construct the holy sanctum in a settlement", 36)
                             pyxel.line(24, 77, 175, 77, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 80, """You have always been fascinated with the bygone times of
                                                 your empire and its rich history. There is never a better time than
@@ -311,9 +309,8 @@ class Menu:
                         case VictoryType.SERENDIPITY:
                             pyxel.text(78, 40, "SERENDIPITY", pyxel.COLOR_PURPLE)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 60, "Undergo the three blessings of", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 66, "ardour: the pieces of strength,", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 72, "passion, and divinity.", pyxel.COLOR_WHITE)
+                            self.draw_paragraph(30, 60, """Undergo the three blessings of ardour: the pieces of
+                                                strength, passion, and divinity.""", 36)
                             pyxel.line(24, 82, 175, 82, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 87, """Local folklore has always said that a man of the passions
                                                 was a man unparalleled amongst his peers. You have long aspired to be
