@@ -44,6 +44,7 @@ class WikiOption(Enum):
     UNITS = "UNITS"
     BACK = "BACK"
 
+MenuOptions = SetupOption | WikiOption | MainMenuOption | VictoryType
 
 class Menu:
     """
@@ -94,8 +95,7 @@ class Menu:
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
             pyxel.text(81, 25, "Game Setup", pyxel.COLOR_WHITE)
-            pyxel.text(28, 40, "Player Faction",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.PLAYER_FACTION else pyxel.COLOR_WHITE)
+            pyxel.text(28, 40, "Player Faction", self.get_option_colour(SetupOption.PLAYER_FACTION))
             faction_offset = 50 - pow(len(self.faction_colours[self.faction_idx][0]), 1.4)
             if self.faction_idx == 0:
                 pyxel.text(100 + faction_offset, 40, f"{self.faction_colours[self.faction_idx][0]} ->",
@@ -107,8 +107,7 @@ class Menu:
                 pyxel.text(88 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0]} ->",
                            self.faction_colours[self.faction_idx][1])
             pyxel.text(26, 50, "(Press F to show more faction details)", pyxel.COLOR_WHITE)
-            pyxel.text(28, 65, "Player Count",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.PLAYER_COUNT else pyxel.COLOR_WHITE)
+            pyxel.text(28, 65, "Player Count", self.get_option_colour(SetupOption.PLAYER_COUNT))
             match self.player_count:
                 case 2:
                     pyxel.text(140, 65, "2 ->", pyxel.COLOR_WHITE)
@@ -117,26 +116,22 @@ class Menu:
                 case _:
                     pyxel.text(130, 65, f"<- {self.player_count} ->", pyxel.COLOR_WHITE)
 
-            pyxel.text(28, 85, "Biome Clustering",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.BIOME_CLUSTERING else pyxel.COLOR_WHITE)
+            pyxel.text(28, 85, "Biome Clustering", self.get_option_colour(SetupOption.BIOME_CLUSTERING))
             if self.biome_clustering_enabled:
                 pyxel.text(125, 85, "<- Enabled", pyxel.COLOR_GREEN)
             else:
                 pyxel.text(125, 85, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 105, "Fog of War",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.FOG_OF_WAR else pyxel.COLOR_WHITE)
+            pyxel.text(28, 105, "Fog of War", self.get_option_colour(SetupOption.FOG_OF_WAR))
             if self.fog_of_war_enabled:
                 pyxel.text(125, 105, "<- Enabled", pyxel.COLOR_GREEN)
             else:
                 pyxel.text(125, 105, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 125, "Climatic Effects",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.CLIMATIC_EFFECTS else pyxel.COLOR_WHITE)
+            pyxel.text(28, 125, "Climatic Effects", self.get_option_colour(SetupOption.CLIMATIC_EFFECTS))
             if self.climatic_effects_enabled:
                 pyxel.text(125, 125, "<- Enabled", pyxel.COLOR_GREEN)
             else:
                 pyxel.text(125, 125, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(81, 150, "Start Game",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.START_GAME else pyxel.COLOR_WHITE)
+            pyxel.text(81, 150, "Start Game", self.get_option_colour(SetupOption.START_GAME))
             pyxel.text(52, 160, "(Press SPACE to go back)", pyxel.COLOR_WHITE)
 
             if self.showing_faction_details:
@@ -679,34 +674,23 @@ class Menu:
                     pyxel.rectb(60, 45, 80, 110, pyxel.COLOR_WHITE)
                     pyxel.rect(61, 46, 78, 108, pyxel.COLOR_BLACK)
                     pyxel.text(92, 50, "Wiki", pyxel.COLOR_WHITE)
-                    pyxel.text(82, 65, "Victories",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.VICTORIES else pyxel.COLOR_WHITE)
-                    pyxel.text(85, 75, "Factions",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.FACTIONS else pyxel.COLOR_WHITE)
-                    pyxel.text(86, 85, "Climate",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.CLIMATE else pyxel.COLOR_WHITE)
-                    pyxel.text(82, 95, "Blessings",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.BLESSINGS else pyxel.COLOR_WHITE)
-                    pyxel.text(78, 105, "Improvements",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.IMPROVEMENTS else pyxel.COLOR_WHITE)
-                    pyxel.text(84, 115, "Projects",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.PROJECTS else pyxel.COLOR_WHITE)
-                    pyxel.text(90, 125, "Units",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.UNITS else pyxel.COLOR_WHITE)
+                    pyxel.text(82, 65, "Victories", self.get_option_colour(WikiOption.VICTORIES))
+                    pyxel.text(85, 75, "Factions", self.get_option_colour(WikiOption.FACTIONS))
+                    pyxel.text(86, 85, "Climate", self.get_option_colour(WikiOption.CLIMATE))
+                    pyxel.text(82, 95, "Blessings", self.get_option_colour(WikiOption.BLESSINGS))
+                    pyxel.text(78, 105, "Improvements", self.get_option_colour(WikiOption.IMPROVEMENTS))
+                    pyxel.text(84, 115, "Projects", self.get_option_colour(WikiOption.PROJECTS))
+                    pyxel.text(90, 125, "Units", self.get_option_colour(WikiOption.UNITS))
                     pyxel.text(
-                        92, 145, "Back", pyxel.COLOR_RED if self.wiki_option is WikiOption.BACK else pyxel.COLOR_WHITE)
+                        92, 145, "Back", self.get_option_colour(WikiOption.BACK))
         else:
             pyxel.rectb(75, 120, 50, 60, pyxel.COLOR_WHITE)
             pyxel.rect(76, 121, 48, 58, pyxel.COLOR_BLACK)
             pyxel.text(82, 125, "MICROCOSM", pyxel.COLOR_WHITE)
-            pyxel.text(85, 140, "New Game",
-                       pyxel.COLOR_RED if self.main_menu_option is MainMenuOption.NEW_GAME else pyxel.COLOR_WHITE)
-            pyxel.text(82, 150, "Load Game",
-                       pyxel.COLOR_RED if self.main_menu_option is MainMenuOption.LOAD_GAME else pyxel.COLOR_WHITE)
-            pyxel.text(92, 160, "Wiki",
-                       pyxel.COLOR_RED if self.main_menu_option is MainMenuOption.WIKI else pyxel.COLOR_WHITE)
-            pyxel.text(92, 170, "Exit",
-                       pyxel.COLOR_RED if self.main_menu_option is MainMenuOption.EXIT else pyxel.COLOR_WHITE)
+            pyxel.text(85, 140, "New Game", self.get_option_colour(MainMenuOption.NEW_GAME))
+            pyxel.text(82, 150, "Load Game", self.get_option_colour(MainMenuOption.LOAD_GAME))
+            pyxel.text(92, 160, "Wiki", self.get_option_colour(MainMenuOption.WIKI))
+            pyxel.text(92, 170, "Exit", self.get_option_colour(MainMenuOption.EXIT))
 
     def navigate(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
         """
@@ -814,9 +798,7 @@ class Menu:
         return GameConfig(self.player_count, self.faction_colours[self.faction_idx][0], self.biome_clustering_enabled,
                           self.fog_of_war_enabled, self.climatic_effects_enabled)
 
-    def next_menu_option(self,
-                         current_option: SetupOption | WikiOption | MainMenuOption | VictoryType,
-                         wrap_around: bool = False) -> None:
+    def next_menu_option(self, current_option: MenuOptions, wrap_around: bool = False) -> None:
         """
         Given a menu option, go to the next item within the list of the option's enums.
         :param current_option: The currently selected option.
@@ -835,9 +817,7 @@ class Menu:
         target_option = list(options_enum)[target_option_idx]
         self.change_menu_option(target_option)
 
-    def previous_menu_option(self,
-                             current_option: SetupOption | WikiOption | MainMenuOption | VictoryType,
-                             wrap_around: bool = False) -> None:
+    def previous_menu_option(self, current_option: MenuOptions, wrap_around: bool = False) -> None:
         """
         Given a menu option, go to the previous item within the list of the option's enums.
         :param current_option: The currently selected option.
@@ -856,8 +836,7 @@ class Menu:
         target_option = list(options_enum)[target_option_idx]
         self.change_menu_option(target_option)
 
-    def change_menu_option(self,
-                           target_option: SetupOption | WikiOption | MainMenuOption | VictoryType) -> None:
+    def change_menu_option(self, target_option: MenuOptions) -> None:
         """
         Select the given menu option.
         :param target_option: The target option to be selected.
@@ -872,6 +851,21 @@ class Menu:
                 self.main_menu_option = target_option
             case VictoryType():
                 self.victory_type = target_option
+
+    def get_option_colour(self, option: MenuOptions) -> pyxel.Colors:
+        """
+        PYDOC IS OVERRATED
+        KITFOX SUCK EGG
+        """
+        match option:
+            case SetupOption():
+                return pyxel.COLOR_RED if self.setup_option is option else pyxel.COLOR_WHITE
+            case WikiOption():
+                return pyxel.COLOR_RED if self.wiki_option is option else pyxel.COLOR_WHITE
+            case MainMenuOption():
+                return pyxel.COLOR_RED if self.main_menu_option is option else pyxel.COLOR_WHITE
+            case VictoryType():
+                return pyxel.COLOR_RED if self.victory_type is option else pyxel.COLOR_WHITE
 
     @staticmethod
     def draw_paragraph(x_start: int, y_start: int, text: str, line_length: int) -> None:
