@@ -413,28 +413,29 @@ class Game:
                 self.map_pos = (clamp(self.board.selected_unit.location[0] - 12, -1, 77),
                                 clamp(self.board.selected_unit.location[1] - 11, -1, 69))
         elif pyxel.btnp(pyxel.KEY_M):
+            units = self.players[0].units
+            filtered_units = [unit for unit in units if not unit.besieging and unit.remaining_stamina > 0]
+
             if self.game_started and self.board.overlay.can_iter_settlements_units() and \
-                    len(self.players[0].units) > 0:
+                    len(filtered_units) > 0:
                 self.board.overlay.remove_warning_if_possible()
                 if self.board.overlay.is_setl():
                     self.board.selected_settlement = None
                     self.board.overlay.toggle_settlement(None, self.players[0])
                 if self.board.selected_unit is None or isinstance(self.board.selected_unit, Heathen):
-                    self.board.selected_unit = self.players[0].units[0]
-                    self.board.overlay.toggle_unit(self.players[0].units[0])
-                elif len(self.players[0].units) > 1:
+                    self.board.selected_unit = filtered_units[0]
+                    self.board.overlay.toggle_unit(filtered_units[0])
+                elif len(filtered_units) > 1:
                     current_selected_unit = self.board.selected_unit
-                    units = self.players[0].units
-                    filtered_units = [unit for unit in units if not unit.besieging and unit.remaining_stamina > 0]
                     new_idx = 0
 
-                    if len(filtered_units) > 0:
-                        if current_selected_unit in filtered_units and \
-                                filtered_units.index(current_selected_unit) != len(filtered_units) - 1:
-                            new_idx = filtered_units.index(current_selected_unit) + 1
+                    if current_selected_unit in filtered_units and \
+                            filtered_units.index(current_selected_unit) != len(filtered_units) - 1:
+                        new_idx = filtered_units.index(current_selected_unit) + 1
 
-                        self.board.selected_unit = filtered_units[new_idx]
-                        self.board.overlay.update_unit(filtered_units[new_idx])
+                    self.board.selected_unit = filtered_units[new_idx]
+                    self.board.overlay.update_unit(filtered_units[new_idx])
+
                 self.map_pos = (clamp(self.board.selected_unit.location[0] - 12, -1, 77),
                                 clamp(self.board.selected_unit.location[1] - 11, -1, 69))
         elif pyxel.btnp(pyxel.KEY_S):
