@@ -94,6 +94,8 @@ class Game:
                     self.board.overlay.navigate_blessings(down=True)
                 elif self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(down=True)
+                elif self.board.overlay.is_controls():
+                    self.board.overlay.show_additional_controls = True
                 elif self.board.overlay.is_pause():
                     self.board.overlay.navigate_pause(down=True)
                 elif self.board.overlay.is_standard():
@@ -116,6 +118,8 @@ class Game:
                     self.board.overlay.navigate_blessings(down=False)
                 elif self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(up=True)
+                elif self.board.overlay.is_controls():
+                    self.board.overlay.show_additional_controls = False
                 elif self.board.overlay.is_pause():
                     self.board.overlay.navigate_pause(down=False)
                 elif self.board.overlay.is_standard():
@@ -279,6 +283,7 @@ class Game:
                         self.save_game()
                         self.board.overlay.has_saved = True
                     case PauseOption.CONTROLS:
+                        self.board.overlay.show_additional_controls = False
                         self.board.overlay.toggle_controls()
                     case PauseOption.QUIT:
                         self.game_started = False
@@ -405,6 +410,32 @@ class Game:
                         new_idx = current_idx + 1
                     self.board.selected_unit = self.players[0].units[new_idx]
                     self.board.overlay.update_unit(self.players[0].units[new_idx])
+                self.map_pos = (clamp(self.board.selected_unit.location[0] - 12, -1, 77),
+                                clamp(self.board.selected_unit.location[1] - 11, -1, 69))
+        elif pyxel.btnp(pyxel.KEY_M):
+            units = self.players[0].units
+            filtered_units = [unit for unit in units if not unit.besieging and unit.remaining_stamina > 0]
+
+            if self.game_started and self.board.overlay.can_iter_settlements_units() and \
+                    len(filtered_units) > 0:
+                self.board.overlay.remove_warning_if_possible()
+                if self.board.overlay.is_setl():
+                    self.board.selected_settlement = None
+                    self.board.overlay.toggle_settlement(None, self.players[0])
+                if self.board.selected_unit is None or isinstance(self.board.selected_unit, Heathen):
+                    self.board.selected_unit = filtered_units[0]
+                    self.board.overlay.toggle_unit(filtered_units[0])
+                else:
+                    current_selected_unit = self.board.selected_unit
+                    new_idx = 0
+
+                    if current_selected_unit in filtered_units and \
+                            filtered_units.index(current_selected_unit) != len(filtered_units) - 1:
+                        new_idx = filtered_units.index(current_selected_unit) + 1
+
+                    self.board.selected_unit = filtered_units[new_idx]
+                    self.board.overlay.update_unit(filtered_units[new_idx])
+
                 self.map_pos = (clamp(self.board.selected_unit.location[0] - 12, -1, 77),
                                 clamp(self.board.selected_unit.location[1] - 11, -1, 69))
         elif pyxel.btnp(pyxel.KEY_S):
