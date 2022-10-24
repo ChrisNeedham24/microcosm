@@ -425,7 +425,7 @@ class Game:
                 if self.board.selected_unit is None or isinstance(self.board.selected_unit, Heathen):
                     self.board.selected_unit = filtered_units[0]
                     self.board.overlay.toggle_unit(filtered_units[0])
-                elif len(filtered_units) > 1:
+                else:
                     current_selected_unit = self.board.selected_unit
                     new_idx = 0
 
