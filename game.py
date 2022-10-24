@@ -938,7 +938,8 @@ class Game:
                     plan_prereq = None if u.plan.prereq is None else get_blessing(u.plan.prereq.name)
                     p.units[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]), u.garrisoned,
                                         UnitPlan(u.plan.power, u.plan.max_health, u.plan.total_stamina,
-                                                 u.plan.name, plan_prereq, u.plan.cost, u.plan.can_settle),
+                                                 u.plan.name, plan_prereq, u.plan.cost, u.plan.can_settle,
+                                                 u.plan.heals),
                                         u.has_attacked, u.besieging)
                 for s in p.settlements:
                     # Make sure we remove the settlement's name so that we don't get duplicates.

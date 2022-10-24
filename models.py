@@ -251,6 +251,7 @@ class UnitPlan:
     prereq: typing.Optional[Blessing]
     cost: float  # Measured in zeal.
     can_settle: bool = False
+    heals: bool = False
 
 
 @dataclass

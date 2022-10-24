@@ -189,10 +189,13 @@ UNIT_PLANS = [
     UnitPlan(25, 25, 6, "Settler", None, 50, can_settle=True),
     UnitPlan(150, 75, 4, "Mage", BLESSINGS["beg_spl"], 50),
     UnitPlan(50, 50, 10, "Locksmith", BLESSINGS["sl_vau"], 75),
+    UnitPlan(20, 50, 6, "Shaman", BLESSINGS["beg_spl"], 75, heals=True),
     UnitPlan(200, 40, 2, "Grenadier", BLESSINGS["rud_exp"], 100),
     UnitPlan(50, 200, 2, "Flagellant", BLESSINGS["tor_tec"], 200),
     UnitPlan(150, 125, 3, "Sniper", BLESSINGS["apr_ref"], 400),
+    UnitPlan(50, 60, 8, "MediBot", BLESSINGS["rob_exp"], 500, heals=True),
     UnitPlan(150, 150, 5, "Drone", BLESSINGS["rob_exp"], 800),
+    UnitPlan(100, 75, 10, "Narcotician", BLESSINGS["brd_fan"], 1000, heals=True),
     UnitPlan(200, 200, 4, "Herculeum", BLESSINGS["met_alt"], 1200),
     UnitPlan(300, 50, 3, "Haruspex", BLESSINGS["psy_sup"], 1200),
     UnitPlan(40, 400, 2, "Fanatic", BLESSINGS["brd_fan"], 1200)
