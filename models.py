@@ -140,6 +140,7 @@ class OverlayType(Enum):
     CONSTR_NOTIF = "CONSTR_NOTIF"
     LEVEL_NOTIF = "LEVEL_NOTIF"
     ATTACK = "ATTACK"
+    HEAL = "HEAL"
     SETL_ATTACK = "SETL_ATTACK"
     SETL_CLICK = "SETL_CLICK"
     SIEGE_NOTIF = "SIEGE_NOTIF"
@@ -391,6 +392,7 @@ class HealData:
     healer: Unit
     healed: Unit
     heal_amount: float
+    original_health: float
     player_heal: bool
 
 

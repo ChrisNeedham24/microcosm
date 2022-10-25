@@ -227,6 +227,16 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(32, 15, f"Your {def_name} (-{def_dmg}) was attacked by", pyxel.COLOR_WHITE)
             pyxel.text(72, 25, f"a {def_name if overlay.attack_data.player_attack else att_name} "
                                f"(-{def_dmg if overlay.attack_data.player_attack else att_dmg})", pyxel.COLOR_WHITE)
+        if OverlayType.HEAL in overlay.showing:
+            pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
+            healer_name = overlay.heal_data.healer.plan.name
+            healed_name = overlay.heal_data.healed.plan.name
+            heal_amt = overlay.heal_data.heal_amount
+            orig_health = round(overlay.heal_data.original_health)
+            new_health = round(overlay.heal_data.healed.health)
+            pyxel.text(35, 15, f"Your {healer_name} healed your {healed_name}", pyxel.COLOR_WHITE)
+            pyxel.text(70, 25, f"by {heal_amt} ({orig_health} -> {new_health})", pyxel.COLOR_WHITE)
         # The settlement attack overlay displays the results of an attack on one of the player's settlements, or on
         # a settlement that has been attacked by the player.
         if OverlayType.SETL_ATTACK in overlay.showing:

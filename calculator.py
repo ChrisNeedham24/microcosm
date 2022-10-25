@@ -71,9 +71,10 @@ def attack(attacker: Unit | Heathen, defender: Unit | Heathen, ai=True) -> Attac
 
 
 def heal(healer: Unit, healed: Unit, ai=True) -> HealData:
+    original_health = healed.health
     healed.health = min(healed.health + healer.plan.power, healed.plan.max_health)
     healer.has_acted = True
-    return HealData(healer, healed, healer.plan.power, not ai)
+    return HealData(healer, healed, healer.plan.power, original_health, not ai)
 
 
 def attack_setl(attacker: Unit, setl: Settlement, setl_owner: Player, ai=True) -> SetlAttackData:

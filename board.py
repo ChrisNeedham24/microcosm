@@ -40,6 +40,7 @@ class Board:
         self.attack_time_bank = 0
         self.siege_time_bank = 0
         self.construction_prompt_time_bank = 0
+        self.heal_time_bank = 0
 
         self.game_config: GameConfig = cfg
         self.namer: Namer = namer
@@ -276,7 +277,7 @@ class Board:
         # button.
         if self.selected_unit is not None and self.selected_unit.plan.can_settle:
             pyxel.text(2, 189, "S: Found new settlement", pyxel.COLOR_WHITE)
-        elif self.selected_unit is not None and self.selected_unit.plan.heals:
+        elif self.selected_unit is not None and self.selected_unit.plan.heals and not self.selected_unit.has_acted:
             pyxel.text(2, 189, "L CLICK: Heal adjacent unit", pyxel.COLOR_WHITE)
         else:
             pyxel.text(2, 189, self.current_help.value, pyxel.COLOR_WHITE)
@@ -334,6 +335,11 @@ class Board:
             if self.construction_prompt_time_bank > 3:
                 self.overlay.show_auto_construction_prompt = not self.overlay.show_auto_construction_prompt
                 self.construction_prompt_time_bank = 0
+        if self.overlay.is_heal():
+            self.heal_time_bank += elapsed_time
+            if self.heal_time_bank > 3:
+                self.overlay.toggle_heal(None)
+                self.heal_time_bank = 0
 
     def generate_quads(self, biome_clustering: bool):
         """
@@ -549,6 +555,8 @@ class Board:
                                     abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
                                     abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
                                 data = heal(self.selected_unit, other_unit, ai=False)
+                                self.overlay.toggle_heal(data)
+                                self.heal_time_bank = 0
                             else:
                                 self.selected_unit = other_unit
                                 self.overlay.update_unit(other_unit)

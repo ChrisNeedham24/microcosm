@@ -1014,7 +1014,7 @@ class Game:
                 # Do another direct conversion for the heathens.
                 self.heathens.append(Heathen(h.health, h.remaining_stamina, (h.location[0], h.location[1]),
                                              UnitPlan(h.plan.power, h.plan.max_health, 2, h.plan.name, None, 0),
-                                             h.has_acted))
+                                             h.has_attacked))
 
             self.turn = save.turn
             self.until_night = save.night_status.until
