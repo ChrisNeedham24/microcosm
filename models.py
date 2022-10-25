@@ -264,7 +264,7 @@ class Unit:
     location: (float, float)
     garrisoned: bool
     plan: UnitPlan
-    has_attacked: bool = False  # Units can only attack once per turn.
+    has_acted: bool = False  # Units can only act (attack/heal) once per turn.
     besieging: bool = False
 
 
@@ -384,6 +384,14 @@ class AttackData:
     player_attack: bool
     attacker_was_killed: bool
     defender_was_killed: bool
+
+
+@dataclass
+class HealData:
+    healer: Unit
+    healed: Unit
+    heal_amount: float
+    player_heal: bool
 
 
 @dataclass

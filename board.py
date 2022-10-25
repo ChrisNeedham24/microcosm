@@ -5,7 +5,7 @@ from enum import Enum
 
 import pyxel
 
-from calculator import calculate_yield_for_quad, attack, investigate_relic
+from calculator import calculate_yield_for_quad, attack, investigate_relic, heal
 from catalogue import get_default_unit, Namer
 from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, Faction
 from overlay import Overlay
@@ -147,7 +147,7 @@ class Board:
                           (heathen.location[1] - map_pos[1]) * 8 + 4, 0, heathen_x, 60, 8, 8)
                 # Outline a heathen if the player can attack it.
                 if self.selected_unit is not None and self.selected_unit is not heathen and \
-                        not self.selected_unit.has_attacked and \
+                        not self.selected_unit.has_acted and \
                         abs(self.selected_unit.location[0] - heathen.location[0]) <= 1 and \
                         abs(self.selected_unit.location[1] - heathen.location[1]) <= 1:
                     pyxel.rectb((heathen.location[0] - map_pos[0]) * 8 + 4,
@@ -276,6 +276,8 @@ class Board:
         # button.
         if self.selected_unit is not None and self.selected_unit.plan.can_settle:
             pyxel.text(2, 189, "S: Found new settlement", pyxel.COLOR_WHITE)
+        elif self.selected_unit is not None and self.selected_unit.plan.heals:
+            pyxel.text(2, 189, "L CLICK: Heal adjacent unit", pyxel.COLOR_WHITE)
         else:
             pyxel.text(2, 189, self.current_help.value, pyxel.COLOR_WHITE)
         if self.game_config.climatic_effects:
@@ -517,38 +519,43 @@ class Board:
                     # If the player has selected one of their units and it hasn't attacked, and they've clicked on
                     # either an enemy unit or a heathen within range, attack it.
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
-                            self.selected_unit in player.units and not self.selected_unit.has_attacked and \
-                            (any((to_attack := heathen).location == (adj_x, adj_y) for heathen in heathens) or
-                             any((to_attack := unit).location == (adj_x, adj_y) for unit in all_units)):
-                        if self.selected_unit is not to_attack and to_attack not in player.units and \
-                                abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
-                                abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
-                            data = attack(self.selected_unit, to_attack, ai=False)
+                            self.selected_unit in player.units and not self.selected_unit.has_acted and \
+                            (any((other_unit := heathen).location == (adj_x, adj_y) for heathen in heathens) or
+                             any((other_unit := unit).location == (adj_x, adj_y) for unit in all_units)):
+                        if self.selected_unit is not other_unit and other_unit not in player.units and \
+                                abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
+                                abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
+                            data = attack(self.selected_unit, other_unit, ai=False)
                             # Destroy the player's unit if it died.
                             if self.selected_unit.health <= 0:
                                 player.units.remove(self.selected_unit)
                                 self.selected_unit = None
                                 self.overlay.toggle_unit(None)
                             # Destroy the heathen/enemy unit if it died.
-                            if to_attack.health <= 0:
-                                if to_attack in heathens:
-                                    heathens.remove(to_attack)
+                            if other_unit.health <= 0:
+                                if other_unit in heathens:
+                                    heathens.remove(other_unit)
                                 else:
                                     for p in all_players:
-                                        if to_attack in p.units:
-                                            p.units.remove(to_attack)
+                                        if other_unit in p.units:
+                                            p.units.remove(other_unit)
                                             break
                             # Show the attack results.
                             self.overlay.toggle_attack(data)
                             self.attack_time_bank = 0
                         # However, if the player clicked on another of their units, select that rather than attacking.
-                        elif to_attack in player.units:
-                            self.selected_unit = to_attack
-                            self.overlay.update_unit(to_attack)
+                        elif other_unit in player.units:
+                            if self.selected_unit is not other_unit and self.selected_unit.plan.heals and \
+                                    abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
+                                    abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
+                                data = heal(self.selected_unit, other_unit, ai=False)
+                            else:
+                                self.selected_unit = other_unit
+                                self.overlay.update_unit(other_unit)
                     # If the player has selected one of their units and it hasn't attacked, and the player clicks on an
                     # enemy settlement within range, bring up the overlay to prompt the player on their action.
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
-                            self.selected_unit in player.units and not self.selected_unit.has_attacked and \
+                            self.selected_unit in player.units and not self.selected_unit.has_acted and \
                             any((to_attack := setl).location == (adj_x, adj_y) for setl in other_setls):
                         if abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
                                 abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
