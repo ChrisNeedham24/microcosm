@@ -365,7 +365,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(18, 14, "Remember: the siege will end if all leave!", pyxel.COLOR_RED)
             pyxel.blt(20, 120 + y_offset, 0, 8, 36, 8, 8)
             pyxel.text(30, 122 + y_offset, str(round(overlay.selected_unit.health)), pyxel.COLOR_WHITE)
-            pyxel.blt(20, 130 + y_offset, 0, 0, 36, 8, 8)
+            power_u = 40 if overlay.selected_unit.plan.heals else 0
+            pyxel.blt(20, 130 + y_offset, 0, power_u, 36, 8, 8)
             pyxel.text(30, 132 + y_offset, str(round(overlay.selected_unit.plan.power)), pyxel.COLOR_WHITE)
             pyxel.blt(20, 140 + y_offset, 0, 16, 36, 8, 8)
             pyxel.text(30, 142 + y_offset,
@@ -460,7 +461,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                                    else pyxel.COLOR_WHITE)
                         pyxel.blt(30, 42 + adj_idx * 18, 0, 8, 36, 8, 8)
                         pyxel.text(45, 42 + adj_idx * 18, str(round(unit_plan.max_health)), pyxel.COLOR_WHITE)
-                        pyxel.blt(60, 42 + adj_idx * 18, 0, 0, 36, 8, 8)
+                        power_u = 40 if unit_plan.heals else 0
+                        pyxel.blt(60, 42 + adj_idx * 18, 0, power_u, 36, 8, 8)
                         pyxel.text(75, 42 + adj_idx * 18, str(round(unit_plan.power)), pyxel.COLOR_WHITE)
                         pyxel.blt(90, 42 + adj_idx * 18, 0, 16, 36, 8, 8)
                         pyxel.text(105, 42 + adj_idx * 18, str(unit_plan.total_stamina), pyxel.COLOR_WHITE)
