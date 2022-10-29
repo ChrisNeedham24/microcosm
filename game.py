@@ -602,7 +602,7 @@ class Game:
 
                 # Reset all units in the garrison in case any were garrisoned this turn.
                 for g in setl.garrison:
-                    g.has_attacked = False
+                    g.has_acted = False
                     g.remaining_stamina = g.plan.total_stamina
                     if g.health < g.plan.max_health:
                         g.health = min(g.health + g.plan.max_health * 0.1, g.plan.max_health)
@@ -641,7 +641,7 @@ class Game:
                 # Heal the unit.
                 if unit.health < unit.plan.max_health:
                     unit.health = min(unit.health + unit.plan.max_health * 0.1, unit.plan.max_health)
-                unit.has_attacked = False
+                unit.has_acted = False
                 overall_wealth -= unit.plan.cost / 10
             # Process the current blessing, completing it if it was finished.
             if player.ongoing_blessing is not None:
@@ -969,8 +969,9 @@ class Game:
                     plan_prereq = None if u.plan.prereq is None else get_blessing(u.plan.prereq.name)
                     p.units[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]), u.garrisoned,
                                         UnitPlan(u.plan.power, u.plan.max_health, u.plan.total_stamina,
-                                                 u.plan.name, plan_prereq, u.plan.cost, u.plan.can_settle),
-                                        u.has_attacked, u.besieging)
+                                                 u.plan.name, plan_prereq, u.plan.cost, u.plan.can_settle,
+                                                 u.plan.heals),
+                                        u.has_acted, u.besieging)
                 for s in p.settlements:
                     # Make sure we remove the settlement's name so that we don't get duplicates.
                     self.namer.remove_settlement_name(s.name, s.quads[0].biome)
@@ -992,7 +993,7 @@ class Game:
                     # Also convert all units in garrisons to Unit objects.
                     for idx, u in enumerate(s.garrison):
                         s.garrison[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]),
-                                               u.garrisoned, u.plan, u.has_attacked, u.besieging)
+                                               u.garrisoned, u.plan, u.has_acted, u.besieging)
                 # We also do direct conversions to Blessing objects for the ongoing one, if there is one, as well as any
                 # previously-completed ones.
                 if p.ongoing_blessing:

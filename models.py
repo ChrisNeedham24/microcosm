@@ -140,6 +140,7 @@ class OverlayType(Enum):
     CONSTR_NOTIF = "CONSTR_NOTIF"
     LEVEL_NOTIF = "LEVEL_NOTIF"
     ATTACK = "ATTACK"
+    HEAL = "HEAL"
     SETL_ATTACK = "SETL_ATTACK"
     SETL_CLICK = "SETL_CLICK"
     SIEGE_NOTIF = "SIEGE_NOTIF"
@@ -251,6 +252,7 @@ class UnitPlan:
     prereq: typing.Optional[Blessing]
     cost: float  # Measured in zeal.
     can_settle: bool = False
+    heals: bool = False
 
 
 @dataclass
@@ -263,7 +265,7 @@ class Unit:
     location: (float, float)
     garrisoned: bool
     plan: UnitPlan
-    has_attacked: bool = False  # Units can only attack once per turn.
+    has_acted: bool = False  # Units can only act (attack/heal) once per turn.
     besieging: bool = False
 
 
@@ -383,6 +385,18 @@ class AttackData:
     player_attack: bool
     attacker_was_killed: bool
     defender_was_killed: bool
+
+
+@dataclass
+class HealData:
+    """
+    The data from a healing action that has occurred.
+    """
+    healer: Unit
+    healed: Unit
+    heal_amount: float
+    original_health: float
+    player_heal: bool
 
 
 @dataclass
