@@ -274,7 +274,8 @@ class Board:
 
         pyxel.rect(0, 184, 200, 16, pyxel.COLOR_BLACK)
         # If a unit is selected that can settle, override all other help text and alert the player as to the settle
-        # button.
+        # button. Alternatively, if a unit is selected that can heal other units, similarly alert the player as to how
+        # to heal other units.
         if self.selected_unit is not None and self.selected_unit.plan.can_settle:
             pyxel.text(2, 189, "S: Found new settlement", pyxel.COLOR_WHITE)
         elif self.selected_unit is not None and self.selected_unit.plan.heals and not self.selected_unit.has_acted:
@@ -335,6 +336,8 @@ class Board:
             if self.construction_prompt_time_bank > 3:
                 self.overlay.show_auto_construction_prompt = not self.overlay.show_auto_construction_prompt
                 self.construction_prompt_time_bank = 0
+        # If the player has healed one of their units, display the result for three seconds before disappearing, like an
+        # attack alert.
         if self.overlay.is_heal():
             self.heal_time_bank += elapsed_time
             if self.heal_time_bank > 3:
@@ -549,7 +552,8 @@ class Board:
                             # Show the attack results.
                             self.overlay.toggle_attack(data)
                             self.attack_time_bank = 0
-                        # However, if the player clicked on another of their units, select that rather than attacking.
+                        # However, if the player clicked on another of their units, either heal or select it rather than
+                        # attacking, depending on whether the currently-selected unit can heal others or not.
                         elif other_unit in player.units:
                             if self.selected_unit is not other_unit and self.selected_unit.plan.heals and \
                                     abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \

@@ -71,6 +71,13 @@ def attack(attacker: Unit | Heathen, defender: Unit | Heathen, ai=True) -> Attac
 
 
 def heal(healer: Unit, healed: Unit, ai=True) -> HealData:
+    """
+    Execute a healing action between the two supplied units.
+    :param healer: The unit healing the other.
+    :param healed: The unit being healed.
+    :param ai: Whether the healing action was by an AI player.
+    :return: A HealData object summarising the results of the healing action.
+    """
     original_health = healed.health
     healed.health = min(healed.health + healer.plan.power, healed.plan.max_health)
     healer.has_acted = True

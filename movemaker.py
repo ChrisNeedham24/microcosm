@@ -288,7 +288,8 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool):
                 setl.current_work = Construction(most_harvest[2])
         else:
             # Aggressive AIs will, in most cases, pick the available unit with the most power, if the settlement level
-            # is high enough.
+            # is high enough. However, if they do not have an acceptable number of healer units (20% of total), one of
+            # those will be selected instead.
             match player.ai_playstyle.attacking:
                 case AttackPlaystyle.AGGRESSIVE:
                     if len(player.units) < setl.level:
@@ -303,9 +304,10 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool):
                         setl.current_work = Construction(most_power[1])
                     else:
                         setl.current_work = Construction(ideal)
-                # Defensive AIs will pick the available unit with the most health if they are lacking in units.
-                # Alternatively, they will choose the improvement that yields the most strength for the settlement, if
-                # there is one, otherwise, they will choose the 'ideal' construction.
+                # If they are lacking in units, defensive AIs will pick either the available unit with the most health
+                # or a healer unit if they do not have enough (50% of total). Alternatively, they will choose the
+                # improvement that yields the most strength for the settlement, if there is one, otherwise, they will
+                # choose the 'ideal' construction.
                 case AttackPlaystyle.DEFENSIVE:
                     if len(player.units) * 2 < setl.level:
                         existing_healers = [u for u in player.units if u.plan.heals]
@@ -328,6 +330,55 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool):
                 # Neutral AIs will always choose the 'ideal' construction.
                 case _:
                     setl.current_work = Construction(ideal)
+
+
+def search_for_relics_or_move(unit: Unit,
+                              quads: typing.List[typing.List[Quad]],
+                              player: Player,
+                              other_units: typing.List[Unit],
+                              all_setls: typing.List[Settlement],
+                              cfg: GameConfig) -> None:
+    """
+    Units that have no action to take can look for relics, or just simply move randomly.
+    :param unit: The unit to move.
+    :param quads: The game quads.
+    :param player: The current AI player.
+    :param other_units: All the other units in the game.
+    :param all_setls: All the settlements in the game.
+    :param cfg: The current game configuration.
+    """
+    # The range in which a unit can investigate is actually further than its remaining stamina, as you only
+    # have to be next to a relic to investigate it.
+    investigate_range = unit.remaining_stamina + 1
+    for i in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
+        for j in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
+            if 0 <= i <= 89 and 0 <= j <= 99 and quads[i][j].is_relic:
+                first_resort: (int, int)
+                second_resort = j, i + 1
+                third_resort = j, i - 1
+                if j - unit.location[0] < 0:
+                    first_resort = j + 1, i
+                else:
+                    first_resort = j - 1, i
+                found_valid_loc = False
+                for loc in [first_resort, second_resort, third_resort]:
+                    if not any(u.location == loc for u in player.units) and \
+                            not any(other_u.location == loc for other_u in other_units) and \
+                            not any(setl.location == loc for setl in all_setls):
+                        unit.location = loc
+                        found_valid_loc = True
+                        break
+                unit.remaining_stamina = 0
+                if found_valid_loc:
+                    investigate_relic(player, unit, (j, i), cfg)
+                    quads[i][j].is_relic = False
+                    return
+    # We only get to this point if a valid relic was not found.
+    x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
+    rem_movement = unit.remaining_stamina - abs(x_movement)
+    y_movement = random.choice([-rem_movement, rem_movement])
+    unit.location = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
+    unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
 
 class MoveMaker:
@@ -444,6 +495,8 @@ class MoveMaker:
                     new_settl.max_strength /= 2
                 player.settlements.append(new_settl)
                 player.units.remove(unit)
+        # If the unit is a healer, look around for any friendly units within range that aren't at full health. If one is
+        # found, move next to it and heal it. Otherwise, just look for relics or move randomly.
         elif unit.plan.heals:
             within_range: typing.Optional[Unit] = None
             for player_u in player.units:
@@ -453,6 +506,9 @@ class MoveMaker:
                     within_range = player_u
                     break
             if within_range is not None:
+                # Now that we have determined that there is another unit for our unit to heal, we need to work out where
+                # we will move our unit to. There are three options for this, directly to the sides of the unit, below
+                # the unit, or above the unit.
                 first_resort: (int, int)
                 second_resort = within_range.location[0], within_range.location[1] + 1
                 third_resort = within_range.location[0], within_range.location[1] - 1
@@ -461,6 +517,7 @@ class MoveMaker:
                 else:
                     first_resort = within_range.location[0] - 1, within_range.location[1]
                 found_valid_loc = False
+                # We have to ensure that no other units or settlements are in the location we intend to move to.
                 for loc in [first_resort, second_resort, third_resort]:
                     if not any(u.location == loc for u in player.units) and \
                             not any(other_u.location == loc for other_u in other_units) and \
@@ -469,42 +526,12 @@ class MoveMaker:
                         found_valid_loc = True
                         break
                 unit.remaining_stamina = 0
+                # Assuming we found a valid location, the healing can take place.
                 if found_valid_loc:
                     heal(unit, within_range)
             # If there's nothing within range, look for relics or just move randomly.
             else:
-                # The range in which a unit can investigate is actually further than its remaining stamina, as you only
-                # have to be next to a relic to investigate it.
-                investigate_range = unit.remaining_stamina + 1
-                for i in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
-                    for j in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
-                        if 0 <= i <= 89 and 0 <= j <= 99 and quads[i][j].is_relic:
-                            first_resort: (int, int)
-                            second_resort = j, i + 1
-                            third_resort = j, i - 1
-                            if j - unit.location[0] < 0:
-                                first_resort = j + 1, i
-                            else:
-                                first_resort = j - 1, i
-                            found_valid_loc = False
-                            for loc in [first_resort, second_resort, third_resort]:
-                                if not any(u.location == loc for u in player.units) and \
-                                        not any(other_u.location == loc for other_u in other_units) and \
-                                        not any(setl.location == loc for setl in all_setls):
-                                    unit.location = loc
-                                    found_valid_loc = True
-                                    break
-                            unit.remaining_stamina = 0
-                            if found_valid_loc:
-                                investigate_relic(player, unit, (j, i), cfg)
-                                quads[i][j].is_relic = False
-                                return
-                # We only get to this point if a valid relic was not found.
-                x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
-                rem_movement = unit.remaining_stamina - abs(x_movement)
-                y_movement = random.choice([-rem_movement, rem_movement])
-                unit.location = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
-                unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
+                search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)
         else:
             attack_over_siege = True  # If False, the unit will siege the settlement.
             within_range: typing.Optional[Unit | Settlement] = None
@@ -635,35 +662,4 @@ class MoveMaker:
                                 self.board_ref.overlay.toggle_siege_notif(within_range, player)
             # If there's nothing within range, look for relics or just move randomly.
             else:
-                # The range in which a unit can investigate is actually further than its remaining stamina, as you only
-                # have to be next to a relic to investigate it.
-                investigate_range = unit.remaining_stamina + 1
-                for i in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
-                    for j in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
-                        if 0 <= i <= 89 and 0 <= j <= 99 and quads[i][j].is_relic:
-                            first_resort: (int, int)
-                            second_resort = j, i + 1
-                            third_resort = j, i - 1
-                            if j - unit.location[0] < 0:
-                                first_resort = j + 1, i
-                            else:
-                                first_resort = j - 1, i
-                            found_valid_loc = False
-                            for loc in [first_resort, second_resort, third_resort]:
-                                if not any(u.location == loc for u in player.units) and \
-                                        not any(other_u.location == loc for other_u in other_units) and \
-                                        not any(setl.location == loc for setl in all_setls):
-                                    unit.location = loc
-                                    found_valid_loc = True
-                                    break
-                            unit.remaining_stamina = 0
-                            if found_valid_loc:
-                                investigate_relic(player, unit, (j, i), cfg)
-                                quads[i][j].is_relic = False
-                                return
-                # We only get to this point if a valid relic was not found.
-                x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
-                rem_movement = unit.remaining_stamina - abs(x_movement)
-                y_movement = random.choice([-rem_movement, rem_movement])
-                unit.location = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
-                unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
+                search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)

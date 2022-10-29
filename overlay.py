@@ -38,7 +38,7 @@ class Overlay:
         self.completed_blessing: typing.Optional[Blessing] = None
         self.completed_constructions: typing.List[CompletedConstruction] = []
         self.levelled_up_settlements: typing.List[Settlement] = []
-        # Data to display from attacks.
+        # Data to display from attacks or healing actions.
         self.attack_data: typing.Optional[AttackData] = None
         self.heal_data: typing.Optional[HealData] = None
         self.setl_attack_data: typing.Optional[SetlAttackData] = None
@@ -443,8 +443,12 @@ class Overlay:
         return OverlayType.ATTACK in self.showing
 
     def toggle_heal(self, heal_data: typing.Optional[HealData]):
+        """
+        Toggle the heal overlay.
+        :param heal_data: The data for the overlay to display.
+        """
         if OverlayType.HEAL in self.showing:
-            # We need this if-else in order to update attacks if they occur multiple times within the window.
+            # We need this if-else in order to update healing actions if they occur multiple times within the window.
             if heal_data is None:
                 self.showing.remove(OverlayType.HEAL)
             else:
@@ -454,6 +458,10 @@ class Overlay:
             self.heal_data = heal_data
 
     def is_heal(self):
+        """
+        Returns whether the heal overlay is currently being displayed.
+        :return: Whether the heal overlay is currently being displayed.
+        """
         return OverlayType.HEAL in self.showing
 
     def toggle_setl_attack(self, attack_data: typing.Optional[SetlAttackData]):

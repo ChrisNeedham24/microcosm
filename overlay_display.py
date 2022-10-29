@@ -227,6 +227,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(32, 15, f"Your {def_name} (-{def_dmg}) was attacked by", pyxel.COLOR_WHITE)
             pyxel.text(72, 25, f"a {def_name if overlay.attack_data.player_attack else att_name} "
                                f"(-{def_dmg if overlay.attack_data.player_attack else att_dmg})", pyxel.COLOR_WHITE)
+        # The heal overlay displays the results of a healing action that occurred involving one of the player's units.
         if OverlayType.HEAL in overlay.showing:
             pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
             pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)

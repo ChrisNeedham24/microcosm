@@ -389,6 +389,9 @@ class AttackData:
 
 @dataclass
 class HealData:
+    """
+    The data from a healing action that has occurred.
+    """
     healer: Unit
     healed: Unit
     heal_amount: float
