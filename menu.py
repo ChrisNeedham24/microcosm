@@ -219,8 +219,7 @@ class Menu:
                     pyxel.text(150, 35 + (idx - self.load_game_boundaries[0]) * 10, "Load",
                                pyxel.COLOR_RED if self.save_idx is idx else pyxel.COLOR_WHITE)
             if self.load_game_boundaries[1] != len(self.saves) - 1:
-                pyxel.text(147, 135, "More", pyxel.COLOR_WHITE)
-                pyxel.text(147, 141, "down!", pyxel.COLOR_WHITE)
+                self.draw_paragraph(152, 155, "More down!", 5)
                 pyxel.blt(167, 136, 0, 0, 76, 8, 8)
             pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
         elif self.in_wiki:
@@ -568,8 +567,7 @@ class Menu:
                                 pyxel.text(28, 63 + adj_idx * 25, "victory", pyxel.COLOR_GREEN)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                     if self.blessing_boundaries[1] != len(BLESSINGS) - 1:
-                        pyxel.text(152, 155, "More", pyxel.COLOR_WHITE)
-                        pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
+                        self.draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case WikiOption.IMPROVEMENTS:
                     pyxel.load("resources/sprites.pyxres")
@@ -586,42 +584,30 @@ class Menu:
                             pyxel.text(160, 50 + adj_idx * 25, str(imp.cost), pyxel.COLOR_WHITE)
                             pyxel.text(20, 57 + adj_idx * 25, str(imp.description), pyxel.COLOR_WHITE)
                             effects = 0
-                            if imp.effect.wealth != 0:
-                                sign = "+" if imp.effect.wealth > 0 else "-"
-                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25,
-                                           f"{sign}{abs(imp.effect.wealth)}", pyxel.COLOR_YELLOW)
+                            if (wealth := imp.effect.wealth) != 0:
+                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25, f"{wealth:+}", pyxel.COLOR_YELLOW)
                                 effects += 1
-                            if imp.effect.harvest != 0:
-                                sign = "+" if imp.effect.harvest > 0 else "-"
-                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25,
-                                           f"{sign}{abs(imp.effect.harvest)}", pyxel.COLOR_GREEN)
+                            if (harvest := imp.effect.harvest) != 0:
+                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25, f"{harvest:+}", pyxel.COLOR_GREEN)
                                 effects += 1
-                            if imp.effect.zeal != 0:
-                                sign = "+" if imp.effect.zeal > 0 else "-"
-                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25,
-                                           f"{sign}{abs(imp.effect.zeal)}", pyxel.COLOR_RED)
+                            if (zeal := imp.effect.zeal) != 0:
+                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25, f"{zeal:+}", pyxel.COLOR_RED)
                                 effects += 1
-                            if imp.effect.fortune != 0:
-                                sign = "+" if imp.effect.fortune > 0 else "-"
-                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25,
-                                           f"{sign}{abs(imp.effect.fortune)}", pyxel.COLOR_PURPLE)
+                            if (fortune := imp.effect.fortune) != 0:
+                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25, f"{fortune:+}", pyxel.COLOR_PURPLE)
                                 effects += 1
-                            if imp.effect.strength != 0:
-                                sign = "+" if imp.effect.strength > 0 else "-"
+                            if (strength := imp.effect.strength) != 0:
                                 pyxel.blt(20 + effects * 25, 64 + adj_idx * 25, 0, 0, 28, 8, 8)
-                                pyxel.text(30 + effects * 25, 64 + adj_idx * 25,
-                                           f"{sign}{abs(imp.effect.strength)}", pyxel.COLOR_WHITE)
+                                pyxel.text(30 + effects * 25, 64 + adj_idx * 25, f"{strength:+}", pyxel.COLOR_WHITE)
                                 effects += 1
-                            if imp.effect.satisfaction != 0:
-                                sign = "+" if imp.effect.satisfaction > 0 else "-"
-                                satisfaction_u = 8 if imp.effect.satisfaction >= 0 else 16
+                            if (satisfaction := imp.effect.satisfaction) != 0:
+                                satisfaction_u = 8 if satisfaction >= 0 else 16
                                 pyxel.blt(20 + effects * 25, 64 + adj_idx * 25, 0, satisfaction_u, 28, 8, 8)
                                 pyxel.text(30 + effects * 25, 64 + adj_idx * 25,
-                                           f"{sign}{abs(imp.effect.satisfaction)}", pyxel.COLOR_WHITE)
+                                           f"{satisfaction:+}", pyxel.COLOR_WHITE)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                     if self.improvement_boundaries[1] != len(IMPROVEMENTS) - 1:
-                        pyxel.text(152, 155, "More", pyxel.COLOR_WHITE)
-                        pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
+                        self.draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case WikiOption.PROJECTS:
                     pyxel.load("resources/sprites.pyxres")
@@ -663,8 +649,7 @@ class Menu:
                             pyxel.text(132, 50 + adj_idx * 10, str(unit.total_stamina), pyxel.COLOR_WHITE)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                     if self.unit_boundaries[1] != len(UNIT_PLANS) - 1:
-                        pyxel.text(152, 155, "More", pyxel.COLOR_WHITE)
-                        pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
+                        self.draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case _:
                     pyxel.rectb(60, 45, 80, 110, pyxel.COLOR_WHITE)
@@ -677,8 +662,7 @@ class Menu:
                     pyxel.text(78, 105, "Improvements", self.get_option_colour(WikiOption.IMPROVEMENTS))
                     pyxel.text(84, 115, "Projects", self.get_option_colour(WikiOption.PROJECTS))
                     pyxel.text(90, 125, "Units", self.get_option_colour(WikiOption.UNITS))
-                    pyxel.text(
-                        92, 145, "Back", self.get_option_colour(WikiOption.BACK))
+                    pyxel.text(92, 145, "Back", self.get_option_colour(WikiOption.BACK))
         else:
             pyxel.rectb(75, 120, 50, 60, pyxel.COLOR_WHITE)
             pyxel.rect(76, 121, 48, 58, pyxel.COLOR_BLACK)
@@ -858,18 +842,6 @@ class Menu:
             case VictoryType(): field_to_check = self.victory_type
 
         return pyxel.COLOR_RED if field_to_check is option else pyxel.COLOR_WHITE
-
-    @staticmethod
-    def draw_improvement_stats(x_start: int, y_start: int, imp: Improvement) -> None:
-        """
-        PYDOC IS OVERRATED
-        KITFOX SUCK EGG
-        I want a better way to draw the improvement bar in the wiki menu
-        TODO: need to somehow iterate over effect attributes?
-        """
-        for effect in imp.effect:
-            pyxel.text(x_start, y_start, effect.wealth, pyxel.COLOR_YELLOW)
-            x_start += 25
 
     @staticmethod
     def draw_paragraph(x_start: int, y_start: int, text: str, line_length: int) -> None:
