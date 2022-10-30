@@ -1,12 +1,13 @@
 import random
-import typing
+from math import ceil
 from enum import Enum
+from typing import List, Optional, Tuple
 
 import pyxel
 
 from calculator import clamp
 from catalogue import BLESSINGS, get_unlockable_improvements, IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS
-from models import GameConfig, VictoryType, Faction, ProjectType
+from models import GameConfig, VictoryType, Faction, ProjectType, Improvement
 
 
 class MainMenuOption(Enum):
@@ -56,7 +57,7 @@ class Menu:
         """
         self.main_menu_option = MainMenuOption.NEW_GAME
         random.seed()
-        self.image = random.randint(0, 5)
+        self.image_bank = random.randint(0, 5)
         self.in_game_setup = False
         self.loading_game = False
         self.in_wiki = False
@@ -66,8 +67,8 @@ class Menu:
         self.blessing_boundaries = 0, 3
         self.improvement_boundaries = 0, 3
         self.unit_boundaries = 0, 9
-        self.saves: typing.List[str] = []
-        self.save_idx: typing.Optional[int] = 0
+        self.saves: List[str] = []
+        self.save_idx: Optional[int] = 0
         self.setup_option = SetupOption.PLAYER_FACTION
         self.faction_idx = 0
         self.player_count = 2
@@ -75,7 +76,7 @@ class Menu:
         self.fog_of_war_enabled = True
         self.climatic_effects_enabled = True
         self.showing_night = False
-        self.faction_colours: typing.List[typing.Tuple[Faction, int]] = list(FACTION_COLOURS.items())
+        self.faction_colours: List[Tuple[Faction, int]] = list(FACTION_COLOURS.items())
         self.showing_faction_details = False
         self.faction_wiki_idx = 0
         self.load_game_boundaries = 0, 9
@@ -84,13 +85,11 @@ class Menu:
         """
         Draws the menu, based on where we are in it.
         """
-        # Draw the background.
-        if self.image < 3:
-            pyxel.load("resources/background.pyxres")
-            pyxel.blt(0, 0, self.image, 0, 0, 200, 200)
-        else:
-            pyxel.load("resources/background2.pyxres")
-            pyxel.blt(0, 0, self.image - 3, 0, 0, 200, 200)
+        # Draw the background. Based on the image bank number, we determine which resource file should be used.
+        background_path = f"resources/background{ceil((self.image_bank + 1) / 3)}.pyxres"
+        pyxel.load(background_path)
+        pyxel.blt(0, 0, self.image_bank % 3, 0, 0, 200, 200)
+
         if self.in_game_setup:
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
@@ -557,7 +556,7 @@ class Menu:
                             pyxel.text(20, 57 + adj_idx * 25, str(blessing.description), pyxel.COLOR_WHITE)
                             imps = get_unlockable_improvements(blessing)
                             pyxel.text(20, 64 + adj_idx * 25, "U:", pyxel.COLOR_WHITE)
-                            unlocked_names: typing.List[str] = []
+                            unlocked_names: List[str] = []
                             if len(imps) > 0:
                                 for imp in imps:
                                     unlocked_names.append(imp.name)
@@ -840,29 +839,37 @@ class Menu:
         """
         # Based on the enum type of the target option, figure out which corresponding field we need to change.
         match target_option:
-            case SetupOption():
-                self.setup_option = target_option
-            case WikiOption():
-                self.wiki_option = target_option
-            case MainMenuOption():
-                self.main_menu_option = target_option
-            case VictoryType():
-                self.victory_type = target_option
+            case SetupOption(): self.setup_option = target_option
+            case WikiOption(): self.wiki_option = target_option
+            case MainMenuOption(): self.main_menu_option = target_option
+            case VictoryType(): self.victory_type = target_option
 
     def get_option_colour(self, option: MenuOptions) -> pyxel.Colors:
         """
-        PYDOC IS OVERRATED
-        KITFOX SUCK EGG
+        Determine which colour to use for drawing menu options. RED if the option is currently selected by the user,
+        and WHITE otherwise.
+        :param option: the menu option to pick the colour for.
+        :return: The appropriate colour.
         """
         match option:
-            case SetupOption():
-                return pyxel.COLOR_RED if self.setup_option is option else pyxel.COLOR_WHITE
-            case WikiOption():
-                return pyxel.COLOR_RED if self.wiki_option is option else pyxel.COLOR_WHITE
-            case MainMenuOption():
-                return pyxel.COLOR_RED if self.main_menu_option is option else pyxel.COLOR_WHITE
-            case VictoryType():
-                return pyxel.COLOR_RED if self.victory_type is option else pyxel.COLOR_WHITE
+            case SetupOption(): field_to_check = self.setup_option
+            case WikiOption(): field_to_check = self.wiki_option
+            case MainMenuOption(): field_to_check = self.main_menu_option
+            case VictoryType(): field_to_check = self.victory_type
+
+        return pyxel.COLOR_RED if field_to_check is option else pyxel.COLOR_WHITE
+
+    @staticmethod
+    def draw_improvement_stats(x_start: int, y_start: int, imp: Improvement) -> None:
+        """
+        PYDOC IS OVERRATED
+        KITFOX SUCK EGG
+        I want a better way to draw the improvement bar in the wiki menu
+        TODO: need to somehow iterate over effect attributes?
+        """
+        for effect in imp.effect:
+            pyxel.text(x_start, y_start, effect.wealth, pyxel.COLOR_YELLOW)
+            x_start += 25
 
     @staticmethod
     def draw_paragraph(x_start: int, y_start: int, text: str, line_length: int) -> None:
