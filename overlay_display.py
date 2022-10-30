@@ -227,6 +227,17 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(32, 15, f"Your {def_name} (-{def_dmg}) was attacked by", pyxel.COLOR_WHITE)
             pyxel.text(72, 25, f"a {def_name if overlay.attack_data.player_attack else att_name} "
                                f"(-{def_dmg if overlay.attack_data.player_attack else att_dmg})", pyxel.COLOR_WHITE)
+        # The heal overlay displays the results of a healing action that occurred involving one of the player's units.
+        if OverlayType.HEAL in overlay.showing:
+            pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
+            healer_name = overlay.heal_data.healer.plan.name
+            healed_name = overlay.heal_data.healed.plan.name
+            heal_amt = overlay.heal_data.heal_amount
+            orig_health = round(overlay.heal_data.original_health)
+            new_health = round(overlay.heal_data.healed.health)
+            pyxel.text(35, 15, f"Your {healer_name} healed your {healed_name}", pyxel.COLOR_WHITE)
+            pyxel.text(70, 25, f"by {heal_amt} ({orig_health} -> {new_health})", pyxel.COLOR_WHITE)
         # The settlement attack overlay displays the results of an attack on one of the player's settlements, or on
         # a settlement that has been attacked by the player.
         if OverlayType.SETL_ATTACK in overlay.showing:
@@ -262,9 +273,9 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
             pyxel.text(20, 14, f"{overlay.current_settlement.name} ({overlay.current_settlement.level})",
                        overlay.current_player.colour)
-            pyxel.blt(80, 12, 0, 24 if overlay.current_settlement.under_siege_by is not None else 0, 28, 8, 8)
+            pyxel.blt(80, 12, 0, 24 if overlay.current_settlement.besieged else 0, 28, 8, 8)
             pyxel.text(90, 14, str(round(overlay.current_settlement.strength)),
-                       pyxel.COLOR_RED if overlay.current_settlement.under_siege_by is not None else pyxel.COLOR_WHITE)
+                       pyxel.COLOR_RED if overlay.current_settlement.besieged else pyxel.COLOR_WHITE)
             satisfaction_u = 8 if overlay.current_settlement.satisfaction >= 50 else 16
             pyxel.blt(105, 12, 0, satisfaction_u, 28, 8, 8)
             pyxel.text(115, 14, str(round(overlay.current_settlement.satisfaction)), pyxel.COLOR_WHITE)
@@ -324,7 +335,10 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     pyxel.text(20, 155 - y_offset, "Press C to cease.", pyxel.COLOR_WHITE)
             else:
                 pyxel.text(20, 145 - y_offset, "None", pyxel.COLOR_RED)
-                pyxel.text(20, 155 - y_offset, "Press C to add one!", pyxel.COLOR_WHITE)
+                if overlay.show_auto_construction_prompt:
+                    pyxel.text(20, 155 - y_offset, "Press A for auto!", pyxel.COLOR_WHITE)
+                else:
+                    pyxel.text(20, 155 - y_offset, "Press C to add one!", pyxel.COLOR_WHITE)
             pyxel.text(110, 134 - y_offset, "Garrison", pyxel.COLOR_RED)
             if len(overlay.current_settlement.garrison) > 0:
                 pluralisation = "s" if len(overlay.current_settlement.garrison) > 1 else ""
@@ -337,20 +351,23 @@ def display_overlay(overlay: Overlay, is_night: bool):
         # unit is the player's and they are currently placing an enemy settlement under siege.
         if OverlayType.UNIT in overlay.showing:
             y_offset = 0 if overlay.selected_unit in overlay.current_player.units else 20
-            pyxel.rectb(12, 110 + y_offset, 56, 60 - y_offset, pyxel.COLOR_WHITE)
-            pyxel.rect(13, 111 + y_offset, 54, 58 - y_offset, pyxel.COLOR_BLACK)
+            x_offset = 8 if round(overlay.selected_unit.plan.cost / 10) >= 10 and \
+                overlay.selected_unit in overlay.current_player.units else 0
+            pyxel.rectb(12, 110 + y_offset, 56 + x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 111 + y_offset, 54 + x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
             pyxel.text(20, 114 + y_offset, overlay.selected_unit.plan.name, pyxel.COLOR_WHITE)
             if overlay.selected_unit.plan.can_settle:
                 pyxel.blt(55, 113 + y_offset, 0, 24, 36, 8, 8)
-            if not isinstance(overlay.selected_unit, Heathen) and overlay.selected_unit.sieging and \
+            if not isinstance(overlay.selected_unit, Heathen) and overlay.selected_unit.besieging and \
                     overlay.selected_unit in overlay.current_player.units:
                 pyxel.blt(55, 113, 0, 32, 36, 8, 8)
                 pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
                 pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
-                pyxel.text(18, 14, "Remember: the siege will end if you move!", pyxel.COLOR_RED)
+                pyxel.text(18, 14, "Remember: the siege will end if all leave!", pyxel.COLOR_RED)
             pyxel.blt(20, 120 + y_offset, 0, 8, 36, 8, 8)
             pyxel.text(30, 122 + y_offset, str(round(overlay.selected_unit.health)), pyxel.COLOR_WHITE)
-            pyxel.blt(20, 130 + y_offset, 0, 0, 36, 8, 8)
+            power_u = 40 if overlay.selected_unit.plan.heals else 0
+            pyxel.blt(20, 130 + y_offset, 0, power_u, 36, 8, 8)
             pyxel.text(30, 132 + y_offset, str(round(overlay.selected_unit.plan.power)), pyxel.COLOR_WHITE)
             pyxel.blt(20, 140 + y_offset, 0, 16, 36, 8, 8)
             pyxel.text(30, 142 + y_offset,
@@ -359,7 +376,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             if overlay.selected_unit in overlay.current_player.units:
                 pyxel.blt(20, 150, 0, 0, 44, 8, 8)
                 pyxel.text(30, 152,
-                           f"{overlay.selected_unit.plan.cost} (-{round(overlay.selected_unit.plan.cost / 25)}/T)",
+                           f"{overlay.selected_unit.plan.cost} (-{round(overlay.selected_unit.plan.cost / 10)}/T)",
                            pyxel.COLOR_WHITE)
                 pyxel.blt(20, 160, 0, 8, 52, 8, 8)
                 pyxel.text(30, 162, "Disb. (D)", pyxel.COLOR_RED)
@@ -445,7 +462,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                                    else pyxel.COLOR_WHITE)
                         pyxel.blt(30, 42 + adj_idx * 18, 0, 8, 36, 8, 8)
                         pyxel.text(45, 42 + adj_idx * 18, str(round(unit_plan.max_health)), pyxel.COLOR_WHITE)
-                        pyxel.blt(60, 42 + adj_idx * 18, 0, 0, 36, 8, 8)
+                        power_u = 40 if unit_plan.heals else 0
+                        pyxel.blt(60, 42 + adj_idx * 18, 0, power_u, 36, 8, 8)
                         pyxel.text(75, 42 + adj_idx * 18, str(round(unit_plan.power)), pyxel.COLOR_WHITE)
                         pyxel.blt(90, 42 + adj_idx * 18, 0, 16, 36, 8, 8)
                         pyxel.text(105, 42 + adj_idx * 18, str(unit_plan.total_stamina), pyxel.COLOR_WHITE)
@@ -497,7 +515,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 wealth_per_turn += wealth_to_add
             for unit in overlay.current_player.units:
                 if not unit.garrisoned:
-                    wealth_per_turn -= unit.plan.cost / 25
+                    wealth_per_turn -= unit.plan.cost / 10
             sign = "+" if wealth_per_turn > 0 else "-"
             pyxel.text(30, 82,
                        f"{round(overlay.current_player.wealth)} ({sign}{abs(round(wealth_per_turn, 2))})",
@@ -518,11 +536,11 @@ def display_overlay(overlay: Overlay, is_night: bool):
             player_setls.sort(key=lambda s: s.level, reverse=True)
             for idx, setl in enumerate(player_setls[start_idx:end_idx]):
                 pyxel.text(30, 104 + idx * 8, f"{setl.name} ({setl.level})",
-                           pyxel.COLOR_RED if setl.under_siege_by is not None else pyxel.COLOR_WHITE)
+                           pyxel.COLOR_RED if setl.besieged else pyxel.COLOR_WHITE)
                 pyxel.text(100, 104 + idx * 8, str(round(setl.satisfaction)),
                            pyxel.COLOR_RED if setl.satisfaction < 50 else pyxel.COLOR_GREEN)
                 pyxel.text(115, 104 + idx * 8, str(round(setl.strength)),
-                           pyxel.COLOR_RED if setl.under_siege_by is not None else pyxel.COLOR_WHITE)
+                           pyxel.COLOR_RED if setl.besieged else pyxel.COLOR_WHITE)
 
                 current_work = setl.current_work
                 if current_work is not None and not isinstance(current_work.construction, Project):
@@ -669,25 +687,44 @@ def display_overlay(overlay: Overlay, is_night: bool):
                        pyxel.COLOR_RED if overlay.pause_option is PauseOption.QUIT else pyxel.COLOR_WHITE)
         # The controls overlay displays the controls that are not permanent fixtures at the bottom of the screen.
         if OverlayType.CONTROLS in overlay.showing:
-            pyxel.rectb(10, 20, 180, 144, pyxel.COLOR_WHITE)
-            pyxel.rect(11, 21, 178, 142, pyxel.COLOR_BLACK)
-            pyxel.text(80, 30, "Controls", pyxel.COLOR_WHITE)
-            pyxel.text(23, 45, "ARROWS", pyxel.COLOR_WHITE)
-            pyxel.text(83, 45, "Navigate menus/pan map", pyxel.COLOR_WHITE)
-            pyxel.text(23, 55, "CTRL + ARROWS", pyxel.COLOR_WHITE)
-            pyxel.text(83, 55, "Quickly pan the map", pyxel.COLOR_WHITE)
-            pyxel.text(23, 65, "R CLICK", pyxel.COLOR_WHITE)
-            pyxel.text(83, 65, "Show quad yield", pyxel.COLOR_WHITE)
-            pyxel.text(23, 75, "L CLICK", pyxel.COLOR_WHITE)
-            pyxel.text(83, 75, "Move/select/attack units", pyxel.COLOR_WHITE)
-            pyxel.text(23, 85, "C", pyxel.COLOR_WHITE)
-            pyxel.text(83, 85, "Add/change construction", pyxel.COLOR_WHITE)
-            pyxel.text(23, 95, "F", pyxel.COLOR_WHITE)
-            pyxel.text(83, 95, "Add/change blessing", pyxel.COLOR_WHITE)
-            pyxel.text(23, 105, "D", pyxel.COLOR_WHITE)
-            pyxel.text(83, 105, "Deploy/disband unit", pyxel.COLOR_WHITE)
-            pyxel.text(23, 115, "N", pyxel.COLOR_WHITE)
-            pyxel.text(83, 115, "Next song", pyxel.COLOR_WHITE)
-            pyxel.text(23, 125, "B", pyxel.COLOR_WHITE)
-            pyxel.text(83, 125, "Buyout construction", pyxel.COLOR_WHITE)
-            pyxel.text(54, 150, "Press SPACE to go back.", pyxel.COLOR_WHITE)
+            pyxel.load("resources/sprites.pyxres")
+            if not overlay.show_additional_controls:
+                pyxel.rectb(10, 20, 180, 144, pyxel.COLOR_WHITE)
+                pyxel.rect(11, 21, 178, 142, pyxel.COLOR_BLACK)
+                pyxel.text(85, 30, "Controls", pyxel.COLOR_WHITE)
+                pyxel.text(23, 45, "ARROWS", pyxel.COLOR_WHITE)
+                pyxel.text(83, 45, "Navigate menus/pan map", pyxel.COLOR_WHITE)
+                pyxel.text(23, 55, "CTRL + ARROWS", pyxel.COLOR_WHITE)
+                pyxel.text(83, 55, "Quickly pan the map", pyxel.COLOR_WHITE)
+                pyxel.text(23, 65, "R CLICK", pyxel.COLOR_WHITE)
+                pyxel.text(83, 65, "Show quad yield", pyxel.COLOR_WHITE)
+                pyxel.text(23, 75, "L CLICK", pyxel.COLOR_WHITE)
+                pyxel.text(83, 75, "Move/select/attack units", pyxel.COLOR_WHITE)
+                pyxel.text(23, 85, "C", pyxel.COLOR_WHITE)
+                pyxel.text(83, 85, "Add/change construction", pyxel.COLOR_WHITE)
+                pyxel.text(23, 95, "F", pyxel.COLOR_WHITE)
+                pyxel.text(83, 95, "Add/change blessing", pyxel.COLOR_WHITE)
+                pyxel.text(23, 105, "D", pyxel.COLOR_WHITE)
+                pyxel.text(83, 105, "Deploy/disband unit", pyxel.COLOR_WHITE)
+                pyxel.text(23, 115, "N", pyxel.COLOR_WHITE)
+                pyxel.text(83, 115, "Next song", pyxel.COLOR_WHITE)
+                pyxel.text(23, 125, "B", pyxel.COLOR_WHITE)
+                pyxel.text(83, 125, "Buyout construction", pyxel.COLOR_WHITE)
+                pyxel.text(23, 135, "A", pyxel.COLOR_WHITE)
+                pyxel.text(83, 135, "Auto-select construction", pyxel.COLOR_WHITE)
+
+                # Down arrow
+                pyxel.blt(180, 150, 0, 0, 76, 8, 8)
+
+                pyxel.text(54, 150, "Press SPACE to go back.", pyxel.COLOR_WHITE)
+            else:
+                pyxel.rectb(10, 20, 180, 144, pyxel.COLOR_WHITE)
+                pyxel.rect(11, 21, 178, 142, pyxel.COLOR_BLACK)
+                pyxel.text(85, 30, "Controls", pyxel.COLOR_WHITE)
+                pyxel.text(23, 45, "M", pyxel.COLOR_WHITE)
+                pyxel.text(83, 45, "Go through movable units", pyxel.COLOR_WHITE)
+
+                # Up arrow
+                pyxel.blt(180, 150, 0, 8, 76, 8, 8)
+
+                pyxel.text(54, 150, "Press SPACE to go back.", pyxel.COLOR_WHITE)

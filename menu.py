@@ -635,14 +635,16 @@ class Menu:
                     pyxel.text(90, 30, "Units", pyxel.COLOR_WHITE)
                     pyxel.text(20, 40, "Name", pyxel.COLOR_WHITE)
                     pyxel.blt(90, 39, 0, 8, 36, 8, 8)
-                    pyxel.blt(110, 39, 0, 0, 36, 8, 8)
+                    pyxel.blt(105, 39, 0, 0, 36, 8, 8)
+                    pyxel.blt(115, 39, 0, 40, 36, 8, 8)
                     pyxel.blt(130, 39, 0, 16, 36, 8, 8)
                     pyxel.text(155, 40, "Cost", pyxel.COLOR_WHITE)
                     pyxel.blt(173, 39, 0, 16, 44, 8, 8)
                     for idx, unit in enumerate(UNIT_PLANS):
                         if self.unit_boundaries[0] <= idx <= self.unit_boundaries[1]:
                             adj_idx = idx - self.unit_boundaries[0]
-                            pyxel.text(20, 50 + adj_idx * 10, str(unit.name), pyxel.COLOR_WHITE)
+                            pyxel.text(20, 50 + adj_idx * 10, str(unit.name),
+                                       pyxel.COLOR_GREEN if unit.heals else pyxel.COLOR_WHITE)
                             pyxel.text(160, 50 + adj_idx * 10, str(unit.cost), pyxel.COLOR_WHITE)
                             pyxel.text(88, 50 + adj_idx * 10, str(unit.max_health), pyxel.COLOR_WHITE)
                             pyxel.text(108, 50 + adj_idx * 10, str(unit.power), pyxel.COLOR_WHITE)

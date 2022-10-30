@@ -2,7 +2,7 @@ import typing
 
 from models import Settlement, Player, Improvement, Unit, Blessing, CompletedConstruction, UnitPlan, Heathen, \
     AttackData, SetlAttackData, Victory, InvestigationResult, OverlayType, SettlementAttackType, PauseOption, Project, \
-    ConstructionMenu
+    ConstructionMenu, HealData
 
 
 class Overlay:
@@ -38,8 +38,9 @@ class Overlay:
         self.completed_blessing: typing.Optional[Blessing] = None
         self.completed_constructions: typing.List[CompletedConstruction] = []
         self.levelled_up_settlements: typing.List[Settlement] = []
-        # Data to display from attacks.
+        # Data to display from attacks or healing actions.
         self.attack_data: typing.Optional[AttackData] = None
+        self.heal_data: typing.Optional[HealData] = None
         self.setl_attack_data: typing.Optional[SetlAttackData] = None
         # The option that the player has selected when attacking a settlement.
         self.setl_attack_opt: typing.Optional[SettlementAttackType] = None
@@ -55,6 +56,8 @@ class Overlay:
         self.investigation_result: typing.Optional[InvestigationResult] = None
         self.night_beginning: bool = False
         self.settlement_status_boundaries: typing.Tuple[int, int] = 0, 7
+        self.show_auto_construction_prompt: bool = False
+        self.show_additional_controls: bool = False
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
@@ -438,6 +441,28 @@ class Overlay:
         :return: Whether the attack overlay is being displayed.
         """
         return OverlayType.ATTACK in self.showing
+
+    def toggle_heal(self, heal_data: typing.Optional[HealData]):
+        """
+        Toggle the heal overlay.
+        :param heal_data: The data for the overlay to display.
+        """
+        if OverlayType.HEAL in self.showing:
+            # We need this if-else in order to update healing actions if they occur multiple times within the window.
+            if heal_data is None:
+                self.showing.remove(OverlayType.HEAL)
+            else:
+                self.heal_data = heal_data
+        else:
+            self.showing.append(OverlayType.HEAL)
+            self.heal_data = heal_data
+
+    def is_heal(self):
+        """
+        Returns whether the heal overlay is currently being displayed.
+        :return: Whether the heal overlay is currently being displayed.
+        """
+        return OverlayType.HEAL in self.showing
 
     def toggle_setl_attack(self, attack_data: typing.Optional[SetlAttackData]):
         """

@@ -5,7 +5,7 @@ from enum import Enum
 
 import pyxel
 
-from calculator import calculate_yield_for_quad, attack, investigate_relic
+from calculator import calculate_yield_for_quad, attack, investigate_relic, heal
 from catalogue import get_default_unit, Namer
 from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, Faction
 from overlay import Overlay
@@ -39,6 +39,8 @@ class Board:
         self.help_time_bank = 0
         self.attack_time_bank = 0
         self.siege_time_bank = 0
+        self.construction_prompt_time_bank = 0
+        self.heal_time_bank = 0
 
         self.game_config: GameConfig = cfg
         self.namer: Namer = namer
@@ -146,7 +148,7 @@ class Board:
                           (heathen.location[1] - map_pos[1]) * 8 + 4, 0, heathen_x, 60, 8, 8)
                 # Outline a heathen if the player can attack it.
                 if self.selected_unit is not None and self.selected_unit is not heathen and \
-                        not self.selected_unit.has_attacked and \
+                        not self.selected_unit.has_acted and \
                         abs(self.selected_unit.location[0] - heathen.location[0]) <= 1 and \
                         abs(self.selected_unit.location[1] - heathen.location[1]) <= 1:
                     pyxel.rectb((heathen.location[0] - map_pos[0]) * 8 + 4,
@@ -195,11 +197,11 @@ class Board:
                             setl_x = 16
                         case _:
                             setl_x = 24
-                    if is_night and settlement.under_siege_by is None:
+                    if is_night and not settlement.besieged:
                         setl_x += 32
                     pyxel.blt((settlement.location[0] - map_pos[0]) * 8 + 4,
                               (settlement.location[1] - map_pos[1]) * 8 + 4, 0, setl_x,
-                              68 if settlement.under_siege_by is not None else 4, 8, 8)
+                              68 if settlement.besieged else 4, 8, 8)
 
         for player in players:
             for settlement in player.settlements:
@@ -210,11 +212,28 @@ class Board:
                         x_offset = 11 - name_len
                         base_x_pos = (settlement.location[0] - map_pos[0]) * 8
                         base_y_pos = (settlement.location[1] - map_pos[1]) * 8
-                        # Sieged settlements are displayed with a black background.
-                        if settlement.under_siege_by is not None:
+                        # Besieged settlements are displayed with a black background, along with their remaining
+                        # strength.
+                        if settlement.besieged:
                             pyxel.rect(base_x_pos - 17, base_y_pos - 8, 52, 10,
                                        pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
                             pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, player.colour)
+                            # We need to base the size of the strength container on the length of the string, so that it
+                            # is centred.
+                            strength_as_str = str(round(settlement.strength))
+                            match len(strength_as_str):
+                                case 3:
+                                    pyxel.rect(base_x_pos, base_y_pos - 16, 16, 10,
+                                               pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                    pyxel.text(base_x_pos + 2, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
+                                case 2:
+                                    pyxel.rect(base_x_pos + 3, base_y_pos - 16, 11, 10,
+                                               pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                    pyxel.text(base_x_pos + 5, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
+                                case 1:
+                                    pyxel.rect(base_x_pos + 4, base_y_pos - 16, 8, 10,
+                                               pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                    pyxel.text(base_x_pos + 7, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
                         else:
                             pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10,
                                         pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
@@ -244,7 +263,7 @@ class Board:
                         (self.selected_settlement.location[1] - map_pos[1]) * 8 - 4, 24, 24, pyxel.COLOR_WHITE)
 
         # Also display the number of units the player can move at the bottom-right of the screen.
-        movable_units = [unit for unit in players[0].units if unit.remaining_stamina > 0 and not unit.sieging]
+        movable_units = [unit for unit in players[0].units if unit.remaining_stamina > 0 and not unit.besieging]
         if len(movable_units) > 0:
             pluralisation = "s" if len(movable_units) > 1 else ""
             pyxel.rectb(150, 147, 40, 20, pyxel.COLOR_WHITE)
@@ -255,9 +274,12 @@ class Board:
 
         pyxel.rect(0, 184, 200, 16, pyxel.COLOR_BLACK)
         # If a unit is selected that can settle, override all other help text and alert the player as to the settle
-        # button.
+        # button. Alternatively, if a unit is selected that can heal other units, similarly alert the player as to how
+        # to heal other units.
         if self.selected_unit is not None and self.selected_unit.plan.can_settle:
             pyxel.text(2, 189, "S: Found new settlement", pyxel.COLOR_WHITE)
+        elif self.selected_unit is not None and self.selected_unit.plan.heals and not self.selected_unit.has_acted:
+            pyxel.text(2, 189, "L CLICK: Heal adjacent unit", pyxel.COLOR_WHITE)
         else:
             pyxel.text(2, 189, self.current_help.value, pyxel.COLOR_WHITE)
         if self.game_config.climatic_effects:
@@ -307,6 +329,20 @@ class Board:
             if self.siege_time_bank > 3:
                 self.overlay.toggle_siege_notif(None, None)
                 self.siege_time_bank = 0
+        # If the player has selected a settlement with no active construction, rotate between the two prompts every
+        # three seconds.
+        if self.overlay.is_setl() and self.selected_settlement.current_work is None:
+            self.construction_prompt_time_bank += elapsed_time
+            if self.construction_prompt_time_bank > 3:
+                self.overlay.show_auto_construction_prompt = not self.overlay.show_auto_construction_prompt
+                self.construction_prompt_time_bank = 0
+        # If the player has healed one of their units, display the result for three seconds before disappearing, like an
+        # attack alert.
+        if self.overlay.is_heal():
+            self.heal_time_bank += elapsed_time
+            if self.heal_time_bank > 3:
+                self.overlay.toggle_heal(None)
+                self.heal_time_bank = 0
 
     def generate_quads(self, biome_clustering: bool):
         """
@@ -492,38 +528,46 @@ class Board:
                     # If the player has selected one of their units and it hasn't attacked, and they've clicked on
                     # either an enemy unit or a heathen within range, attack it.
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
-                            self.selected_unit in player.units and not self.selected_unit.has_attacked and \
-                            (any((to_attack := heathen).location == (adj_x, adj_y) for heathen in heathens) or
-                             any((to_attack := unit).location == (adj_x, adj_y) for unit in all_units)):
-                        if self.selected_unit is not to_attack and to_attack not in player.units and \
-                                abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
-                                abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
-                            data = attack(self.selected_unit, to_attack, ai=False)
+                            self.selected_unit in player.units and not self.selected_unit.has_acted and \
+                            (any((other_unit := heathen).location == (adj_x, adj_y) for heathen in heathens) or
+                             any((other_unit := unit).location == (adj_x, adj_y) for unit in all_units)):
+                        if self.selected_unit is not other_unit and other_unit not in player.units and \
+                                abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
+                                abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
+                            data = attack(self.selected_unit, other_unit, ai=False)
                             # Destroy the player's unit if it died.
                             if self.selected_unit.health <= 0:
                                 player.units.remove(self.selected_unit)
                                 self.selected_unit = None
                                 self.overlay.toggle_unit(None)
                             # Destroy the heathen/enemy unit if it died.
-                            if to_attack.health <= 0:
-                                if to_attack in heathens:
-                                    heathens.remove(to_attack)
+                            if other_unit.health <= 0:
+                                if other_unit in heathens:
+                                    heathens.remove(other_unit)
                                 else:
                                     for p in all_players:
-                                        if to_attack in p.units:
-                                            p.units.remove(to_attack)
+                                        if other_unit in p.units:
+                                            p.units.remove(other_unit)
                                             break
                             # Show the attack results.
                             self.overlay.toggle_attack(data)
                             self.attack_time_bank = 0
-                        # However, if the player clicked on another of their units, select that rather than attacking.
-                        elif to_attack in player.units:
-                            self.selected_unit = to_attack
-                            self.overlay.update_unit(to_attack)
+                        # However, if the player clicked on another of their units, either heal or select it rather than
+                        # attacking, depending on whether the currently-selected unit can heal others or not.
+                        elif other_unit in player.units:
+                            if self.selected_unit is not other_unit and self.selected_unit.plan.heals and \
+                                    abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
+                                    abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
+                                data = heal(self.selected_unit, other_unit, ai=False)
+                                self.overlay.toggle_heal(data)
+                                self.heal_time_bank = 0
+                            else:
+                                self.selected_unit = other_unit
+                                self.overlay.update_unit(other_unit)
                     # If the player has selected one of their units and it hasn't attacked, and the player clicks on an
                     # enemy settlement within range, bring up the overlay to prompt the player on their action.
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
-                            self.selected_unit in player.units and not self.selected_unit.has_attacked and \
+                            self.selected_unit in player.units and not self.selected_unit.has_acted and \
                             any((to_attack := setl).location == (adj_x, adj_y) for setl in other_setls):
                         if abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
                                 abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
@@ -547,16 +591,17 @@ class Board:
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
                             self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
                             self.selected_unit.location[1] + self.selected_unit.remaining_stamina:
-                        # Any unit that moves while sieging ends their siege on the settlement.
-                        if self.selected_unit.sieging:
-                            self.selected_unit.sieging = False
-                            for setl in other_setls:
-                                if setl.under_siege_by is self.selected_unit:
-                                    setl.under_siege_by = None
                         initial = self.selected_unit.location
                         distance_travelled = max(abs(initial[0] - adj_x), abs(initial[1] - adj_y))
                         self.selected_unit.remaining_stamina -= distance_travelled
                         self.selected_unit.location = adj_x, adj_y
+                        # Any unit that moves more than 1 quad away while besieging ends their siege on the settlement.
+                        found_besieged_setl = False
+                        for setl in other_setls:
+                            if setl.besieged and abs(self.selected_unit.location[0] - setl.location[0]) <= 1 and \
+                                        abs(self.selected_unit.location[1] - setl.location[1]) <= 1:
+                                found_besieged_setl = True
+                        self.selected_unit.besieging = found_besieged_setl
                         # Update the player's seen quads.
                         for i in range(adj_y - 5, adj_y + 6):
                             for j in range(adj_x - 5, adj_x + 6):

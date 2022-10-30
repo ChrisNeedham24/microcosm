@@ -2,7 +2,7 @@ import random
 from copy import deepcopy
 
 from models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, Settlement, Improvement, \
-    UnitPlan, SetlAttackData, GameConfig, InvestigationResult, Faction, Project, ProjectType
+    UnitPlan, SetlAttackData, GameConfig, InvestigationResult, Faction, Project, ProjectType, HealData
 
 
 def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
@@ -65,9 +65,23 @@ def attack(attacker: Unit | Heathen, defender: Unit | Heathen, ai=True) -> Attac
     defender_dmg = defender.plan.power * 0.25
     defender.health -= attacker_dmg
     attacker.health -= defender_dmg
-    attacker.has_attacked = True
+    attacker.has_acted = True
     return AttackData(attacker, defender, defender_dmg, attacker_dmg, not ai,
                       attacker.health <= 0, defender.health <= 0)
+
+
+def heal(healer: Unit, healed: Unit, ai=True) -> HealData:
+    """
+    Execute a healing action between the two supplied units.
+    :param healer: The unit healing the other.
+    :param healed: The unit being healed.
+    :param ai: Whether the healing action was by an AI player.
+    :return: A HealData object summarising the results of the healing action.
+    """
+    original_health = healed.health
+    healed.health = min(healed.health + healer.plan.power, healed.plan.max_health)
+    healer.has_acted = True
+    return HealData(healer, healed, healer.plan.power, original_health, not ai)
 
 
 def attack_setl(attacker: Unit, setl: Settlement, setl_owner: Player, ai=True) -> SetlAttackData:
@@ -85,7 +99,7 @@ def attack_setl(attacker: Unit, setl: Settlement, setl_owner: Player, ai=True) -
     setl_dmg = setl.strength / 2
     attacker.health -= setl_dmg
     setl.strength = max(0.0, setl.strength - attacker_dmg)
-    attacker.has_attacked = True
+    attacker.has_acted = True
     return SetlAttackData(attacker, setl, setl_owner, setl_dmg, attacker_dmg, not ai,
                           attacker.health <= 0, setl.strength <= 0)
 
@@ -163,7 +177,7 @@ def get_setl_totals(player: Player,
     if setl.current_work is not None and isinstance(setl.current_work.construction, Project) and \
             setl.current_work.construction.type is ProjectType.BOUNTIFUL:
         total_harvest += total_zeal / 4
-    if setl.harvest_status is HarvestStatus.POOR or setl.under_siege_by is not None:
+    if setl.harvest_status is HarvestStatus.POOR or setl.besieged:
         total_harvest = 0
     elif setl.harvest_status is HarvestStatus.PLENTIFUL:
         total_harvest *= 1.5

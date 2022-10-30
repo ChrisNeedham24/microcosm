@@ -16,7 +16,7 @@ from menu import Menu, MainMenuOption, SetupOption, WikiOption
 from models import Player, Settlement, Construction, OngoingBlessing, CompletedConstruction, Unit, HarvestStatus, \
     EconomicStatus, Heathen, AttackPlaystyle, GameConfig, Biome, Victory, VictoryType, AIPlaystyle, \
     ExpansionPlaystyle, UnitPlan, OverlayType, Faction, ConstructionMenu, Project
-from movemaker import MoveMaker
+from movemaker import MoveMaker, set_player_construction
 from music_player import MusicPlayer
 from overlay import SettlementAttackType, PauseOption
 from save_encoder import SaveEncoder, ObjectConverter
@@ -94,6 +94,8 @@ class Game:
                     self.board.overlay.navigate_blessings(down=True)
                 elif self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(down=True)
+                elif self.board.overlay.is_controls():
+                    self.board.overlay.show_additional_controls = True
                 elif self.board.overlay.is_pause():
                     self.board.overlay.navigate_pause(down=True)
                 elif self.board.overlay.is_standard():
@@ -116,6 +118,8 @@ class Game:
                     self.board.overlay.navigate_blessings(down=False)
                 elif self.board.overlay.is_setl_click():
                     self.board.overlay.navigate_setl_click(up=True)
+                elif self.board.overlay.is_controls():
+                    self.board.overlay.show_additional_controls = False
                 elif self.board.overlay.is_pause():
                     self.board.overlay.navigate_pause(down=False)
                 elif self.board.overlay.is_standard():
@@ -247,8 +251,13 @@ class Game:
                             self.board.selected_unit = None
                             self.board.overlay.toggle_unit(None)
                         elif data.setl_was_taken:
-                            # If the settlement was taken, transfer it to the player.
-                            data.settlement.under_siege_by = None
+                            # If the settlement was taken, transfer it to the player, while also marking any units that
+                            # were involved in the siege as no longer besieging.
+                            data.settlement.besieged = False
+                            for unit in self.players[0].units:
+                                if abs(unit.location[0] - data.settlement.location[0]) <= 1 and \
+                                        abs(unit.location[1] - data.settlement.location[1]) <= 1:
+                                    unit.besieging = False
                             # The Concentrated can only have a single settlement, so when they take others, the
                             # settlements simply disappear.
                             if self.players[0].faction is not Faction.CONCENTRATED:
@@ -261,8 +270,8 @@ class Game:
                         self.board.attack_time_bank = 0
                     case SettlementAttackType.BESIEGE:
                         # Alternatively, begin a siege on the settlement.
-                        self.board.selected_unit.sieging = True
-                        self.board.overlay.attacked_settlement.under_siege_by = self.board.selected_unit
+                        self.board.selected_unit.besieging = True
+                        self.board.overlay.attacked_settlement.besieged = True
                         self.board.overlay.toggle_setl_click(None, None)
                     case _:
                         self.board.overlay.toggle_setl_click(None, None)
@@ -274,6 +283,7 @@ class Game:
                         self.save_game()
                         self.board.overlay.has_saved = True
                     case PauseOption.CONTROLS:
+                        self.board.overlay.show_additional_controls = False
                         self.board.overlay.toggle_controls()
                     case PauseOption.QUIT:
                         self.game_started = False
@@ -402,6 +412,32 @@ class Game:
                     self.board.overlay.update_unit(self.players[0].units[new_idx])
                 self.map_pos = (clamp(self.board.selected_unit.location[0] - 12, -1, 77),
                                 clamp(self.board.selected_unit.location[1] - 11, -1, 69))
+        elif pyxel.btnp(pyxel.KEY_M):
+            units = self.players[0].units
+            filtered_units = [unit for unit in units if not unit.besieging and unit.remaining_stamina > 0]
+
+            if self.game_started and self.board.overlay.can_iter_settlements_units() and \
+                    len(filtered_units) > 0:
+                self.board.overlay.remove_warning_if_possible()
+                if self.board.overlay.is_setl():
+                    self.board.selected_settlement = None
+                    self.board.overlay.toggle_settlement(None, self.players[0])
+                if self.board.selected_unit is None or isinstance(self.board.selected_unit, Heathen):
+                    self.board.selected_unit = filtered_units[0]
+                    self.board.overlay.toggle_unit(filtered_units[0])
+                else:
+                    current_selected_unit = self.board.selected_unit
+                    new_idx = 0
+
+                    if current_selected_unit in filtered_units and \
+                            filtered_units.index(current_selected_unit) != len(filtered_units) - 1:
+                        new_idx = filtered_units.index(current_selected_unit) + 1
+
+                    self.board.selected_unit = filtered_units[new_idx]
+                    self.board.overlay.update_unit(filtered_units[new_idx])
+
+                self.map_pos = (clamp(self.board.selected_unit.location[0] - 12, -1, 77),
+                                clamp(self.board.selected_unit.location[1] - 11, -1, 69))
         elif pyxel.btnp(pyxel.KEY_S):
             if self.game_started and self.board.selected_unit is not None and self.board.selected_unit.plan.can_settle:
                 # Units that can settle can found new settlements when S is pressed.
@@ -440,6 +476,13 @@ class Game:
                         self.board.selected_unit = None
                     elif to_reset == OverlayType.SETTLEMENT:
                         self.board.selected_settlement = None
+        elif pyxel.btnp(pyxel.KEY_A):
+            if self.game_started and self.board.overlay.is_setl() and \
+                    self.board.selected_settlement.current_work is None:
+                # Pressing the A key while a player settlement with no active construction is selected results in the
+                # selection being made automatically (in much the same way that AI settlements have their constructions
+                # selected).
+                set_player_construction(self.players[0], self.board.selected_settlement, self.nighttime_left > 0)
 
     def draw(self):
         """
@@ -489,7 +532,7 @@ class Game:
                 total_wealth *= 1.5
         for unit in self.players[0].units:
             if not unit.garrisoned:
-                total_wealth -= unit.plan.cost / 25
+                total_wealth -= unit.plan.cost / 10
         if self.players[0].faction is Faction.GODLESS:
             total_wealth *= 1.25
         elif self.players[0].faction is Faction.ORTHODOX:
@@ -535,21 +578,22 @@ class Game:
                 overall_fortune += total_fortune
                 overall_wealth += total_wealth
 
-                # If the settlement is under siege, decrease its strength, ensuring that the sieging unit is still
-                # alive.
-                if setl.under_siege_by is not None:
-                    found_unit = False
+                # If the settlement is under siege, decrease its strength based on the number of besieging units.
+                if setl.besieged:
+                    besieging_units: typing.List[Unit] = []
                     for p in self.players:
-                        if setl.under_siege_by in p.units:
-                            found_unit = True
-                            break
-                    if not found_unit:
-                        setl.under_siege_by = None
+                        if p is not player:
+                            for u in p.units:
+                                if abs(u.location[0] - setl.location[0]) <= 1 and \
+                                        abs(u.location[1] - setl.location[1]) <= 1:
+                                    besieging_units.append(u)
+                    if not besieging_units:
+                        setl.besieged = False
                     else:
-                        if setl.under_siege_by.health <= 0:
-                            setl.under_siege_by = None
+                        if all(u.health <= 0 for u in besieging_units):
+                            setl.besieged = False
                         else:
-                            setl.strength = max(0.0, setl.strength - setl.max_strength * 0.1)
+                            setl.strength = max(0.0, setl.strength - 10 * len(besieging_units))
                 else:
                     # Otherwise, increase the settlement's strength if it was recently under siege and is not at full
                     # strength.
@@ -558,7 +602,7 @@ class Game:
 
                 # Reset all units in the garrison in case any were garrisoned this turn.
                 for g in setl.garrison:
-                    g.has_attacked = False
+                    g.has_acted = False
                     g.remaining_stamina = g.plan.total_stamina
                     if g.health < g.plan.max_health:
                         g.health = min(g.health + g.plan.max_health * 0.1, g.plan.max_health)
@@ -597,8 +641,8 @@ class Game:
                 # Heal the unit.
                 if unit.health < unit.plan.max_health:
                     unit.health = min(unit.health + unit.plan.max_health * 0.1, unit.plan.max_health)
-                unit.has_attacked = False
-                overall_wealth -= unit.plan.cost / 25
+                unit.has_acted = False
+                overall_wealth -= unit.plan.cost / 10
             # Process the current blessing, completing it if it was finished.
             if player.ongoing_blessing is not None:
                 player.ongoing_blessing.fortune_consumed += overall_fortune
@@ -925,8 +969,9 @@ class Game:
                     plan_prereq = None if u.plan.prereq is None else get_blessing(u.plan.prereq.name)
                     p.units[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]), u.garrisoned,
                                         UnitPlan(u.plan.power, u.plan.max_health, u.plan.total_stamina,
-                                                 u.plan.name, plan_prereq, u.plan.cost, u.plan.can_settle),
-                                        u.has_attacked, u.sieging)
+                                                 u.plan.name, plan_prereq, u.plan.cost, u.plan.can_settle,
+                                                 u.plan.heals),
+                                        u.has_acted, u.besieging)
                 for s in p.settlements:
                     # Make sure we remove the settlement's name so that we don't get duplicates.
                     self.namer.remove_settlement_name(s.name, s.quads[0].biome)
@@ -948,19 +993,7 @@ class Game:
                     # Also convert all units in garrisons to Unit objects.
                     for idx, u in enumerate(s.garrison):
                         s.garrison[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]),
-                                               u.garrisoned, u.plan, u.has_attacked, u.sieging)
-                    # Lastly ensure that if the settlement was under siege at the time of the save, we convert the
-                    # sieging unit into proper objects too. This is necessary so that the siege is not improperly ended
-                    # because the game thinks the sieging unit has died.
-                    if s.under_siege_by is not None:
-                        s_plan = s.under_siege_by.plan
-                        plan_prereq = None if s_plan.prereq is None else get_blessing(s_plan.prereq.name)
-                        s.under_siege_by = Unit(s.under_siege_by.health, s.under_siege_by.remaining_stamina,
-                                                (s.under_siege_by.location[0], s.under_siege_by.location[1]),
-                                                s.under_siege_by.garrisoned,
-                                                UnitPlan(s_plan.power, s_plan.max_health, s_plan.total_stamina,
-                                                         s_plan.name, plan_prereq, s_plan.cost, s_plan.can_settle),
-                                                s.under_siege_by.has_attacked, s.under_siege_by.sieging)
+                                               u.garrisoned, u.plan, u.has_acted, u.besieging)
                 # We also do direct conversions to Blessing objects for the ongoing one, if there is one, as well as any
                 # previously-completed ones.
                 if p.ongoing_blessing:
