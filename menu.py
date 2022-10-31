@@ -49,7 +49,6 @@ class Menu:
     """
     The class responsible for drawing and navigating the menu.
     """
-
     def __init__(self):
         """
         Initialise the menu with a random background image on the main menu.

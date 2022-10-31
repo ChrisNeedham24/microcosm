@@ -1037,6 +1037,7 @@ class Game:
             self.board.overlay.current_player = self.players[0]
             self.music_player.stop_menu_music()
             self.music_player.play_game_music()
+        # pylint: disable=broad-except
         except Exception:
             self.menu.load_failed = True
 
