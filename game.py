@@ -378,7 +378,7 @@ class Game:
                 self.menu.in_game_setup = False
             if self.on_menu and self.menu.loading_game and self.menu.load_failed:
                 self.menu.load_failed = False
-            if self.on_menu and self.menu.loading_game:
+            elif self.on_menu and self.menu.loading_game:
                 self.menu.loading_game = False
             if self.game_started and self.board.overlay.is_elimination():
                 self.board.overlay.toggle_elimination(None)
