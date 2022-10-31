@@ -195,7 +195,6 @@ class Menu:
                         case VictoryType.ELIMINATION:
                             pyxel.text(80, 40, "ELIMINATION", pyxel.COLOR_RED)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 60, "Take control of all settlements", pyxel.COLOR_WHITE)
                             self.draw_paragraph(30, 60, "Take control of all settlements", 36)
                             pyxel.line(24, 70, 175, 70, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 75, """Like any strong leader, you want the best for your people.
