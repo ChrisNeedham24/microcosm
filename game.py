@@ -943,7 +943,7 @@ class Game:
         autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
         saves = list(
             filter(lambda file_name: not file_name == "README.md" and not file_name.startswith(AUTOSAVE_PREFIX),
-                   os.listdir(SAVES_DIR)))
+                   [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
         autosaves.sort()
         autosaves.reverse()
         saves.sort()
@@ -1049,7 +1049,7 @@ class Game:
         autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
         saves = list(
             filter(lambda file_name: not file_name == "README.md" and not file_name.startswith(AUTOSAVE_PREFIX),
-                   os.listdir(SAVES_DIR)))
+                   [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
         # Default to a fake option if there are no saves available.
         if len(autosaves) + len(saves) == 0:
             self.menu.save_idx = -1
