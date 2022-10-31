@@ -78,6 +78,7 @@ class Menu:
         self.showing_faction_details = False
         self.faction_wiki_idx = 0
         self.load_game_boundaries = 0, 9
+        self.load_failed = False
 
     def draw(self):
         """
@@ -216,19 +217,30 @@ class Menu:
                     pyxel.text(158, 140, "->", pyxel.COLOR_WHITE)
         elif self.loading_game:
             pyxel.load("resources/sprites.pyxres")
-            pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
-            pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
-            pyxel.text(81, 25, "Load Game", pyxel.COLOR_WHITE)
-            for idx, save in enumerate(self.saves):
-                if self.load_game_boundaries[0] <= idx <= self.load_game_boundaries[1]:
-                    pyxel.text(25, 35 + (idx - self.load_game_boundaries[0]) * 10, save, pyxel.COLOR_WHITE)
-                    pyxel.text(150, 35 + (idx - self.load_game_boundaries[0]) * 10, "Load",
-                               pyxel.COLOR_RED if self.save_idx is idx else pyxel.COLOR_WHITE)
-            if self.load_game_boundaries[1] != len(self.saves) - 1:
-                pyxel.text(147, 135, "More", pyxel.COLOR_WHITE)
-                pyxel.text(147, 141, "down!", pyxel.COLOR_WHITE)
-                pyxel.blt(167, 136, 0, 0, 76, 8, 8)
-            pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
+
+            if self.load_failed:
+                pyxel.rectb(24, 75, 152, 60, pyxel.COLOR_WHITE)
+                pyxel.rect(25, 76, 150, 58, pyxel.COLOR_BLACK)
+                pyxel.text(85, 81, "Oh no!", pyxel.COLOR_RED)
+                pyxel.text(35, 92, "Error: This game save is invalid.", pyxel.COLOR_RED)
+                pyxel.text(55, 100, "It's either corrupted or", pyxel.COLOR_RED)
+                pyxel.text(43, 108, "incompatible with this version.", pyxel.COLOR_RED)
+
+                pyxel.text(56, 120, "Press SPACE to go back", pyxel.COLOR_WHITE)
+            else:
+                pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
+                pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
+                pyxel.text(81, 25, "Load Game", pyxel.COLOR_WHITE)
+                for idx, save in enumerate(self.saves):
+                    if self.load_game_boundaries[0] <= idx <= self.load_game_boundaries[1]:
+                        pyxel.text(25, 35 + (idx - self.load_game_boundaries[0]) * 10, save, pyxel.COLOR_WHITE)
+                        pyxel.text(150, 35 + (idx - self.load_game_boundaries[0]) * 10, "Load",
+                                   pyxel.COLOR_RED if self.save_idx is idx else pyxel.COLOR_WHITE)
+                if self.load_game_boundaries[1] != len(self.saves) - 1:
+                    pyxel.text(147, 135, "More", pyxel.COLOR_WHITE)
+                    pyxel.text(147, 141, "down!", pyxel.COLOR_WHITE)
+                    pyxel.blt(167, 136, 0, 0, 76, 8, 8)
+                pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
         elif self.in_wiki:
             match self.wiki_showing:
                 case WikiOption.VICTORIES:
