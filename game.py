@@ -376,7 +376,9 @@ class Game:
                 self.menu.wiki_showing = None
             if self.on_menu and self.menu.in_game_setup:
                 self.menu.in_game_setup = False
-            if self.on_menu and self.menu.loading_game:
+            if self.on_menu and self.menu.loading_game and self.menu.load_failed:
+                self.menu.load_failed = False
+            elif self.on_menu and self.menu.loading_game:
                 self.menu.loading_game = False
             if self.game_started and self.board.overlay.is_elimination():
                 self.board.overlay.toggle_elimination(None)
@@ -941,98 +943,103 @@ class Game:
         autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
         saves = list(
             filter(lambda file_name: not file_name == "README.md" and not file_name.startswith(AUTOSAVE_PREFIX),
-                   os.listdir(SAVES_DIR)))
+                   [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
         autosaves.sort()
         autosaves.reverse()
         saves.sort()
         saves.reverse()
         all_saves = autosaves + saves
-        with open(os.path.join(SAVES_DIR, all_saves[save_idx]), "r", encoding="utf-8") as save_file:
-            # Use a custom object hook when loading the JSON so that the resulting objects have attribute access.
-            save = json.loads(save_file.read(), object_hook=ObjectConverter)
-            # Load in the quads.
-            quads = [[None] * 100 for _ in range(90)]
-            for i in range(90):
-                for j in range(100):
-                    quads[i][j] = save.quads[i * 100 + j]
-                    # The biomes require special loading.
-                    quads[i][j].biome = Biome[quads[i][j].biome]
-            self.players = save.players
-            # The list of tuples that is quads_seen needs special loading, as do a few other of the same type, because
-            # tuples do not exist in JSON, so they are represented as arrays, which will clearly not work.
-            for i in range(len(self.players[0].quads_seen)):
-                self.players[0].quads_seen[i] = (self.players[0].quads_seen[i][0], self.players[0].quads_seen[i][1])
-            self.players[0].quads_seen = set(self.players[0].quads_seen)
-            for p in self.players:
-                for idx, u in enumerate(p.units):
-                    # We can do a direct conversion to Unit and UnitPlan objects for units.
-                    plan_prereq = None if u.plan.prereq is None else get_blessing(u.plan.prereq.name)
-                    p.units[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]), u.garrisoned,
-                                        UnitPlan(u.plan.power, u.plan.max_health, u.plan.total_stamina,
-                                                 u.plan.name, plan_prereq, u.plan.cost, u.plan.can_settle,
-                                                 u.plan.heals),
-                                        u.has_acted, u.besieging)
-                for s in p.settlements:
-                    # Make sure we remove the settlement's name so that we don't get duplicates.
-                    self.namer.remove_settlement_name(s.name, s.quads[0].biome)
-                    # Another tuple-array fix.
-                    s.location = (s.location[0], s.location[1])
-                    if s.current_work is not None:
-                        # Get the actual Improvement, Project, or UnitPlan objects for the current work. We use
-                        # hasattr() because improvements have an effect where projects do not, and projects have a type
-                        # where unit plans do not.
-                        if hasattr(s.current_work.construction, "effect"):
-                            s.current_work.construction = get_improvement(s.current_work.construction.name)
-                        elif hasattr(s.current_work.construction, "type"):
-                            s.current_work.construction = get_project(s.current_work.construction.name)
-                        else:
-                            s.current_work.construction = get_unit_plan(s.current_work.construction.name)
-                    for idx, imp in enumerate(s.improvements):
-                        # Do another direct conversion for improvements.
-                        s.improvements[idx] = get_improvement(imp.name)
-                    # Also convert all units in garrisons to Unit objects.
-                    for idx, u in enumerate(s.garrison):
-                        s.garrison[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]),
-                                               u.garrisoned, u.plan, u.has_acted, u.besieging)
-                # We also do direct conversions to Blessing objects for the ongoing one, if there is one, as well as any
-                # previously-completed ones.
-                if p.ongoing_blessing:
-                    p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
-                for idx, bls in enumerate(p.blessings):
-                    p.blessings[idx] = get_blessing(bls.name)
-                if p.ai_playstyle is not None:
-                    p.ai_playstyle = AIPlaystyle(AttackPlaystyle[p.ai_playstyle.attacking],
-                                                 ExpansionPlaystyle[p.ai_playstyle.expansion])
-                p.imminent_victories = set(p.imminent_victories)
-                p.faction = Faction(p.faction)
-            # For the AI players, we can just make quads_seen an empty set, as it's not used.
-            for i in range(1, len(self.players)):
-                self.players[i].quads_seen = set()
 
-            self.heathens = []
-            for h in save.heathens:
-                # Do another direct conversion for the heathens.
-                self.heathens.append(Heathen(h.health, h.remaining_stamina, (h.location[0], h.location[1]),
-                                             UnitPlan(h.plan.power, h.plan.max_health, 2, h.plan.name, None, 0),
-                                             h.has_attacked))
+        try:
+            with open(os.path.join(SAVES_DIR, all_saves[save_idx]), "r", encoding="utf-8") as save_file:
+                # Use a custom object hook when loading the JSON so that the resulting objects have attribute access.
+                save = json.loads(save_file.read(), object_hook=ObjectConverter)
+                # Load in the quads.
+                quads = [[None] * 100 for _ in range(90)]
+                for i in range(90):
+                    for j in range(100):
+                        quads[i][j] = save.quads[i * 100 + j]
+                        # The biomes require special loading.
+                        quads[i][j].biome = Biome[quads[i][j].biome]
+                self.players = save.players
+                # The list of tuples that is quads_seen needs special loading, as do a few other of the same type,
+                # because tuples do not exist in JSON, so they are represented as arrays, which will clearly not work.
+                for i in range(len(self.players[0].quads_seen)):
+                    self.players[0].quads_seen[i] = (self.players[0].quads_seen[i][0], self.players[0].quads_seen[i][1])
+                self.players[0].quads_seen = set(self.players[0].quads_seen)
+                for p in self.players:
+                    for idx, u in enumerate(p.units):
+                        # We can do a direct conversion to Unit and UnitPlan objects for units.
+                        plan_prereq = None if u.plan.prereq is None else get_blessing(u.plan.prereq.name)
+                        p.units[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]), u.garrisoned,
+                                            UnitPlan(u.plan.power, u.plan.max_health, u.plan.total_stamina,
+                                                     u.plan.name, plan_prereq, u.plan.cost, u.plan.can_settle,
+                                                     u.plan.heals),
+                                            u.has_acted, u.besieging)
+                    for s in p.settlements:
+                        # Make sure we remove the settlement's name so that we don't get duplicates.
+                        self.namer.remove_settlement_name(s.name, s.quads[0].biome)
+                        # Another tuple-array fix.
+                        s.location = (s.location[0], s.location[1])
+                        if s.current_work is not None:
+                            # Get the actual Improvement, Project, or UnitPlan objects for the current work. We use
+                            # hasattr() because improvements have an effect where projects do not, and projects have
+                            # a type where unit plans do not.
+                            if hasattr(s.current_work.construction, "effect"):
+                                s.current_work.construction = get_improvement(s.current_work.construction.name)
+                            elif hasattr(s.current_work.construction, "type"):
+                                s.current_work.construction = get_project(s.current_work.construction.name)
+                            else:
+                                s.current_work.construction = get_unit_plan(s.current_work.construction.name)
+                        for idx, imp in enumerate(s.improvements):
+                            # Do another direct conversion for improvements.
+                            s.improvements[idx] = get_improvement(imp.name)
+                        # Also convert all units in garrisons to Unit objects.
+                        for idx, u in enumerate(s.garrison):
+                            s.garrison[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]),
+                                                   u.garrisoned, u.plan, u.has_acted, u.besieging)
+                    # We also do direct conversions to Blessing objects for the ongoing one, if there is one,
+                    # as well as any previously-completed ones.
+                    if p.ongoing_blessing:
+                        p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
+                    for idx, bls in enumerate(p.blessings):
+                        p.blessings[idx] = get_blessing(bls.name)
+                    if p.ai_playstyle is not None:
+                        p.ai_playstyle = AIPlaystyle(AttackPlaystyle[p.ai_playstyle.attacking],
+                                                     ExpansionPlaystyle[p.ai_playstyle.expansion])
+                    p.imminent_victories = set(p.imminent_victories)
+                    p.faction = Faction(p.faction)
+                # For the AI players, we can just make quads_seen an empty set, as it's not used.
+                for i in range(1, len(self.players)):
+                    self.players[i].quads_seen = set()
 
-            self.turn = save.turn
-            self.until_night = save.night_status.until
-            self.nighttime_left = save.night_status.remaining
-            game_cfg = save.cfg
-        save_file.close()
-        # Now do all the same logic we do when starting a game.
-        pyxel.mouse(visible=True)
-        self.game_started = True
-        self.on_menu = False
-        self.board = Board(game_cfg, self.namer, quads)
-        self.move_maker.board_ref = self.board
-        # Initialise the map position to the player's first settlement.
-        self.map_pos = (clamp(self.players[0].settlements[0].location[0] - 12, -1, 77),
-                        clamp(self.players[0].settlements[0].location[1] - 11, -1, 69))
-        self.board.overlay.current_player = self.players[0]
-        self.music_player.stop_menu_music()
-        self.music_player.play_game_music()
+                self.heathens = []
+                for h in save.heathens:
+                    # Do another direct conversion for the heathens.
+                    self.heathens.append(Heathen(h.health, h.remaining_stamina, (h.location[0], h.location[1]),
+                                                 UnitPlan(h.plan.power, h.plan.max_health, 2, h.plan.name, None, 0),
+                                                 h.has_attacked))
+
+                self.turn = save.turn
+                self.until_night = save.night_status.until
+                self.nighttime_left = save.night_status.remaining
+                game_cfg = save.cfg
+            save_file.close()
+            # Now do all the same logic we do when starting a game.
+            pyxel.mouse(visible=True)
+            self.game_started = True
+            self.on_menu = False
+            self.board = Board(game_cfg, self.namer, quads)
+            self.move_maker.board_ref = self.board
+            # Initialise the map position to the player's first settlement.
+            self.map_pos = (clamp(self.players[0].settlements[0].location[0] - 12, -1, 77),
+                            clamp(self.players[0].settlements[0].location[1] - 11, -1, 69))
+            self.board.overlay.current_player = self.players[0]
+            self.music_player.stop_menu_music()
+            self.music_player.play_game_music()
+        # pylint: disable=broad-except
+        except Exception:
+            self.menu.load_failed = True
 
     def get_saves(self):
         """
@@ -1042,7 +1049,7 @@ class Game:
         autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
         saves = list(
             filter(lambda file_name: not file_name == "README.md" and not file_name.startswith(AUTOSAVE_PREFIX),
-                   os.listdir(SAVES_DIR)))
+                   [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
         # Default to a fake option if there are no saves available.
         if len(autosaves) + len(saves) == 0:
             self.menu.save_idx = -1
