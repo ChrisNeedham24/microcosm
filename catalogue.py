@@ -314,7 +314,7 @@ FACTION_COLOURS: typing.Dict[Faction, int] = {
     Faction.NOCTURNE: pyxel.COLOR_NAVY
 }
 
-# A map of victoy types to their respective colours.
+# A map of victory types to their respective colours.
 VICTORY_TYPE_COLOURS: typing.Dict[Faction, int] = {
     VictoryType.ELIMINATION: pyxel.COLOR_RED,
     VictoryType.JUBILATION: pyxel.COLOR_GREEN,
