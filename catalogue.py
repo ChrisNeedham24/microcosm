@@ -4,8 +4,8 @@ from copy import deepcopy
 
 import pyxel
 
-from models import Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, Biome, Heathen, \
-    Faction, Project, ProjectType
+from models import FactionDetail, Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, \
+    Biome, Heathen, Faction, Project, ProjectType, VictoryType
 
 # The list of settlement names, for each biome.
 SETL_NAMES = {
@@ -69,6 +69,101 @@ class Namer:
         """
         self.names = deepcopy(SETL_NAMES)
 
+# The list of playable factions and their details.
+FACTION_DETAILS = [
+    FactionDetail(Faction.AGRICULTURISTS, """Using techniques passed down through the generations, the Agriculturists
+                  are able to sustain their populace through famine and indeed through feast. Some of this land's
+                  greatest delicacies are grown by these humble people, who insist that anyone could grow what they do,
+                  winking at one another as they say it. Without the spectre of hunger on the horizon, the
+                  Agriculturists lead the slow life, indulging in pleasures at their own pace.""",
+                  "+ Immune to poor harvest", "- Generates 75% of usual zeal", VictoryType.GLUTTONY),
+    FactionDetail(Faction.CAPITALISTS, """The sky-high towers and luxurious dwellings found throughout their cities
+                  represent the Capitalists to the fullest. They value the clink of coins over anything else, and it
+                  has served them well so far. However, if you take a look around the corner, things are clearly not
+                  as the seem. And as the slums fill up, there better be enough food to go around, lest something...
+                  dangerous happens.""", "+ Immune to recession", "- Double low harvest penalty",
+                  VictoryType.AFFLUENCE),
+    FactionDetail(Faction.SCRUTINEERS, """Due to a genetic trait, the Scrutineers have always had good eyesight and
+                  they use it to full effect. Nothing gets past them, from the temples of the outlands to the streets
+                  of their cities. But, as it goes, the devil is in the details, as the local clergy certainly aren't
+                  exempt from the all-seeing eye, with blessings being stymied as much as is humanly possible.""",
+                  "+ Investigations always succeed", "- Generates 75% of usual fortune", VictoryType.ELIMINATION),
+    FactionDetail(Faction.GODLESS, """Many eons ago, a subsection of the population of these lands began to question
+                  the effectiveness of their blessings after years of squalor and oppression. They shook free their
+                  bonds and formed their own community based around the one thing that proved valuable to all people:
+                  currency. However, despite shunning blessings at every opportunity, The Godless, as they became
+                  known, are wont to dabble in blessings in moments of weakness, and what's left of their clergy makes
+                  sure to sink the boot in.""", "+ Generates 125% of usual wealth", "- Blessings cost 125% of usual",
+                  VictoryType.AFFLUENCE),
+    FactionDetail(Faction.RAVENOUS, """Originating from a particular fertile part of these lands, The Ravenous have
+                  enjoyed bountiful harvests for centuries. No matter the skill of the farmer, or the quality of the
+                  seeds, a cultivation of significant size is always created after some months. But with such
+                  consistency, comes complacency. Those that have resided in settlements occupied by The Ravenous,
+                  over time, grow greedy. As populations increase, and more food is available, the existing residents
+                  seek to keep it all for themselves, as newcomers are given the unbearable choice of starving or
+                  leaving.""", "+ Generates 125% of usual harvest", "- Settlements capped at level 5",
+                  VictoryType.JUBILATION),
+    FactionDetail(Faction.FUNDAMENTALISTS, """There's nothing quite like the clang of iron striking iron to truly
+                  ground a person in their surroundings. This is a fact that the Fundamentalists know well, as every
+                  child of a certain age is required to serve as an apprentice in a local forge or refinery. With such
+                  resources at their disposal, work is done quickly. And yet, suggestions that constructions should be
+                  made quicker, and in some cases instantaneous, through the use of empire funds are met with utter
+                  disgust by the people. For the Fundamentalists, everything must be done the right way.""",
+                  "+ Generates 125% of usual zeal", "- Construction buyouts disabled", VictoryType.VIGOUR),
+    FactionDetail(Faction.ORTHODOX, """Glory to the ancient ones, and glory to the passionate. The Orthodox look to
+                  those that came before them for guidance, and they are justly rewarded that, with enlightenment and
+                  discoveries occurring frequently. As the passionate tend to do, however, the clatter of coin in the
+                  palm is met with a stern decline. Content they are with their existence, The Orthodox rely on seeing
+                  what others cannot.""", "+ Generates 125% of usual fortune", "- Generates 75% of usual wealth",
+                  VictoryType.SERENDIPITY),
+    FactionDetail(Faction.CONCENTRATED, """For the unfamiliar, visiting the settlement of The Concentrated can be
+                  overwhelming. The sheer mass of people everywhere one looks along with the cloud-breaching towers
+                  can make one feel like they have been transported to some distant future. It is this intimidatory
+                  factor, in combination with the colossal ramparts surrounding the megapolis that have kept The
+                  Concentrated safe and sound for many years.""", "+ Settlements have 200% strength",
+                  "- Limited to a single settlement", VictoryType.ELIMINATION),
+    FactionDetail(Faction.FRONTIERSMEN, """Blink and you'll miss it; that's the story of the settlements of the
+                  Frontier. The Frontiersmen have a near obsession with the thrill of the frontier and making
+                  something of inhospitable terrain, in situations where others could not. Residing in a new
+                  settlement is considered to be the pinnacle of Frontier achievement, but the shine wears off
+                  quickly. After some time, the people become restless and seek to expand further. And thus the cycle
+                  repeats.""", "+ Base satisfaction is 75", "- Settlers only at level 5", VictoryType.JUBILATION),
+    FactionDetail(Faction.IMPERIALS, """The concept of raw power and strength has long been a core tenet of the
+                  self-dubbed Empire, with compulsory military service a cultural feature. Drilled into the populace
+                  for such an extensive period, the armed forces of the Imperials are a fearsome sight to behold.
+                  Those opposite gaze at one another, gauging whether it might be preferred to retreat. But this
+                  superiority leads to carelessness, as the Imperials assume that no one would dare attack one of
+                  their settlements for fear of retribution, and thus leave them relatively undefended.""",
+                  "+ Units have 50% more power", "- Settlements have 50% strength", VictoryType.ELIMINATION),
+    FactionDetail(Faction.PERSISTENT, """Atop a mountain in the north of these lands, there is a people of a certain
+                  philosophical nature. Instilled in all from birth to death is the ideal of determination, and
+                  achieving one's goals no matter the cost, in time or in life. Aptly dubbed by others as The
+                  Persistent, these militaristic people often elect to wear others down through sieges and defensive
+                  manoeuvres. Of course, such strategies become ineffective against the well-prepared, but this does
+                  not bother The Persistent; they simply continue on.""", "+ Units have 50% more health",
+                  "- Units have 75% of usual power", VictoryType.ELIMINATION),
+    FactionDetail(Faction.EXPLORERS, """Originating from an isolated part of the globe, the Explorers were first
+                  introduced to the wider world when a lost trader stumbled across their crude and underdeveloped
+                  settlement. Guiding the leaders of the settlement out to the nearest other settlement, and returning
+                  to explain to the masses was significant. Once the Explorers got a taste, they have not been able to
+                  stop. They look higher, run farther and dig deeper, at the expense of their energy levels.
+                  Unfortunately for the Explorers, the required rest during the journey makes them easy targets for
+                  Heathens.""", "+ Units have 50% more stamina", "- Units have 75% of usual health",
+                  VictoryType.GLUTTONY),
+    FactionDetail(Faction.INFIDELS, """Some say they were raised by Heathens, and some say that their DNA is actually
+                  closer to Heathen than human. Regardless of their biological makeup, if you approach someone on the
+                  street of any settlement and bring up the Infidels, you will be met with a look of disgust and the
+                  question 'you're not one of them, are you?'. Seen as sub-human, other empires engage in combat on
+                  sight with the Infidels, no matter the disguises they apply.""", "+ Not attacked by heathens",
+                  "- Always attacked by AI players", VictoryType.ELIMINATION),
+    FactionDetail(Faction.NOCTURNE, """Long have The Nocturne worshipped the holy moons of this world, and through
+                  repeated attempts to modify their circadian rhythm, the strongest among them have developed genetic
+                  abilities. These abilities go further than simply making them nocturnal, no, they see farther and
+                  become stronger during the nighttime, and have perfected the art of predicting the sundown. As all
+                  things are, however, there is a trade-off. When the sun is out, those of The Nocturne are weakened,
+                  and largely huddle together waiting for their precious darkness to return.""",
+                  "+ Thrive during the night", "- Units weakened during the day", VictoryType.ELIMINATION)
+]
 
 # The list of blessings that can be undergone.
 BLESSINGS = {
@@ -201,7 +296,7 @@ UNIT_PLANS = [
     UnitPlan(40, 400, 2, "Fanatic", BLESSINGS["brd_fan"], 1200)
 ]
 
-
+# A map of factions to their respective colours.
 FACTION_COLOURS: typing.Dict[Faction, int] = {
     Faction.AGRICULTURISTS: pyxel.COLOR_GREEN,
     Faction.CAPITALISTS: pyxel.COLOR_YELLOW,
@@ -217,6 +312,16 @@ FACTION_COLOURS: typing.Dict[Faction, int] = {
     Faction.EXPLORERS: pyxel.COLOR_PINK,
     Faction.INFIDELS: pyxel.COLOR_BROWN,
     Faction.NOCTURNE: pyxel.COLOR_NAVY
+}
+
+# A map of victoy types to their respective colours.
+VICTORY_TYPE_COLOURS: typing.Dict[Faction, int] = {
+    VictoryType.ELIMINATION: pyxel.COLOR_RED,
+    VictoryType.JUBILATION: pyxel.COLOR_GREEN,
+    VictoryType.GLUTTONY: pyxel.COLOR_GREEN,
+    VictoryType.AFFLUENCE: pyxel.COLOR_YELLOW,
+    VictoryType.VIGOUR: pyxel.COLOR_ORANGE,
+    VictoryType.SERENDIPITY: pyxel.COLOR_PURPLE
 }
 
 

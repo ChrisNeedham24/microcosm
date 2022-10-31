@@ -195,6 +195,18 @@ class Quad:
 
 
 @dataclass
+class FactionDetail:
+    """
+    Additional information about a faction.
+    """
+    faction: Faction
+    lore: str
+    buff: str
+    debuff: str
+    rec_victory_type: VictoryType
+
+
+@dataclass
 class Effect:
     """
     An effect that is generated on a settlement upon the completion of the construction of an improvement.

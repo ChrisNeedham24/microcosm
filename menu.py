@@ -6,8 +6,9 @@ from typing import List, Optional, Tuple
 import pyxel
 
 from calculator import clamp
-from catalogue import BLESSINGS, get_unlockable_improvements, IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS
-from models import GameConfig, VictoryType, Faction, ProjectType, Improvement
+from catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, IMPROVEMENTS, \
+    UNIT_PLANS, FACTION_COLOURS, PROJECTS
+from models import GameConfig, VictoryType, Faction, ProjectType
 
 
 class MainMenuOption(Enum):
@@ -142,64 +143,12 @@ class Menu:
                            self.faction_colours[self.faction_idx][1])
                 pyxel.text(35, 110, "Recommended victory:", pyxel.COLOR_WHITE)
 
-                match self.faction_idx:
-                    case 0:
-                        pyxel.text(35, 70, "+ Immune to poor harvest", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Generates 75% of usual zeal", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "GLUTTONY", pyxel.COLOR_GREEN)
-                    case 1:
-                        pyxel.text(35, 70, "+ Immune to recession", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Double low harvest penalty", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "AFFLUENCE", pyxel.COLOR_YELLOW)
-                    case 2:
-                        pyxel.text(35, 70, "+ Investigations always succeed", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Generates 75% of usual fortune", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
-                    case 3:
-                        pyxel.text(35, 70, "+ Generates 125% of usual wealth", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Blessings cost 125% of usual", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "AFFLUENCE", pyxel.COLOR_YELLOW)
-                    case 4:
-                        pyxel.text(35, 70, "+ Generates 125% of usual harvest", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Settlements capped at level 5", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "JUBILATION", pyxel.COLOR_GREEN)
-                    case 5:
-                        pyxel.text(35, 70, "+ Generates 125% of usual zeal", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Construction buyouts disabled", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "VIGOUR", pyxel.COLOR_ORANGE)
-                    case 6:
-                        pyxel.text(35, 70, "+ Generates 125% of usual fortune", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Generates 75% of usual wealth", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "SERENDIPITY", pyxel.COLOR_PURPLE)
-                    case 7:
-                        pyxel.text(35, 70, "+ Settlements have 200% strength", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Limited to a single settlement", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
-                    case 8:
-                        pyxel.text(35, 70, "+ Base satisfaction is 75", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Settlers only at level 5", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "JUBILATION", pyxel.COLOR_GREEN)
-                    case 9:
-                        pyxel.text(35, 70, "+ Units have 50% more power", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Settlements have 50% strength", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
-                    case 10:
-                        pyxel.text(35, 70, "+ Units have 50% more health", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Units have 75% of usual power", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
-                    case 11:
-                        pyxel.text(35, 70, "+ Units have 50% more stamina", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Units have 75% of usual health", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "GLUTTONY", pyxel.COLOR_GREEN)
-                    case 12:
-                        pyxel.text(35, 70, "+ Special affinity with heathens", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Always attacked by AI players", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
-                    case 13:
-                        pyxel.text(35, 70, "+ Thrive during the night", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Units weakened during the day", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
-
+                # Draw the buff and debuff text for the currently selected faction.
+                faction_detail = FACTION_DETAILS[self.faction_idx]
+                pyxel.text(35, 70, faction_detail.buff, pyxel.COLOR_GREEN)
+                pyxel.text(35, 90, faction_detail.debuff, pyxel.COLOR_RED)
+                pyxel.text(25, 170, faction_detail.rec_victory_type,
+                              VICTORY_TYPE_COLOURS[faction_detail.rec_victory_type])
                 pyxel.blt(150, 48, 0, self.faction_idx * 8, 92, 8, 8)
                 if self.faction_idx != 0:
                     pyxel.text(35, 140, "<-", pyxel.COLOR_WHITE)
@@ -219,7 +168,7 @@ class Menu:
                     pyxel.text(150, 35 + (idx - self.load_game_boundaries[0]) * 10, "Load",
                                pyxel.COLOR_RED if self.save_idx is idx else pyxel.COLOR_WHITE)
             if self.load_game_boundaries[1] != len(self.saves) - 1:
-                self.draw_paragraph(152, 155, "More down!", 5)
+                self.draw_paragraph(147, 135, "More down!", 5)
                 pyxel.blt(167, 136, 0, 0, 76, 8, 8)
             pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
         elif self.in_wiki:
@@ -336,172 +285,13 @@ class Menu:
                         pyxel.text(168, 180, "->", pyxel.COLOR_WHITE)
                     pyxel.text(56, 180, "Press SPACE to go back", pyxel.COLOR_WHITE)
 
-                    match self.faction_wiki_idx:
-                        case 0:
-                            self.draw_paragraph(25, 40, """Using techniques passed down through the generations, the
-                                                Agriculturists are able to sustain their populace through famine and
-                                                indeed through feast. Some of this land's greatest delicacies are
-                                                grown by these humble people, who insist that anyone could grow what
-                                                they do, winking at one another as they say it. Without the spectre of
-                                                hunger on the horizon, the Agriculturists lead the slow life,
-                                                indulging in pleasures at their own pace.""", 38)
-                            pyxel.text(25, 140, "+ Immune to poor harvest", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Generates 75% of usual zeal", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "GLUTTONY", pyxel.COLOR_GREEN)
-                        case 1:
-                            self.draw_paragraph(25, 40, """The sky-high towers and luxurious dwellings found
-                                                throughout their cities represent the Capitalists to the fullest. They
-                                                value the clink of coins over anything else, and it has served them
-                                                well so far. However, if you take a look around the corner, things are
-                                                clearly not as the seem. And as the slums fill up, there better be
-                                                enough food to go around, lest something... dangerous happens.""", 38)
-                            pyxel.text(25, 140, "+ Immune to recession", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Double low harvest penalty", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "AFFLUENCE", pyxel.COLOR_YELLOW)
-                        case 2:
-                            self.draw_paragraph(25, 40, """Due to a genetic trait, the Scrutineers have always had good
-                                                eyesight and they use it to full effect. Nothing gets past them, from
-                                                the temples of the outlands to the streets of their cities. But, as it
-                                                goes, the devil is in the details, as the local clergy certainly
-                                                aren't exempt from the all-seeing eye, with blessings being stymied as
-                                                much as is humanly possible.
-                                                """, 38)
-                            pyxel.text(25, 140, "+ Investigations always succeed", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Generates 75% of usual fortune", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
-                        case 3:
-                            self.draw_paragraph(25, 40, """Many eons ago, a subsection of the population of these
-                                                lands began to question the effectiveness of their blessings after
-                                                years of squalor and oppression. They shook free their bonds and formed
-                                                their own community based around the one thing that proved valuable to
-                                                all people: currency. However, despite shunning blessings at every
-                                                opportunity, The Godless, as they became known, are wont to dabble in
-                                                blessings in moments of weakness, and what's left of their clergy makes
-                                                sure to sink the boot in.""", 38)
-                            pyxel.text(25, 140, "+ Generates 125% of usual wealth", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Blessings cost 125% of usual", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "AFFLUENCE", pyxel.COLOR_YELLOW)
-                        case 4:
-                            self.draw_paragraph(25, 40, """Originating from a particular fertile part of these lands,
-                                                The Ravenous have enjoyed bountiful harvests for centuries. No matter
-                                                the skill of the farmer, or the quality of the seeds, a cultivation of
-                                                significant size is always created after some months. But with such
-                                                consistency, comes complacency. Those that have resided in settlements
-                                                occupied by The Ravenous, over time, grow greedy. As populations
-                                                increase, and more food is available, the existing residents seek to
-                                                keep it all for themselves, as newcomers are given the unbearable
-                                                choice of starving or leaving.""", 38)
-                            pyxel.text(25, 140, "+ Generates 125% of usual harvest", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Settlements capped at level 5", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "JUBILATION", pyxel.COLOR_GREEN)
-                        case 5:
-                            self.draw_paragraph(25, 40, """There's nothing quite like the clang of iron striking iron
-                                                to truly ground a person in their surroundings. This is a fact that the
-                                                Fundamentalists know well, as every child of a certain age is required
-                                                to serve as an apprentice in a local forge or refinery. With such
-                                                resources at their disposal, work is done quickly. And yet, suggestions
-                                                that constructions should be made quicker, and in some cases
-                                                instantaneous, through the use of empire funds are met with utter
-                                                disgust by the people. For the Fundamentalists, everything must be done
-                                                the right way.""", 38)
-                            pyxel.text(25, 140, "+ Generates 125% of usual zeal", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Construction buyouts disabled", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "VIGOUR", pyxel.COLOR_ORANGE)
-                        case 6:
-                            self.draw_paragraph(25, 40, """Glory to the ancient ones, and glory to the passionate. The
-                                                Orthodox look to those that came before them for guidance, and they are
-                                                justly rewarded that, with enlightenment and discoveries occurring
-                                                frequently. As the passionate tend to do, however, the clatter of coin
-                                                in the palm is met with a stern decline. Content they are with their
-                                                existence, The Orthodox rely on seeing what others cannot.""", 38)
-                            pyxel.text(25, 140, "+ Generates 125% of usual fortune", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Generates 75% of usual wealth", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "SERENDIPITY", pyxel.COLOR_PURPLE)
-                        case 7:
-                            self.draw_paragraph(25, 40, """For the unfamiliar, visiting the settlement of The
-                                                Concentrated can be overwhelming. The sheer mass of people everywhere
-                                                one looks along with the cloud-breaching towers can make one feel like
-                                                they have been transported to some distant future. It is this
-                                                intimidatory factor, in combination with the colossal ramparts
-                                                surrounding the megapolis that have kept The Concentrated safe and
-                                                sound for many years.""", 38)
-                            pyxel.text(25, 140, "+ Settlements have 200% strength", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Limited to a single settlement", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
-                        case 8:
-                            self.draw_paragraph(25, 40, """Blink and you'll miss it; that's the story of the
-                                                settlements of the Frontier. The Frontiersmen have a near obsession
-                                                with the thrill of the frontier and making something of inhospitable
-                                                terrain, in situations where others could not. Residing in a new
-                                                settlement is considered to be the pinnacle of Frontier achievement,
-                                                but the shine wears off quickly. After some time, the people become
-                                                restless and seek to expand further. And thus the cycle repeats.""",
-                                                38)
-                            pyxel.text(25, 140, "+ Base satisfaction is 75", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Settlers only at level 5", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "JUBILATION", pyxel.COLOR_GREEN)
-                        case 9:
-                            self.draw_paragraph(25, 40, """The concept of raw power and strength has long been a core
-                                                tenet of the self-dubbed Empire, with compulsory military service a
-                                                cultural feature. Drilled into the populace for such an extensive
-                                                period, the armed forces of the Imperials are a fearsome sight to
-                                                behold. Those opposite gaze at one another, gauging whether it might be
-                                                preferred to retreat. But this superiority leads to carelessness, as
-                                                the Imperials assume that no one would dare attack one of their
-                                                settlements for fear of retribution, and thus leave them relatively
-                                                undefended.""", 38)
-                            pyxel.text(25, 140, "+ Units have 50% more power", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Settlements have 50% strength", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
-                        case 10:
-                            self.draw_paragraph(25, 40, """Atop a mountain in the north of these lands, there is a
-                                                people of a certain philosophical nature. Instilled in all from birth
-                                                to death is the ideal of determination, and achieving one's goals no
-                                                matter the cost, in time or in life. Aptly dubbed by others as The
-                                                Persistent, these militaristic people often elect to wear others down
-                                                through sieges and defensive manoeuvres. Of course, such strategies
-                                                become ineffective against the well-prepared, but this does not bother
-                                                The Persistent; they simply continue on.""", 38)
-                            pyxel.text(25, 140, "+ Units have 50% more health", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Units have 75% of usual power", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
-                        case 11:
-                            self.draw_paragraph(25, 40, """Originating from an isolated part of the globe, the
-                                                Explorers were first introduced to the wider world when a lost trader
-                                                stumbled across their crude and underdeveloped settlement. Guiding the
-                                                leaders of the settlement out to the nearest other settlement, and
-                                                returning to explain to the masses was significant. Once the Explorers
-                                                got a taste, they have not been able to stop. They look higher, run
-                                                farther and dig deeper, at the expense of their energy levels.
-                                                Unfortunately for the Explorers, the required rest during the journey
-                                                makes them easy targets for Heathens.""", 38)
-                            pyxel.text(25, 140, "+ Units have 50% more stamina", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Units have 75% of usual health", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "GLUTTONY", pyxel.COLOR_GREEN)
-                        case 12:
-                            self.draw_paragraph(25, 40, """Some say they were raised by Heathens, and some say that
-                                                their DNA is actually closer to Heathen than human. Regardless of their
-                                                biological makeup, if you approach someone on the street of any
-                                                settlement and bring up the Infidels, you will be met with a look of
-                                                disgust and the question 'you're not one of them, are you?'. Seen as
-                                                sub-human, other empires engage in combat on sight with the Infidels,
-                                                no matter the disguises they apply.""", 38)
-                            pyxel.text(25, 140, "+ Not attacked by heathens", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Always attacked by AI players", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
-                        case 13:
-                            self.draw_paragraph(25, 40, """Long have The Nocturne worshipped the holy moons of this
-                                                world, and through repeated attempts to modify their circadian rhythm,
-                                                the strongest among them have developed genetic abilities. These
-                                                abilities go further than simply making them nocturnal, no, they see
-                                                farther and become stronger during the nighttime, and have perfected
-                                                the art of predicting the sundown. As all things are, however, there is
-                                                a trade-off. When the sun is out, those of The Nocturne are weakened,
-                                                and largely huddle together waiting for their precious darkness to
-                                                return.""", 38)
-                            pyxel.text(25, 140, "+ Thrive during the night", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Units weakened during the day", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
+                    # Draw the faction details for the currently selected faction.
+                    faction_detail = FACTION_DETAILS[self.faction_wiki_idx]
+                    self.draw_paragraph(25, 40, faction_detail.lore, 38)
+                    pyxel.text(25, 140, faction_detail.buff, pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, faction_detail.debuff, pyxel.COLOR_RED)
+                    pyxel.text(25, 170, faction_detail.rec_victory_type,
+                              VICTORY_TYPE_COLOURS[faction_detail.rec_victory_type])
                 case WikiOption.CLIMATE:
                     pyxel.load("resources/sprites.pyxres")
                     pyxel.rectb(20, 10, 160, 164, pyxel.COLOR_WHITE)
@@ -579,32 +369,31 @@ class Menu:
                     pyxel.blt(173, 39, 0, 16, 44, 8, 8)
                     for idx, imp in enumerate(IMPROVEMENTS):
                         if self.improvement_boundaries[0] <= idx <= self.improvement_boundaries[1]:
-                            adj_idx = idx - self.improvement_boundaries[0]
-                            pyxel.text(20, 50 + adj_idx * 25, str(imp.name), pyxel.COLOR_WHITE)
-                            pyxel.text(160, 50 + adj_idx * 25, str(imp.cost), pyxel.COLOR_WHITE)
-                            pyxel.text(20, 57 + adj_idx * 25, str(imp.description), pyxel.COLOR_WHITE)
+                            adj_offset = (idx - self.improvement_boundaries[0]) * 25
+                            pyxel.text(20, 50 + adj_offset, str(imp.name), pyxel.COLOR_WHITE)
+                            pyxel.text(160, 50 + adj_offset, str(imp.cost), pyxel.COLOR_WHITE)
+                            pyxel.text(20, 57 + adj_offset, str(imp.description), pyxel.COLOR_WHITE)
                             effects = 0
                             if (wealth := imp.effect.wealth) != 0:
-                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25, f"{wealth:+}", pyxel.COLOR_YELLOW)
+                                pyxel.text(20 + effects * 25, 64 + adj_offset, f"{wealth:+}", pyxel.COLOR_YELLOW)
                                 effects += 1
                             if (harvest := imp.effect.harvest) != 0:
-                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25, f"{harvest:+}", pyxel.COLOR_GREEN)
+                                pyxel.text(20 + effects * 25, 64 + adj_offset, f"{harvest:+}", pyxel.COLOR_GREEN)
                                 effects += 1
                             if (zeal := imp.effect.zeal) != 0:
-                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25, f"{zeal:+}", pyxel.COLOR_RED)
+                                pyxel.text(20 + effects * 25, 64 + adj_offset, f"{zeal:+}", pyxel.COLOR_RED)
                                 effects += 1
                             if (fortune := imp.effect.fortune) != 0:
-                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25, f"{fortune:+}", pyxel.COLOR_PURPLE)
+                                pyxel.text(20 + effects * 25, 64 + adj_offset, f"{fortune:+}", pyxel.COLOR_PURPLE)
                                 effects += 1
                             if (strength := imp.effect.strength) != 0:
-                                pyxel.blt(20 + effects * 25, 64 + adj_idx * 25, 0, 0, 28, 8, 8)
-                                pyxel.text(30 + effects * 25, 64 + adj_idx * 25, f"{strength:+}", pyxel.COLOR_WHITE)
+                                pyxel.blt(20 + effects * 25, 64 + adj_offset, 0, 0, 28, 8, 8)
+                                pyxel.text(30 + effects * 25, 64 + adj_offset, f"{strength:+}", pyxel.COLOR_WHITE)
                                 effects += 1
                             if (satisfaction := imp.effect.satisfaction) != 0:
                                 satisfaction_u = 8 if satisfaction >= 0 else 16
-                                pyxel.blt(20 + effects * 25, 64 + adj_idx * 25, 0, satisfaction_u, 28, 8, 8)
-                                pyxel.text(30 + effects * 25, 64 + adj_idx * 25,
-                                           f"{satisfaction:+}", pyxel.COLOR_WHITE)
+                                pyxel.blt(20 + effects * 25, 64 + adj_offset, 0, satisfaction_u, 28, 8, 8)
+                                pyxel.text(30 + effects * 25, 64 + adj_offset, f"{satisfaction:+}", pyxel.COLOR_WHITE)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                     if self.improvement_boundaries[1] != len(IMPROVEMENTS) - 1:
                         self.draw_paragraph(152, 155, "More down!", 5)
