@@ -44,7 +44,6 @@ class MusicPlayer:
         Play the current in-game music, setting its volume and restarting it first.
         """
         self.game_players[self.current_idx].audio_set_volume(70)
-        self.game_players[self.current_idx].set_position(0)
         self.game_players[self.current_idx].play()
 
     def stop_game_music(self):
@@ -60,7 +59,7 @@ class MusicPlayer:
         """
         Skip to the next in-game song.
         """
-        self.game_players[self.current_idx].pause()
+        self.game_players[self.current_idx].stop()  # Note that we stop the player so that it will restart on next play.
         if self.current_idx < len(self.game_players) - 1:
             self.current_idx += 1
         else:
@@ -73,3 +72,11 @@ class MusicPlayer:
         :return: Whether an in-game song is playing.
         """
         return any(mp.is_playing() for mp in self.game_players)
+
+    def restart_menu_if_necessary(self):
+        """
+        If the menu track has finished, stop it and restart it.
+        """
+        if not self.menu_player.is_playing():
+            self.menu_player.stop()
+            self.menu_player.play()

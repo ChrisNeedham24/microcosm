@@ -76,7 +76,9 @@ class Game:
         if self.board is not None:
             self.board.update(time_elapsed)
 
-        if not self.on_menu and not self.music_player.is_playing():
+        if self.on_menu:
+            self.music_player.restart_menu_if_necessary()
+        elif not self.music_player.is_playing():
             self.music_player.next_song()
 
         all_units = []
