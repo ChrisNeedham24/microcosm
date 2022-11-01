@@ -1,11 +1,13 @@
 import random
-import typing
+from math import ceil
 from enum import Enum
+from typing import List, Optional, Tuple
 
 import pyxel
 
 from calculator import clamp
-from catalogue import BLESSINGS, get_unlockable_improvements, IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS
+from catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, IMPROVEMENTS, \
+    UNIT_PLANS, FACTION_COLOURS, PROJECTS
 from models import GameConfig, VictoryType, Faction, ProjectType
 
 
@@ -45,6 +47,8 @@ class WikiOption(Enum):
     BACK = "BACK"
 
 
+MenuOptions = SetupOption | WikiOption | MainMenuOption | VictoryType
+
 class Menu:
     """
     The class responsible for drawing and navigating the menu.
@@ -55,7 +59,7 @@ class Menu:
         """
         self.main_menu_option = MainMenuOption.NEW_GAME
         random.seed()
-        self.image = random.randint(0, 5)
+        self.image_bank = random.randint(0, 5)
         self.in_game_setup = False
         self.loading_game = False
         self.in_wiki = False
@@ -65,8 +69,8 @@ class Menu:
         self.blessing_boundaries = 0, 3
         self.improvement_boundaries = 0, 3
         self.unit_boundaries = 0, 9
-        self.saves: typing.List[str] = []
-        self.save_idx: typing.Optional[int] = 0
+        self.saves: List[str] = []
+        self.save_idx: Optional[int] = 0
         self.setup_option = SetupOption.PLAYER_FACTION
         self.faction_idx = 0
         self.player_count = 2
@@ -74,7 +78,7 @@ class Menu:
         self.fog_of_war_enabled = True
         self.climatic_effects_enabled = True
         self.showing_night = False
-        self.faction_colours: typing.List[typing.Tuple[Faction, int]] = list(FACTION_COLOURS.items())
+        self.faction_colours: List[Tuple[Faction, int]] = list(FACTION_COLOURS.items())
         self.showing_faction_details = False
         self.faction_wiki_idx = 0
         self.load_game_boundaries = 0, 9
@@ -84,19 +88,16 @@ class Menu:
         """
         Draws the menu, based on where we are in it.
         """
-        # Draw the background.
-        if self.image < 3:
-            pyxel.load("resources/background.pyxres")
-            pyxel.blt(0, 0, self.image, 0, 0, 200, 200)
-        else:
-            pyxel.load("resources/background2.pyxres")
-            pyxel.blt(0, 0, self.image - 3, 0, 0, 200, 200)
+        # Draw the background. Based on the image bank number, we determine which resource file should be used.
+        background_path = f"resources/background{ceil((self.image_bank + 1) / 3)}.pyxres"
+        pyxel.load(background_path)
+        pyxel.blt(0, 0, self.image_bank % 3, 0, 0, 200, 200)
+
         if self.in_game_setup:
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
             pyxel.text(81, 25, "Game Setup", pyxel.COLOR_WHITE)
-            pyxel.text(28, 40, "Player Faction",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.PLAYER_FACTION else pyxel.COLOR_WHITE)
+            pyxel.text(28, 40, "Player Faction", self.get_option_colour(SetupOption.PLAYER_FACTION))
             faction_offset = 50 - pow(len(self.faction_colours[self.faction_idx][0]), 1.4)
             if self.faction_idx == 0:
                 pyxel.text(100 + faction_offset, 40, f"{self.faction_colours[self.faction_idx][0]} ->",
@@ -108,8 +109,7 @@ class Menu:
                 pyxel.text(88 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0]} ->",
                            self.faction_colours[self.faction_idx][1])
             pyxel.text(26, 50, "(Press F to show more faction details)", pyxel.COLOR_WHITE)
-            pyxel.text(28, 65, "Player Count",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.PLAYER_COUNT else pyxel.COLOR_WHITE)
+            pyxel.text(28, 65, "Player Count", self.get_option_colour(SetupOption.PLAYER_COUNT))
             match self.player_count:
                 case 2:
                     pyxel.text(140, 65, "2 ->", pyxel.COLOR_WHITE)
@@ -118,26 +118,22 @@ class Menu:
                 case _:
                     pyxel.text(130, 65, f"<- {self.player_count} ->", pyxel.COLOR_WHITE)
 
-            pyxel.text(28, 85, "Biome Clustering",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.BIOME_CLUSTERING else pyxel.COLOR_WHITE)
+            pyxel.text(28, 85, "Biome Clustering", self.get_option_colour(SetupOption.BIOME_CLUSTERING))
             if self.biome_clustering_enabled:
                 pyxel.text(125, 85, "<- Enabled", pyxel.COLOR_GREEN)
             else:
                 pyxel.text(125, 85, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 105, "Fog of War",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.FOG_OF_WAR else pyxel.COLOR_WHITE)
+            pyxel.text(28, 105, "Fog of War", self.get_option_colour(SetupOption.FOG_OF_WAR))
             if self.fog_of_war_enabled:
                 pyxel.text(125, 105, "<- Enabled", pyxel.COLOR_GREEN)
             else:
                 pyxel.text(125, 105, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 125, "Climatic Effects",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.CLIMATIC_EFFECTS else pyxel.COLOR_WHITE)
+            pyxel.text(28, 125, "Climatic Effects", self.get_option_colour(SetupOption.CLIMATIC_EFFECTS))
             if self.climatic_effects_enabled:
                 pyxel.text(125, 125, "<- Enabled", pyxel.COLOR_GREEN)
             else:
                 pyxel.text(125, 125, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(81, 150, "Start Game",
-                       pyxel.COLOR_RED if self.setup_option is SetupOption.START_GAME else pyxel.COLOR_WHITE)
+            pyxel.text(81, 150, "Start Game", self.get_option_colour(SetupOption.START_GAME))
             pyxel.text(52, 160, "(Press SPACE to go back)", pyxel.COLOR_WHITE)
 
             if self.showing_faction_details:
@@ -149,64 +145,12 @@ class Menu:
                            self.faction_colours[self.faction_idx][1])
                 pyxel.text(35, 110, "Recommended victory:", pyxel.COLOR_WHITE)
 
-                match self.faction_idx:
-                    case 0:
-                        pyxel.text(35, 70, "+ Immune to poor harvest", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Generates 75% of usual zeal", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "GLUTTONY", pyxel.COLOR_GREEN)
-                    case 1:
-                        pyxel.text(35, 70, "+ Immune to recession", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Double low harvest penalty", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "AFFLUENCE", pyxel.COLOR_YELLOW)
-                    case 2:
-                        pyxel.text(35, 70, "+ Investigations always succeed", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Generates 75% of usual fortune", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
-                    case 3:
-                        pyxel.text(35, 70, "+ Generates 125% of usual wealth", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Blessings cost 125% of usual", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "AFFLUENCE", pyxel.COLOR_YELLOW)
-                    case 4:
-                        pyxel.text(35, 70, "+ Generates 125% of usual harvest", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Settlements capped at level 5", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "JUBILATION", pyxel.COLOR_GREEN)
-                    case 5:
-                        pyxel.text(35, 70, "+ Generates 125% of usual zeal", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Construction buyouts disabled", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "VIGOUR", pyxel.COLOR_ORANGE)
-                    case 6:
-                        pyxel.text(35, 70, "+ Generates 125% of usual fortune", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Generates 75% of usual wealth", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "SERENDIPITY", pyxel.COLOR_PURPLE)
-                    case 7:
-                        pyxel.text(35, 70, "+ Settlements have 200% strength", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Limited to a single settlement", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
-                    case 8:
-                        pyxel.text(35, 70, "+ Base satisfaction is 75", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Settlers only at level 5", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "JUBILATION", pyxel.COLOR_GREEN)
-                    case 9:
-                        pyxel.text(35, 70, "+ Units have 50% more power", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Settlements have 50% strength", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
-                    case 10:
-                        pyxel.text(35, 70, "+ Units have 50% more health", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Units have 75% of usual power", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
-                    case 11:
-                        pyxel.text(35, 70, "+ Units have 50% more stamina", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Units have 75% of usual health", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "GLUTTONY", pyxel.COLOR_GREEN)
-                    case 12:
-                        pyxel.text(35, 70, "+ Special affinity with heathens", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Always attacked by AI players", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
-                    case 13:
-                        pyxel.text(35, 70, "+ Thrive during the night", pyxel.COLOR_GREEN)
-                        pyxel.text(35, 90, "- Units weakened during the day", pyxel.COLOR_RED)
-                        pyxel.text(35, 120, "ELIMINATION", pyxel.COLOR_RED)
-
+                # Draw the buff and debuff text for the currently selected faction.
+                faction_detail = FACTION_DETAILS[self.faction_idx]
+                pyxel.text(35, 70, faction_detail.buff, pyxel.COLOR_GREEN)
+                pyxel.text(35, 90, faction_detail.debuff, pyxel.COLOR_RED)
+                pyxel.text(35, 120, faction_detail.rec_victory_type,
+                              VICTORY_TYPE_COLOURS[faction_detail.rec_victory_type])
                 pyxel.blt(150, 48, 0, self.faction_idx * 8, 92, 8, 8)
                 if self.faction_idx != 0:
                     pyxel.text(35, 140, "<-", pyxel.COLOR_WHITE)
@@ -237,8 +181,7 @@ class Menu:
                         pyxel.text(150, 35 + (idx - self.load_game_boundaries[0]) * 10, "Load",
                                    pyxel.COLOR_RED if self.save_idx is idx else pyxel.COLOR_WHITE)
                 if self.load_game_boundaries[1] != len(self.saves) - 1:
-                    pyxel.text(147, 135, "More", pyxel.COLOR_WHITE)
-                    pyxel.text(147, 141, "down!", pyxel.COLOR_WHITE)
+                    self.draw_paragraph(147, 135, "More down!", 5)
                     pyxel.blt(167, 136, 0, 0, 76, 8, 8)
                 pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
         elif self.in_wiki:
@@ -253,7 +196,7 @@ class Menu:
                         case VictoryType.ELIMINATION:
                             pyxel.text(80, 40, "ELIMINATION", pyxel.COLOR_RED)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 60, "Take control of all settlements", pyxel.COLOR_WHITE)
+                            self.draw_paragraph(30, 60, "Take control of all settlements", 36)
                             pyxel.line(24, 70, 175, 70, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 75, """Like any strong leader, you want the best for your people.
                                                 However, constant attacks by filthy Heathens and enemy troops are
@@ -265,8 +208,7 @@ class Menu:
                         case VictoryType.JUBILATION:
                             pyxel.text(80, 40, "JUBILATION", pyxel.COLOR_GREEN)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 60, "Maintain 100% satisfaction in 5+", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 66, "settlements for 25 turns", pyxel.COLOR_WHITE)
+                            self.draw_paragraph(30, 60, "Maintain 100% satisfaction in 5+ settlements for 25 turns", 36)
                             pyxel.line(24, 76, 175, 76, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 81, """Your rule as leader is solid, your subjects faithful. But
                                                 there is something missing. Your subjects, while not rebellious, do not
@@ -280,7 +222,7 @@ class Menu:
                         case VictoryType.GLUTTONY:
                             pyxel.text(84, 40, "GLUTTONY", pyxel.COLOR_GREEN)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 60, "Reach level 10 in 10+ settlements", pyxel.COLOR_WHITE)
+                            self.draw_paragraph(30, 60, "Reach level 10 in 10+ settlements", 36)
                             pyxel.line(24, 70, 175, 70, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 75, """There is nothing more satisfying as a leader than tucking
                                                 into a generous meal prepared by your servants. But as a benevolent
@@ -295,8 +237,7 @@ class Menu:
                         case VictoryType.AFFLUENCE:
                             pyxel.text(82, 40, "AFFLUENCE", pyxel.COLOR_YELLOW)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 60, "Accumulate 100,000 wealth over the", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 66, "course of the game", pyxel.COLOR_WHITE)
+                            self.draw_paragraph(30, 60, "Accumulate 100,000 wealth over the course of the game", 36)
                             pyxel.line(24, 76, 175, 76, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 81, """Your empire has fallen on hard times. Recent conflicts have
                                                 not gone your way, your lands have been seized, and your treasuries are
@@ -311,9 +252,8 @@ class Menu:
                         case VictoryType.VIGOUR:
                             pyxel.text(88, 40, "VIGOUR", pyxel.COLOR_ORANGE)
                             pyxel.text(25, 45, "Objectives:", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 55, "Undergo the Ancient History blessing", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 65, "Construct the holy sanctum in a", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 71, "settlement", pyxel.COLOR_WHITE)
+                            self.draw_paragraph(30, 55, "Undergo the Ancient History blessing", 36)
+                            self.draw_paragraph(30, 65, "Construct the holy sanctum in a settlement", 36)
                             pyxel.line(24, 77, 175, 77, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 80, """You have always been fascinated with the bygone times of
                                                 your empire and its rich history. There is never a better time than
@@ -328,9 +268,8 @@ class Menu:
                         case VictoryType.SERENDIPITY:
                             pyxel.text(78, 40, "SERENDIPITY", pyxel.COLOR_PURPLE)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 60, "Undergo the three blessings of", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 66, "ardour: the pieces of strength,", pyxel.COLOR_WHITE)
-                            pyxel.text(30, 72, "passion, and divinity.", pyxel.COLOR_WHITE)
+                            self.draw_paragraph(30, 60, """Undergo the three blessings of ardour: the pieces of
+                                                strength, passion, and divinity.""", 36)
                             pyxel.line(24, 82, 175, 82, pyxel.COLOR_GRAY)
                             self.draw_paragraph(25, 87, """Local folklore has always said that a man of the passions
                                                 was a man unparalleled amongst his peers. You have long aspired to be
@@ -358,172 +297,13 @@ class Menu:
                         pyxel.text(168, 180, "->", pyxel.COLOR_WHITE)
                     pyxel.text(56, 180, "Press SPACE to go back", pyxel.COLOR_WHITE)
 
-                    match self.faction_wiki_idx:
-                        case 0:
-                            self.draw_paragraph(25, 40, """Using techniques passed down through the generations, the
-                                                Agriculturists are able to sustain their populace through famine and
-                                                indeed through feast. Some of this land's greatest delicacies are
-                                                grown by these humble people, who insist that anyone could grow what
-                                                they do, winking at one another as they say it. Without the spectre of
-                                                hunger on the horizon, the Agriculturists lead the slow life,
-                                                indulging in pleasures at their own pace.""", 38)
-                            pyxel.text(25, 140, "+ Immune to poor harvest", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Generates 75% of usual zeal", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "GLUTTONY", pyxel.COLOR_GREEN)
-                        case 1:
-                            self.draw_paragraph(25, 40, """The sky-high towers and luxurious dwellings found
-                                                throughout their cities represent the Capitalists to the fullest. They
-                                                value the clink of coins over anything else, and it has served them
-                                                well so far. However, if you take a look around the corner, things are
-                                                clearly not as the seem. And as the slums fill up, there better be
-                                                enough food to go around, lest something... dangerous happens.""", 38)
-                            pyxel.text(25, 140, "+ Immune to recession", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Double low harvest penalty", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "AFFLUENCE", pyxel.COLOR_YELLOW)
-                        case 2:
-                            self.draw_paragraph(25, 40, """Due to a genetic trait, the Scrutineers have always had good
-                                                eyesight and they use it to full effect. Nothing gets past them, from
-                                                the temples of the outlands to the streets of their cities. But, as it
-                                                goes, the devil is in the details, as the local clergy certainly
-                                                aren't exempt from the all-seeing eye, with blessings being stymied as
-                                                much as is humanly possible.
-                                                """, 38)
-                            pyxel.text(25, 140, "+ Investigations always succeed", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Generates 75% of usual fortune", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
-                        case 3:
-                            self.draw_paragraph(25, 40, """Many eons ago, a subsection of the population of these
-                                                lands began to question the effectiveness of their blessings after
-                                                years of squalor and oppression. They shook free their bonds and formed
-                                                their own community based around the one thing that proved valuable to
-                                                all people: currency. However, despite shunning blessings at every
-                                                opportunity, The Godless, as they became known, are wont to dabble in
-                                                blessings in moments of weakness, and what's left of their clergy makes
-                                                sure to sink the boot in.""", 38)
-                            pyxel.text(25, 140, "+ Generates 125% of usual wealth", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Blessings cost 125% of usual", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "AFFLUENCE", pyxel.COLOR_YELLOW)
-                        case 4:
-                            self.draw_paragraph(25, 40, """Originating from a particular fertile part of these lands,
-                                                The Ravenous have enjoyed bountiful harvests for centuries. No matter
-                                                the skill of the farmer, or the quality of the seeds, a cultivation of
-                                                significant size is always created after some months. But with such
-                                                consistency, comes complacency. Those that have resided in settlements
-                                                occupied by The Ravenous, over time, grow greedy. As populations
-                                                increase, and more food is available, the existing residents seek to
-                                                keep it all for themselves, as newcomers are given the unbearable
-                                                choice of starving or leaving.""", 38)
-                            pyxel.text(25, 140, "+ Generates 125% of usual harvest", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Settlements capped at level 5", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "JUBILATION", pyxel.COLOR_GREEN)
-                        case 5:
-                            self.draw_paragraph(25, 40, """There's nothing quite like the clang of iron striking iron
-                                                to truly ground a person in their surroundings. This is a fact that the
-                                                Fundamentalists know well, as every child of a certain age is required
-                                                to serve as an apprentice in a local forge or refinery. With such
-                                                resources at their disposal, work is done quickly. And yet, suggestions
-                                                that constructions should be made quicker, and in some cases
-                                                instantaneous, through the use of empire funds are met with utter
-                                                disgust by the people. For the Fundamentalists, everything must be done
-                                                the right way.""", 38)
-                            pyxel.text(25, 140, "+ Generates 125% of usual zeal", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Construction buyouts disabled", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "VIGOUR", pyxel.COLOR_ORANGE)
-                        case 6:
-                            self.draw_paragraph(25, 40, """Glory to the ancient ones, and glory to the passionate. The
-                                                Orthodox look to those that came before them for guidance, and they are
-                                                justly rewarded that, with enlightenment and discoveries occurring
-                                                frequently. As the passionate tend to do, however, the clatter of coin
-                                                in the palm is met with a stern decline. Content they are with their
-                                                existence, The Orthodox rely on seeing what others cannot.""", 38)
-                            pyxel.text(25, 140, "+ Generates 125% of usual fortune", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Generates 75% of usual wealth", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "SERENDIPITY", pyxel.COLOR_PURPLE)
-                        case 7:
-                            self.draw_paragraph(25, 40, """For the unfamiliar, visiting the settlement of The
-                                                Concentrated can be overwhelming. The sheer mass of people everywhere
-                                                one looks along with the cloud-breaching towers can make one feel like
-                                                they have been transported to some distant future. It is this
-                                                intimidatory factor, in combination with the colossal ramparts
-                                                surrounding the megapolis that have kept The Concentrated safe and
-                                                sound for many years.""", 38)
-                            pyxel.text(25, 140, "+ Settlements have 200% strength", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Limited to a single settlement", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
-                        case 8:
-                            self.draw_paragraph(25, 40, """Blink and you'll miss it; that's the story of the
-                                                settlements of the Frontier. The Frontiersmen have a near obsession
-                                                with the thrill of the frontier and making something of inhospitable
-                                                terrain, in situations where others could not. Residing in a new
-                                                settlement is considered to be the pinnacle of Frontier achievement,
-                                                but the shine wears off quickly. After some time, the people become
-                                                restless and seek to expand further. And thus the cycle repeats.""",
-                                                38)
-                            pyxel.text(25, 140, "+ Base satisfaction is 75", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Settlers only at level 5", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "JUBILATION", pyxel.COLOR_GREEN)
-                        case 9:
-                            self.draw_paragraph(25, 40, """The concept of raw power and strength has long been a core
-                                                tenet of the self-dubbed Empire, with compulsory military service a
-                                                cultural feature. Drilled into the populace for such an extensive
-                                                period, the armed forces of the Imperials are a fearsome sight to
-                                                behold. Those opposite gaze at one another, gauging whether it might be
-                                                preferred to retreat. But this superiority leads to carelessness, as
-                                                the Imperials assume that no one would dare attack one of their
-                                                settlements for fear of retribution, and thus leave them relatively
-                                                undefended.""", 38)
-                            pyxel.text(25, 140, "+ Units have 50% more power", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Settlements have 50% strength", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
-                        case 10:
-                            self.draw_paragraph(25, 40, """Atop a mountain in the north of these lands, there is a
-                                                people of a certain philosophical nature. Instilled in all from birth
-                                                to death is the ideal of determination, and achieving one's goals no
-                                                matter the cost, in time or in life. Aptly dubbed by others as The
-                                                Persistent, these militaristic people often elect to wear others down
-                                                through sieges and defensive manoeuvres. Of course, such strategies
-                                                become ineffective against the well-prepared, but this does not bother
-                                                The Persistent; they simply continue on.""", 38)
-                            pyxel.text(25, 140, "+ Units have 50% more health", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Units have 75% of usual power", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
-                        case 11:
-                            self.draw_paragraph(25, 40, """Originating from an isolated part of the globe, the
-                                                Explorers were first introduced to the wider world when a lost trader
-                                                stumbled across their crude and underdeveloped settlement. Guiding the
-                                                leaders of the settlement out to the nearest other settlement, and
-                                                returning to explain to the masses was significant. Once the Explorers
-                                                got a taste, they have not been able to stop. They look higher, run
-                                                farther and dig deeper, at the expense of their energy levels.
-                                                Unfortunately for the Explorers, the required rest during the journey
-                                                makes them easy targets for Heathens.""", 38)
-                            pyxel.text(25, 140, "+ Units have 50% more stamina", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Units have 75% of usual health", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "GLUTTONY", pyxel.COLOR_GREEN)
-                        case 12:
-                            self.draw_paragraph(25, 40, """Some say they were raised by Heathens, and some say that
-                                                their DNA is actually closer to Heathen than human. Regardless of their
-                                                biological makeup, if you approach someone on the street of any
-                                                settlement and bring up the Infidels, you will be met with a look of
-                                                disgust and the question 'you're not one of them, are you?'. Seen as
-                                                sub-human, other empires engage in combat on sight with the Infidels,
-                                                no matter the disguises they apply.""", 38)
-                            pyxel.text(25, 140, "+ Not attacked by heathens", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Always attacked by AI players", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
-                        case 13:
-                            self.draw_paragraph(25, 40, """Long have The Nocturne worshipped the holy moons of this
-                                                world, and through repeated attempts to modify their circadian rhythm,
-                                                the strongest among them have developed genetic abilities. These
-                                                abilities go further than simply making them nocturnal, no, they see
-                                                farther and become stronger during the nighttime, and have perfected
-                                                the art of predicting the sundown. As all things are, however, there is
-                                                a trade-off. When the sun is out, those of The Nocturne are weakened,
-                                                and largely huddle together waiting for their precious darkness to
-                                                return.""", 38)
-                            pyxel.text(25, 140, "+ Thrive during the night", pyxel.COLOR_GREEN)
-                            pyxel.text(25, 150, "- Units weakened during the day", pyxel.COLOR_RED)
-                            pyxel.text(25, 170, "ELIMINATION", pyxel.COLOR_RED)
+                    # Draw the faction details for the currently selected faction.
+                    faction_detail = FACTION_DETAILS[self.faction_wiki_idx]
+                    self.draw_paragraph(25, 40, faction_detail.lore, 38)
+                    pyxel.text(25, 140, faction_detail.buff, pyxel.COLOR_GREEN)
+                    pyxel.text(25, 150, faction_detail.debuff, pyxel.COLOR_RED)
+                    pyxel.text(25, 170, faction_detail.rec_victory_type,
+                              VICTORY_TYPE_COLOURS[faction_detail.rec_victory_type])
                 case WikiOption.CLIMATE:
                     pyxel.load("resources/sprites.pyxres")
                     pyxel.rectb(20, 10, 160, 164, pyxel.COLOR_WHITE)
@@ -577,7 +357,7 @@ class Menu:
                             pyxel.text(20, 57 + adj_idx * 25, str(blessing.description), pyxel.COLOR_WHITE)
                             imps = get_unlockable_improvements(blessing)
                             pyxel.text(20, 64 + adj_idx * 25, "U:", pyxel.COLOR_WHITE)
-                            unlocked_names: typing.List[str] = []
+                            unlocked_names: List[str] = []
                             if len(imps) > 0:
                                 for imp in imps:
                                     unlocked_names.append(imp.name)
@@ -589,8 +369,7 @@ class Menu:
                                 pyxel.text(28, 63 + adj_idx * 25, "victory", pyxel.COLOR_GREEN)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                     if self.blessing_boundaries[1] != len(BLESSINGS) - 1:
-                        pyxel.text(152, 155, "More", pyxel.COLOR_WHITE)
-                        pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
+                        self.draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case WikiOption.IMPROVEMENTS:
                     pyxel.load("resources/sprites.pyxres")
@@ -602,47 +381,34 @@ class Menu:
                     pyxel.blt(173, 39, 0, 16, 44, 8, 8)
                     for idx, imp in enumerate(IMPROVEMENTS):
                         if self.improvement_boundaries[0] <= idx <= self.improvement_boundaries[1]:
-                            adj_idx = idx - self.improvement_boundaries[0]
-                            pyxel.text(20, 50 + adj_idx * 25, str(imp.name), pyxel.COLOR_WHITE)
-                            pyxel.text(160, 50 + adj_idx * 25, str(imp.cost), pyxel.COLOR_WHITE)
-                            pyxel.text(20, 57 + adj_idx * 25, str(imp.description), pyxel.COLOR_WHITE)
+                            adj_offset = (idx - self.improvement_boundaries[0]) * 25
+                            pyxel.text(20, 50 + adj_offset, str(imp.name), pyxel.COLOR_WHITE)
+                            pyxel.text(160, 50 + adj_offset, str(imp.cost), pyxel.COLOR_WHITE)
+                            pyxel.text(20, 57 + adj_offset, str(imp.description), pyxel.COLOR_WHITE)
                             effects = 0
-                            if imp.effect.wealth != 0:
-                                sign = "+" if imp.effect.wealth > 0 else "-"
-                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25,
-                                           f"{sign}{abs(imp.effect.wealth)}", pyxel.COLOR_YELLOW)
+                            if (wealth := imp.effect.wealth) != 0:
+                                pyxel.text(20 + effects * 25, 64 + adj_offset, f"{wealth:+}", pyxel.COLOR_YELLOW)
                                 effects += 1
-                            if imp.effect.harvest != 0:
-                                sign = "+" if imp.effect.harvest > 0 else "-"
-                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25,
-                                           f"{sign}{abs(imp.effect.harvest)}", pyxel.COLOR_GREEN)
+                            if (harvest := imp.effect.harvest) != 0:
+                                pyxel.text(20 + effects * 25, 64 + adj_offset, f"{harvest:+}", pyxel.COLOR_GREEN)
                                 effects += 1
-                            if imp.effect.zeal != 0:
-                                sign = "+" if imp.effect.zeal > 0 else "-"
-                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25,
-                                           f"{sign}{abs(imp.effect.zeal)}", pyxel.COLOR_RED)
+                            if (zeal := imp.effect.zeal) != 0:
+                                pyxel.text(20 + effects * 25, 64 + adj_offset, f"{zeal:+}", pyxel.COLOR_RED)
                                 effects += 1
-                            if imp.effect.fortune != 0:
-                                sign = "+" if imp.effect.fortune > 0 else "-"
-                                pyxel.text(20 + effects * 25, 64 + adj_idx * 25,
-                                           f"{sign}{abs(imp.effect.fortune)}", pyxel.COLOR_PURPLE)
+                            if (fortune := imp.effect.fortune) != 0:
+                                pyxel.text(20 + effects * 25, 64 + adj_offset, f"{fortune:+}", pyxel.COLOR_PURPLE)
                                 effects += 1
-                            if imp.effect.strength != 0:
-                                sign = "+" if imp.effect.strength > 0 else "-"
-                                pyxel.blt(20 + effects * 25, 64 + adj_idx * 25, 0, 0, 28, 8, 8)
-                                pyxel.text(30 + effects * 25, 64 + adj_idx * 25,
-                                           f"{sign}{abs(imp.effect.strength)}", pyxel.COLOR_WHITE)
+                            if (strength := imp.effect.strength) != 0:
+                                pyxel.blt(20 + effects * 25, 64 + adj_offset, 0, 0, 28, 8, 8)
+                                pyxel.text(30 + effects * 25, 64 + adj_offset, f"{strength:+}", pyxel.COLOR_WHITE)
                                 effects += 1
-                            if imp.effect.satisfaction != 0:
-                                sign = "+" if imp.effect.satisfaction > 0 else "-"
-                                satisfaction_u = 8 if imp.effect.satisfaction >= 0 else 16
-                                pyxel.blt(20 + effects * 25, 64 + adj_idx * 25, 0, satisfaction_u, 28, 8, 8)
-                                pyxel.text(30 + effects * 25, 64 + adj_idx * 25,
-                                           f"{sign}{abs(imp.effect.satisfaction)}", pyxel.COLOR_WHITE)
+                            if (satisfaction := imp.effect.satisfaction) != 0:
+                                satisfaction_u = 8 if satisfaction >= 0 else 16
+                                pyxel.blt(20 + effects * 25, 64 + adj_offset, 0, satisfaction_u, 28, 8, 8)
+                                pyxel.text(30 + effects * 25, 64 + adj_offset, f"{satisfaction:+}", pyxel.COLOR_WHITE)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                     if self.improvement_boundaries[1] != len(IMPROVEMENTS) - 1:
-                        pyxel.text(152, 155, "More", pyxel.COLOR_WHITE)
-                        pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
+                        self.draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case WikiOption.PROJECTS:
                     pyxel.load("resources/sprites.pyxres")
@@ -686,41 +452,28 @@ class Menu:
                             pyxel.text(132, 50 + adj_idx * 10, str(unit.total_stamina), pyxel.COLOR_WHITE)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                     if self.unit_boundaries[1] != len(UNIT_PLANS) - 1:
-                        pyxel.text(152, 155, "More", pyxel.COLOR_WHITE)
-                        pyxel.text(152, 161, "down!", pyxel.COLOR_WHITE)
+                        self.draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case _:
                     pyxel.rectb(60, 45, 80, 110, pyxel.COLOR_WHITE)
                     pyxel.rect(61, 46, 78, 108, pyxel.COLOR_BLACK)
                     pyxel.text(92, 50, "Wiki", pyxel.COLOR_WHITE)
-                    pyxel.text(82, 65, "Victories",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.VICTORIES else pyxel.COLOR_WHITE)
-                    pyxel.text(85, 75, "Factions",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.FACTIONS else pyxel.COLOR_WHITE)
-                    pyxel.text(86, 85, "Climate",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.CLIMATE else pyxel.COLOR_WHITE)
-                    pyxel.text(82, 95, "Blessings",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.BLESSINGS else pyxel.COLOR_WHITE)
-                    pyxel.text(78, 105, "Improvements",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.IMPROVEMENTS else pyxel.COLOR_WHITE)
-                    pyxel.text(84, 115, "Projects",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.PROJECTS else pyxel.COLOR_WHITE)
-                    pyxel.text(90, 125, "Units",
-                               pyxel.COLOR_RED if self.wiki_option is WikiOption.UNITS else pyxel.COLOR_WHITE)
-                    pyxel.text(
-                        92, 145, "Back", pyxel.COLOR_RED if self.wiki_option is WikiOption.BACK else pyxel.COLOR_WHITE)
+                    pyxel.text(82, 65, "Victories", self.get_option_colour(WikiOption.VICTORIES))
+                    pyxel.text(85, 75, "Factions", self.get_option_colour(WikiOption.FACTIONS))
+                    pyxel.text(86, 85, "Climate", self.get_option_colour(WikiOption.CLIMATE))
+                    pyxel.text(82, 95, "Blessings", self.get_option_colour(WikiOption.BLESSINGS))
+                    pyxel.text(78, 105, "Improvements", self.get_option_colour(WikiOption.IMPROVEMENTS))
+                    pyxel.text(84, 115, "Projects", self.get_option_colour(WikiOption.PROJECTS))
+                    pyxel.text(90, 125, "Units", self.get_option_colour(WikiOption.UNITS))
+                    pyxel.text(92, 145, "Back", self.get_option_colour(WikiOption.BACK))
         else:
             pyxel.rectb(75, 120, 50, 60, pyxel.COLOR_WHITE)
             pyxel.rect(76, 121, 48, 58, pyxel.COLOR_BLACK)
             pyxel.text(82, 125, "MICROCOSM", pyxel.COLOR_WHITE)
-            pyxel.text(85, 140, "New Game",
-                       pyxel.COLOR_RED if self.main_menu_option is MainMenuOption.NEW_GAME else pyxel.COLOR_WHITE)
-            pyxel.text(82, 150, "Load Game",
-                       pyxel.COLOR_RED if self.main_menu_option is MainMenuOption.LOAD_GAME else pyxel.COLOR_WHITE)
-            pyxel.text(92, 160, "Wiki",
-                       pyxel.COLOR_RED if self.main_menu_option is MainMenuOption.WIKI else pyxel.COLOR_WHITE)
-            pyxel.text(92, 170, "Exit",
-                       pyxel.COLOR_RED if self.main_menu_option is MainMenuOption.EXIT else pyxel.COLOR_WHITE)
+            pyxel.text(85, 140, "New Game", self.get_option_colour(MainMenuOption.NEW_GAME))
+            pyxel.text(82, 150, "Load Game", self.get_option_colour(MainMenuOption.LOAD_GAME))
+            pyxel.text(92, 160, "Wiki", self.get_option_colour(MainMenuOption.WIKI))
+            pyxel.text(92, 170, "Exit", self.get_option_colour(MainMenuOption.EXIT))
 
     def navigate(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
         """
@@ -828,9 +581,7 @@ class Menu:
         return GameConfig(self.player_count, self.faction_colours[self.faction_idx][0], self.biome_clustering_enabled,
                           self.fog_of_war_enabled, self.climatic_effects_enabled)
 
-    def next_menu_option(self,
-                         current_option: SetupOption | WikiOption | MainMenuOption | VictoryType,
-                         wrap_around: bool = False) -> None:
+    def next_menu_option(self, current_option: MenuOptions, wrap_around: bool = False) -> None:
         """
         Given a menu option, go to the next item within the list of the option's enums.
         :param current_option: The currently selected option.
@@ -849,9 +600,7 @@ class Menu:
         target_option = list(options_enum)[target_option_idx]
         self.change_menu_option(target_option)
 
-    def previous_menu_option(self,
-                             current_option: SetupOption | WikiOption | MainMenuOption | VictoryType,
-                             wrap_around: bool = False) -> None:
+    def previous_menu_option(self, current_option: MenuOptions, wrap_around: bool = False) -> None:
         """
         Given a menu option, go to the previous item within the list of the option's enums.
         :param current_option: The currently selected option.
@@ -870,22 +619,31 @@ class Menu:
         target_option = list(options_enum)[target_option_idx]
         self.change_menu_option(target_option)
 
-    def change_menu_option(self,
-                           target_option: SetupOption | WikiOption | MainMenuOption | VictoryType) -> None:
+    def change_menu_option(self, target_option: MenuOptions) -> None:
         """
         Select the given menu option.
         :param target_option: The target option to be selected.
         """
         # Based on the enum type of the target option, figure out which corresponding field we need to change.
         match target_option:
-            case SetupOption():
-                self.setup_option = target_option
-            case WikiOption():
-                self.wiki_option = target_option
-            case MainMenuOption():
-                self.main_menu_option = target_option
-            case VictoryType():
-                self.victory_type = target_option
+            case SetupOption(): self.setup_option = target_option
+            case WikiOption(): self.wiki_option = target_option
+            case MainMenuOption(): self.main_menu_option = target_option
+            case VictoryType(): self.victory_type = target_option
+
+    def get_option_colour(self, option: MenuOptions) -> int:
+        """
+        Determine which colour to use for drawing menu options. RED if the option is currently selected by the user,
+        and WHITE otherwise.
+        :param option: the menu option to pick the colour for.
+        :return: The appropriate colour.
+        """
+        match option:
+            case SetupOption(): field_to_check = self.setup_option
+            case WikiOption(): field_to_check = self.wiki_option
+            case _: field_to_check = self.main_menu_option
+
+        return pyxel.COLOR_RED if field_to_check is option else pyxel.COLOR_WHITE
 
     @staticmethod
     def draw_paragraph(x_start: int, y_start: int, text: str, line_length: int) -> None:
