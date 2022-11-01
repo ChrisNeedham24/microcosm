@@ -69,6 +69,7 @@ class Namer:
         """
         self.names = deepcopy(SETL_NAMES)
 
+
 # The list of playable factions and their details.
 FACTION_DETAILS = [
     FactionDetail(Faction.AGRICULTURISTS, """Using techniques passed down through the generations, the Agriculturists
@@ -154,7 +155,7 @@ FACTION_DETAILS = [
                   closer to Heathen than human. Regardless of their biological makeup, if you approach someone on the
                   street of any settlement and bring up the Infidels, you will be met with a look of disgust and the
                   question 'you're not one of them, are you?'. Seen as sub-human, other empires engage in combat on
-                  sight with the Infidels, no matter the disguises they apply.""", "+ Not attacked by heathens",
+                  sight with the Infidels, no matter the disguises they apply.""", "+ Special affinity with heathens",
                   "- Always attacked by AI players", VictoryType.ELIMINATION),
     FactionDetail(Faction.NOCTURNE, """Long have The Nocturne worshipped the holy moons of this world, and through
                   repeated attempts to modify their circadian rhythm, the strongest among them have developed genetic
@@ -315,7 +316,7 @@ FACTION_COLOURS: typing.Dict[Faction, int] = {
 }
 
 # A map of victory types to their respective colours.
-VICTORY_TYPE_COLOURS: typing.Dict[Faction, int] = {
+VICTORY_TYPE_COLOURS: typing.Dict[VictoryType, int] = {
     VictoryType.ELIMINATION: pyxel.COLOR_RED,
     VictoryType.JUBILATION: pyxel.COLOR_GREEN,
     VictoryType.GLUTTONY: pyxel.COLOR_GREEN,

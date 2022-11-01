@@ -46,6 +46,7 @@ class WikiOption(Enum):
     UNITS = "UNITS"
     BACK = "BACK"
 
+
 MenuOptions = SetupOption | WikiOption | MainMenuOption | VictoryType
 
 class Menu:
@@ -148,7 +149,7 @@ class Menu:
                 faction_detail = FACTION_DETAILS[self.faction_idx]
                 pyxel.text(35, 70, faction_detail.buff, pyxel.COLOR_GREEN)
                 pyxel.text(35, 90, faction_detail.debuff, pyxel.COLOR_RED)
-                pyxel.text(25, 170, faction_detail.rec_victory_type,
+                pyxel.text(35, 120, faction_detail.rec_victory_type,
                               VICTORY_TYPE_COLOURS[faction_detail.rec_victory_type])
                 pyxel.blt(150, 48, 0, self.faction_idx * 8, 92, 8, 8)
                 if self.faction_idx != 0:
@@ -630,7 +631,7 @@ class Menu:
             case MainMenuOption(): self.main_menu_option = target_option
             case VictoryType(): self.victory_type = target_option
 
-    def get_option_colour(self, option: MenuOptions) -> pyxel.Colors:
+    def get_option_colour(self, option: MenuOptions) -> int:
         """
         Determine which colour to use for drawing menu options. RED if the option is currently selected by the user,
         and WHITE otherwise.
@@ -640,8 +641,7 @@ class Menu:
         match option:
             case SetupOption(): field_to_check = self.setup_option
             case WikiOption(): field_to_check = self.wiki_option
-            case MainMenuOption(): field_to_check = self.main_menu_option
-            case VictoryType(): field_to_check = self.victory_type
+            case _: field_to_check = self.main_menu_option
 
         return pyxel.COLOR_RED if field_to_check is option else pyxel.COLOR_WHITE
 
