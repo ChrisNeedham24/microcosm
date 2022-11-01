@@ -468,9 +468,11 @@ class Game:
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
             if self.game_started and not self.board.overlay.is_victory() and not self.board.overlay.is_elimination():
                 # Show the pause menu if there are no intrusive overlays being shown.
-                if not self.board.overlay.showing or \
-                        all(overlay in (OverlayType.ATTACK, OverlayType.SETL_ATTACK, OverlayType.SIEGE_NOTIF)
-                            for overlay in self.board.overlay.showing):
+                if not self.board.overlay.showing or all(overlay in (OverlayType.ATTACK,
+                                                                     OverlayType.SETL_ATTACK,
+                                                                     OverlayType.SIEGE_NOTIF,
+                                                                     OverlayType.HEAL)
+                                                         for overlay in self.board.overlay.showing):
                     self.board.overlay.toggle_pause()
                 # Remove one overlay layer per ESCAPE press, assuming it is a layer that can be removed.
                 elif not self.board.overlay.is_tutorial() and not self.board.overlay.is_deployment():
@@ -487,6 +489,29 @@ class Game:
                 # selection being made automatically (in much the same way that AI settlements have their constructions
                 # selected).
                 set_player_construction(self.players[0], self.board.selected_settlement, self.nighttime_left > 0)
+        elif pyxel.btnp(pyxel.KEY_J):
+            if self.game_started and not self.board.overlay.is_tutorial() and not self.board.overlay.is_deployment():
+                while self.board.overlay.showing and not all(overlay in (OverlayType.ATTACK,
+                                                                         OverlayType.SETL_ATTACK,
+                                                                         OverlayType.SIEGE_NOTIF,
+                                                                         OverlayType.HEAL)
+                                                             for overlay in self.board.overlay.showing):
+                    to_reset: typing.Optional[OverlayType] = self.board.overlay.remove_layer()
+                    # Make sure we reset board selections if necessary.
+                    if to_reset == OverlayType.UNIT:
+                        self.board.selected_unit = None
+                    elif to_reset == OverlayType.SETTLEMENT:
+                        self.board.selected_settlement = None
+                self.board.selected_settlement = \
+                    next(setl for setl in self.players[0].settlements if setl.current_work is None)
+                self.board.overlay.toggle_settlement(self.board.selected_settlement, self.players[0])
+                self.map_pos = (clamp(self.board.selected_settlement.location[0] - 12, -1, 77),
+                                clamp(self.board.selected_settlement.location[1] - 11, -1, 69))
+                self.board.overlay.toggle_construction(get_available_improvements(self.players[0],
+                                                                                  self.board.selected_settlement),
+                                                       PROJECTS,
+                                                       get_available_unit_plans(self.players[0],
+                                                                                self.board.selected_settlement.level))
 
     def draw(self):
         """

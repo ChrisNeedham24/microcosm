@@ -282,13 +282,23 @@ class Board:
             pyxel.text(2, 189, "L CLICK: Heal adjacent unit", pyxel.COLOR_WHITE)
         else:
             pyxel.text(2, 189, self.current_help.value, pyxel.COLOR_WHITE)
+
+        exclamation_offset: int = 0
         if self.game_config.climatic_effects:
+            exclamation_offset += 12
             if players[0].faction is Faction.NOCTURNE:
+                exclamation_offset += 17
                 pyxel.text(135, 190, f"({turns_until_change})", pyxel.COLOR_WHITE)
             if is_night:
                 pyxel.blt(153, 188, 0, 8, 84, 8, 8)
             else:
                 pyxel.blt(153, 188, 0, 0, 84, 8, 8)
+        if any(setl.current_work is None for setl in players[0].settlements):
+            pyxel.blt(154 - exclamation_offset, 188, 0, 8, 124, 8, 8)
+            exclamation_offset += 8
+        if players[0].ongoing_blessing is None:
+            pyxel.blt(154 - exclamation_offset, 188, 0, 0, 124, 8, 8)
+
         pyxel.text(165, 189, f"Turn {turn}", pyxel.COLOR_WHITE)
 
         # Also display the overlay.
