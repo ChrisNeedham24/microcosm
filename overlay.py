@@ -329,6 +329,12 @@ class Overlay:
             not self.is_standard() and not self.is_constructing() and not self.is_setl_click() and \
             not self.is_investigation()
 
+    def can_jump_to_setl(self) -> bool:
+        return not self.is_victory() and not self.is_controls() and not self.is_pause() and \
+               not self.is_deployment() and not self.is_bless_notif() and not self.is_constr_notif() and \
+               not self.is_lvl_notif() and not self.is_blessing() and not self.is_constructing() and \
+               not self.is_setl_click() and not self.is_investigation()
+
     def is_setl(self):
         """
         Returns whether the settlement overlay is currently being displayed.

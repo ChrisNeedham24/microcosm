@@ -490,28 +490,24 @@ class Game:
                 # selected).
                 set_player_construction(self.players[0], self.board.selected_settlement, self.nighttime_left > 0)
         elif pyxel.btnp(pyxel.KEY_J):
-            if self.game_started and not self.board.overlay.is_tutorial() and not self.board.overlay.is_deployment():
-                while self.board.overlay.showing and not all(overlay in (OverlayType.ATTACK,
-                                                                         OverlayType.SETL_ATTACK,
-                                                                         OverlayType.SIEGE_NOTIF,
-                                                                         OverlayType.HEAL)
-                                                             for overlay in self.board.overlay.showing):
-                    to_reset: typing.Optional[OverlayType] = self.board.overlay.remove_layer()
-                    # Make sure we reset board selections if necessary.
-                    if to_reset == OverlayType.UNIT:
-                        self.board.selected_unit = None
-                    elif to_reset == OverlayType.SETTLEMENT:
-                        self.board.selected_settlement = None
-                self.board.selected_settlement = \
-                    next(setl for setl in self.players[0].settlements if setl.current_work is None)
-                self.board.overlay.toggle_settlement(self.board.selected_settlement, self.players[0])
-                self.map_pos = (clamp(self.board.selected_settlement.location[0] - 12, -1, 77),
-                                clamp(self.board.selected_settlement.location[1] - 11, -1, 69))
-                self.board.overlay.toggle_construction(get_available_improvements(self.players[0],
-                                                                                  self.board.selected_settlement),
-                                                       PROJECTS,
-                                                       get_available_unit_plans(self.players[0],
-                                                                                self.board.selected_settlement.level))
+            if self.game_started and self.board.overlay.can_jump_to_setl():
+                idle_settlements = [setl for setl in self.players[0].settlements if setl.current_work is None]
+                if idle_settlements:
+                    if self.board.selected_settlement is None:
+                        self.board.selected_settlement = idle_settlements[0]
+                        self.board.overlay.toggle_settlement(self.board.selected_settlement, self.players[0])
+                    elif self.board.selected_settlement not in idle_settlements:
+                        self.board.selected_settlement = idle_settlements[0]
+                        self.board.overlay.update_settlement(self.board.selected_settlement)
+                    elif len(idle_settlements) > 1:
+                        current_idx = idle_settlements.index(self.board.selected_settlement)
+                        new_idx = 0
+                        if current_idx != len(idle_settlements) - 1:
+                            new_idx = current_idx + 1
+                        self.board.selected_settlement = idle_settlements[new_idx]
+                        self.board.overlay.update_settlement(idle_settlements[new_idx])
+                    self.map_pos = (clamp(self.board.selected_settlement.location[0] - 12, -1, 77),
+                                    clamp(self.board.selected_settlement.location[1] - 11, -1, 69))
 
     def draw(self):
         """
