@@ -491,12 +491,15 @@ class Game:
                 set_player_construction(self.players[0], self.board.selected_settlement, self.nighttime_left > 0)
         elif pyxel.btnp(pyxel.KEY_J):
             if self.game_started and self.board.overlay.can_jump_to_setl():
+                # Pressing the J key will jump to an idle settlement, if such a settlement exists.
                 idle_settlements = [setl for setl in self.players[0].settlements if setl.current_work is None]
                 if idle_settlements:
                     if self.board.selected_settlement is None:
                         self.board.selected_settlement = idle_settlements[0]
                         self.board.overlay.toggle_settlement(self.board.selected_settlement, self.players[0])
                     elif self.board.selected_settlement not in idle_settlements:
+                        # If the player has currently selected another non-idle settlement, when they press the J key,
+                        # bring them back to the first idle settlement.
                         self.board.selected_settlement = idle_settlements[0]
                         self.board.overlay.update_settlement(self.board.selected_settlement)
                     elif len(idle_settlements) > 1:

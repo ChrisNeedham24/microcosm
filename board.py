@@ -293,6 +293,8 @@ class Board:
                 pyxel.blt(153, 188, 0, 8, 84, 8, 8)
             else:
                 pyxel.blt(153, 188, 0, 0, 84, 8, 8)
+        # If the player isn't undergoing a blessing, or has one or more settlements without a construction, display
+        # exclamation marks in the status bar.
         if any(setl.current_work is None for setl in players[0].settlements):
             pyxel.blt(154 - exclamation_offset, 188, 0, 8, 124, 8, 8)
             exclamation_offset += 8

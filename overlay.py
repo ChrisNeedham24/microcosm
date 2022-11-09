@@ -330,10 +330,14 @@ class Overlay:
             not self.is_investigation()
 
     def can_jump_to_setl(self) -> bool:
+        """
+        Returns whether the player can jump to an idle settlement.
+        :return: Whether jumping to an idle settlement is permitted.
+        """
         return not self.is_victory() and not self.is_controls() and not self.is_pause() and \
-               not self.is_deployment() and not self.is_bless_notif() and not self.is_constr_notif() and \
-               not self.is_lvl_notif() and not self.is_blessing() and not self.is_constructing() and \
-               not self.is_setl_click() and not self.is_investigation()
+            not self.is_deployment() and not self.is_bless_notif() and not self.is_constr_notif() and \
+            not self.is_lvl_notif() and not self.is_blessing() and not self.is_constructing() and \
+            not self.is_setl_click() and not self.is_investigation()
 
     def is_setl(self):
         """
