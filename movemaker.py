@@ -373,12 +373,20 @@ def search_for_relics_or_move(unit: Unit,
                     investigate_relic(player, unit, (j, i), cfg)
                     quads[i][j].is_relic = False
                     return
-    # We only get to this point if a valid relic was not found.
-    x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
-    rem_movement = unit.remaining_stamina - abs(x_movement)
-    y_movement = random.choice([-rem_movement, rem_movement])
-    unit.location = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
-    unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
+    # We only get to this point if a valid relic was not found. Make sure when moving randomly that the unit does not
+    # collide with other units or settlements.
+    found_valid_loc = False
+    while not found_valid_loc:
+        x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
+        rem_movement = unit.remaining_stamina - abs(x_movement)
+        y_movement = random.choice([-rem_movement, rem_movement])
+        loc = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
+        if not any(u.location == loc and u != unit for u in player.units) and \
+                not any(other_u.location == loc for other_u in other_units) and \
+                not any(setl.location == loc for setl in all_setls):
+            unit.location = loc
+            found_valid_loc = True
+            unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
 
 class MoveMaker:
@@ -470,13 +478,21 @@ class MoveMaker:
         :param cfg: The game configuration.
         """
         # If the unit can settle, randomly move it until it is far enough away from any of the player's other
-        # settlements. Once this has been achieved, found a new settlement and destroy the unit.
+        # settlements, ensuring that it does not collide with any other units or settlements. Once this has been
+        # achieved, found a new settlement and destroy the unit.
         if unit.plan.can_settle:
-            x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
-            rem_movement = unit.remaining_stamina - abs(x_movement)
-            y_movement = random.choice([-rem_movement, rem_movement])
-            unit.location = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
-            unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
+            found_valid_loc = False
+            while not found_valid_loc:
+                x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
+                rem_movement = unit.remaining_stamina - abs(x_movement)
+                y_movement = random.choice([-rem_movement, rem_movement])
+                loc = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
+                if not any(u.location == loc and u != unit for u in player.units) and \
+                        not any(other_u.location == loc for other_u in other_units) and \
+                        not any(setl.location == loc for setl in all_setls):
+                    unit.location = loc
+                    found_valid_loc = True
+                    unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
             far_enough = True
             for setl in player.settlements:
