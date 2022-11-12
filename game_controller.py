@@ -11,9 +11,10 @@ class GameController:
     The class that governs the overall control of the game experience, such as Menu management, inputs, music playing
     and other utilities that are distinct from the game and board logic.
     """
+
     def __init__(self):
         """
-        Initialises the game.
+        Initialises the game_state.
         """
         self.menu = Menu()
 

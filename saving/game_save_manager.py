@@ -68,7 +68,6 @@ class GameSaveManager:
         saves.reverse()
         all_saves = autosaves + saves
 
-        # JJG NOTE FIXME: Break this logic out into a 2nd function
         try:
             with open(os.path.join(SAVES_DIR, all_saves[game_controller.menu.save_idx]), "r", encoding="utf-8") as save_file:
                 # Use a custom object hook when loading the JSON so that the resulting objects have attribute access.
@@ -145,7 +144,6 @@ class GameSaveManager:
                 game_cfg = save.cfg
             save_file.close()
             # Now do all the same logic we do when starting a game.
-            # JJG NOTE FIXME: Share this logic/pop into one place
             pyxel.mouse(visible=True)
             game_state.game_started = True
             game_state.on_menu = False
