@@ -537,14 +537,18 @@ def on_mouse_button_right(game_state: GameState):
         game_state.board.process_right_click(pyxel.mouse_x, pyxel.mouse_y, game_state.map_pos)
 
 
-def on_mouse_button_left(game_state: GameState, all_units):
+def on_mouse_button_left(game_state: GameState):
     """
     Handles a left mouse button click event in the game loop.
     Mouse clicks are forwarded to the Board for processing.
     :param game_state: The current GameState object.
-    :param all_units: The current units in the game.
     """
     if game_state.game_started:
+        all_units = []
+        for player in game_state.players:
+            for unit in player.units:
+                all_units.append(unit)
+
         other_setls = []
         for i in range(1, len(game_state.players)):
             other_setls.extend(game_state.players[i].settlements)
