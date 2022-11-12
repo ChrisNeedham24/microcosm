@@ -14,7 +14,7 @@ from movemaker import MoveMaker
 
 class GameState:
     """
-    The class that holds the logical Microcosm game state, to determine the state of the current game.
+    The class that holds the logical Microcosm game state, tracking the state of the current game.
     """
     def __init__(self):
         """

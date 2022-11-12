@@ -9,10 +9,10 @@ import pyxel
 from board import Board
 from calculator import clamp
 from catalogue import get_blessing, get_project, get_unit_plan, get_improvement
-from game_controller import GameController
-from game_state import GameState
+from game_management.game_controller import GameController
+from game_management.game_state import GameState
 from models import Biome, Heathen, UnitPlan, AttackPlaystyle, AIPlaystyle, Unit, ExpansionPlaystyle, Faction
-from save_encoder import SaveEncoder, ObjectConverter
+from saving.save_encoder import SaveEncoder, ObjectConverter
 
 AUTOSAVE_PREFIX = "auto"
 # The directory where save files are created and loaded from.

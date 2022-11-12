@@ -8,7 +8,7 @@ from music_player import MusicPlayer
 
 class GameController:
     """
-    The class that governs the overall control of the game experience, such as Menu management, inputs, music playing
+    The class that governs the overall control of the game experience, such as Menu management, music playing
     and other utilities that are distinct from the game and board logic.
     """
 

@@ -7,8 +7,8 @@ import pyxel
 from board import Board
 from calculator import clamp, complete_construction, attack_setl
 from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, PROJECTS
-from game_controller import GameController
-from game_state import GameState
+from game_management.game_controller import GameController
+from game_management.game_state import GameState
 from menu import MainMenuOption, SetupOption, WikiOption
 from models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, OverlayType, Faction, \
     ConstructionMenu, Project
@@ -19,11 +19,10 @@ from saving.game_save_manager import GameSaveManager
 
 class GameInputHandler:
     """
-    Handles input for the game.
+    Handles input for the game loop.
     """
-
     @staticmethod
-    def handle_key_down(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
+    def on_key_down(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
         if game_state.on_menu:
             game_controller.menu.navigate(down=True)
         elif game_state.game_started:
@@ -49,7 +48,7 @@ class GameInputHandler:
                     game_state.map_pos = game_state.map_pos[0], clamp(game_state.map_pos[1] + 1, -1, 69)
 
     @staticmethod
-    def handle_key_up(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
+    def on_key_up(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
         if game_state.on_menu:
             game_controller.menu.navigate(up=True)
         elif game_state.game_started:
@@ -75,7 +74,7 @@ class GameInputHandler:
                     game_state.map_pos = game_state.map_pos[0], clamp(game_state.map_pos[1] - 1, -1, 69)
 
     @staticmethod
-    def handle_key_left(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
+    def on_key_left(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
         if game_state.on_menu:
             game_controller.menu.navigate(left=True)
         if game_state.game_started and game_state.board.overlay.is_constructing():
@@ -100,7 +99,7 @@ class GameInputHandler:
                     game_state.map_pos = clamp(game_state.map_pos[0] - 1, -1, 77), game_state.map_pos[1]
 
     @staticmethod
-    def handle_key_right(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
+    def on_key_right(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
         if game_state.on_menu:
             game_controller.menu.navigate(right=True)
         if game_state.game_started and game_state.board.overlay.is_constructing():
@@ -124,7 +123,7 @@ class GameInputHandler:
                     game_state.map_pos = clamp(game_state.map_pos[0] + 1, -1, 77), game_state.map_pos[1]
 
     @staticmethod
-    def handle_key_return(game_controller: GameController, game_state: GameState):
+    def on_key_return(game_controller: GameController, game_state: GameState):
         if game_state.on_menu:
             if game_controller.menu.in_game_setup and game_controller.menu.setup_option is SetupOption.START_GAME:
                 # If the player has pressed enter to start the game, generate the players, board, and AI players.
@@ -260,14 +259,14 @@ class GameInputHandler:
                 game_state.process_ais(game_controller.move_maker)
 
     @staticmethod
-    def handle_key_shift(game_state: GameState):
+    def on_key_shift(game_state: GameState):
         if game_state.game_started:
             game_state.board.overlay.remove_warning_if_possible()
             # Display the standard overlay.
             game_state.board.overlay.toggle_standard(game_state.turn)
 
     @staticmethod
-    def handle_key_c(game_state: GameState):
+    def on_key_c(game_state: GameState):
         if game_state.game_started and game_state.board.selected_settlement is not None:
             # Pick a construction.
             game_state.board.overlay.toggle_construction(get_available_improvements(game_state.players[0],
@@ -277,7 +276,7 @@ class GameInputHandler:
                                                                                   game_state.board.selected_settlement.level))
 
     @staticmethod
-    def handle_key_f(game_controller: GameController, game_state: GameState):
+    def on_key_f(game_controller: GameController, game_state: GameState):
         if game_state.on_menu and game_controller.menu.in_game_setup and game_controller.menu.setup_option is SetupOption.PLAYER_FACTION:
             game_controller.menu.showing_faction_details = not game_controller.menu.showing_faction_details
         elif game_state.game_started and game_state.board.overlay.is_standard():
@@ -285,7 +284,7 @@ class GameInputHandler:
             game_state.board.overlay.toggle_blessing(get_available_blessings(game_state.players[0]))
 
     @staticmethod
-    def handle_key_d(game_state: GameState):
+    def on_key_d(game_state: GameState):
         if game_state.game_started and game_state.board.selected_settlement is not None and \
                 len(game_state.board.selected_settlement.garrison) > 0:
             game_state.board.deploying_army = True
@@ -300,7 +299,7 @@ class GameInputHandler:
             game_state.board.overlay.toggle_unit(None)
 
     @staticmethod
-    def handle_key_tab(game_state: GameState):
+    def on_key_tab(game_state: GameState):
         # Pressing tab iterates through the player's settlements, centreing on each one.
         if game_state.game_started and game_state.board.overlay.can_iter_settlements_units() and \
                 len(game_state.players[0].settlements) > 0:
@@ -322,7 +321,7 @@ class GameInputHandler:
                                   clamp(game_state.board.selected_settlement.location[1] - 11, -1, 69))
 
     @staticmethod
-    def handle_key_space(game_controller: GameController, game_state: GameState):
+    def on_key_space(game_controller: GameController, game_state: GameState):
         # Pressing space either dismisses the current overlay or iterates through the player's units.
         if game_state.on_menu and game_controller.menu.in_wiki and game_controller.menu.wiki_showing is not None:
             game_controller.menu.wiki_showing = None
@@ -368,18 +367,18 @@ class GameInputHandler:
                                   clamp(game_state.board.selected_unit.location[1] - 11, -1, 69))
 
     @staticmethod
-    def handle_key_s(game_state: GameState):
+    def on_key_s(game_state: GameState):
         if game_state.game_started and game_state.board.selected_unit is not None and game_state.board.selected_unit.plan.can_settle:
             # Units that can settle can found new settlements when S is pressed.
-            game_state.board.handle_new_settlement(game_state.players[0])
+            game_state.board.on_new_settlement(game_state.players[0])
 
     @staticmethod
-    def handle_key_n(game_controller: GameController, game_state: GameState):
+    def on_key_n(game_controller: GameController, game_state: GameState):
         if game_state.game_started:
             game_controller.music_player.next_song()
 
     @staticmethod
-    def handle_key_a(game_state: GameState):
+    def on_key_a(game_state: GameState):
         if game_state.game_started and game_state.board.overlay.is_setl() and \
                 game_state.board.selected_settlement.current_work is None:
             # Pressing the A key while a player settlement with no active construction is selected results in the
@@ -389,7 +388,7 @@ class GameInputHandler:
                                     game_state.nighttime_left > 0)
 
     @staticmethod
-    def handle_key_escape(game_state: GameState):
+    def on_key_escape(game_state: GameState):
         if game_state.game_started and not game_state.board.overlay.is_victory() and not game_state.board.overlay.is_elimination():
             # Show the pause menu if there are no intrusive overlays being shown.
             if not game_state.board.overlay.showing or \
@@ -406,7 +405,7 @@ class GameInputHandler:
                     game_state.board.selected_settlement = None
 
     @staticmethod
-    def handle_key_b(game_state: GameState):
+    def on_key_b(game_state: GameState):
         if game_state.game_started and game_state.board.selected_settlement is not None and \
                 game_state.board.selected_settlement.current_work is not None and \
                 game_state.players[0].faction is not Faction.FUNDAMENTALISTS and \
@@ -424,7 +423,7 @@ class GameInputHandler:
                 game_state.players[0].wealth -= remaining_work
 
     @staticmethod
-    def handle_key_m(game_state: GameState):
+    def on_key_m(game_state: GameState):
         units = game_state.players[0].units
         filtered_units = [unit for unit in units if not unit.besieging and unit.remaining_stamina > 0]
 
@@ -452,13 +451,13 @@ class GameInputHandler:
                                   clamp(game_state.board.selected_unit.location[1] - 11, -1, 69))
 
     @staticmethod
-    def handle_mouse_button_right(game_state: GameState):
+    def on_mouse_button_right(game_state: GameState):
         if game_state.game_started:
             game_state.board.overlay.remove_warning_if_possible()
             game_state.board.process_right_click(pyxel.mouse_x, pyxel.mouse_y, game_state.map_pos)
 
     @staticmethod
-    def handle_mouse_button_left(game_state: GameState, all_units):
+    def on_mouse_button_left(game_state: GameState, all_units):
         if game_state.game_started:
             other_setls = []
             for i in range(1, len(game_state.players)):
