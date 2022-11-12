@@ -14,7 +14,7 @@ class GameController:
 
     def __init__(self):
         """
-        Initialises the game_state.
+        Initialises the Menu, music player and other utilities.
         """
         self.menu = Menu()
 

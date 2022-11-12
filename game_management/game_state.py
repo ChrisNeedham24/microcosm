@@ -53,7 +53,7 @@ class GameState:
             self.players.append(Player(f"NPC{i}", faction, FACTION_COLOURS[faction], 0, [], [], [], set(), set(),
                                              ai_playstyle=AIPlaystyle(random.choice(list(AttackPlaystyle)),
                                                                       random.choice(list(ExpansionPlaystyle)))))
-    
+
     def end_turn(self) -> bool:
         """
         Ends the current game turn, processing settlements, blessings, and units.
@@ -86,7 +86,7 @@ class GameState:
                 (len(problematic_settlements) > 0 or has_no_blessing or will_have_negative_wealth):
             self.board.overlay.toggle_warning(problematic_settlements, has_no_blessing, will_have_negative_wealth)
             return False
-    
+
         for player in self.players:
             overall_fortune = 0
             overall_wealth = 0
@@ -115,12 +115,12 @@ class GameState:
                 else:
                     setl.harvest_status = HarvestStatus.PLENTIFUL
                     setl.economic_status = EconomicStatus.BOOM
-    
+
                 total_wealth, total_harvest, total_zeal, total_fortune = \
                     get_setl_totals(player, setl, self.nighttime_left > 0)
                 overall_fortune += total_fortune
                 overall_wealth += total_wealth
-    
+
                 # If the settlement is under siege, decrease its strength based on the number of besieging units.
                 if setl.besieged:
                     besieging_units: typing.List[Unit] = []
@@ -142,28 +142,28 @@ class GameState:
                     # strength.
                     if setl.strength < setl.max_strength:
                         setl.strength = min(setl.strength + setl.max_strength * 0.1, setl.max_strength)
-    
+
                 # Reset all units in the garrison in case any were garrisoned this turn.
                 for g in setl.garrison:
                     g.has_acted = False
                     g.remaining_stamina = g.plan.total_stamina
                     if g.health < g.plan.max_health:
                         g.health = min(g.health + g.plan.max_health * 0.1, g.plan.max_health)
-    
+
                 # Settlement satisfaction is regulated by the amount of harvest generated against the level.
                 if total_harvest < setl.level * 4:
                     setl.satisfaction -= (1 if player.faction is Faction.CAPITALISTS else 0.5)
                 elif total_harvest >= setl.level * 8:
                     setl.satisfaction += 0.25
                 setl.satisfaction = clamp(setl.satisfaction, 0, 100)
-    
+
                 # Process the current construction, completing it if it has been finished.
                 if setl.current_work is not None and not isinstance(setl.current_work.construction, Project):
                     setl.current_work.zeal_consumed += total_zeal
                     if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
                         completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
                         complete_construction(setl, player)
-    
+
                 setl.harvest_reserves += total_harvest
                 # Settlement levels are increased if the settlement's harvest reserves exceed a certain level (specified
                 # in models.py).
@@ -171,7 +171,7 @@ class GameState:
                 if setl.harvest_reserves >= pow(setl.level, 2) * 25 and setl.level < level_cap:
                     setl.level += 1
                     levelled_up_settlements.append(setl)
-    
+
             # Show notifications if the player's constructions have completed or one of their settlements has levelled
             # up.
             if player.ai_playstyle is None and len(completed_constructions) > 0:
@@ -205,21 +205,21 @@ class GameState:
             # Update the player's wealth.
             player.wealth = max(player.wealth + overall_wealth, 0)
             player.accumulated_wealth += overall_wealth
-    
+
         # Spawn a heathen every 5 turns.
         if self.turn % 5 == 0:
             heathen_loc = random.randint(0, 89), random.randint(0, 99)
             self.heathens.append(get_heathen(heathen_loc, self.turn))
-    
+
         # Reset all heathens.
         for heathen in self.heathens:
             heathen.remaining_stamina = heathen.plan.total_stamina
             if heathen.health < heathen.plan.max_health:
                 heathen.health = min(heathen.health + heathen.plan.max_health * 0.1, 100)
-    
+
         self.board.overlay.remove_warning_if_possible()
         self.turn += 1
-    
+
         # Make night-related calculations, but only if climatic effects are enabled.
         if self.board.game_config.climatic_effects:
             random.seed()
@@ -256,13 +256,13 @@ class GameState:
                                 unit.health = round(unit.health / 2)
                                 unit.plan.max_health = round(unit.plan.max_health / 2)
                                 unit.plan.total_stamina = round(unit.plan.total_stamina / 2)
-    
+
         possible_victory = self.check_for_victory()
         if possible_victory is not None:
             self.board.overlay.toggle_victory(possible_victory)
             return False
         return True
-    
+
     def check_for_victory(self) -> typing.Optional[Victory]:
         """
         Check if any of the six victories have been achieved by any of the players. Also check if any players are close
@@ -273,19 +273,19 @@ class GameState:
         all_setls = []
         for pl in self.players:
             all_setls.extend(pl.settlements)
-    
+
         players_with_setls = 0
         for p in self.players:
             if len(p.settlements) > 0:
                 jubilated_setls = 0
                 lvl_ten_setls = 0
                 constructed_sanctum = False
-    
+
                 # If a player controls all settlements bar one, they are close to an ELIMINATION victory.
                 if len(p.settlements) + 1 == len(all_setls) and VictoryType.ELIMINATION not in p.imminent_victories:
                     close_to_vics.append(Victory(p, VictoryType.ELIMINATION))
                     p.imminent_victories.add(VictoryType.ELIMINATION)
-    
+
                 players_with_setls += 1
                 for s in p.settlements:
                     if s.satisfaction == 100:
@@ -344,18 +344,18 @@ class GameState:
             if ardour_pieces == 2 and VictoryType.SERENDIPITY not in p.imminent_victories:
                 close_to_vics.append(Victory(p, VictoryType.SERENDIPITY))
                 p.imminent_victories.add(VictoryType.SERENDIPITY)
-    
+
         if players_with_setls == 1:
             # If there is only one player with settlements, they have achieved an ELIMINATION victory.
             return Victory(next(player for player in self.players if len(player.settlements) > 0),
                            VictoryType.ELIMINATION)
-    
+
         # If any players are newly-close to a victory, show that in the overlay.
         if len(close_to_vics) > 0:
             self.board.overlay.toggle_close_to_vic(close_to_vics)
-    
+
         return None
-    
+
     def process_heathens(self):
         """
         Process the turns for each of the heathens.
@@ -404,13 +404,13 @@ class GameState:
                 heathen.location = (clamp(heathen.location[0] + x_movement, 0, 99),
                                     clamp(heathen.location[1] + y_movement, 0, 89))
                 heathen.remaining_stamina -= abs(x_movement) + abs(y_movement)
-    
+
             # Players of the Infidels faction share vision with Heathen units.
             if self.players[0].faction is Faction.INFIDELS:
                 for i in range(heathen.location[1] - 5, heathen.location[1] + 6):
                     for j in range(heathen.location[0] - 5, heathen.location[0] + 6):
                         self.players[0].quads_seen.add((j, i))
-    
+
     def initialise_ais(self, namer: Namer):
         """
         Initialise the AI players by adding their first settlement in a random location.
@@ -432,7 +432,7 @@ class GameState:
                         new_settl.strength /= 2
                         new_settl.max_strength /= 2
                 player.settlements.append(new_settl)
-    
+
     def process_ais(self, move_maker: MoveMaker):
         """
         Process the moves for each AI player.
