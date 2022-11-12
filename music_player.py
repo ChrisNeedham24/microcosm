@@ -78,5 +78,5 @@ class MusicPlayer:
         If the menu track has finished, stop it and restart it.
         """
         if not self.menu_player.is_playing():
-       #     self.menu_player.stop()
+            self.menu_player.stop()
             self.menu_player.play()
