@@ -1,4 +1,3 @@
-# The prefix attached to save files created by the autosave feature.
 import json
 import os
 from datetime import datetime
@@ -14,6 +13,7 @@ from game_management.game_state import GameState
 from models import Biome, Heathen, UnitPlan, AttackPlaystyle, AIPlaystyle, Unit, ExpansionPlaystyle, Faction
 from saving.save_encoder import SaveEncoder, ObjectConverter
 
+# The prefix attached to save files created by the autosave feature.
 AUTOSAVE_PREFIX = "auto"
 # The directory where save files are created and loaded from.
 SAVES_DIR = "saves"
@@ -49,7 +49,8 @@ def save_game(game_state: GameState, auto: bool = False):
 def load_game(game_state: GameState, game_controller: GameController):
     """
     Loads the game with the given index from the saves/ directory.
-    :param save_idx: The index of the save file to load. Determined from the list of saves chosen from on the menu.
+    :param game_controller: The current GameController object.
+    :param game_state: The current GameState object.
     """
     # Reset the namer so that we have our original set of names again.
     game_controller.namer.reset()

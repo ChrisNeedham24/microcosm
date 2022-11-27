@@ -3,7 +3,7 @@ import time
 import pyxel
 
 from game_management.game_controller import GameController
-from game_management.game_input_handler import on_key_down, on_key_up, on_key_left, on_key_right, \
+from game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, on_key_arrow_right, \
     on_key_return, on_mouse_button_right, on_mouse_button_left, on_key_shift, on_key_c, on_key_f, \
     on_key_d, on_key_tab, on_key_space, on_key_m, on_key_s, on_key_n, on_key_b, on_key_escape, on_key_a
 from game_management.game_state import GameState
@@ -60,13 +60,13 @@ class Game:
         Handles an input event from the user in the game loop.
         """
         if pyxel.btnp(pyxel.KEY_DOWN):
-            on_key_down(self.game_controller, self.game_state, pyxel.btn(pyxel.KEY_CTRL))
+            on_key_arrow_down(self.game_controller, self.game_state, pyxel.btn(pyxel.KEY_CTRL))
         elif pyxel.btnp(pyxel.KEY_UP):
-            on_key_up(self.game_controller, self.game_state, pyxel.btn(pyxel.KEY_CTRL))
+            on_key_arrow_up(self.game_controller, self.game_state, pyxel.btn(pyxel.KEY_CTRL))
         elif pyxel.btnp(pyxel.KEY_LEFT):
-            on_key_left(self.game_controller, self.game_state, pyxel.btn(pyxel.KEY_CTRL))
+            on_key_arrow_left(self.game_controller, self.game_state, pyxel.btn(pyxel.KEY_CTRL))
         elif pyxel.btnp(pyxel.KEY_RIGHT):
-            on_key_right(self.game_controller, self.game_state, pyxel.btn(pyxel.KEY_CTRL))
+            on_key_arrow_right(self.game_controller, self.game_state, pyxel.btn(pyxel.KEY_CTRL))
         elif pyxel.btnp(pyxel.KEY_RETURN):
             on_key_return(self.game_controller, self.game_state)
         elif pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):

@@ -16,7 +16,7 @@ from overlay import SettlementAttackType, PauseOption
 from saving.game_save_manager import save_game, load_game, get_saves
 
 
-def on_key_down(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
+def on_key_arrow_down(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
     """
     Handles an Arrow Key down event in the game loop.
     :param game_controller: The current GameController object.
@@ -48,7 +48,7 @@ def on_key_down(game_controller: GameController, game_state: GameState, is_ctrl_
                 game_state.map_pos = game_state.map_pos[0], clamp(game_state.map_pos[1] + 1, -1, 69)
 
 
-def on_key_up(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
+def on_key_arrow_up(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
     """
     Handles an Arrow Key up event in the game loop.
     :param game_controller: The current GameController object.
@@ -80,7 +80,7 @@ def on_key_up(game_controller: GameController, game_state: GameState, is_ctrl_ke
                 game_state.map_pos = game_state.map_pos[0], clamp(game_state.map_pos[1] - 1, -1, 69)
 
 
-def on_key_left(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
+def on_key_arrow_left(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
     """
     Handles an Arrow Key left event in the game loop.
     :param game_controller: The current GameController object.
@@ -111,7 +111,7 @@ def on_key_left(game_controller: GameController, game_state: GameState, is_ctrl_
                 game_state.map_pos = clamp(game_state.map_pos[0] - 1, -1, 77), game_state.map_pos[1]
 
 
-def on_key_right(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
+def on_key_arrow_right(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
     """
     Handles an Arrow Key right event in the game loop.
     :param game_controller: The current GameController object.
@@ -155,7 +155,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.turn = 1
             # Reinitialise night variables.
             random.seed()
-            game_state.until_night: int = random.randint(10, 20)
+            game_state.until_night = random.randint(10, 20)
             game_state.nighttime_left = 0
             game_state.on_menu = False
             cfg: GameConfig = game_controller.menu.get_game_config()
@@ -300,11 +300,12 @@ def on_key_c(game_state: GameState):
     """
     if game_state.game_started and game_state.board.selected_settlement is not None:
         # Pick a construction.
-        game_state.board.overlay.toggle_construction(get_available_improvements(game_state.players[0],
-                                                                                game_state.board.selected_settlement),
-                                                     PROJECTS,
-                                                     get_available_unit_plans(game_state.players[0],
-                                                                              game_state.board.selected_settlement.level))
+        game_state.board.overlay\
+            .toggle_construction(get_available_improvements(game_state.players[0],
+                                                            game_state.board.selected_settlement),
+                                 PROJECTS,
+                                 get_available_unit_plans(game_state.players[0],
+                                                          game_state.board.selected_settlement.level))
 
 
 def on_key_f(game_controller: GameController, game_state: GameState):
@@ -313,7 +314,8 @@ def on_key_f(game_controller: GameController, game_state: GameState):
     :param game_controller: The current GameController object.
     :param game_state: The current GameState object.
     """
-    if game_state.on_menu and game_controller.menu.in_game_setup and game_controller.menu.setup_option is SetupOption.PLAYER_FACTION:
+    if game_state.on_menu and game_controller.menu.in_game_setup \
+            and game_controller.menu.setup_option is SetupOption.PLAYER_FACTION:
         game_controller.menu.showing_faction_details = not game_controller.menu.showing_faction_details
     elif game_state.game_started and game_state.board.overlay.is_standard():
         # Pick a blessing.
@@ -439,7 +441,6 @@ def on_key_n(game_controller: GameController, game_state: GameState):
 def on_key_a(game_state: GameState):
     """
     Handles an A key event in the game loop.
-    :param game_controller: The current GameController object.
     :param game_state: The current GameState object.
     """
     if game_state.game_started and game_state.board.overlay.is_setl() and \
@@ -456,7 +457,8 @@ def on_key_escape(game_state: GameState):
     Handles an ESC key event in the game loop.
     :param game_state: The current GameState object.
     """
-    if game_state.game_started and not game_state.board.overlay.is_victory() and not game_state.board.overlay.is_elimination():
+    if game_state.game_started and not game_state.board.overlay.is_victory() \
+            and not game_state.board.overlay.is_elimination():
         # Show the pause menu if there are no intrusive overlays being shown.
         if not game_state.board.overlay.showing or \
                 all(overlay in (OverlayType.ATTACK, OverlayType.SETL_ATTACK, OverlayType.SIEGE_NOTIF)

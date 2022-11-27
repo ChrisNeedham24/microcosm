@@ -441,4 +441,3 @@ class GameState:
             if player.ai_playstyle is not None:
                 move_maker.make_move(player, self.players, self.board.quads, self.board.game_config,
                                                      self.nighttime_left > 0)
-
