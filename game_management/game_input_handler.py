@@ -425,7 +425,7 @@ def on_key_s(game_state: GameState):
     """
     if game_state.game_started and game_state.board.selected_unit is not None and game_state.board.selected_unit.plan.can_settle:
         # Units that can settle can found new settlements when S is pressed.
-        game_state.board.on_new_settlement(game_state.players[0])
+        game_state.board.handle_new_settlement(game_state.players[0])
 
 
 def on_key_n(game_controller: GameController, game_state: GameState):
