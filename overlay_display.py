@@ -723,6 +723,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(85, 30, "Controls", pyxel.COLOR_WHITE)
                 pyxel.text(23, 45, "M", pyxel.COLOR_WHITE)
                 pyxel.text(83, 45, "Go through movable units", pyxel.COLOR_WHITE)
+                pyxel.text(23, 55, "J", pyxel.COLOR_WHITE)
+                pyxel.text(83, 55, "Jump to idle settlement", pyxel.COLOR_WHITE)
 
                 # Up arrow
                 pyxel.blt(180, 150, 0, 8, 76, 8, 8)

@@ -300,7 +300,7 @@ def on_key_c(game_state: GameState):
     """
     if game_state.game_started and game_state.board.selected_settlement is not None:
         # Pick a construction.
-        game_state.board.overlay\
+        game_state.board.overlay \
             .toggle_construction(get_available_improvements(game_state.players[0],
                                                             game_state.board.selected_settlement),
                                  PROJECTS,
@@ -460,9 +460,11 @@ def on_key_escape(game_state: GameState):
     if game_state.game_started and not game_state.board.overlay.is_victory() \
             and not game_state.board.overlay.is_elimination():
         # Show the pause menu if there are no intrusive overlays being shown.
-        if not game_state.board.overlay.showing or \
-                all(overlay in (OverlayType.ATTACK, OverlayType.SETL_ATTACK, OverlayType.SIEGE_NOTIF)
-                    for overlay in game_state.board.overlay.showing):
+        if not game_state.board.overlay.showing or all(overlay in (OverlayType.ATTACK,
+                                                                   OverlayType.SETL_ATTACK,
+                                                                   OverlayType.SIEGE_NOTIF,
+                                                                   OverlayType.HEAL)
+                                                       for overlay in game_state.board.overlay.showing):
             game_state.board.overlay.toggle_pause()
         # Remove one overlay layer per ESCAPE press, assuming it is a layer that can be removed.
         elif not game_state.board.overlay.is_tutorial() and not game_state.board.overlay.is_deployment():
@@ -526,6 +528,34 @@ def on_key_m(game_state: GameState):
 
         game_state.map_pos = (clamp(game_state.board.selected_unit.location[0] - 12, -1, 77),
                               clamp(game_state.board.selected_unit.location[1] - 11, -1, 69))
+
+
+def on_key_j(game_state: GameState):
+    """
+    Handles a J key event in the game loop.
+    :param game_state: The current GameState object.
+    """
+    if game_state.game_started and game_state.board.overlay.can_jump_to_setl():
+        # Pressing the J key will jump to an idle settlement, if such a settlement exists.
+        idle_settlements = [setl for setl in game_state.players[0].settlements if setl.current_work is None]
+        if idle_settlements:
+            if game_state.board.selected_settlement is None:
+                game_state.board.selected_settlement = idle_settlements[0]
+                game_state.board.overlay.toggle_settlement(game_state.board.selected_settlement, game_state.players[0])
+            elif game_state.board.selected_settlement not in idle_settlements:
+                # If the player has currently selected another non-idle settlement, when they press the J key,
+                # bring them back to the first idle settlement.
+                game_state.board.selected_settlement = idle_settlements[0]
+                game_state.board.overlay.update_settlement(game_state.board.selected_settlement)
+            elif len(idle_settlements) > 1:
+                current_idx = idle_settlements.index(game_state.board.selected_settlement)
+                new_idx = 0
+                if current_idx != len(idle_settlements) - 1:
+                    new_idx = current_idx + 1
+                game_state.board.selected_settlement = idle_settlements[new_idx]
+                game_state.board.overlay.update_settlement(idle_settlements[new_idx])
+            game_state.map_pos = (clamp(game_state.board.selected_settlement.location[0] - 12, -1, 77),
+                                  clamp(game_state.board.selected_settlement.location[1] - 11, -1, 69))
 
 
 def on_mouse_button_right(game_state: GameState):
