@@ -423,7 +423,8 @@ def on_key_s(game_state: GameState):
     Handles an S key event in the game loop.
     :param game_state: The current GameState object.
     """
-    if game_state.game_started and game_state.board.selected_unit is not None and game_state.board.selected_unit.plan.can_settle:
+    if game_state.game_started and game_state.board.selected_unit is not None and \
+            game_state.board.selected_unit.plan.can_settle:
         # Units that can settle can found new settlements when S is pressed.
         game_state.board.handle_new_settlement(game_state.players[0])
 
