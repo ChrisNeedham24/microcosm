@@ -36,7 +36,7 @@ class Game:
         """
         Initialises the game.
         """
-        pyxel.init(200, 200, title="Microcosm", quit_key=pyxel.KEY_NONE)
+        pyxel.init(200, 200, title="Microcosm", display_scale=5, quit_key=pyxel.KEY_NONE)
 
         self.menu = Menu()
         self.board: typing.Optional[Board] = None
