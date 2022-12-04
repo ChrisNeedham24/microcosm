@@ -93,8 +93,7 @@ def on_key_arrow_left(game_controller: GameController, game_state: GameState, is
         if game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS and \
                 len(game_state.board.overlay.available_constructions) > 0:
             game_state.board.overlay.current_construction_menu = ConstructionMenu.IMPROVEMENTS
-            game_state.board.overlay.selected_construction = game_state.board.overlay.available_constructions[
-                0]
+            game_state.board.overlay.selected_construction = game_state.board.overlay.available_constructions[0]
         elif game_state.board.overlay.current_construction_menu is ConstructionMenu.UNITS:
             game_state.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
             game_state.board.overlay.selected_construction = game_state.board.overlay.available_projects[0]
@@ -189,8 +188,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 case MainMenuOption.EXIT:
                     pyxel.quit()
     elif game_state.game_started and (game_state.board.overlay.is_victory() or
-                                      game_state.board.overlay.is_elimination() and game_state.players[
-                                          0].eliminated):
+                                      game_state.board.overlay.is_elimination() and game_state.players[0].eliminated):
         # If the player has won the game, or they've just been eliminated themselves, enter will take them back
         # to the menu.
         game_state.game_started = False
@@ -275,7 +273,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         if game_state.end_turn():
             # Autosave every 10 turns.
             if game_state.turn % 10 == 0:
-                save_game(game_state, True)
+                save_game(game_state, auto=True)
 
             game_state.board.overlay.update_turn(game_state.turn)
             game_state.process_heathens()
@@ -300,12 +298,12 @@ def on_key_c(game_state: GameState):
     """
     if game_state.game_started and game_state.board.selected_settlement is not None:
         # Pick a construction.
-        game_state.board.overlay \
-            .toggle_construction(get_available_improvements(game_state.players[0],
-                                                            game_state.board.selected_settlement),
-                                 PROJECTS,
-                                 get_available_unit_plans(game_state.players[0],
-                                                          game_state.board.selected_settlement.level))
+        game_state.board.overlay.toggle_construction(
+            get_available_improvements(game_state.players[0],
+                                       game_state.board.selected_settlement),
+            PROJECTS,
+            get_available_unit_plans(game_state.players[0],
+                                     game_state.board.selected_settlement.level))
 
 
 def on_key_f(game_controller: GameController, game_state: GameState):
