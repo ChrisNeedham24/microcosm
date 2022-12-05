@@ -1,8 +1,9 @@
 import random
 from copy import deepcopy
 
-from models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, Settlement, Improvement, \
-    UnitPlan, SetlAttackData, GameConfig, InvestigationResult, Faction, Project, ProjectType, HealData
+from source.foundation.models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, \
+    Settlement, Improvement, UnitPlan, SetlAttackData, GameConfig, InvestigationResult, Faction, Project, ProjectType, \
+    HealData
 
 
 def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):

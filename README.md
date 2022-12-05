@@ -2,7 +2,7 @@
 Just a little 4X game written in Python using the library [Pyxel](https://github.com/kitao/pyxel).
 Inspiration taken from games I've played.
 
-![Screenshots](resources/microcosm_gameplay_screenshot.png)
+![Screenshots](source/resources/microcosm_gameplay_screenshot.png)
 
 ## Pre-requisites
 Playing Microcosm requires an installation of VLC media player on the player's machine. Installation instructions for

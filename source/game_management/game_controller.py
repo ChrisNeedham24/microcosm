@@ -1,9 +1,9 @@
 import time
 
-from catalogue import Namer
-from menu import Menu
-from movemaker import MoveMaker
-from music_player import MusicPlayer
+from source.foundation.catalogue import Namer
+from source.display.menu import Menu
+from source.game_management.movemaker import MoveMaker
+from source.util.music_player import MusicPlayer
 
 
 class GameController:

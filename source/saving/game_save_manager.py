@@ -5,13 +5,14 @@ from itertools import chain
 
 import pyxel
 
-from board import Board
-from calculator import clamp
-from catalogue import get_blessing, get_project, get_unit_plan, get_improvement
-from game_management.game_controller import GameController
-from game_management.game_state import GameState
-from models import Biome, Heathen, UnitPlan, AttackPlaystyle, AIPlaystyle, Unit, ExpansionPlaystyle, Faction
-from saving.save_encoder import SaveEncoder, ObjectConverter
+from source.display.board import Board
+from source.util.calculator import clamp
+from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement
+from source.game_management.game_controller import GameController
+from source.game_management.game_state import GameState
+from source.foundation.models import Biome, Heathen, UnitPlan, AttackPlaystyle, AIPlaystyle, Unit, ExpansionPlaystyle, \
+    Faction
+from source.saving.save_encoder import SaveEncoder, ObjectConverter
 
 # The prefix attached to save files created by the autosave feature.
 AUTOSAVE_PREFIX = "auto"
@@ -83,7 +84,7 @@ def load_game(game_state: GameState, game_controller: GameController):
             # because tuples do not exist in JSON, so they are represented as arrays, which will clearly not work.
             for i in range(len(game_state.players[0].quads_seen)):
                 game_state.players[0].quads_seen[i] = (
-                game_state.players[0].quads_seen[i][0], game_state.players[0].quads_seen[i][1])
+                    game_state.players[0].quads_seen[i][0], game_state.players[0].quads_seen[i][1])
             game_state.players[0].quads_seen = set(game_state.players[0].quads_seen)
             for p in game_state.players:
                 for idx, u in enumerate(p.units):

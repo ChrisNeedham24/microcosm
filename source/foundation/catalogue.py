@@ -4,8 +4,8 @@ from copy import deepcopy
 
 import pyxel
 
-from models import FactionDetail, Player, Improvement, ImprovementType, Effect, Blessing, Settlement, UnitPlan, Unit, \
-    Biome, Heathen, Faction, Project, ProjectType, VictoryType
+from source.foundation.models import FactionDetail, Player, Improvement, ImprovementType, Effect, Blessing, \
+    Settlement, UnitPlan, Unit, Biome, Heathen, Faction, Project, ProjectType, VictoryType
 
 # The list of settlement names, for each biome.
 SETL_NAMES = {

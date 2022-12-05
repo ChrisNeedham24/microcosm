@@ -1,21 +1,20 @@
 import random
 import typing
 
-from board import Board
-from calculator import clamp, attack, get_setl_totals, complete_construction
-from catalogue import get_heathen, \
-    get_default_unit, FACTION_COLOURS, Namer
-from models import Heathen
-from models import Player, Settlement, CompletedConstruction, Unit, HarvestStatus, \
-    EconomicStatus, AttackPlaystyle, GameConfig, Victory, VictoryType, AIPlaystyle, \
-    ExpansionPlaystyle, Faction, Project
-from movemaker import MoveMaker
+from source.display.board import Board
+from source.util.calculator import clamp, attack, get_setl_totals, complete_construction
+from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
+from source.foundation.models import Heathen
+from source.foundation.models import Player, Settlement, CompletedConstruction, Unit, HarvestStatus, EconomicStatus, \
+    AttackPlaystyle, GameConfig, Victory, VictoryType, AIPlaystyle, ExpansionPlaystyle, Faction, Project
+from source.game_management.movemaker import MoveMaker
 
 
 class GameState:
     """
     The class that holds the logical Microcosm game state, tracking the state of the current game.
     """
+
     def __init__(self):
         """
         Creates the initial game state.
@@ -43,7 +42,7 @@ class GameState:
         :param cfg: The game config.
         """
         self.players = [Player("The Chosen One", cfg.player_faction, FACTION_COLOURS[cfg.player_faction],
-                                     0, [], [], [], set(), set())]
+                               0, [], [], [], set(), set())]
         factions = list(Faction)
         # Ensure that an AI player doesn't choose the same faction as the player.
         factions.remove(cfg.player_faction)
@@ -51,8 +50,8 @@ class GameState:
             faction = random.choice(factions)
             factions.remove(faction)
             self.players.append(Player(f"NPC{i}", faction, FACTION_COLOURS[faction], 0, [], [], [], set(), set(),
-                                             ai_playstyle=AIPlaystyle(random.choice(list(AttackPlaystyle)),
-                                                                      random.choice(list(ExpansionPlaystyle)))))
+                                       ai_playstyle=AIPlaystyle(random.choice(list(AttackPlaystyle)),
+                                                                random.choice(list(ExpansionPlaystyle)))))
 
     def end_turn(self) -> bool:
         """
@@ -440,4 +439,4 @@ class GameState:
         for player in self.players:
             if player.ai_playstyle is not None:
                 move_maker.make_move(player, self.players, self.board.quads, self.board.game_config,
-                                                     self.nighttime_left > 0)
+                                     self.nighttime_left > 0)

@@ -1,12 +1,12 @@
 import random
 import typing
 
-from calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, attack_setl, \
-    investigate_relic, heal
-from catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
+from source.util.calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, \
+    attack_setl, investigate_relic, heal
+from source.foundation.catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
-from models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, UnitPlan, \
-    Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction
+from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
+    UnitPlan, Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction
 
 
 def set_blessing(player: Player, player_totals: (float, float, float, float)):

@@ -1,8 +1,8 @@
 import typing
 
-from models import Settlement, Player, Improvement, Unit, Blessing, CompletedConstruction, UnitPlan, Heathen, \
-    AttackData, SetlAttackData, Victory, InvestigationResult, OverlayType, SettlementAttackType, PauseOption, Project, \
-    ConstructionMenu, HealData
+from source.foundation.models import Settlement, Player, Improvement, Unit, Blessing, CompletedConstruction, UnitPlan, \
+    Heathen, AttackData, SetlAttackData, Victory, InvestigationResult, OverlayType, SettlementAttackType, PauseOption,\
+    Project, ConstructionMenu, HealData
 
 
 class Overlay:
