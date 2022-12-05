@@ -3,17 +3,18 @@ import typing
 
 import pyxel
 
-from board import Board
-from calculator import clamp, complete_construction, attack_setl
-from catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, PROJECTS
-from game_management.game_controller import GameController
-from game_management.game_state import GameState
-from menu import MainMenuOption, SetupOption, WikiOption
-from models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, OverlayType, Faction, \
-    ConstructionMenu, Project
-from movemaker import set_player_construction
-from overlay import SettlementAttackType, PauseOption
-from saving.game_save_manager import save_game, load_game, get_saves
+from source.display.board import Board
+from source.util.calculator import clamp, complete_construction, attack_setl
+from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
+    PROJECTS
+from source.game_management.game_controller import GameController
+from source.game_management.game_state import GameState
+from source.display.menu import MainMenuOption, SetupOption, WikiOption
+from source.foundation.models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, \
+    OverlayType, Faction, ConstructionMenu, Project
+from source.game_management.movemaker import set_player_construction
+from source.display.overlay import SettlementAttackType, PauseOption
+from source.saving.game_save_manager import load_game, get_saves, save_game
 
 
 def on_key_arrow_down(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):

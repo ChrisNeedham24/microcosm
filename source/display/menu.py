@@ -5,10 +5,10 @@ from typing import List, Optional, Tuple
 
 import pyxel
 
-from calculator import clamp
-from catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, IMPROVEMENTS, \
-    UNIT_PLANS, FACTION_COLOURS, PROJECTS
-from models import GameConfig, VictoryType, Faction, ProjectType
+from source.util.calculator import clamp
+from source.foundation.catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, \
+    IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS
+from source.foundation.models import GameConfig, VictoryType, Faction, ProjectType
 
 
 class MainMenuOption(Enum):
@@ -49,10 +49,12 @@ class WikiOption(Enum):
 
 MenuOptions = SetupOption | WikiOption | MainMenuOption | VictoryType
 
+
 class Menu:
     """
     The class responsible for drawing and navigating the menu.
     """
+
     def __init__(self):
         """
         Initialise the menu with a random background image on the main menu.
@@ -150,7 +152,7 @@ class Menu:
                 pyxel.text(35, 70, faction_detail.buff, pyxel.COLOR_GREEN)
                 pyxel.text(35, 90, faction_detail.debuff, pyxel.COLOR_RED)
                 pyxel.text(35, 120, faction_detail.rec_victory_type,
-                              VICTORY_TYPE_COLOURS[faction_detail.rec_victory_type])
+                           VICTORY_TYPE_COLOURS[faction_detail.rec_victory_type])
                 pyxel.blt(150, 48, 0, self.faction_idx * 8, 92, 8, 8)
                 if self.faction_idx != 0:
                     pyxel.text(35, 140, "<-", pyxel.COLOR_WHITE)
@@ -303,7 +305,7 @@ class Menu:
                     pyxel.text(25, 140, faction_detail.buff, pyxel.COLOR_GREEN)
                     pyxel.text(25, 150, faction_detail.debuff, pyxel.COLOR_RED)
                     pyxel.text(25, 170, faction_detail.rec_victory_type,
-                              VICTORY_TYPE_COLOURS[faction_detail.rec_victory_type])
+                               VICTORY_TYPE_COLOURS[faction_detail.rec_victory_type])
                 case WikiOption.CLIMATE:
                     pyxel.load("resources/sprites.pyxres")
                     pyxel.rectb(20, 10, 160, 164, pyxel.COLOR_WHITE)
@@ -626,10 +628,14 @@ class Menu:
         """
         # Based on the enum type of the target option, figure out which corresponding field we need to change.
         match target_option:
-            case SetupOption(): self.setup_option = target_option
-            case WikiOption(): self.wiki_option = target_option
-            case MainMenuOption(): self.main_menu_option = target_option
-            case VictoryType(): self.victory_type = target_option
+            case SetupOption():
+                self.setup_option = target_option
+            case WikiOption():
+                self.wiki_option = target_option
+            case MainMenuOption():
+                self.main_menu_option = target_option
+            case VictoryType():
+                self.victory_type = target_option
 
     def get_option_colour(self, option: MenuOptions) -> int:
         """
@@ -639,9 +645,12 @@ class Menu:
         :return: The appropriate colour.
         """
         match option:
-            case SetupOption(): field_to_check = self.setup_option
-            case WikiOption(): field_to_check = self.wiki_option
-            case _: field_to_check = self.main_menu_option
+            case SetupOption():
+                field_to_check = self.setup_option
+            case WikiOption():
+                field_to_check = self.wiki_option
+            case _:
+                field_to_check = self.main_menu_option
 
         return pyxel.COLOR_RED if field_to_check is option else pyxel.COLOR_WHITE
 

@@ -5,11 +5,12 @@ from enum import Enum
 
 import pyxel
 
-from calculator import calculate_yield_for_quad, attack, investigate_relic, heal
-from catalogue import get_default_unit, Namer
-from models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, Faction
-from overlay import Overlay
-from overlay_display import display_overlay
+from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal
+from source.foundation.catalogue import get_default_unit, Namer
+from source.foundation.models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, \
+    Faction
+from source.display.overlay import Overlay
+from source.display.overlay_display import display_overlay
 
 
 class HelpOption(Enum):

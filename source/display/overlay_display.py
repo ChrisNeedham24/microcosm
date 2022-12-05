@@ -3,11 +3,11 @@ import typing
 import math
 import pyxel
 
-from calculator import get_setl_totals
-from catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units
-from models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, OverlayType, \
-    SettlementAttackType, PauseOption, Faction, HarvestStatus, ConstructionMenu, ProjectType, Project
-from overlay import Overlay
+from source.util.calculator import get_setl_totals
+from source.foundation.catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units
+from source.foundation.models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, \
+    OverlayType, SettlementAttackType, PauseOption, Faction, HarvestStatus, ConstructionMenu, ProjectType, Project
+from source.display.overlay import Overlay
 
 
 def display_overlay(overlay: Overlay, is_night: bool):
