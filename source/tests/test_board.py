@@ -6,7 +6,6 @@ from source.foundation.catalogue import Namer
 from source.foundation.models import GameConfig, Faction, Quad, Biome
 
 
-@unittest.mock.patch("source.display.board.pyxel")
 class BoardTest(unittest.TestCase):
     """
     The test class for board.py
@@ -22,7 +21,7 @@ class BoardTest(unittest.TestCase):
         """
         self.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
 
-    def test_construction(self, _):
+    def test_construction(self):
         """
         Ensure that the Board is constructed correctly, initialising class variables and generating quads.
         """
@@ -44,7 +43,7 @@ class BoardTest(unittest.TestCase):
         self.assertFalse(self.board.deploying_army)
         self.assertIsNone(self.board.selected_unit)
 
-    def test_construction_loading(self, _):
+    def test_construction_loading(self):
         """
         Ensure that the Board is constructed correctly, initialising class variables and using supplied quads.
         """
@@ -73,7 +72,7 @@ class BoardTest(unittest.TestCase):
         self.assertFalse(board.deploying_army)
         self.assertIsNone(board.selected_unit)
 
-    def test_update_help(self, _):
+    def test_update_help(self):
         """
         Ensure that the help time bank and text are appropriately updated when the Board object is updated with elapsed
         time.
@@ -107,7 +106,7 @@ class BoardTest(unittest.TestCase):
         self.assertFalse(self.board.help_time_bank)
         self.assertEqual(HelpOption.SETTLEMENT, self.board.current_help)
 
-    def test_update_attack(self, _):
+    def test_update_attack(self):
         """
         Ensure that the attack time bank and overlay are appropriately updated when the Board object is updated with
         elapsed time.
@@ -144,7 +143,7 @@ class BoardTest(unittest.TestCase):
         self.board.overlay.toggle_attack.assert_called_with(None)
         self.assertFalse(self.board.attack_time_bank)
 
-    def test_update_siege(self, _):
+    def test_update_siege(self):
         """
         Ensure that the siege time bank and overlay are appropriately updated when the Board object is updated with
         elapsed time.
