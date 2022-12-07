@@ -29,3 +29,5 @@ jobs:
           pip install -r requirements.txt
       - name: Lint
         run: pylint $(git ls-files '*.py')
+      - name: Test
+        run: python -m unittest discover -t source/tests/ -s source/tests/
