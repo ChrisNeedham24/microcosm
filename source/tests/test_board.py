@@ -14,7 +14,7 @@ class BoardTest(unittest.TestCase):
     TEST_NAMER = Namer()
     TEST_UPDATE_TIME = 2
     TEST_UPDATE_TIME_OVER = 4
-    
+
     def setUp(self) -> None:
         """
         Instantiate a standard Board object with generated quads before each test.
@@ -26,7 +26,7 @@ class BoardTest(unittest.TestCase):
         Ensure that the Board is constructed correctly, initialising class variables and generating quads.
         """
         self.assertEqual(HelpOption.SETTLEMENT, self.board.current_help)
-        self.assertFalse(self.board.help_time_bank),
+        self.assertFalse(self.board.help_time_bank)
         self.assertFalse(self.board.attack_time_bank)
         self.assertFalse(self.board.siege_time_bank)
         self.assertFalse(self.board.construction_prompt_time_bank)
