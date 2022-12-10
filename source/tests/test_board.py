@@ -3,24 +3,28 @@ from unittest.mock import MagicMock
 
 from source.display.board import Board, HelpOption
 from source.foundation.catalogue import Namer
-from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement
+from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement, Unit, UnitPlan
 
 
 class BoardTest(unittest.TestCase):
     """
-    The test class for board.py
+    The test class for board.py.
     """
     TEST_CONFIG = GameConfig(2, Faction.CONCENTRATED, True, True, True)
     TEST_NAMER = Namer()
     TEST_UPDATE_TIME = 2
     TEST_UPDATE_TIME_OVER = 4
-    TEST_PLAYER = Player("Mr. Tester", Faction.FUNDAMENTALISTS, 0, 0, [], [], [], set(), set())
+    TEST_SETTLEMENT = Settlement("Test Town", (7, 7), [], [], [])
+    TEST_UNIT_PLAN = UnitPlan(100, 100, 2, "TestMan", None, 0)
+    TEST_UNIT = Unit(100, 2, (5, 5), False, TEST_UNIT_PLAN)
+    TEST_PLAYER = Player("Mr. Tester", Faction.FUNDAMENTALISTS, 0, 0, [TEST_SETTLEMENT], [], [], set(), set())
 
     def setUp(self) -> None:
         """
-        Instantiate a standard Board object with generated quads before each test.
+        Instantiate a standard Board object with generated quads before each test. Also reset the test player's units.
         """
         self.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
+        self.TEST_PLAYER.units = [self.TEST_UNIT]
 
     def test_construction(self):
         """
@@ -382,7 +386,55 @@ class BoardTest(unittest.TestCase):
         self.assertIsNone(self.board.selected_settlement)
         self.board.overlay.toggle_settlement.assert_called_with(None, self.TEST_PLAYER)
 
-    # TODO tests for left click - obscured, quad select reset
+    def test_left_click_select_settlement(self):
+        """
+        Ensure that settlements are successfully selected and their overlay displayed when left-clicked.
+        """
+        self.board.overlay.toggle_settlement = MagicMock()
+
+        self.assertIsNone(self.board.selected_settlement)
+        self.board.process_left_click(20, 20, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        self.assertEqual(self.TEST_SETTLEMENT, self.board.selected_settlement)
+        self.board.overlay.toggle_settlement.assert_called_with(self.TEST_SETTLEMENT, self.TEST_PLAYER)
+
+    def test_left_click_garrison_unit(self):
+        """
+        Ensure that units are successfully garrisoned in settlements when the unit's stamina is sufficient to reach the
+        selected settlement.
+        """
+        self.board.overlay.toggle_unit = MagicMock()
+        self.board.selected_unit = self.TEST_PLAYER.units[0]
+
+        unit = self.TEST_PLAYER.units[0]
+        setl = self.TEST_PLAYER.settlements[0]
+        # To begin with, the unit should not be garrisoned, and the settlement should have no units in its garrison.
+        self.assertFalse(unit.garrisoned)
+        self.assertFalse(setl.garrison)
+        self.board.process_left_click(20, 20, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        # The unit should now be in the settlement's garrison, removed from the player's units, and deselected.
+        self.assertTrue(unit.garrisoned)
+        self.assertTrue(setl.garrison)
+        self.assertFalse(self.TEST_PLAYER.units)
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_called_with(None)
+
+        self.board.overlay.toggle_unit.reset_mock()
+
+        # However, let's try this again with a unit that is too far away from the settlement to reach it.
+        far_away_unit = Unit(100, 2, (75, 75), False, self.TEST_UNIT_PLAN)
+        self.TEST_PLAYER.units.append(far_away_unit)
+        self.board.selected_unit = far_away_unit
+        self.board.process_left_click(20, 20, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        # Rather than be garrisoned, the unit stays as-is, and the settlement remains with only the initial unit in its
+        # garrison.
+        self.assertFalse(far_away_unit.garrisoned)
+        self.assertEqual(1, len(setl.garrison))
+        self.assertTrue(self.TEST_PLAYER.units)
+        # You may expect the unit to still be selected because it was not garrisoned. Not so, due to the fact that in
+        # this case, the unit is instead deselected because an alternative quad is clicked where the unit cannot move
+        # to.
+
+    # TO-DO tests for left click - obscured, quad select reset
 
 
 if __name__ == '__main__':
