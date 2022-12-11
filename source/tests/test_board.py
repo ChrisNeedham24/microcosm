@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import MagicMock
 
 from source.display.board import Board, HelpOption
-from source.foundation.catalogue import Namer
-from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement, Unit, UnitPlan
+from source.foundation.catalogue import Namer, get_heathen_plan
+from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement, Unit, UnitPlan, Heathen
 
 
 class BoardTest(unittest.TestCase):
@@ -18,6 +18,7 @@ class BoardTest(unittest.TestCase):
     TEST_UNIT_PLAN = UnitPlan(100, 100, 2, "TestMan", None, 0)
     TEST_UNIT = Unit(100, 2, (5, 5), False, TEST_UNIT_PLAN)
     TEST_PLAYER = Player("Mr. Tester", Faction.FUNDAMENTALISTS, 0, 0, [TEST_SETTLEMENT], [], [], set(), set())
+    TEST_HEATHEN = Heathen(100, 2, (10, 10), get_heathen_plan(1))
 
     def setUp(self) -> None:
         """
@@ -25,6 +26,7 @@ class BoardTest(unittest.TestCase):
         """
         self.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
         self.TEST_PLAYER.units = [self.TEST_UNIT]
+        self.TEST_SETTLEMENT.garrison = []
 
     def test_construction(self):
         """
@@ -434,6 +436,77 @@ class BoardTest(unittest.TestCase):
         # this case, the unit is instead deselected because an alternative quad is clicked where the unit cannot move
         # to.
 
+    def test_left_click_deploy(self):
+        """
+        Ensure that units are deployed correctly when clicking a quad adjacent to a settlement.
+        """
+        self.board.overlay.toggle_deployment = MagicMock()
+        self.board.overlay.toggle_settlement = MagicMock()
+        self.board.overlay.toggle_unit = MagicMock()
+
+        # Set up the scenario in which we have selected a settlement with a unit in its garrison, and we are deploying
+        # said unit.
+        self.board.deploying_army = True
+        self.board.selected_settlement = self.TEST_PLAYER.settlements[0]
+        unit = self.TEST_PLAYER.units.pop()
+        self.TEST_PLAYER.settlements[0].garrison.append(unit)
+        unit.garrisoned = True
+
+        # Click a quad not adjacent to the settlement - this should fail.
+        self.board.process_left_click(50, 20, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        # As expected, the unit is still garrisoned, and the deployment is still ongoing with no state changes or
+        # toggles of overlays.
+        self.assertTrue(unit.garrisoned)
+        self.assertFalse(self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+        self.assertTrue(self.board.deploying_army)
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_deployment.assert_not_called()
+        self.assertEqual(self.TEST_SETTLEMENT, self.board.selected_settlement)
+        self.board.overlay.toggle_settlement.assert_not_called()
+        self.board.overlay.toggle_unit.assert_not_called()
+
+        # Now if we click an adjacent quad, updates should occur.
+        self.board.process_left_click(30, 20, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        # The unit should no longer be garrisoned, and should be located where the click occurred.
+        self.assertFalse(unit.garrisoned)
+        self.assertEqual((8, 7), unit.location)
+        # The player should also have the unit in their possession, not the settlement's, and their seen quads should be
+        # updated.
+        self.assertTrue(self.TEST_PLAYER.units)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
+        # The deployment should also be concluded, updating state to show the new unit as selected, and toggling a few
+        # overlays.
+        self.assertFalse(self.board.deploying_army)
+        self.assertEqual(unit, self.board.selected_unit)
+        self.board.overlay.toggle_deployment.assert_called()
+        self.assertIsNone(self.board.selected_settlement)
+        self.board.overlay.toggle_settlement.assert_called_with(None, self.TEST_PLAYER)
+        self.board.overlay.toggle_unit.assert_called_with(unit)
+
+    def test_left_click_select_heathen(self):
+        """
+        Ensure that heathens are appropriately selected when clicked on.
+        """
+        self.board.overlay.toggle_unit = MagicMock()
+
+        self.board.process_left_click(45, 45, True, self.TEST_PLAYER, (5, 5), [self.TEST_HEATHEN], [], [], [])
+        self.assertEqual(self.TEST_HEATHEN, self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_called_with(self.TEST_HEATHEN)
+
+    """
+    Attack cases to test
+    
+    Unit has already acted
+    Unit has clicked on itself
+    Unit has clicked on a unit too far away
+    Unit attack - none killed
+    Unit attack - attacker killed
+    Unit attack - heathen killed
+    Unit attack - defender killed
+    Heal
+    Select other unit
+    """
     # TO-DO tests for left click - obscured, quad select reset
 
 
