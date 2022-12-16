@@ -1,0 +1,3 @@
+[run]
+include = source/*
+omit = source/tests/*
