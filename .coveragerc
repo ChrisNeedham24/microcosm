@@ -1,3 +1,8 @@
 [run]
 include = source/*
 omit = source/tests/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def draw

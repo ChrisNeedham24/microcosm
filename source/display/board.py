@@ -62,7 +62,7 @@ class Board:
         self.selected_unit: typing.Optional[Unit | Heathen] = None
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
-             is_night: bool, turns_until_change: int):
+             is_night: bool, turns_until_change: int):  # pragma: no cover
         """
         Draws the board and its objects to the screen.
         :param players: The players in the game.
