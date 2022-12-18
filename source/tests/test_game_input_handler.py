@@ -9,9 +9,11 @@ from source.game_management.game_input_handler import on_key_arrow_down, on_key_
 from source.game_management.game_state import GameState
 
 
+@patch("source.game_management.game_controller.MusicPlayer")
 class GameInputHandlerTest(unittest.TestCase):
     """
-    The test class for game_input_handler.py.
+    The test class for game_input_handler.py. Note that we mock the MusicPlayer out at a class level. This is to prevent
+    issues with CI due to the vlc library being imported.
     """
 
     @patch("source.game_management.game_controller.MusicPlayer")
@@ -20,14 +22,13 @@ class GameInputHandlerTest(unittest.TestCase):
         Set up the GameController and GameState objects to be used as parameters in the test functions. Also instantiate
         the Board object for the GameState. Note that we also mock out the MusicPlayer class that is used when
         constructing the GameController. This is because it will try to play music if not mocked.
-        :param _: The unused MusicPlayer mock.
         """
         self.game_controller = GameController()
         self.game_state = GameState()
         self.game_state.board = Board(GameConfig(4, Faction.NOCTURNE, True, True, True), Namer())
         self.game_state.on_menu = False
 
-    def test_arrow_down_menu(self):
+    def test_arrow_down_menu(self, _: MagicMock):
         """
         Ensure that the correct method is called when pressing the down arrow key while on the menu.
         """
@@ -36,7 +37,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_down(self.game_controller, self.game_state, False)
         self.game_controller.menu.navigate.assert_called_with(down=True)
 
-    def test_arrow_down_construction(self):
+    def test_arrow_down_construction(self, _: MagicMock):
         """
         Ensure that the correct method is called when pressing the down arrow key while viewing the construction
         overlay.
@@ -47,7 +48,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_down(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_constructions.assert_called_with(down=True)
 
-    def test_arrow_down_blessing(self):
+    def test_arrow_down_blessing(self, _: MagicMock):
         """
         Ensure that the correct method is called when pressing the down arrow key while viewing the blessing overlay.
         """
@@ -57,7 +58,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_down(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_blessings.assert_called_with(down=True)
 
-    def test_arrow_down_settlement_click(self):
+    def test_arrow_down_settlement_click(self, _: MagicMock):
         """
         Ensure that the correct method is called when pressing the down arrow key while viewing the settlement click
         overlay.
@@ -68,7 +69,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_down(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_setl_click.assert_called_with(down=True)
 
-    def test_arrow_down_controls(self):
+    def test_arrow_down_controls(self, _: MagicMock):
         """
         Ensure that the correct toggle occurs when pressing the down arrow key while viewing the controls overlay.
         """
@@ -78,7 +79,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_down(self.game_controller, self.game_state, False)
         self.assertTrue(self.game_state.board.overlay.show_additional_controls)
 
-    def test_arrow_down_pause(self):
+    def test_arrow_down_pause(self, _: MagicMock):
         """
         Ensure that the correct method is called when pressing the down arrow key while viewing the pause overlay.
         """
@@ -88,7 +89,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_down(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_pause.assert_called_with(down=True)
 
-    def test_arrow_down_standard(self):
+    def test_arrow_down_standard(self, _: MagicMock):
         """
         Ensure that the correct method is called when pressing the down arrow key while viewing the standard overlay.
         """
@@ -98,7 +99,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_down(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_standard.assert_called_with(down=True)
 
-    def test_arrow_down_map(self):
+    def test_arrow_down_map(self, _: MagicMock):
         """
         Ensure that the correct map panning occurs when pressing the down arrow key while no obscuring overlay is
         displayed.
@@ -115,7 +116,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_down(self.game_controller, self.game_state, True)
         self.assertTupleEqual((pos_x, pos_y + 6), self.game_state.map_pos)
 
-    def test_arrow_up_menu(self):
+    def test_arrow_up_menu(self, _: MagicMock):
         """
         Ensure that the correct method is called when pressing the up arrow key while on the menu.
         """
@@ -124,7 +125,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_up(self.game_controller, self.game_state, False)
         self.game_controller.menu.navigate.assert_called_with(up=True)
 
-    def test_arrow_up_construction(self):
+    def test_arrow_up_construction(self, _: MagicMock):
         """
         Ensure that the correct method is called when pressing the up arrow key while viewing the construction
         overlay.
@@ -135,7 +136,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_up(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_constructions.assert_called_with(down=False)
 
-    def test_arrow_up_blessing(self):
+    def test_arrow_up_blessing(self, _: MagicMock):
         """
         Ensure that the correct method is called when pressing the up arrow key while viewing the blessing overlay.
         """
@@ -145,7 +146,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_up(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_blessings.assert_called_with(down=False)
 
-    def test_arrow_up_settlement_click(self):
+    def test_arrow_up_settlement_click(self, _: MagicMock):
         """
         Ensure that the correct method is called when pressing the up arrow key while viewing the settlement click
         overlay.
@@ -156,7 +157,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_up(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_setl_click.assert_called_with(up=True)
 
-    def test_arrow_up_controls(self):
+    def test_arrow_up_controls(self, _: MagicMock):
         """
         Ensure that the correct toggle occurs when pressing the up arrow key while viewing the controls overlay.
         """
@@ -166,7 +167,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_up(self.game_controller, self.game_state, False)
         self.assertFalse(self.game_state.board.overlay.show_additional_controls)
 
-    def test_arrow_up_pause(self):
+    def test_arrow_up_pause(self, _: MagicMock):
         """
         Ensure that the correct method is called when pressing the up arrow key while viewing the pause overlay.
         """
@@ -176,7 +177,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_up(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_pause.assert_called_with(down=False)
 
-    def test_arrow_up_standard(self):
+    def test_arrow_up_standard(self, _: MagicMock):
         """
         Ensure that the correct method is called when pressing the up arrow key while viewing the standard overlay.
         """
@@ -186,7 +187,7 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_up(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_standard.assert_called_with(down=False)
 
-    def test_arrow_up_map(self):
+    def test_arrow_up_map(self, _: MagicMock):
         """
         Ensure that the correct map panning occurs when pressing the up arrow key while no obscuring overlay is
         displayed.
