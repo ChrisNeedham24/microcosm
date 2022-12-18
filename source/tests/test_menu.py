@@ -1,7 +1,10 @@
 import unittest
 
+import pyxel
+
 from source.display.menu import Menu, SetupOption, WikiOption, MainMenuOption
 from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS
+from source.foundation.models import VictoryType, GameConfig
 
 
 class MenuTest(unittest.TestCase):
@@ -341,6 +344,124 @@ class MenuTest(unittest.TestCase):
         self.assertFalse(self.menu.climatic_effects_enabled)
         self.menu.navigate(right=True)
         self.assertTrue(self.menu.climatic_effects_enabled)
+
+    def test_navigate_wiki_victories(self):
+        """
+        Ensure that the player can correctly navigate through the available victories in the wiki.
+        """
+        self.menu.in_wiki = True
+        self.menu.wiki_showing = WikiOption.VICTORIES
+
+        self.assertEqual(VictoryType.ELIMINATION, self.menu.victory_type)
+        self.menu.navigate(right=True)
+        self.assertEqual(VictoryType.JUBILATION, self.menu.victory_type)
+        self.menu.navigate(right=True)
+        self.assertEqual(VictoryType.GLUTTONY, self.menu.victory_type)
+        self.menu.navigate(right=True)
+        self.assertEqual(VictoryType.AFFLUENCE, self.menu.victory_type)
+        self.menu.navigate(right=True)
+        self.assertEqual(VictoryType.VIGOUR, self.menu.victory_type)
+        self.menu.navigate(right=True)
+        self.assertEqual(VictoryType.SERENDIPITY, self.menu.victory_type)
+        # Pressing right when already at the last victory should have no effect.
+        self.menu.navigate(right=True)
+        self.assertEqual(VictoryType.SERENDIPITY, self.menu.victory_type)
+
+        self.menu.navigate(left=True)
+        self.assertEqual(VictoryType.VIGOUR, self.menu.victory_type)
+        self.menu.navigate(left=True)
+        self.assertEqual(VictoryType.AFFLUENCE, self.menu.victory_type)
+        self.menu.navigate(left=True)
+        self.assertEqual(VictoryType.GLUTTONY, self.menu.victory_type)
+        self.menu.navigate(left=True)
+        self.assertEqual(VictoryType.JUBILATION, self.menu.victory_type)
+        self.menu.navigate(left=True)
+        self.assertEqual(VictoryType.ELIMINATION, self.menu.victory_type)
+        # Pressing left when already at the first victory should have no effect.
+        self.menu.navigate(left=True)
+        self.assertEqual(VictoryType.ELIMINATION, self.menu.victory_type)
+
+    def test_navigate_wiki_factions(self):
+        """
+        Ensure that the player can correctly navigate through the available factions in the wiki.
+        """
+        self.menu.in_wiki = True
+        self.menu.wiki_showing = WikiOption.FACTIONS
+
+        self.assertEqual(0, self.menu.faction_wiki_idx)
+        for i in range(1, len(self.menu.faction_colours)):
+            self.menu.navigate(right=True)
+            self.assertEqual(i, self.menu.faction_wiki_idx)
+        # Now at the last faction, pressing right again should do nothing.
+        self.assertEqual(len(self.menu.faction_colours) - 1, self.menu.faction_wiki_idx)
+        self.menu.navigate(right=True)
+        self.assertEqual(len(self.menu.faction_colours) - 1, self.menu.faction_wiki_idx)
+
+        for i in range(len(self.menu.faction_colours) - 2, -1, -1):
+            self.menu.navigate(left=True)
+            self.assertEqual(i, self.menu.faction_wiki_idx)
+        # Returned to the first faction, pressing left should similarly do nothing.
+        self.assertEqual(0, self.menu.faction_wiki_idx)
+        self.menu.navigate(left=True)
+        self.assertEqual(0, self.menu.faction_wiki_idx)
+
+    def test_navigate_wiki_climate(self):
+        """
+        Ensure that the player can toggle between the two climate types in the wiki.]
+        """
+        self.menu.in_wiki = True
+        self.menu.wiki_showing = WikiOption.CLIMATE
+
+        self.assertFalse(self.menu.showing_night)
+        # Pressing left when already on daytime should have no effect.
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.showing_night)
+        self.menu.navigate(right=True)
+        self.assertTrue(self.menu.showing_night)
+        # Similarly, pressing right when already on night should have no effect.
+        self.menu.navigate(right=True)
+        self.assertTrue(self.menu.showing_night)
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.showing_night)
+
+    def test_get_game_config(self):
+        """
+        Ensure that the menu correctly returns the game configuration.
+        """
+        # Set up our test data.
+        test_player_count = self.menu.player_count = 5
+        self.menu.faction_idx = 12
+        test_player_faction = self.menu.faction_colours[self.menu.faction_idx][0]
+        test_clustering = self.menu.biome_clustering_enabled = False
+        test_fog_of_war = self.menu.fog_of_war_enabled = True
+        test_climate = self.menu.climatic_effects_enabled = False
+
+        test_config: GameConfig = self.menu.get_game_config()
+
+        # Make sure everything is as expected.
+        self.assertEqual(test_player_count, test_config.player_count)
+        self.assertEqual(test_player_faction, test_config.player_faction)
+        self.assertEqual(test_clustering, test_config.biome_clustering)
+        self.assertEqual(test_fog_of_war, test_config.fog_of_war)
+        self.assertEqual(test_climate, test_config.climatic_effects)
+
+    def test_option_colouring(self):
+        """
+        Ensure that options are correctly coloured when displayed on the menu.
+        """
+        self.menu.setup_option = SetupOption.FOG_OF_WAR
+        # Since it's selected, the fog of war option should be red.
+        self.assertEqual(pyxel.COLOR_RED, self.menu.get_option_colour(SetupOption.FOG_OF_WAR))
+        # Since it's not selected, the climate option should be white.
+        self.assertEqual(pyxel.COLOR_WHITE, self.menu.get_option_colour(SetupOption.CLIMATIC_EFFECTS))
+
+        self.menu.wiki_option = WikiOption.BLESSINGS
+        self.assertEqual(pyxel.COLOR_RED, self.menu.get_option_colour(WikiOption.BLESSINGS))
+        self.assertEqual(pyxel.COLOR_WHITE, self.menu.get_option_colour(WikiOption.VICTORIES))
+
+        self.menu.main_menu_option = MainMenuOption.WIKI
+        self.assertEqual(pyxel.COLOR_RED, self.menu.get_option_colour(MainMenuOption.WIKI))
+        self.assertEqual(pyxel.COLOR_WHITE, self.menu.get_option_colour(MainMenuOption.EXIT))
 
 
 if __name__ == '__main__':
