@@ -105,7 +105,7 @@ class GameInputHandlerTest(unittest.TestCase):
         """
         self.game_state.game_started = True
         self.game_state.board.overlay.remove_warning_if_possible = MagicMock()
-        pos_x, pos_y = self.game_state.map_pos
+        pos_x, pos_y = self.game_state.map_pos = (5, 5)
 
         # Only one quad of movement should occur.
         on_key_arrow_down(self.game_controller, self.game_state, False)
@@ -193,7 +193,7 @@ class GameInputHandlerTest(unittest.TestCase):
         """
         self.game_state.game_started = True
         self.game_state.board.overlay.remove_warning_if_possible = MagicMock()
-        pos_x, pos_y = self.game_state.map_pos
+        pos_x, pos_y = self.game_state.map_pos = (5, 5)
 
         on_key_arrow_up(self.game_controller, self.game_state, False)
         self.assertTupleEqual((pos_x, pos_y - 1), self.game_state.map_pos)
