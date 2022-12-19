@@ -22,6 +22,7 @@ class SaveEncoder(JSONEncoder):
         # dict.
         if isinstance(o, ObjectConverter):
             return o.__dict__
+        return dict()
 
 
 class ObjectConverter:

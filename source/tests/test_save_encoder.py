@@ -10,6 +10,9 @@ class SaveEncoderTest(unittest.TestCase):
     """
 
     def test_save_encoder(self):
+        """
+        Ensure that the save encoder behaves correctly, for a variety of supplied types.
+        """
         test_effect = Effect(wealth=1, harvest=2, zeal=3, fortune=4, strength=5, satisfaction=6)
         test_effect_as_dict = {
             "wealth": test_effect.wealth,
@@ -31,6 +34,8 @@ class SaveEncoderTest(unittest.TestCase):
         self.assertDictEqual(test_effect_as_dict, save_encoder.default(test_effect))
         self.assertTrue(isinstance(save_encoder.default(test_set), list))
         self.assertEqual(test_effect_as_dict, save_encoder.default(test_converter))
+        # Any other data type should return an empty dictionary, which evaluates to false.
+        self.assertFalse(save_encoder.default("a"))
 
 
 if __name__ == '__main__':
