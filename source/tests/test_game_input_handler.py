@@ -3,9 +3,11 @@ from unittest.mock import MagicMock, patch
 
 from source.display.board import Board
 from source.foundation.catalogue import Namer
-from source.foundation.models import GameConfig, Faction, OverlayType
+from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
+    Effect, Project, ProjectType, UnitPlan
 from source.game_management.game_controller import GameController
-from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up
+from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
+    on_key_arrow_right
 from source.game_management.game_state import GameState
 
 
@@ -200,6 +202,136 @@ class GameInputHandlerTest(unittest.TestCase):
 
         on_key_arrow_up(self.game_controller, self.game_state, True)
         self.assertTupleEqual((pos_x, pos_y - 6), self.game_state.map_pos)
+
+    def test_arrow_left_menu(self):
+        """
+        Ensure that the correct method is called when pressing the left arrow key while on the menu.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.navigate = MagicMock()
+        on_key_arrow_left(self.game_controller, self.game_state, False)
+        self.game_controller.menu.navigate.assert_called_with(left=True)
+
+    def test_arrow_left_construction(self):
+        """
+        Ensure that the correct change in view occurs when pressing the left arrow key while viewing the construction
+        overlay.
+        """
+        test_improvement = Improvement(ImprovementType.ECONOMICAL, 0, "Te", "st", Effect(), None)
+        test_project = Project(ProjectType.ECONOMICAL, "Te", "st")
+
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.CONSTRUCTION]
+        self.game_state.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
+
+        # Because the player has no available constructions, pressing left does nothing as there is no improvements menu
+        # to be viewed.
+        on_key_arrow_left(self.game_controller, self.game_state, False)
+        self.assertEqual(ConstructionMenu.PROJECTS, self.game_state.board.overlay.current_construction_menu)
+        self.assertIsNone(self.game_state.board.overlay.selected_construction)
+
+        self.game_state.board.overlay.available_constructions = [test_improvement]
+
+        # Now that an available construction has been assigned, the improvements menu should be viewable.
+        on_key_arrow_left(self.game_controller, self.game_state, False)
+        self.assertEqual(ConstructionMenu.IMPROVEMENTS, self.game_state.board.overlay.current_construction_menu)
+        self.assertEqual(test_improvement, self.game_state.board.overlay.selected_construction)
+
+        self.game_state.board.overlay.current_construction_menu = ConstructionMenu.UNITS
+        self.game_state.board.overlay.available_projects = [test_project]
+
+        # From the units menu, pressing left should bring us to the projects menu.
+        on_key_arrow_left(self.game_controller, self.game_state, False)
+        self.assertEqual(ConstructionMenu.PROJECTS, self.game_state.board.overlay.current_construction_menu)
+        self.assertEqual(test_project, self.game_state.board.overlay.selected_construction)
+
+    def test_arrow_left_settlement_click(self):
+        """
+        Ensure that the correct method is called when pressing the left arrow key while viewing the settlement click
+        overlay.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.SETL_CLICK]
+        self.game_state.board.overlay.navigate_setl_click = MagicMock()
+        on_key_arrow_left(self.game_controller, self.game_state, False)
+        self.game_state.board.overlay.navigate_setl_click.assert_called_with(left=True)
+
+    def test_arrow_left_map(self):
+        """
+        Ensure that the correct map panning occurs when pressing the left arrow key while no obscuring overlay is
+        displayed.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.remove_warning_if_possible = MagicMock()
+        pos_x, pos_y = self.game_state.map_pos = (5, 5)
+
+        on_key_arrow_left(self.game_controller, self.game_state, False)
+        self.assertTupleEqual((pos_x - 1, pos_y), self.game_state.map_pos)
+
+        on_key_arrow_left(self.game_controller, self.game_state, True)
+        self.assertTupleEqual((pos_x - 6, pos_y), self.game_state.map_pos)
+
+    def test_arrow_right_menu(self):
+        """
+        Ensure that the correct method is called when pressing the right arrow key while on the menu.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.navigate = MagicMock()
+        on_key_arrow_right(self.game_controller, self.game_state, False)
+        self.game_controller.menu.navigate.assert_called_with(right=True)
+
+    def test_arrow_right_construction(self):
+        """
+        Ensure that the correct change in view occurs when pressing the right arrow key while viewing the construction
+        overlay.
+        """
+        test_project = Project(ProjectType.ECONOMICAL, "Te", "st")
+        test_unit_plan = UnitPlan(0, 0, 0, "Test", None, 0)
+
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.CONSTRUCTION]
+        self.game_state.board.overlay.current_construction_menu = ConstructionMenu.IMPROVEMENTS
+        self.game_state.board.overlay.available_projects = [test_project]
+
+        # Pressing the right arrow key while viewing improvements should take us to projects.
+        on_key_arrow_right(self.game_controller, self.game_state, False)
+        self.assertEqual(ConstructionMenu.PROJECTS, self.game_state.board.overlay.current_construction_menu)
+        self.assertEqual(test_project, self.game_state.board.overlay.selected_construction)
+
+        self.game_state.board.overlay.available_unit_plans = [test_unit_plan]
+
+        # Pressing the right arrow key while viewing projects should display units, while also resetting the boundaries
+        # for said units.
+        on_key_arrow_right(self.game_controller, self.game_state, False)
+        self.assertEqual(ConstructionMenu.UNITS, self.game_state.board.overlay.current_construction_menu)
+        self.assertEqual(test_unit_plan, self.game_state.board.overlay.selected_construction)
+        self.assertTupleEqual((0, 5), self.game_state.board.overlay.unit_plan_boundaries)
+
+    def test_arrow_right_settlement_click(self):
+        """
+        Ensure that the correct method is called when pressing the right arrow key while viewing the settlement click
+        overlay.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.SETL_CLICK]
+        self.game_state.board.overlay.navigate_setl_click = MagicMock()
+        on_key_arrow_right(self.game_controller, self.game_state, False)
+        self.game_state.board.overlay.navigate_setl_click.assert_called_with(right=True)
+
+    def test_arrow_right_map(self):
+        """
+        Ensure that the correct map panning occurs when pressing the right arrow key while no obscuring overlay is
+        displayed.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.remove_warning_if_possible = MagicMock()
+        pos_x, pos_y = self.game_state.map_pos = (5, 5)
+
+        on_key_arrow_right(self.game_controller, self.game_state, False)
+        self.assertTupleEqual((pos_x + 1, pos_y), self.game_state.map_pos)
+
+        on_key_arrow_right(self.game_controller, self.game_state, True)
+        self.assertTupleEqual((pos_x + 6, pos_y), self.game_state.map_pos)
 
 
 if __name__ == '__main__':
