@@ -25,6 +25,7 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y libsdl2-2.0-0
+          sudo apt-get install -y vlc
         if: matrix.os == 'ubuntu-latest'
       - name: Install system packages (MacOS)
         run: |
