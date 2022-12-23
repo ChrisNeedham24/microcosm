@@ -15,18 +15,31 @@ class BoardTest(unittest.TestCase):
     TEST_UPDATE_TIME = 2
     TEST_UPDATE_TIME_OVER = 4
     TEST_SETTLEMENT = Settlement("Test Town", (7, 7), [], [], [])
+    TEST_ENEMY_SETTLEMENT = Settlement("Bad Town", (6, 6), [], [], [])
     TEST_UNIT_PLAN = UnitPlan(100, 100, 2, "TestMan", None, 0)
     TEST_UNIT = Unit(100, 2, (5, 5), False, TEST_UNIT_PLAN)
     TEST_PLAYER = Player("Mr. Tester", Faction.FUNDAMENTALISTS, 0, 0, [TEST_SETTLEMENT], [], [], set(), set())
+    TEST_ENEMY_PLAYER = Player("Dr. Evil", Faction.INFIDELS, 0, 0, [TEST_ENEMY_SETTLEMENT], [], [], set(), set())
     TEST_HEATHEN = Heathen(100, 2, (10, 10), get_heathen_plan(1))
 
     def setUp(self) -> None:
         """
-        Instantiate a standard Board object with generated quads before each test. Also reset the test player's units.
+        Instantiate a standard Board object with generated quads before each test. Also reset the test player's units
+        and save some relevant quad coordinates.
         """
         self.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
+        self.TEST_UNIT.location = (5, 5)
         self.TEST_PLAYER.units = [self.TEST_UNIT]
         self.TEST_SETTLEMENT.garrison = []
+        # We need to find a relic quad before each test, because the quads are re-generated each time.
+        self.relic_coords: (int, int) = -1, -1
+        for i in range(90):
+            for j in range(80):
+                if self.board.quads[i][j].is_relic:
+                    self.relic_coords = i, j
+                    break
+            if self.relic_coords[0] != -1:
+                break
 
     def test_construction(self):
         """
@@ -508,6 +521,78 @@ class BoardTest(unittest.TestCase):
     Select other unit
     """
     # TO-DO tests for left click - obscured, quad select reset
+
+    def test_left_click_setl_click(self):
+        """
+        Ensure that when a selected unit clicks on an adjacent settlement, it toggles the settlement click overlay.
+        """
+        self.board.overlay.toggle_setl_click = MagicMock()
+        self.board.selected_unit = self.TEST_PLAYER.units[0]
+
+        # To begin with, move the selected unit far from an enemy settlement. Since it is too far away, if it clicks on
+        # the settlement, nothing should appear.
+        self.board.selected_unit.location = (50, 50)
+        self.board.process_left_click(12, 12, True, self.TEST_PLAYER, (5, 5), [], [],
+                                      [self.TEST_PLAYER, self.TEST_ENEMY_PLAYER], [self.TEST_ENEMY_SETTLEMENT])
+        self.board.overlay.toggle_setl_click.assert_not_called()
+
+        # However, if we reset the unit's position to be adjacent to the enemy settlement, the overlay should
+        # successfully toggle when the settlement is clicked on.
+        self.board.selected_unit.location = (5, 5)
+        self.board.process_left_click(12, 12, True, self.TEST_PLAYER, (5, 5), [], [],
+                                      [self.TEST_PLAYER, self.TEST_ENEMY_PLAYER], [self.TEST_ENEMY_SETTLEMENT])
+        self.board.overlay.toggle_setl_click.assert_called_with(self.TEST_ENEMY_SETTLEMENT, self.TEST_ENEMY_PLAYER)
+
+    def test_left_click_select_unit(self):
+        """
+        Ensure that units are selected when clicked on.
+        """
+        self.board.overlay.toggle_unit = MagicMock()
+
+        self.assertIsNone(self.board.selected_unit)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (5, 5), [], self.TEST_PLAYER.units, [], [])
+        self.assertEqual(self.TEST_UNIT, self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_called_with(self.TEST_UNIT)
+
+    def test_left_click_relic(self):
+        """
+        Ensure that when a unit clicks on an adjacent relic, it loses its relic status and brings up the investigation
+        overlay.
+        """
+        self.board.overlay.toggle_investigation = MagicMock()
+        self.board.selected_unit = self.TEST_PLAYER.units[0]
+
+        # Teleport the unit to be far from the pre-determined relic coordinates.
+        self.board.selected_unit.location = 0, 0
+        if self.relic_coords[0] <= 1 or self.relic_coords[1] <= 1:
+            self.board.selected_unit.location = 80, 80
+        # Because the unit is too far away from the relic, it and the overlay should be unaffected by the click.
+        self.assertTrue(self.board.quads[self.relic_coords[0]][self.relic_coords[1]].is_relic)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (self.relic_coords[1], self.relic_coords[0]), [],
+                                      [], [], [])
+        self.assertTrue(self.board.quads[self.relic_coords[0]][self.relic_coords[1]].is_relic)
+        self.board.overlay.toggle_investigation.assert_not_called()
+
+        # However, if we teleport the unit to be right next to the relic, the click should result in the relic
+        # disappearing and the investigation overlay being toggled.
+        self.board.selected_unit.location = (self.relic_coords[1], self.relic_coords[0] + 1)
+        self.assertTrue(self.board.quads[self.relic_coords[0]][self.relic_coords[1]].is_relic)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (self.relic_coords[1], self.relic_coords[0]), [],
+                                      [], [], [])
+        self.assertFalse(self.board.quads[self.relic_coords[0]][self.relic_coords[1]].is_relic)
+        # Note that we cannot specify the expected arguments due to the fact that each investigation result is random.
+        self.board.overlay.toggle_investigation.assert_called()
+
+    def test_left_click_deselect_unit(self):
+        """
+        Ensure that when a unit is selected and the player clicks elsewhere, the unit is deselected.
+        """
+        self.board.overlay.toggle_unit = MagicMock()
+        self.board.selected_unit = self.TEST_UNIT
+
+        self.board.process_left_click(50, 50, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_called_with(None)
 
 
 if __name__ == '__main__':
