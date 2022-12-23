@@ -7,3 +7,4 @@ exclude_lines =
     pragma: no cover
     def draw
     def display_overlay
+    class Game:
