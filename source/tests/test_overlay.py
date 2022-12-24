@@ -10,7 +10,6 @@ class OverlayTest(unittest.TestCase):
     """
     The test class for overlay.py.
     """
-    
     TEST_SETTLEMENT = Settlement("Testville", (0, 0), [], [], [])
     TEST_UNIT = Unit(1, 2, (3, 4), False, UNIT_PLANS[0])
 
