@@ -24,13 +24,15 @@ class BoardTest(unittest.TestCase):
 
     def setUp(self) -> None:
         """
-        Instantiate a standard Board object with generated quads before each test. Also reset the test player's units
+        Instantiate a standard Board object with generated quads before each test. Also reset the test player's details
         and save some relevant quad coordinates.
         """
         self.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
         self.TEST_UNIT.location = (5, 5)
         self.TEST_PLAYER.units = [self.TEST_UNIT]
+        self.TEST_PLAYER.faction = Faction.FUNDAMENTALISTS
         self.TEST_SETTLEMENT.garrison = []
+        self.TEST_PLAYER.settlements = [self.TEST_SETTLEMENT]
         # We need to find a relic quad before each test, because the quads are re-generated each time.
         self.relic_coords: (int, int) = -1, -1
         for i in range(90):
@@ -62,6 +64,32 @@ class BoardTest(unittest.TestCase):
         self.assertIsNone(self.board.selected_settlement)
         self.assertFalse(self.board.deploying_army)
         self.assertIsNone(self.board.selected_unit)
+
+    def test_construction_without_clustering(self):
+        """
+        Ensure that board construction still functions correctly when biome clustering is disabled.
+        """
+        no_clustering_cfg = GameConfig(2, Faction.NOCTURNE, False, True, True)
+
+        new_board = Board(no_clustering_cfg, self.TEST_NAMER)
+
+        self.assertEqual(HelpOption.SETTLEMENT, new_board.current_help)
+        self.assertFalse(new_board.help_time_bank)
+        self.assertFalse(new_board.attack_time_bank)
+        self.assertFalse(new_board.siege_time_bank)
+        self.assertFalse(new_board.construction_prompt_time_bank)
+        self.assertFalse(new_board.heal_time_bank)
+        self.assertEqual(no_clustering_cfg, new_board.game_config)
+        self.assertEqual(self.TEST_NAMER, new_board.namer)
+
+        # Only 90 because it's a 2D array.
+        self.assertEqual(90, len(new_board.quads))
+
+        self.assertIsNone(new_board.quad_selected)
+        self.assertTrue(new_board.overlay)
+        self.assertIsNone(new_board.selected_settlement)
+        self.assertFalse(new_board.deploying_army)
+        self.assertIsNone(new_board.selected_unit)
 
     def test_construction_loading(self):
         """
@@ -307,6 +335,17 @@ class BoardTest(unittest.TestCase):
             for quad in quad_row:
                 self.assertFalse(quad.selected)
 
+    def test_left_click_deselect_quad(self):
+        """
+        Ensure that left-clicking deselects any currently-selected quad, no matter where on the screen is clicked.
+        """
+        test_quad = self.board.quads[0][0]
+        test_quad.selected = True
+        self.board.quad_selected = test_quad
+        self.board.process_left_click(0, 0, False, self.TEST_PLAYER, (0, 0), [], [], [], [])
+        self.assertFalse(test_quad.selected)
+        self.assertIsNone(self.board.quad_selected)
+
     def test_left_click_new_settlement(self):
         """
         Ensure that new settlements are correctly created when a player with no settlements left-clicks on the board.
@@ -520,7 +559,6 @@ class BoardTest(unittest.TestCase):
     Heal
     Select other unit
     """
-    # TO-DO tests for left click - obscured, quad select reset
 
     def test_left_click_setl_click(self):
         """
@@ -593,6 +631,91 @@ class BoardTest(unittest.TestCase):
         self.board.process_left_click(50, 50, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
         self.assertIsNone(self.board.selected_unit)
         self.board.overlay.toggle_unit.assert_called_with(None)
+
+    def test_handle_new_settlement(self):
+        """
+        Ensure that settlements are successfully created and selected, and the corresponding settler units are destroyed
+        when handling new settlements.
+        """
+        self.board.overlay.toggle_unit = MagicMock()
+        self.board.overlay.toggle_settlement = MagicMock()
+
+        # Move the test unit to occupy the same quad as any existing settlement, meaning it should not be able to found
+        # a new one.
+        self.TEST_UNIT.location = self.TEST_PLAYER.settlements[0].location
+        self.board.selected_unit = self.TEST_UNIT
+
+        # As expected, the settlement should not be founded.
+        self.assertEqual(1, len(self.TEST_PLAYER.settlements))
+        self.board.handle_new_settlement(self.TEST_PLAYER)
+        self.assertEqual(1, len(self.TEST_PLAYER.settlements))
+
+        # Move the unit back to its original location.
+        self.board.selected_unit.location = (5, 5)
+
+        self.assertEqual(1, len(self.TEST_PLAYER.units))
+        self.board.handle_new_settlement(self.TEST_PLAYER)
+        # The new settlement should have been created with the standard specifications.
+        self.assertEqual(2, len(self.TEST_PLAYER.settlements))
+        new_setl = self.TEST_PLAYER.settlements[1]
+        self.assertEqual(50, new_setl.satisfaction)
+        self.assertEqual(100, new_setl.strength)
+        self.assertEqual(100, new_setl.max_strength)
+        # The settler unit should no longer exist nor be selected, and the unit overlay should be toggled off.
+        self.assertFalse(self.TEST_PLAYER.units)
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_called_with(None)
+        # The new settlement should also be selected and its overlay displayed.
+        self.assertEqual(new_setl, self.board.selected_settlement)
+        self.board.overlay.toggle_settlement.assert_called_with(new_setl, self.TEST_PLAYER)
+
+    def test_handle_new_settlement_frontiersmen(self):
+        """
+        Ensure that new settlements are created correctly for players of the Frontiersmen faction.
+        """
+        self.board.overlay.toggle_unit = MagicMock()
+        self.board.overlay.toggle_settlement = MagicMock()
+
+        self.board.selected_unit = self.TEST_UNIT
+        self.TEST_PLAYER.faction = Faction.FRONTIERSMEN
+
+        self.assertEqual(1, len(self.TEST_PLAYER.units))
+        self.board.handle_new_settlement(self.TEST_PLAYER)
+        self.assertEqual(2, len(self.TEST_PLAYER.settlements))
+        new_setl = self.TEST_PLAYER.settlements[1]
+        # The fundamental difference here is that we expect the satisfaction to be elevated.
+        self.assertEqual(75, new_setl.satisfaction)
+        self.assertEqual(100, new_setl.strength)
+        self.assertEqual(100, new_setl.max_strength)
+        self.assertFalse(self.TEST_PLAYER.units)
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_called_with(None)
+        self.assertEqual(new_setl, self.board.selected_settlement)
+        self.board.overlay.toggle_settlement.assert_called_with(new_setl, self.TEST_PLAYER)
+
+    def test_handle_new_settlement_imperials(self):
+        """
+        Ensure that new settlements are created correctly for players of the Imperials faction.
+        """
+        self.board.overlay.toggle_unit = MagicMock()
+        self.board.overlay.toggle_settlement = MagicMock()
+
+        self.board.selected_unit = self.TEST_UNIT
+        self.TEST_PLAYER.faction = Faction.IMPERIALS
+
+        self.assertEqual(1, len(self.TEST_PLAYER.units))
+        self.board.handle_new_settlement(self.TEST_PLAYER)
+        self.assertEqual(2, len(self.TEST_PLAYER.settlements))
+        new_setl = self.TEST_PLAYER.settlements[1]
+        self.assertEqual(50, new_setl.satisfaction)
+        # The fundamental difference here is that we expect the strength to be reduced.
+        self.assertEqual(50, new_setl.strength)
+        self.assertEqual(50, new_setl.max_strength)
+        self.assertFalse(self.TEST_PLAYER.units)
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_called_with(None)
+        self.assertEqual(new_setl, self.board.selected_settlement)
+        self.board.overlay.toggle_settlement.assert_called_with(new_setl, self.TEST_PLAYER)
 
 
 if __name__ == '__main__':
