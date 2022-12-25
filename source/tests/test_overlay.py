@@ -1,10 +1,11 @@
+import typing
 import unittest
 
 from source.display.overlay import Overlay
 from source.foundation.catalogue import UNIT_PLANS
 from source.foundation.models import OverlayType, Settlement, Player, Faction, ConstructionMenu, Project, ProjectType, \
     Improvement, Effect, ImprovementType, UnitPlan, Blessing, Unit, CompletedConstruction, AttackData, HealData, \
-    SetlAttackData, Victory, VictoryType, SettlementAttackType
+    SetlAttackData, Victory, VictoryType, SettlementAttackType, PauseOption, InvestigationResult
 
 
 class OverlayTest(unittest.TestCase):
@@ -17,6 +18,7 @@ class OverlayTest(unittest.TestCase):
     TEST_BLESSING = Blessing("Cool", "Magic", 0)
     TEST_IMPROVEMENT = Improvement(ImprovementType.BOUNTIFUL, 0, "More", "Food", Effect(), None)
     TEST_PLAYER = Player("Bob", Faction.NOCTURNE, 0, 0, [TEST_SETTLEMENT], [], [], set(), set())
+    TEST_VICTORY = Victory(TEST_PLAYER, VictoryType.VIGOUR)
 
     def setUp(self) -> None:
         """
@@ -100,7 +102,7 @@ class OverlayTest(unittest.TestCase):
         self.overlay.toggle_construction([], [test_project], [])
         self.assertTrue(self.overlay.is_constructing())
         self.assertFalse(self.overlay.available_constructions)
-        self.assertEqual([test_project], self.overlay.available_projects)
+        self.assertListEqual([test_project], self.overlay.available_projects)
         self.assertFalse(self.overlay.available_unit_plans)
         # However, since there are no improvements to construct, the overlay is initialised on the Projects tab, with
         # the supplied project selected.
@@ -111,9 +113,9 @@ class OverlayTest(unittest.TestCase):
         self.overlay.showing = []
         self.overlay.toggle_construction([self.TEST_IMPROVEMENT], [test_project], [test_unit_plan])
         self.assertTrue(self.overlay.is_constructing())
-        self.assertEqual([self.TEST_IMPROVEMENT], self.overlay.available_constructions)
-        self.assertEqual([test_project], self.overlay.available_projects)
-        self.assertEqual([test_unit_plan], self.overlay.available_unit_plans)
+        self.assertListEqual([self.TEST_IMPROVEMENT], self.overlay.available_constructions)
+        self.assertListEqual([test_project], self.overlay.available_projects)
+        self.assertListEqual([test_unit_plan], self.overlay.available_unit_plans)
         # Since an improvement has been supplied, the Improvements tab should be displayed, with the supplied
         # improvement selected and the boundaries reset.
         self.assertEqual(ConstructionMenu.IMPROVEMENTS, self.overlay.current_construction_menu)
@@ -140,7 +142,7 @@ class OverlayTest(unittest.TestCase):
         self.overlay.showing = []
         self.overlay.toggle_blessing([self.TEST_BLESSING])
         self.assertTrue(self.overlay.is_blessing())
-        self.assertEqual([self.TEST_BLESSING], self.overlay.available_blessings)
+        self.assertListEqual([self.TEST_BLESSING], self.overlay.available_blessings)
         self.assertEqual(self.TEST_BLESSING, self.overlay.selected_blessing)
         self.assertTupleEqual((0, 5), self.overlay.blessing_boundaries)
 
@@ -307,7 +309,7 @@ class OverlayTest(unittest.TestCase):
         self.overlay.showing = []
         self.overlay.toggle_warning([self.TEST_SETTLEMENT], True, True)
         self.assertTrue(self.overlay.is_warning())
-        self.assertEqual([self.TEST_SETTLEMENT], self.overlay.problematic_settlements)
+        self.assertListEqual([self.TEST_SETTLEMENT], self.overlay.problematic_settlements)
         self.assertTrue(self.overlay.has_no_blessing)
         self.assertTrue(self.overlay.will_have_negative_wealth)
 
@@ -356,7 +358,7 @@ class OverlayTest(unittest.TestCase):
         self.overlay.showing = []
         self.overlay.toggle_construction_notification([test_completed])
         self.assertTrue(self.overlay.is_constr_notif())
-        self.assertEqual([test_completed], self.overlay.completed_constructions)
+        self.assertListEqual([test_completed], self.overlay.completed_constructions)
 
     def test_toggle_level_up_notification(self):
         """
@@ -370,7 +372,7 @@ class OverlayTest(unittest.TestCase):
         self.overlay.showing = []
         self.overlay.toggle_level_up_notification([self.TEST_SETTLEMENT])
         self.assertTrue(self.overlay.is_lvl_notif())
-        self.assertEqual([self.TEST_SETTLEMENT], self.overlay.levelled_up_settlements)
+        self.assertListEqual([self.TEST_SETTLEMENT], self.overlay.levelled_up_settlements)
 
     def test_toggle_attack(self):
         """
@@ -470,11 +472,10 @@ class OverlayTest(unittest.TestCase):
         Ensure that the Victory overlay can be toggled on correctly. Note that the Victory overlay is a special
         case - it can only be toggled on.
         """
-        test_vic = Victory(self.TEST_PLAYER, VictoryType.VIGOUR)
         self.assertFalse(self.overlay.is_victory())
-        self.overlay.toggle_victory(test_vic)
+        self.overlay.toggle_victory(self.TEST_VICTORY)
         self.assertTrue(self.overlay.is_victory())
-        self.assertEqual(test_vic, self.overlay.current_victory)
+        self.assertEqual(self.TEST_VICTORY, self.overlay.current_victory)
 
     def test_toggle_setl_click(self):
         """
@@ -522,6 +523,196 @@ class OverlayTest(unittest.TestCase):
         self.overlay.setl_attack_opt = None
         self.overlay.navigate_setl_click(right=True)
         self.assertEqual(SettlementAttackType.BESIEGE, self.overlay.setl_attack_opt)
+
+    def test_toggle_pause(self):
+        """
+        Ensure that the Pause overlay can be toggled correctly.
+        """
+        # When the Controls overlay is shown along with the Pause overlay, toggling it should have no effect.
+        self.overlay.showing = [OverlayType.PAUSE, OverlayType.CONTROLS]
+        self.overlay.toggle_pause()
+        self.assertTrue(self.overlay.is_pause())
+
+        # However, when only the Pause overlay is displayed, toggling should remove it.
+        self.overlay.showing = [OverlayType.PAUSE]
+        self.overlay.toggle_pause()
+        self.assertFalse(self.overlay.is_pause())
+
+        # When either of the Victory or Tutorial overlays are displayed, the Pause overlay should not be able to be
+        # toggled on.
+        self.overlay.showing = [OverlayType.VICTORY]
+        self.overlay.toggle_pause()
+        self.assertFalse(self.overlay.is_pause())
+
+        # Lastly, when not being shown, the Pause overlay should be displayed when toggled on, setting the pause option.
+        self.overlay.showing = []
+        self.overlay.toggle_pause()
+        self.assertTrue(self.overlay.is_pause())
+        self.assertEqual(PauseOption.RESUME, self.overlay.pause_option)
+        self.assertFalse(self.overlay.has_saved)
+
+    def test_navigate_pause(self):
+        """
+        Ensure that the player can successfully navigate the Pause overlay.
+        """
+        self.overlay.pause_option = PauseOption.RESUME
+        self.overlay.has_saved = True
+
+        # Iterating down through the overlay should change the option.
+        self.overlay.navigate_pause(down=True)
+        self.assertEqual(PauseOption.SAVE, self.overlay.pause_option)
+        self.assertFalse(self.overlay.has_saved)
+        self.overlay.navigate_pause(down=True)
+        self.assertEqual(PauseOption.CONTROLS, self.overlay.pause_option)
+        self.overlay.navigate_pause(down=True)
+        self.assertEqual(PauseOption.QUIT, self.overlay.pause_option)
+        # Once we're at the bottom, navigating downwards should do nothing.
+        self.overlay.navigate_pause(down=True)
+        self.assertEqual(PauseOption.QUIT, self.overlay.pause_option)
+
+        self.overlay.has_saved = True
+
+        # Going back up the overlay should change the option in the reverse order.
+        self.overlay.navigate_pause(down=False)
+        self.assertEqual(PauseOption.CONTROLS, self.overlay.pause_option)
+        self.overlay.navigate_pause(down=False)
+        self.assertEqual(PauseOption.SAVE, self.overlay.pause_option)
+        self.assertFalse(self.overlay.has_saved)
+        self.overlay.navigate_pause(down=False)
+        self.assertEqual(PauseOption.RESUME, self.overlay.pause_option)
+        # Once again at the top, navigating upwards shouldn't do anything.
+        self.overlay.navigate_pause(down=False)
+        self.assertEqual(PauseOption.RESUME, self.overlay.pause_option)
+
+    def test_toggle_controls(self):
+        """
+        Ensure that the Controls overlay can be toggled correctly.
+        """
+        # When displayed, toggling should remove the overlay.
+        self.overlay.showing = [OverlayType.CONTROLS]
+        self.overlay.toggle_controls()
+        self.assertFalse(self.overlay.is_controls())
+
+        # If the Victory overlay is displayed, toggling the controls overlay should do nothing. Note that unlike many of
+        # the other overlay types, only the Victory overlay prevents the Controls overlay from being toggled.
+        self.overlay.showing = [OverlayType.VICTORY]
+        self.overlay.toggle_controls()
+        self.assertFalse(self.overlay.is_controls())
+
+        # When nothing is displayed, toggling should display the overlay.
+        self.overlay.showing = []
+        self.overlay.toggle_controls()
+        self.assertTrue(self.overlay.is_controls())
+
+    def test_toggle_elimination(self):
+        """
+        Ensure that the Elimination overlay can be toggled correctly.
+        """
+        self.overlay.showing = [OverlayType.ELIMINATION]
+        self.overlay.toggle_elimination(None)
+        self.assertFalse(self.overlay.is_elimination())
+
+        # When nothing is being displayed, toggling the overlay should display it and set the eliminated player.
+        self.overlay.showing = []
+        self.overlay.toggle_elimination(self.TEST_PLAYER)
+        self.assertTrue(self.overlay.is_elimination())
+        self.assertEqual(self.TEST_PLAYER, self.overlay.just_eliminated)
+
+    def test_toggle_close_to_vic(self):
+        """
+        Ensure that the Close To Victory overlay can be toggled correctly.
+        """
+        self.overlay.showing = [OverlayType.CLOSE_TO_VIC]
+        self.overlay.toggle_close_to_vic([])
+        self.assertFalse(self.overlay.is_close_to_vic())
+
+        # When nothing is being displayed, toggling the overlay should display it and set the relevant victories.
+        self.overlay.showing = []
+        self.overlay.toggle_close_to_vic([self.TEST_VICTORY])
+        self.assertTrue(self.overlay.is_close_to_vic())
+        self.assertListEqual([self.TEST_VICTORY], self.overlay.close_to_vics)
+
+    def test_toggle_investigation(self):
+        """
+        Ensure that the Investigation overlay can be toggled correctly.
+        """
+        test_result = InvestigationResult.VISION
+
+        # When the overlay is being displayed, toggling should remove it.
+        self.overlay.showing = [OverlayType.INVESTIGATION]
+        self.overlay.toggle_investigation(None)
+        self.assertFalse(self.overlay.is_investigation())
+
+        # When the Deployment overlay (or a multitude of others) are displayed, toggling the investigation overlay
+        # should not do anything.
+        self.overlay.showing = [OverlayType.DEPLOYMENT]
+        self.overlay.toggle_investigation(None)
+        self.assertFalse(self.overlay.is_investigation())
+
+        # When not displayed, toggling should add the overlay and set the investigation result.
+        self.overlay.showing = []
+        self.overlay.toggle_investigation(test_result)
+        self.assertTrue(self.overlay.is_investigation())
+        self.assertEqual(test_result, self.overlay.investigation_result)
+
+    def test_toggle_night(self):
+        """
+        Ensure that the Night overlay can be toggled correctly.
+        """
+        night_beginning = True
+
+        # When the overlay is displayed, toggling should remove it.
+        self.overlay.showing = [OverlayType.NIGHT]
+        self.overlay.toggle_night(None)
+        self.assertFalse(self.overlay.is_night())
+
+        # When not displayed, toggling should add the overlay and set whether night is beginning or ending.
+        self.overlay.showing = []
+        self.overlay.toggle_night(night_beginning)
+        self.assertTrue(self.overlay.is_night())
+        self.assertEqual(night_beginning, self.overlay.night_beginning)
+
+    def test_remove_layer(self):
+        """
+        Ensure that a layer from the overlay can be successfully removed.
+        """
+        def set_and_remove(test_class: OverlayTest,
+                           overlay_type: OverlayType,
+                           verification_fn: typing.Callable[[], bool],
+                           should_return_none=True):
+            """
+            A helper method that sets the currently-shown overlay, removes a layer, and verifies that the layer has been
+            removed.
+            :param test_class: The OverlayTest class.
+            :param overlay_type: The type of overlay being added and removed.
+            :param verification_fn: The function to use to verify that the overlay has been removed.
+            :param should_return_none: Whether the remove_layer() function should return None or not.
+            """
+            test_class.overlay.showing = [overlay_type]
+            if should_return_none:
+                test_class.assertIsNone(self.overlay.remove_layer())
+            else:
+                test_class.assertEqual(overlay_type, self.overlay.remove_layer())
+            test_class.assertFalse(verification_fn())
+
+        # Check that each overlay type can be successfully removed.
+        set_and_remove(self, OverlayType.NIGHT, self.overlay.is_night)
+        set_and_remove(self, OverlayType.CLOSE_TO_VIC, self.overlay.is_close_to_vic)
+        set_and_remove(self, OverlayType.BLESS_NOTIF, self.overlay.is_bless_notif)
+        set_and_remove(self, OverlayType.CONSTR_NOTIF, self.overlay.is_constr_notif)
+        set_and_remove(self, OverlayType.LEVEL_NOTIF, self.overlay.is_lvl_notif)
+        set_and_remove(self, OverlayType.WARNING, self.overlay.is_warning)
+        set_and_remove(self, OverlayType.INVESTIGATION, self.overlay.is_close_to_vic)
+        set_and_remove(self, OverlayType.CONTROLS, self.overlay.is_controls)
+        set_and_remove(self, OverlayType.PAUSE, self.overlay.is_pause)
+        set_and_remove(self, OverlayType.BLESSING, self.overlay.is_blessing)
+        set_and_remove(self, OverlayType.SETL_CLICK, self.overlay.is_setl_click)
+        set_and_remove(self, OverlayType.STANDARD, self.overlay.is_standard)
+        set_and_remove(self, OverlayType.CONSTRUCTION, self.overlay.is_constructing)
+        # The Unit and Settlement overlays return their overlay type because in production code, the caller needs to
+        # reset the selected unit/settlement as well.
+        set_and_remove(self, OverlayType.UNIT, self.overlay.is_unit, should_return_none=False)
+        set_and_remove(self, OverlayType.SETTLEMENT, self.overlay.is_setl, should_return_none=False)
 
 
 if __name__ == '__main__':
