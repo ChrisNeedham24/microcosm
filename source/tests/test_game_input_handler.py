@@ -2,12 +2,13 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from source.display.board import Board
+from source.display.menu import SetupOption
 from source.foundation.catalogue import Namer
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
     Effect, Project, ProjectType, UnitPlan
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
-    on_key_arrow_right
+    on_key_arrow_right, on_key_shift, on_key_f
 from source.game_management.game_state import GameState
 
 
@@ -332,6 +333,38 @@ class GameInputHandlerTest(unittest.TestCase):
 
         on_key_arrow_right(self.game_controller, self.game_state, True)
         self.assertTupleEqual((pos_x + 6, pos_y), self.game_state.map_pos)
+
+    def test_shift(self):
+        """
+        Ensure that the correct overlay toggle occurs when the shift key is pressed.
+        """
+        self.game_state.game_started = True
+        test_turn = self.game_state.turn = 99
+        self.game_state.board.overlay.remove_warning_if_possible = MagicMock()
+        self.game_state.board.overlay.toggle_standard = MagicMock()
+
+        on_key_shift(self.game_state)
+        self.game_state.board.overlay.remove_warning_if_possible.assert_called()
+        self.game_state.board.overlay.toggle_standard.assert_called_with(test_turn)
+
+    def test_f_menu(self):
+        """
+        Ensure that the F key correctly toggles the additional faction details when in game setup on the menu.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.in_game_setup = True
+        # Note that we set the setup option to be Fog of War.
+        self.game_controller.menu.setup_option = SetupOption.FOG_OF_WAR
+
+        # Since the setup option is not Player Faction, pressing F should do nothing.
+        self.assertFalse(self.game_controller.menu.showing_faction_details)
+        on_key_f(self.game_controller, self.game_state)
+        self.assertFalse(self.game_controller.menu.showing_faction_details)
+
+        # However, if we set the setup option to be Player Faction, pressing F should show additional faction details.
+        self.game_controller.menu.setup_option = SetupOption.PLAYER_FACTION
+        on_key_f(self.game_controller, self.game_state)
+        self.assertTrue(self.game_controller.menu.showing_faction_details)
 
 
 if __name__ == '__main__':

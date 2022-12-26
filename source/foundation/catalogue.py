@@ -439,8 +439,8 @@ def get_all_unlockable(blessing: Blessing) -> typing.List[Improvement | UnitPlan
     :param blessing: The blessing to search pre-requisites for.
     :return: A list of unlockable improvements and unit plans.
     """
-    unlockable = [imp for imp in IMPROVEMENTS if (imp.prereq is not None) and (imp.prereq.name == blessing.name)]
-    unlockable.extend([up for up in UNIT_PLANS if (up.prereq is not None) and (up.prereq.name == blessing.name)])
+    unlockable: typing.List[Improvement | UnitPlan] = get_unlockable_improvements(blessing)
+    unlockable.extend(get_unlockable_units(blessing))
     return unlockable
 
 

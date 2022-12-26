@@ -2,7 +2,8 @@ import typing
 import unittest
 
 from source.foundation.catalogue import Namer, SETL_NAMES, get_heathen_plan, get_heathen, UNIT_PLANS, \
-    get_default_unit, get_available_improvements, BLESSINGS, IMPROVEMENTS
+    get_default_unit, get_available_improvements, BLESSINGS, IMPROVEMENTS, get_available_blessings,\
+    get_all_unlockable, get_improvement, PROJECTS, get_project, get_blessing, get_unit_plan
 from source.foundation.models import Biome, UnitPlan, Heathen, Unit, Player, Faction, Settlement, Improvement
 
 
@@ -10,6 +11,16 @@ class CatalogueTest(unittest.TestCase):
     """
     The test class for catalogue.py.
     """
+    TEST_PLAYER = Player("Frontiersman", Faction.FRONTIERSMEN, 0, 0, [], [], [], set(), set())
+    TEST_BLESSING = BLESSINGS["beg_spl"]
+    TEST_IMPROVEMENT = IMPROVEMENTS[0]
+
+    def setUp(self) -> None:
+        """
+        Reset the test player's faction and blessings before each test.
+        """
+        self.TEST_PLAYER.faction = Faction.FRONTIERSMEN
+        self.TEST_PLAYER.blessings = []
 
     def test_namer(self):
         """
@@ -89,34 +100,77 @@ class CatalogueTest(unittest.TestCase):
         """
         Ensure that the available improvements for a player's settlement are correctly determined.
         """
-        # The player is of the Frontiersmen faction as they have special behaviour.
-        test_player = Player("Frontiersman", Faction.FRONTIERSMEN, 0, 0, [], [], [], set(), set())
         test_settlement = Settlement("Low", (0, 0), [], [], [])
         test_settlement_high = Settlement("High", (0, 0), [], [], [], level=10)
 
         # Because the player is of the Frontiersmen faction and the supplied settlement is above level 4, no
         # improvements should be available for construction.
-        self.assertFalse(get_available_improvements(test_player, test_settlement_high))
+        self.assertFalse(get_available_improvements(self.TEST_PLAYER, test_settlement_high))
 
         # Now using a lower level settlement instead, we expect all returned improvements to have no pre-requisite for
         # their construction, and for the returned list to be sorted by construction cost.
-        improvements: typing.List[Improvement] = get_available_improvements(test_player, test_settlement)
+        improvements: typing.List[Improvement] = get_available_improvements(self.TEST_PLAYER, test_settlement)
         self.assertTrue(all(imp.prereq is None for imp in improvements))
         self.assertTrue(all(improvements[i].cost <= improvements[i + 1].cost for i in range(len(improvements) - 1)))
 
         # If we now add a blessing to the test player, we expect there to be an improvement returned with the very same
         # pre-requisite. Once again, we expect the list to be sorted.
-        test_player.blessings.append(BLESSINGS["beg_spl"])
-        improvements = get_available_improvements(test_player, test_settlement)
+        self.TEST_PLAYER.blessings.append(self.TEST_BLESSING)
+        improvements = get_available_improvements(self.TEST_PLAYER, test_settlement)
         self.assertTrue(any(imp.prereq is not None for imp in improvements))
         self.assertTrue(all(improvements[i].cost <= improvements[i + 1].cost for i in range(len(improvements) - 1)))
 
         # Lastly, if we add an improvement to the settlement, we expect there to be one less improvement available in
         # comparison to the previous retrieval. The list should still be sorted, too.
-        test_settlement.improvements.append(IMPROVEMENTS[0])
-        new_improvements = get_available_improvements(test_player, test_settlement)
+        test_settlement.improvements.append(self.TEST_IMPROVEMENT)
+        new_improvements = get_available_improvements(self.TEST_PLAYER, test_settlement)
         self.assertLess(len(new_improvements), len(improvements))
         self.assertTrue(all(improvements[i].cost <= improvements[i + 1].cost for i in range(len(improvements) - 1)))
+
+    def test_get_available_blessings(self):
+        """
+        Ensure that the available blessings for a player are correctly determined.
+        """
+        # To begin with, the player should be able to undertake any of the entire list of blessings, in a sorted order.
+        blessings = get_available_blessings(self.TEST_PLAYER)
+        self.assertEqual(len(BLESSINGS), len(blessings))
+        self.assertTrue(all(blessings[i].cost <= blessings[i + 1].cost for i in range(len(blessings) - 1)))
+
+        # Now if we give the player a blessing, when retrieved again, there should be one less, while still being
+        # sorted.
+        self.TEST_PLAYER.blessings.append(self.TEST_BLESSING)
+        new_blessings = get_available_blessings(self.TEST_PLAYER)
+        self.assertEqual(len(BLESSINGS) - 1, len(new_blessings))
+        self.assertTrue(all(new_blessings[i].cost <= new_blessings[i + 1].cost for i in range(len(new_blessings) - 1)))
+
+        # If we change the player's faction to be the Godless, who incur blessing penalties, the returned blessings
+        # should still be the same, but their costs should be increased.
+        self.TEST_PLAYER.faction = Faction.GODLESS
+        godless_blessings = get_available_blessings(self.TEST_PLAYER)
+        self.assertEqual(len(new_blessings), len(godless_blessings))
+        self.assertTrue(all(godless_blessings[i].cost > new_blessings[i].cost for i in range(len(godless_blessings))))
+
+    def test_get_unlockable(self):
+        """
+        Ensure that the returned unlockable improvements and unit plans for a blessing all really do require the
+        supplied blessing as a pre-requisite.
+        """
+        unlockable = get_all_unlockable(self.TEST_BLESSING)
+        self.assertTrue(unlockable)
+        self.assertTrue(all(unlocked.prereq is not None for unlocked in unlockable))
+        self.assertTrue(all(unlocked.prereq == self.TEST_BLESSING for unlocked in unlockable))
+
+    def test_get_models(self):
+        """
+        Ensure that improvements, projects, blessings, and unit plans can be successfully retrieved by name.
+        """
+        test_project = PROJECTS[0]
+        test_unit_plan = UNIT_PLANS[0]
+
+        self.assertEqual(self.TEST_IMPROVEMENT, get_improvement(self.TEST_IMPROVEMENT.name))
+        self.assertEqual(test_project, get_project(test_project.name))
+        self.assertEqual(self.TEST_BLESSING, get_blessing(self.TEST_BLESSING.name))
+        self.assertEqual(test_unit_plan, get_unit_plan(test_unit_plan.name))
 
 
 if __name__ == '__main__':
