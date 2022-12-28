@@ -3,12 +3,12 @@ from unittest.mock import MagicMock, patch
 
 from source.display.board import Board
 from source.display.menu import SetupOption
-from source.foundation.catalogue import Namer
+from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
-    Effect, Project, ProjectType, UnitPlan
+    Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
-    on_key_arrow_right, on_key_shift, on_key_f
+    on_key_arrow_right, on_key_shift, on_key_f, on_key_d, on_key_s, on_key_n, on_key_a
 from source.game_management.game_state import GameState
 
 
@@ -16,19 +16,27 @@ class GameInputHandlerTest(unittest.TestCase):
     """
     The test class for game_input_handler.py.
     """
+    TEST_UNIT = Unit(1, 1, (0, 0), True, UNIT_PLANS[0])
+    TEST_PLAYER = Player("Tester", Faction.NOCTURNE, 0, 0, [], [TEST_UNIT], [], set(), set())
+    TEST_SETTLEMENT = Settlement("TestTown", (0, 0), [], [], [])
 
     @patch("source.game_management.game_controller.MusicPlayer")
     def setUp(self, _: MagicMock) -> None:
         """
         Set up the GameController and GameState objects to be used as parameters in the test functions. Also instantiate
-        the Board object for the GameState. Note that we also mock out the MusicPlayer class that is used when
-        constructing the GameController. This is because it will try to play music if not mocked.
+        the Board object for the GameState and reset test models. Note that we also mock out the MusicPlayer class that
+        is used when constructing the GameController. This is because it will try to play music if not mocked.
         :param _: The unused MusicPlayer mock.
         """
         self.game_controller = GameController()
         self.game_state = GameState()
         self.game_state.board = Board(GameConfig(4, Faction.NOCTURNE, True, True, True), Namer())
         self.game_state.on_menu = False
+        self.game_state.players = [self.TEST_PLAYER]
+        self.TEST_PLAYER.wealth = 0
+        self.TEST_PLAYER.units = [self.TEST_UNIT]
+        self.TEST_SETTLEMENT.garrison = []
+        self.TEST_SETTLEMENT.current_work = None
 
     def test_arrow_down_menu(self):
         """
@@ -365,6 +373,95 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.menu.setup_option = SetupOption.PLAYER_FACTION
         on_key_f(self.game_controller, self.game_state)
         self.assertTrue(self.game_controller.menu.showing_faction_details)
+
+    def test_f_game(self):
+        """
+        Ensure that the F key correctly toggles the blessing overlay when viewing the standard overlay.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.STANDARD]
+        self.game_state.board.overlay.toggle_blessing = MagicMock()
+        self.game_state.players.append(self.TEST_PLAYER)
+
+        # Since the test player hasn't completed any blessings, every blessing is displayed.
+        expected_blessings = list(BLESSINGS.values())
+        expected_blessings.sort(key=lambda b: b.cost)
+        on_key_f(self.game_controller, self.game_state)
+        self.game_state.board.overlay.toggle_blessing.assert_called_with(expected_blessings)
+
+    def test_d_deployment(self):
+        """
+        Ensure that the D key correctly toggles the deployment overlay when a unit in a settlement's garrison is being
+        deployed.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.selected_settlement = self.TEST_SETTLEMENT
+        self.game_state.board.overlay.toggle_deployment = MagicMock()
+
+        # To begin with, nothing should happen, since the test settlement does not have any units in its garrison.
+        self.assertFalse(self.game_state.board.deploying_army)
+        on_key_d(self.game_state)
+        self.assertFalse(self.game_state.board.deploying_army)
+        self.game_state.board.overlay.toggle_deployment.assert_not_called()
+
+        # However, if we add a unit to the garrison, the overlay should be toggled.
+        self.TEST_SETTLEMENT.garrison.append(self.TEST_UNIT)
+        on_key_d(self.game_state)
+        self.assertTrue(self.game_state.board.deploying_army)
+        self.game_state.board.overlay.toggle_deployment.assert_called()
+
+    def test_d_disband(self):
+        """
+        Ensure that the D key correctly disbands the selected unit and credits the player.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.selected_unit = self.TEST_PLAYER.units[0]
+        self.game_state.board.overlay.toggle_unit = MagicMock()
+
+        self.assertFalse(self.TEST_PLAYER.wealth)
+        self.assertTrue(self.TEST_PLAYER.units)
+        on_key_d(self.game_state)
+        # Since the player had no wealth, they should now have the same as the value of the unit.
+        self.assertEqual(UNIT_PLANS[0].cost, self.TEST_PLAYER.wealth)
+        # Additionally, the player only had one unit, so they should now have no units.
+        self.assertFalse(self.TEST_PLAYER.units)
+        # Lastly, the unit should have been unselected and the overlay removed.
+        self.assertIsNone(self.game_state.board.selected_unit)
+        self.game_state.board.overlay.toggle_unit.assert_called_with(None)
+
+    def test_s(self):
+        """
+        Ensure that the S key founds a new settlement when a settler unit is selected.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.selected_unit = \
+            Unit(1, 1, (0, 0), False, UnitPlan(1, 1, 1, "Bob", None, 1, can_settle=True))
+        self.game_state.board.handle_new_settlement = MagicMock()
+
+        on_key_s(self.game_state)
+        self.game_state.board.handle_new_settlement.assert_called_with(self.TEST_PLAYER)
+
+    def test_n(self):
+        """
+        Ensure that the N key skips to the next song on the music player.
+        """
+        self.game_state.game_started = True
+        self.game_controller.music_player.next_song = MagicMock()
+
+        on_key_n(self.game_controller, self.game_state)
+        self.game_controller.music_player.next_song.assert_called()
+
+    def test_a(self):
+        """
+        Ensure that the A key automatically selects a construction for the selected settlement.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.SETTLEMENT]
+        self.game_state.board.selected_settlement = self.TEST_SETTLEMENT
+
+        self.assertIsNone(self.TEST_SETTLEMENT.current_work)
+        on_key_a(self.game_state)
+        self.assertIsNotNone(self.TEST_SETTLEMENT.current_work)
 
 
 if __name__ == '__main__':

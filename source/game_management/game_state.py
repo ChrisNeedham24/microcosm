@@ -425,6 +425,7 @@ class GameState:
                 match player.faction:
                     case Faction.CONCENTRATED:
                         new_settl.strength *= 2
+                        new_settl.max_strength *= 2
                     case Faction.FRONTIERSMEN:
                         new_settl.satisfaction = 75
                     case Faction.IMPERIALS:
