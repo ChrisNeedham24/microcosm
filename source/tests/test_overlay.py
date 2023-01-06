@@ -163,7 +163,7 @@ class OverlayTest(unittest.TestCase):
         # If we are at the top, pressing up should have no effect.
         self.assertEqual(self.TEST_IMPROVEMENT, self.overlay.selected_construction)
         self.assertTupleEqual((0, 0), self.overlay.construction_boundaries)
-    
+
     def test_navigate_constructions_projects(self):
         """
         Ensure that the player can effectively navigate through their available projects for a settlement.
