@@ -592,6 +592,19 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(self.TEST_UNIT, self.board.selected_unit)
         self.board.overlay.toggle_unit.assert_called_with(self.TEST_UNIT)
 
+    """
+    Unit movement cases to test
+    
+    Can't move heathen
+    Can't move another player's unit
+    Can't move where another unit is
+    Can't move where another settlement is
+    Can't move on top of a relic
+    Can't move further than stamina
+    Regular movement
+    Movement into siege
+    """
+
     def test_left_click_relic(self):
         """
         Ensure that when a unit clicks on an adjacent relic, it loses its relic status and brings up the investigation

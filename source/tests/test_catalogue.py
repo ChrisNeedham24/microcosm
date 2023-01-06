@@ -127,6 +127,17 @@ class CatalogueTest(unittest.TestCase):
         self.assertLess(len(new_improvements), len(improvements))
         self.assertTrue(all(improvements[i].cost <= improvements[i + 1].cost for i in range(len(improvements) - 1)))
 
+    """
+    Available unit plans test cases
+    
+    Player is of The Concentrated - make sure no settlers
+    Settlement is not high enough level yet - make sure no settlers
+    Player is of the Frontiersmen - test two cases in here - low level and high level
+    Player is of the Imperials - make sure increased power
+    Player is of the Persistent - make sure increased health and less power
+    Player is of the Explorers - make sure increased stamina and less health
+    """
+
     def test_get_available_blessings(self):
         """
         Ensure that the available blessings for a player are correctly determined.

@@ -3,12 +3,14 @@ from unittest.mock import MagicMock, patch
 
 from source.display.board import Board
 from source.display.menu import SetupOption
-from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS
+from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS, get_available_improvements, \
+    get_available_unit_plans, PROJECTS
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
     Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
-    on_key_arrow_right, on_key_shift, on_key_f, on_key_d, on_key_s, on_key_n, on_key_a
+    on_key_arrow_right, on_key_shift, on_key_f, on_key_d, on_key_s, on_key_n, on_key_a, on_key_c, on_key_tab, \
+    on_key_escape
 from source.game_management.game_state import GameState
 
 
@@ -17,8 +19,10 @@ class GameInputHandlerTest(unittest.TestCase):
     The test class for game_input_handler.py.
     """
     TEST_UNIT = Unit(1, 1, (0, 0), True, UNIT_PLANS[0])
-    TEST_PLAYER = Player("Tester", Faction.NOCTURNE, 0, 0, [], [TEST_UNIT], [], set(), set())
-    TEST_SETTLEMENT = Settlement("TestTown", (0, 0), [], [], [])
+    TEST_SETTLEMENT = Settlement("TestTown", (40, 40), [], [], [])
+    TEST_SETTLEMENT_2 = Settlement("TestCity", (50, 50), [], [], [])
+    TEST_PLAYER = \
+        Player("Tester", Faction.NOCTURNE, 0, 0, [TEST_SETTLEMENT, TEST_SETTLEMENT_2], [TEST_UNIT], [], set(), set())
 
     @patch("source.game_management.game_controller.MusicPlayer")
     def setUp(self, _: MagicMock) -> None:
@@ -355,6 +359,23 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board.overlay.remove_warning_if_possible.assert_called()
         self.game_state.board.overlay.toggle_standard.assert_called_with(test_turn)
 
+    def test_c(self):
+        """
+        Ensure that the correct overlay toggle occurs when the C key is pressed.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.selected_settlement = self.TEST_SETTLEMENT
+        self.game_state.board.overlay.toggle_construction = MagicMock()
+
+        # We need to retrieve the improvements and unit plans ourselves first to compare them to the actual call.
+        expected_improvements = get_available_improvements(self.TEST_PLAYER, self.TEST_SETTLEMENT)
+        expected_unit_plans = get_available_unit_plans(self.TEST_PLAYER, self.TEST_SETTLEMENT.level)
+
+        on_key_c(self.game_state)
+        self.game_state.board.overlay.toggle_construction.assert_called_with(expected_improvements,
+                                                                             PROJECTS,
+                                                                             expected_unit_plans)
+
     def test_f_menu(self):
         """
         Ensure that the F key correctly toggles the additional faction details when in game setup on the menu.
@@ -429,6 +450,40 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertIsNone(self.game_state.board.selected_unit)
         self.game_state.board.overlay.toggle_unit.assert_called_with(None)
 
+    def test_tab(self):
+        """
+        Ensure that the correct iteration between settlements occurs when the TAB key is pressed.
+        """
+        self.game_state.game_started = True
+        self.game_state.players = [self.TEST_PLAYER]
+        self.game_state.board.overlay.remove_warning_if_possible = MagicMock()
+        self.game_state.board.overlay.toggle_unit = MagicMock()
+        self.game_state.board.overlay.toggle_settlement = MagicMock()
+        self.game_state.board.overlay.update_settlement = MagicMock()
+
+        # Set up a situation where the player has one of their units selected.
+        self.game_state.board.overlay.showing = [OverlayType.UNIT]
+        self.game_state.board.selected_unit = self.TEST_UNIT
+
+        on_key_tab(self.game_state)
+        # After the key is pressed, the selected unit and its overlay should be dismissed, and the player's first
+        # settlement should be selected and centred.
+        self.game_state.board.overlay.remove_warning_if_possible.assert_called()
+        self.assertIsNone(self.game_state.board.selected_unit)
+        self.game_state.board.overlay.toggle_unit.assert_called_with(None)
+        self.assertEqual(self.TEST_SETTLEMENT, self.game_state.board.selected_settlement)
+        self.game_state.board.overlay.toggle_settlement.assert_called_with(self.TEST_SETTLEMENT, self.TEST_PLAYER)
+        self.assertTupleEqual((self.TEST_SETTLEMENT.location[0] - 12, self.TEST_SETTLEMENT.location[1] - 11),
+                              self.game_state.map_pos)
+
+        on_key_tab(self.game_state)
+        # If we press the key again, the player's next settlement should be selected and centred.
+        self.assertEqual(2, self.game_state.board.overlay.remove_warning_if_possible.call_count)
+        self.assertEqual(self.TEST_SETTLEMENT_2, self.game_state.board.selected_settlement)
+        self.game_state.board.overlay.update_settlement.assert_called_with(self.TEST_SETTLEMENT_2)
+        self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] - 12, self.TEST_SETTLEMENT_2.location[1] - 11),
+                              self.game_state.map_pos)
+
     def test_s(self):
         """
         Ensure that the S key founds a new settlement when a settler unit is selected.
@@ -462,6 +517,46 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertIsNone(self.TEST_SETTLEMENT.current_work)
         on_key_a(self.game_state)
         self.assertIsNotNone(self.TEST_SETTLEMENT.current_work)
+
+    def test_escape(self):
+        """
+        Ensure that the correct overlay changes occur when the escape key is pressed.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.toggle_pause = MagicMock()
+
+        # If there are no overlays being shown, pressing escape should bring up the pause menu.
+        self.game_state.board.overlay.showing = []
+        on_key_escape(self.game_state)
+        self.game_state.board.overlay.toggle_pause.assert_called()
+
+        # Similarly, if only non-intrusive overlays are being shown, pressing escape should still bring up the pause
+        # menu.
+        self.game_state.board.overlay.showing = \
+            [OverlayType.ATTACK, OverlayType.SETL_ATTACK, OverlayType.SIEGE_NOTIF, OverlayType.HEAL]
+        on_key_escape(self.game_state)
+        self.assertEqual(2, self.game_state.board.overlay.toggle_pause.call_count)
+
+        # If the unit overlay is being displayed, pressing escape should deselect the unit and remove its overlay.
+        self.game_state.board.overlay.showing = [OverlayType.UNIT]
+        self.game_state.board.selected_unit = self.TEST_UNIT
+        on_key_escape(self.game_state)
+        self.assertFalse(self.game_state.board.overlay.showing)
+        self.assertIsNone(self.game_state.board.selected_unit)
+
+        # The same applies to settlements, with pressing escape when a settlement is selected leading to it being
+        # deselected and its overlay dismissed.
+        self.game_state.board.overlay.showing = [OverlayType.SETTLEMENT]
+        self.game_state.board.selected_unit = self.TEST_SETTLEMENT
+        on_key_escape(self.game_state)
+        self.assertFalse(self.game_state.board.overlay.showing)
+        self.assertIsNone(self.game_state.board.selected_settlement)
+
+        # Lastly, if a particularly intrusive overlay such as the Tutorial or Deployment overlays are being displayed,
+        # pressing escape should do nothing.
+        self.game_state.board.overlay.showing = [OverlayType.TUTORIAL]
+        on_key_escape(self.game_state)
+        self.assertTrue(self.game_state.board.overlay.showing)
 
 
 if __name__ == '__main__':

@@ -16,9 +16,15 @@ class OverlayTest(unittest.TestCase):
     TEST_UNIT = Unit(1, 2, (3, 4), False, UNIT_PLANS[0])
     TEST_UNIT_2 = Unit(5, 6, (7, 8), False, UNIT_PLANS[0])
     TEST_BLESSING = Blessing("Cool", "Magic", 0)
+    TEST_BLESSING_2 = Blessing("Uncool", "Science", 0)
     TEST_IMPROVEMENT = Improvement(ImprovementType.BOUNTIFUL, 0, "More", "Food", Effect(), None)
+    TEST_IMPROVEMENT_2 = Improvement(ImprovementType.MAGICAL, 0, "Magic", "Time", Effect(), None)
     TEST_PLAYER = Player("Bob", Faction.NOCTURNE, 0, 0, [TEST_SETTLEMENT], [], [], set(), set())
     TEST_VICTORY = Victory(TEST_PLAYER, VictoryType.VIGOUR)
+    TEST_PROJECT = Project(ProjectType.MAGICAL, "Magic", "Project")
+    TEST_PROJECT_2 = Project(ProjectType.BOUNTIFUL, "Food", "Project")
+    TEST_UNIT_PLAN = UnitPlan(0, 0, 1, "Weakling", None, 0)
+    TEST_UNIT_PLAN_2 = UnitPlan(999, 999, 999, "Strongman", None, 0)
 
     def setUp(self) -> None:
         """
@@ -82,9 +88,6 @@ class OverlayTest(unittest.TestCase):
         """
         Ensure that the Construction overlay can be toggled correctly.
         """
-        test_project = Project(ProjectType.MAGICAL, "Magic", "Project")
-        test_unit_plan = UnitPlan(0, 0, 1, "Weakling", None, 0)
-
         # When the Construction overlay is displayed, toggling should remove it.
         self.overlay.showing = [OverlayType.CONSTRUCTION]
         self.overlay.toggle_construction([], [], [])
@@ -99,28 +102,143 @@ class OverlayTest(unittest.TestCase):
         # Now with a clean slate, we toggle again with only one available Project. The overlay should be displayed, and
         # the available options passed down correctly.
         self.overlay.showing = []
-        self.overlay.toggle_construction([], [test_project], [])
+        self.overlay.toggle_construction([], [self.TEST_PROJECT], [])
         self.assertTrue(self.overlay.is_constructing())
         self.assertFalse(self.overlay.available_constructions)
-        self.assertListEqual([test_project], self.overlay.available_projects)
+        self.assertListEqual([self.TEST_PROJECT], self.overlay.available_projects)
         self.assertFalse(self.overlay.available_unit_plans)
         # However, since there are no improvements to construct, the overlay is initialised on the Projects tab, with
         # the supplied project selected.
         self.assertEqual(ConstructionMenu.PROJECTS, self.overlay.current_construction_menu)
-        self.assertEqual(test_project, self.overlay.selected_construction)
+        self.assertEqual(self.TEST_PROJECT, self.overlay.selected_construction)
 
         # Toggle from the beginning once again, this time with an available construction for each category.
         self.overlay.showing = []
-        self.overlay.toggle_construction([self.TEST_IMPROVEMENT], [test_project], [test_unit_plan])
+        self.overlay.toggle_construction([self.TEST_IMPROVEMENT], [self.TEST_PROJECT], [self.TEST_UNIT_PLAN])
         self.assertTrue(self.overlay.is_constructing())
         self.assertListEqual([self.TEST_IMPROVEMENT], self.overlay.available_constructions)
-        self.assertListEqual([test_project], self.overlay.available_projects)
-        self.assertListEqual([test_unit_plan], self.overlay.available_unit_plans)
+        self.assertListEqual([self.TEST_PROJECT], self.overlay.available_projects)
+        self.assertListEqual([self.TEST_UNIT_PLAN], self.overlay.available_unit_plans)
         # Since an improvement has been supplied, the Improvements tab should be displayed, with the supplied
         # improvement selected and the boundaries reset.
         self.assertEqual(ConstructionMenu.IMPROVEMENTS, self.overlay.current_construction_menu)
         self.assertEqual(self.TEST_IMPROVEMENT, self.overlay.selected_construction)
         self.assertTupleEqual((0, 5), self.overlay.construction_boundaries)
+
+    def test_navigate_constructions_improvements(self):
+        """
+        Ensure that the player can effectively navigate through their available improvements for a settlement.
+        """
+        self.overlay.toggle_construction([self.TEST_IMPROVEMENT, self.TEST_IMPROVEMENT_2], [], [])
+        # Note that we set some odd boundaries here - this is so we don't require several test improvements.
+        self.overlay.construction_boundaries = 0, 0
+
+        self.assertEqual(self.TEST_IMPROVEMENT, self.overlay.selected_construction)
+        self.overlay.navigate_constructions(down=True)
+        # Navigating down once should select the second improvement, and shift the boundaries down.
+        self.assertEqual(self.TEST_IMPROVEMENT_2, self.overlay.selected_construction)
+        self.assertTupleEqual((1, 1), self.overlay.construction_boundaries)
+
+        self.overlay.navigate_constructions(down=True)
+        # Navigating down again should select the cancel button, leaving the boundaries unaffected.
+        self.assertIsNone(self.overlay.selected_construction)
+        self.assertTupleEqual((1, 1), self.overlay.construction_boundaries)
+
+        self.overlay.navigate_constructions(down=True)
+        # When the cancel button is already selected, pressing down again has no effect.
+        self.assertIsNone(self.overlay.selected_construction)
+        self.assertTupleEqual((1, 1), self.overlay.construction_boundaries)
+
+        self.overlay.navigate_constructions(down=False)
+        # Now if we navigate upwards, the second improvement should be selected again.
+        self.assertEqual(self.TEST_IMPROVEMENT_2, self.overlay.selected_construction)
+        self.assertTupleEqual((1, 1), self.overlay.construction_boundaries)
+
+        self.overlay.navigate_constructions(down=False)
+        # Going up again should select the first improvement and shift the boundaries up.
+        self.assertEqual(self.TEST_IMPROVEMENT, self.overlay.selected_construction)
+        self.assertTupleEqual((0, 0), self.overlay.construction_boundaries)
+
+        self.overlay.navigate_constructions(down=False)
+        # If we are at the top, pressing up should have no effect.
+        self.assertEqual(self.TEST_IMPROVEMENT, self.overlay.selected_construction)
+        self.assertTupleEqual((0, 0), self.overlay.construction_boundaries)
+    
+    def test_navigate_constructions_projects(self):
+        """
+        Ensure that the player can effectively navigate through their available projects for a settlement.
+        :return:
+        """
+        self.overlay.toggle_construction([], [self.TEST_PROJECT, self.TEST_PROJECT_2], [])
+
+        self.assertEqual(self.TEST_PROJECT, self.overlay.selected_construction)
+        self.overlay.navigate_constructions(down=True)
+        # Navigating down once should select the second project.
+        self.assertEqual(self.TEST_PROJECT_2, self.overlay.selected_construction)
+
+        self.overlay.navigate_constructions(down=True)
+        # Navigating down again should select the cancel button.
+        self.assertIsNone(self.overlay.selected_construction)
+
+        self.overlay.navigate_constructions(down=True)
+        # When the cancel button is already selected, pressing down again has no effect.
+        self.assertIsNone(self.overlay.selected_construction)
+
+        self.overlay.navigate_constructions(down=False)
+        # Now if we navigate upwards, the second project should be selected again.
+        self.assertEqual(self.TEST_PROJECT_2, self.overlay.selected_construction)
+
+        self.overlay.navigate_constructions(down=False)
+        # Going up again should select the first project.
+        self.assertEqual(self.TEST_PROJECT, self.overlay.selected_construction)
+
+        self.overlay.navigate_constructions(down=False)
+        # If we are at the top, pressing up should have no effect.
+        self.assertEqual(self.TEST_PROJECT, self.overlay.selected_construction)
+
+    def test_navigate_constructions_units(self):
+        """
+        Ensure that the player can effectively navigate through their available units for a settlement.
+        """
+        # We have to do a few things here to set up the test. Firstly, when toggling the construction overlay, we also
+        # have to supply a project in addition to our unit plans since when no improvements are supplied, projects are
+        # initially displayed. We then simulate the player going to the units menu. Lastly, we set the boundaries for
+        # the unit plans menu, so as to not require several test unit plans.
+        self.overlay.toggle_construction([], [self.TEST_PROJECT], [self.TEST_UNIT_PLAN, self.TEST_UNIT_PLAN_2])
+        self.overlay.current_construction_menu = ConstructionMenu.UNITS
+        self.overlay.selected_construction = self.TEST_UNIT_PLAN
+        self.overlay.unit_plan_boundaries = 0, 0
+
+        self.assertEqual(self.TEST_UNIT_PLAN, self.overlay.selected_construction)
+        self.overlay.navigate_constructions(down=True)
+        # Navigating down once should select the second unit plan, and shift the boundaries down.
+        self.assertEqual(self.TEST_UNIT_PLAN_2, self.overlay.selected_construction)
+        self.assertTupleEqual((1, 1), self.overlay.unit_plan_boundaries)
+
+        self.overlay.navigate_constructions(down=True)
+        # Navigating down again should select the cancel button, leaving the boundaries unaffected.
+        self.assertIsNone(self.overlay.selected_construction)
+        self.assertTupleEqual((1, 1), self.overlay.unit_plan_boundaries)
+
+        self.overlay.navigate_constructions(down=True)
+        # When the cancel button is already selected, pressing down again has no effect.
+        self.assertIsNone(self.overlay.selected_construction)
+        self.assertTupleEqual((1, 1), self.overlay.unit_plan_boundaries)
+
+        self.overlay.navigate_constructions(down=False)
+        # Now if we navigate upwards, the second unit plan should be selected again.
+        self.assertEqual(self.TEST_UNIT_PLAN_2, self.overlay.selected_construction)
+        self.assertTupleEqual((1, 1), self.overlay.unit_plan_boundaries)
+
+        self.overlay.navigate_constructions(down=False)
+        # Going up again should select the first unit plan and shift the boundaries up.
+        self.assertEqual(self.TEST_UNIT_PLAN, self.overlay.selected_construction)
+        self.assertTupleEqual((0, 0), self.overlay.unit_plan_boundaries)
+
+        self.overlay.navigate_constructions(down=False)
+        # If we are at the top, pressing up should have no effect.
+        self.assertEqual(self.TEST_UNIT_PLAN, self.overlay.selected_construction)
+        self.assertTupleEqual((0, 0), self.overlay.unit_plan_boundaries)
 
     def test_toggle_blessing(self):
         """
@@ -145,6 +263,45 @@ class OverlayTest(unittest.TestCase):
         self.assertListEqual([self.TEST_BLESSING], self.overlay.available_blessings)
         self.assertEqual(self.TEST_BLESSING, self.overlay.selected_blessing)
         self.assertTupleEqual((0, 5), self.overlay.blessing_boundaries)
+
+    def test_navigate_blessings(self):
+        """
+        Ensure that the player can effectively navigate through their available blessings.
+        """
+        self.overlay.toggle_blessing([self.TEST_BLESSING, self.TEST_BLESSING_2])
+        # Note that we set some odd boundaries here - this is so we don't require several test blessings.
+        self.overlay.blessing_boundaries = 0, 0
+
+        self.assertEqual(self.TEST_BLESSING, self.overlay.selected_blessing)
+        self.overlay.navigate_blessings(down=True)
+        # Navigating down once should select the second blessing, and shift the boundaries down.
+        self.assertEqual(self.TEST_BLESSING_2, self.overlay.selected_blessing)
+        self.assertTupleEqual((1, 1), self.overlay.blessing_boundaries)
+
+        self.overlay.navigate_blessings(down=True)
+        # Navigating down again should select the cancel button, leaving the boundaries unaffected.
+        self.assertIsNone(self.overlay.selected_blessing)
+        self.assertTupleEqual((1, 1), self.overlay.blessing_boundaries)
+
+        self.overlay.navigate_blessings(down=True)
+        # When the cancel button is already selected, pressing down again has no effect.
+        self.assertIsNone(self.overlay.selected_blessing)
+        self.assertTupleEqual((1, 1), self.overlay.blessing_boundaries)
+
+        self.overlay.navigate_blessings(down=False)
+        # Now if we navigate upwards, the second blessing should be selected again.
+        self.assertEqual(self.TEST_BLESSING_2, self.overlay.selected_blessing)
+        self.assertTupleEqual((1, 1), self.overlay.blessing_boundaries)
+
+        self.overlay.navigate_blessings(down=False)
+        # Going up again should select the first blessing and shift the boundaries up.
+        self.assertEqual(self.TEST_BLESSING, self.overlay.selected_blessing)
+        self.assertTupleEqual((0, 0), self.overlay.blessing_boundaries)
+
+        self.overlay.navigate_blessings(down=False)
+        # If we are at the top, pressing up should have no effect.
+        self.assertEqual(self.TEST_BLESSING, self.overlay.selected_blessing)
+        self.assertTupleEqual((0, 0), self.overlay.blessing_boundaries)
 
     def test_toggle_settlement(self):
         """
