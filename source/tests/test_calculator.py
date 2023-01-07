@@ -1,8 +1,9 @@
 import unittest
 
 from source.foundation.catalogue import UNIT_PLANS
-from source.foundation.models import Biome, Unit, AttackData, HealData, Settlement, SetlAttackData, Player, Faction
-from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl
+from source.foundation.models import Biome, Unit, AttackData, HealData, Settlement, SetlAttackData, Player, Faction, \
+    Construction, Improvement, ImprovementType, Effect, UnitPlan
+from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction
 
 
 class CalculatorTest(unittest.TestCase):
@@ -119,6 +120,72 @@ class CalculatorTest(unittest.TestCase):
         self.assertEqual(not ai_attack, setl_attack_data.player_attack)
         self.assertFalse(setl_attack_data.attacker_was_killed)
         self.assertTrue(setl_attack_data.setl_was_taken)
+
+    def test_complete_construction(self):
+        """
+        Ensure that when completing a construction that yields added strength and satisfaction, the related settlement
+        is correctly updated.
+        """
+        added_strength = 5
+        test_improvement = Improvement(ImprovementType.ECONOMICAL, 1, "Money", "Time",
+                                       Effect(wealth=1, strength=added_strength, satisfaction=5), None)
+        # Note that we set the settlement's satisfaction to 99.
+        test_setl = Settlement("Working", (50, 50), [], [], [],
+                               current_work=Construction(test_improvement), satisfaction=99)
+        test_player = Player("Tester", Faction.NOCTURNE, 0, 0, [test_setl], [], [], set(), set())
+
+        complete_construction(test_setl, test_player)
+        self.assertIn(test_improvement, test_setl.improvements)
+        # The settlement should have increased strength.
+        self.assertEqual(100 + added_strength, test_setl.strength)
+        self.assertEqual(100 + added_strength, test_setl.max_strength)
+        # However, the settlement's satisfaction should not have the effect fully added to it, as it would exceed 100,
+        # which is the maximum.
+        self.assertEqual(100, test_setl.satisfaction)
+        self.assertIsNone(test_setl.current_work)
+
+    def test_complete_construction_concentrated_negative_satisfaction(self):
+        """
+        Ensure that when completing a construction that yields added strength and reduced satisfaction, the related
+        settlement is correctly updated.
+        """
+        added_strength = 5
+        test_improvement = Improvement(ImprovementType.ECONOMICAL, 1, "Money", "Time",
+                                       Effect(wealth=1, strength=added_strength, satisfaction=-5), None)
+        # Note that we set the settlement's satisfaction to 1.
+        test_setl = Settlement("Working", (50, 50), [], [], [],
+                               current_work=Construction(test_improvement), satisfaction=1)
+        test_player = Player("Tester", Faction.CONCENTRATED, 0, 0, [test_setl], [], [], set(), set())
+
+        complete_construction(test_setl, test_player)
+        self.assertIn(test_improvement, test_setl.improvements)
+        # Since the player is of The Concentrated faction, the strength added should be doubled.
+        self.assertEqual(100 + 2 * added_strength, test_setl.strength)
+        self.assertEqual(100 + 2 * added_strength, test_setl.max_strength)
+        # Even though the settlement's satisfaction when combined with the construction's effect is below zero, zero is
+        # the minimum, so we expect the satisfaction to be set to that.
+        self.assertEqual(0, test_setl.satisfaction)
+        self.assertIsNone(test_setl.current_work)
+
+    def test_complete_construction_unit(self):
+        """
+        Ensure that when completing a construction that yields a unit, the related settlement is correctly updated.
+        """
+        initial_level = 5
+        initial_harvest_reserves = 400
+        test_unit_plan = UnitPlan(20, 20, 10, "Settler", None, 1, can_settle=True)
+        test_setl = Settlement("Working", (50, 50), [], [], [], current_work=Construction(test_unit_plan),
+                               level=initial_level, harvest_reserves=initial_harvest_reserves)
+        test_player = Player("Tester", Faction.FRONTIERSMEN, 0, 0, [test_setl], [], [], set(), set())
+
+        complete_construction(test_setl, test_player)
+        # Because the unit can settle, we expect the settlement's level and harvest reserves to be reduced.
+        self.assertEqual(initial_level - 1, test_setl.level)
+        self.assertLess(test_setl.harvest_reserves, initial_harvest_reserves)
+        self.assertTrue(test_setl.produced_settler)
+        # We also expect the settlement's garrison to now have a unit - the produced one.
+        self.assertTrue(test_setl.garrison)
+        self.assertIsNone(test_setl.current_work)
 
 
 if __name__ == '__main__':

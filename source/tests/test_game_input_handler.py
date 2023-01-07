@@ -6,11 +6,11 @@ from source.display.menu import SetupOption
 from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS, get_available_improvements, \
     get_available_unit_plans, PROJECTS
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
-    Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit
+    Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit, Construction
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
     on_key_arrow_right, on_key_shift, on_key_f, on_key_d, on_key_s, on_key_n, on_key_a, on_key_c, on_key_tab, \
-    on_key_escape
+    on_key_escape, on_key_m, on_key_j
 from source.game_management.game_state import GameState
 
 
@@ -18,11 +18,15 @@ class GameInputHandlerTest(unittest.TestCase):
     """
     The test class for game_input_handler.py.
     """
-    TEST_UNIT = Unit(1, 1, (0, 0), True, UNIT_PLANS[0])
+    TEST_UNIT = Unit(1, 1, (40, 40), True, UNIT_PLANS[0])
+    TEST_UNIT_2 = Unit(2, 2, (50, 50), False, UNIT_PLANS[0])
+    TEST_UNIT_NO_STAMINA = Unit(3, 0, (60, 60), False, UNIT_PLANS[0])
+    TEST_UNIT_BESIEGING = Unit(4, 4, (70, 70), False, UNIT_PLANS[0], besieging=True)
     TEST_SETTLEMENT = Settlement("TestTown", (40, 40), [], [], [])
     TEST_SETTLEMENT_2 = Settlement("TestCity", (50, 50), [], [], [])
-    TEST_PLAYER = \
-        Player("Tester", Faction.NOCTURNE, 0, 0, [TEST_SETTLEMENT, TEST_SETTLEMENT_2], [TEST_UNIT], [], set(), set())
+    TEST_SETTLEMENT_WITH_WORK = Settlement("Busyville", (60, 60), [], [], [], current_work=Construction(UNIT_PLANS[0]))
+    TEST_PLAYER = Player("Tester", Faction.NOCTURNE, 0, 0,
+                         [TEST_SETTLEMENT, TEST_SETTLEMENT_2, TEST_SETTLEMENT_WITH_WORK], [TEST_UNIT], [], set(), set())
 
     @patch("source.game_management.game_controller.MusicPlayer")
     def setUp(self, _: MagicMock) -> None:
@@ -39,6 +43,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.players = [self.TEST_PLAYER]
         self.TEST_PLAYER.wealth = 0
         self.TEST_PLAYER.units = [self.TEST_UNIT]
+        self.TEST_PLAYER.settlements = [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_WITH_WORK]
         self.TEST_SETTLEMENT.garrison = []
         self.TEST_SETTLEMENT.current_work = None
 
@@ -557,6 +562,87 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board.overlay.showing = [OverlayType.TUTORIAL]
         on_key_escape(self.game_state)
         self.assertTrue(self.game_state.board.overlay.showing)
+
+    def test_m(self):
+        """
+        Ensure that the player can successfully iterate through their movable units when pressing the M key.
+        """
+        # Add a few more units to the test player, one standard, one with no stamina, and one that is besieging an enemy
+        # settlement.
+        self.TEST_PLAYER.units.extend([self.TEST_UNIT_2, self.TEST_UNIT_NO_STAMINA, self.TEST_UNIT_BESIEGING])
+        self.game_state.game_started = True
+        self.game_state.board.overlay.remove_warning_if_possible = MagicMock()
+        self.game_state.board.overlay.toggle_settlement = MagicMock()
+        self.game_state.board.overlay.toggle_unit = MagicMock()
+        self.game_state.board.overlay.update_unit = MagicMock()
+
+        # Initialise the overlay to be showing a selected settlement.
+        self.game_state.board.overlay.showing = [OverlayType.SETTLEMENT]
+        self.game_state.board.selected_settlement = self.TEST_SETTLEMENT
+
+        on_key_m(self.game_state)
+        self.game_state.board.overlay.remove_warning_if_possible.assert_called()
+        # After the first press of the M key, the settlement should be deselected and its overlay removed.
+        self.assertIsNone(self.game_state.board.selected_settlement)
+        self.game_state.board.overlay.toggle_settlement.assert_called_with(None, self.TEST_PLAYER)
+        # We also expect our first unit to be selected and centred, with its overlay displayed.
+        self.assertEqual(self.TEST_UNIT, self.game_state.board.selected_unit)
+        self.game_state.board.overlay.toggle_unit.assert_called_with(self.TEST_UNIT)
+        self.assertTupleEqual((self.TEST_UNIT.location[0] - 12, self.TEST_UNIT.location[1] - 11),
+                              self.game_state.map_pos)
+
+        on_key_m(self.game_state)
+        self.assertEqual(2, self.game_state.board.overlay.remove_warning_if_possible.call_count)
+        # After another press, we expect the second unit to be selected and centred.
+        self.assertEqual(self.TEST_UNIT_2, self.game_state.board.selected_unit)
+        self.game_state.board.overlay.update_unit.assert_called_with(self.TEST_UNIT_2)
+        self.assertTupleEqual((self.TEST_UNIT_2.location[0] - 12, self.TEST_UNIT_2.location[1] - 11),
+                              self.game_state.map_pos)
+
+        on_key_m(self.game_state)
+        self.assertEqual(3, self.game_state.board.overlay.remove_warning_if_possible.call_count)
+        # However, after the third press, we expect the first unit to be selected again. This is because the two
+        # remaining units are not considered to be movable due to their lack of stamina and their besieging status,
+        # respectively. As such, they are skipped.
+        self.assertEqual(self.TEST_UNIT, self.game_state.board.selected_unit)
+        self.game_state.board.overlay.toggle_unit.assert_called_with(self.TEST_UNIT)
+        self.assertTupleEqual((self.TEST_UNIT.location[0] - 12, self.TEST_UNIT.location[1] - 11),
+                              self.game_state.map_pos)
+
+    def test_j(self):
+        """
+        Ensure that the player can successfully jump to idle settlements when pressing the J key.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.toggle_settlement = MagicMock()
+        self.game_state.board.overlay.update_settlement = MagicMock()
+        # Slightly change the order of the settlements to make this test's demonstration simpler.
+        self.TEST_PLAYER.settlements = [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_WITH_WORK, self.TEST_SETTLEMENT_2]
+
+        on_key_j(self.game_state)
+        # Having not had any settlement selected beforehand, after the first press, the first settlement should be
+        # selected and centred, with its overlay displayed.
+        self.assertEqual(self.TEST_SETTLEMENT, self.game_state.board.selected_settlement)
+        self.game_state.board.overlay.toggle_settlement.assert_called_with(self.TEST_SETTLEMENT, self.TEST_PLAYER)
+        self.assertTupleEqual((self.TEST_SETTLEMENT.location[0] - 12, self.TEST_SETTLEMENT.location[1] - 11),
+                              self.game_state.map_pos)
+
+        on_key_j(self.game_state)
+        # After the second press, note that, by order, our third settlement is now selected. This is because the second
+        # settlement is skipped due to it not being idle.
+        self.assertEqual(self.TEST_SETTLEMENT_2, self.game_state.board.selected_settlement)
+        self.game_state.board.overlay.update_settlement.assert_called_with(self.TEST_SETTLEMENT_2)
+        self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] - 12, self.TEST_SETTLEMENT_2.location[1] - 11),
+                              self.game_state.map_pos)
+
+        # Lastly, if we select a settlement that isn't idle before pressing the key, rather than go to the next
+        # settlement by order as the TAB key does, we expect the first idle settlement to be selected instead.
+        self.game_state.board.selected_settlement = self.TEST_SETTLEMENT_WITH_WORK
+        on_key_j(self.game_state)
+        self.assertEqual(self.TEST_SETTLEMENT, self.game_state.board.selected_settlement)
+        self.game_state.board.overlay.update_settlement.assert_called_with(self.TEST_SETTLEMENT)
+        self.assertTupleEqual((self.TEST_SETTLEMENT.location[0] - 12, self.TEST_SETTLEMENT.location[1] - 11),
+                              self.game_state.map_pos)
 
 
 if __name__ == '__main__':
