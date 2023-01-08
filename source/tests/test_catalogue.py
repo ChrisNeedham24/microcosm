@@ -2,8 +2,8 @@ import typing
 import unittest
 
 from source.foundation.catalogue import Namer, SETL_NAMES, get_heathen_plan, get_heathen, UNIT_PLANS, \
-    get_default_unit, get_available_improvements, BLESSINGS, IMPROVEMENTS, get_available_blessings,\
-    get_all_unlockable, get_improvement, PROJECTS, get_project, get_blessing, get_unit_plan
+    get_default_unit, get_available_improvements, BLESSINGS, IMPROVEMENTS, get_available_blessings, \
+    get_all_unlockable, get_improvement, PROJECTS, get_project, get_blessing, get_unit_plan, get_available_unit_plans
 from source.foundation.models import Biome, UnitPlan, Heathen, Unit, Player, Faction, Settlement, Improvement
 
 
@@ -12,15 +12,17 @@ class CatalogueTest(unittest.TestCase):
     The test class for catalogue.py.
     """
     TEST_PLAYER = Player("Frontiersman", Faction.FRONTIERSMEN, 0, 0, [], [], [], set(), set())
+    TEST_PLAYER_2 = Player("Farmer Man", Faction.AGRICULTURISTS, 0, 0, [], [], [], set(), set())
     TEST_BLESSING = BLESSINGS["beg_spl"]
     TEST_IMPROVEMENT = IMPROVEMENTS[0]
 
     def setUp(self) -> None:
         """
-        Reset the test player's faction and blessings before each test.
+        Reset the test player's faction and both players' blessings before each test.
         """
         self.TEST_PLAYER.faction = Faction.FRONTIERSMEN
         self.TEST_PLAYER.blessings = []
+        self.TEST_PLAYER_2.blessings = []
 
     def test_namer(self):
         """
@@ -127,16 +129,105 @@ class CatalogueTest(unittest.TestCase):
         self.assertLess(len(new_improvements), len(improvements))
         self.assertTrue(all(improvements[i].cost <= improvements[i + 1].cost for i in range(len(improvements) - 1)))
 
-    """
-    Available unit plans test cases
-    
-    Player is of The Concentrated - make sure no settlers
-    Settlement is not high enough level yet - make sure no settlers
-    Player is of the Frontiersmen - test two cases in here - low level and high level
-    Player is of the Imperials - make sure increased power
-    Player is of the Persistent - make sure increased health and less power
-    Player is of the Explorers - make sure increased stamina and less health
-    """
+    def test_get_available_unit_plans_concentrated(self):
+        """
+        Ensure that players of the Concentrated faction do not have settler units available even if the settlement is
+        above level 1.
+        """
+        test_player = Player("Concentrate Man", Faction.CONCENTRATED, 0, 0, [], [], [], set(), set())
+        unit_plans: typing.List[UnitPlan] = get_available_unit_plans(test_player, 2)
+        self.assertTrue(all(not up.can_settle for up in unit_plans))
+
+    def test_get_available_unit_plans_low_level(self):
+        """
+        Ensure that level 1 settlements do not have settler units available.
+        """
+        unit_plans: typing.List[UnitPlan] = get_available_unit_plans(self.TEST_PLAYER, 1)
+        self.assertTrue(all(not up.can_settle for up in unit_plans))
+
+    def test_get_available_unit_plans_frontiersmen(self):
+        """
+        Ensure that players of the Frontiersmen faction have only settler units available once settlements exceed level
+        5.
+        """
+        self.assertFalse(all(up.can_settle for up in get_available_unit_plans(self.TEST_PLAYER, 3)))
+        self.assertTrue(all(up.can_settle for up in get_available_unit_plans(self.TEST_PLAYER, 6)))
+
+    def test_get_available_unit_plans_imperials(self):
+        """
+        Ensure that players of the Imperials faction have units with higher power available.
+        """
+        imperial_player = Player("Empire Man", Faction.IMPERIALS, 0, 0, [], [], [], set(), set())
+
+        # We compare the Imperial units with units for a player of the Agriculturists faction, which has no bonuses or
+        # penalties applied. Also note that the settlement levels are the same.
+        standard_plans: typing.List[UnitPlan] = get_available_unit_plans(self.TEST_PLAYER_2, 10)
+        imperial_plans: typing.List[UnitPlan] = get_available_unit_plans(imperial_player, 10)
+
+        # The unit plans should be identical bar the power difference.
+        self.assertEqual(len(standard_plans), len(imperial_plans))
+        for standard_plan, imperial_plan in zip(standard_plans, imperial_plans):
+            self.assertEqual(imperial_plan.power, 1.5 * standard_plan.power)
+            self.assertEqual(imperial_plan.max_health, standard_plan.max_health)
+            self.assertEqual(imperial_plan.total_stamina, standard_plan.total_stamina)
+
+    def test_get_available_unit_plans_persistent(self):
+        """
+        Ensure that players of The Persistent faction have units with increased health and reduced power available.
+        """
+        persistent_player = Player("Persistence Man", Faction.PERSISTENT, 0, 0, [], [], [], set(), set())
+
+        # We compare The Persistent units with units for a player of the Agriculturists faction, which has no bonuses or
+        # penalties applied. Also note that the settlement levels are the same.
+        standard_plans: typing.List[UnitPlan] = get_available_unit_plans(self.TEST_PLAYER_2, 10)
+        persistent_plans: typing.List[UnitPlan] = get_available_unit_plans(persistent_player, 10)
+
+        # The unit plans should be identical bar the power and health differences.
+        self.assertEqual(len(standard_plans), len(persistent_plans))
+        for standard_plan, persistent_plan in zip(standard_plans, persistent_plans):
+            self.assertEqual(persistent_plan.power, 0.75 * standard_plan.power)
+            self.assertEqual(persistent_plan.max_health, 1.5 * standard_plan.max_health)
+            self.assertEqual(persistent_plan.total_stamina, standard_plan.total_stamina)
+
+    def test_get_available_unit_plans_explorers(self):
+        """
+        Ensure that players of the Explorers faction have units with increased stamina and reduced health available.
+        """
+        explorer_player = Player("Exploration Man", Faction.EXPLORERS, 0, 0, [], [], [], set(), set())
+
+        # We compare the Explorer units with units for a player of the Agriculturists faction, which has no bonuses or
+        # penalties applied. Also note that the settlement levels are the same.
+        standard_plans: typing.List[UnitPlan] = get_available_unit_plans(self.TEST_PLAYER_2, 10)
+        explorer_plans: typing.List[UnitPlan] = get_available_unit_plans(explorer_player, 10)
+
+        # The unit plans should be identical bar the health and stamina differences.
+        self.assertEqual(len(standard_plans), len(explorer_plans))
+        for standard_plan, explorer_plan in zip(standard_plans, explorer_plans):
+            self.assertEqual(explorer_plan.power, standard_plan.power)
+            self.assertEqual(explorer_plan.max_health, 0.75 * standard_plan.max_health)
+            self.assertEqual(explorer_plan.total_stamina, round(1.5 * standard_plan.total_stamina))
+
+    def test_get_available_unit_plans(self):
+        """
+        Ensure that the available unit plans for a player of a faction with no penalties or bonuses are returned
+        correctly, taking plan pre-requisites and sorting into account.
+        """
+        initial_unit_plans: typing.List[UnitPlan] = get_available_unit_plans(self.TEST_PLAYER_2, 5)
+        # Since the player has no blessings, all of the returned plans should have no pre-requisite.
+        self.assertTrue(all(up.prereq is None for up in initial_unit_plans))
+        # The plans should also be sorted by cost in ascending order.
+        self.assertTrue(all(initial_unit_plans[i].cost <= initial_unit_plans[i + 1].cost
+                            for i in range(len(initial_unit_plans) - 1)))
+
+        # Add a test blessing to unlock some new unit plans.
+        self.TEST_PLAYER_2.blessings.append(self.TEST_BLESSING)
+        new_unit_plans: typing.List[UnitPlan] = get_available_unit_plans(self.TEST_PLAYER_2, 5)
+        # Following the addition of the blessing, the player should now have new plans available with the blessing as
+        # their pre-requisite, while still being sorted.
+        self.assertLess(len(initial_unit_plans), len(new_unit_plans))
+        self.assertTrue(any(up.prereq == self.TEST_BLESSING for up in new_unit_plans))
+        self.assertTrue(all(new_unit_plans[i].cost <= new_unit_plans[i + 1].cost
+                            for i in range(len(new_unit_plans) - 1)))
 
     def test_get_available_blessings(self):
         """
