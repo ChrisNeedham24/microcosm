@@ -1,15 +1,41 @@
 import unittest
+from unittest.mock import patch, MagicMock
 
-from source.foundation.catalogue import UNIT_PLANS
+from source.foundation.catalogue import UNIT_PLANS, BLESSINGS
 from source.foundation.models import Biome, Unit, AttackData, HealData, Settlement, SetlAttackData, Player, Faction, \
-    Construction, Improvement, ImprovementType, Effect, UnitPlan
-from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction
+    Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing
+from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction, \
+    investigate_relic
 
 
 class CalculatorTest(unittest.TestCase):
     """
     The test class for calculator.py.
     """
+    ORIGINAL_WEALTH = 99
+    ORIGINAL_HEALTH = 1
+    ORIGINAL_STAMINA = 2
+    ORIGINAL_PLAN_HEALTH = UNIT_PLANS[0].max_health
+    ORIGINAL_PLAN_POWER = UNIT_PLANS[0].power
+    ORIGINAL_PLAN_STAMINA = UNIT_PLANS[0].total_stamina
+    ORIGINAL_PLAN_COST = UNIT_PLANS[0].cost
+    TEST_PLAYER = Player("TestMan", Faction.NOCTURNE, ORIGINAL_WEALTH, 0, [], [], [], set(), set())
+    TEST_UNIT = Unit(ORIGINAL_HEALTH, ORIGINAL_STAMINA, (3, 4), False, UNIT_PLANS[0])
+    TEST_CONFIG = GameConfig(2, TEST_PLAYER.faction, True, True, True)
+
+    def setUp(self) -> None:
+        """
+        Reset our test models.
+        """
+        self.TEST_PLAYER.ongoing_blessing = None
+        self.TEST_PLAYER.wealth = self.ORIGINAL_WEALTH
+        self.TEST_PLAYER.quads_seen = set()
+        self.TEST_UNIT.health = self.ORIGINAL_HEALTH
+        self.TEST_UNIT.remaining_stamina = self.ORIGINAL_STAMINA
+        self.TEST_UNIT.plan.max_health = self.ORIGINAL_PLAN_HEALTH
+        self.TEST_UNIT.plan.power = self.ORIGINAL_PLAN_POWER
+        self.TEST_UNIT.plan.total_stamina = self.ORIGINAL_PLAN_STAMINA
+        self.TEST_UNIT.plan.cost = self.ORIGINAL_PLAN_COST
 
     def test_yield_for_quad(self):
         """
@@ -186,6 +212,145 @@ class CalculatorTest(unittest.TestCase):
         # We also expect the settlement's garrison to now have a unit - the produced one.
         self.assertTrue(test_setl.garrison)
         self.assertIsNone(test_setl.current_work)
+
+    @patch("random.randint")
+    def test_investigate_relic_scrutineers(self, random_mock: MagicMock):
+        """
+        Ensure that players of the Scrutineers faction always succeed in their investigations.
+        :param random_mock: The mock representation of random.randint().
+        """
+        # Normally, investigations only succeed when the returned value is under 70.
+        random_mock.return_value = 100
+        test_player = Player("Tester", Faction.SCRUTINEERS, 0, 0, [], [], [], set(), set())
+
+        # We don't really care what the result is, just make sure it succeeded.
+        self.assertNotEqual(InvestigationResult.NONE,
+                            investigate_relic(test_player, self.TEST_UNIT, (9, 9),
+                                              GameConfig(2, test_player.faction, False, False, False)))
+
+    @patch("random.randint")
+    def test_investigate_relic_without_blessing(self, random_mock: MagicMock):
+        """
+        Ensure that investigations that 'roll' fortune actually yield wealth when the player has no ongoing blessing.
+        :param random_mock: The mock representation of random.randint().
+        """
+        random_mock.return_value = 5
+
+        self.assertEqual(self.ORIGINAL_WEALTH, self.TEST_PLAYER.wealth)
+        result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG)
+        self.assertEqual(InvestigationResult.WEALTH, result)
+        self.assertEqual(self.ORIGINAL_WEALTH + 25, self.TEST_PLAYER.wealth)
+
+    @patch("random.randint")
+    def test_investigate_relic_fortune(self, random_mock: MagicMock):
+        """
+        Ensure that investigations that 'roll' fortune progress the current player's ongoing blessing.
+        :param random_mock: The mock representation of random.randint().
+        """
+        random_mock.return_value = 5
+        fortune_consumed = 9
+        self.TEST_PLAYER.ongoing_blessing = OngoingBlessing(BLESSINGS["beg_spl"], fortune_consumed)
+
+        result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG)
+        self.assertEqual(InvestigationResult.FORTUNE, result)
+        self.assertEqual(fortune_consumed + self.TEST_PLAYER.ongoing_blessing.blessing.cost / 5,
+                         self.TEST_PLAYER.ongoing_blessing.fortune_consumed)
+
+    @patch("random.randint")
+    def test_investigate_relic_vision_no_fog_of_war(self, random_mock: MagicMock):
+        """
+        Ensure that investigations that 'roll' vision actually yield wealth when the game has fog of war disabled.
+        :param random_mock: The mock representation of random.randint().
+        """
+        random_mock.return_value = 25
+
+        self.assertEqual(self.ORIGINAL_WEALTH, self.TEST_PLAYER.wealth)
+        result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9),
+                                                        GameConfig(2, self.TEST_PLAYER.faction, True, False, True))
+        self.assertEqual(InvestigationResult.WEALTH, result)
+        self.assertEqual(self.ORIGINAL_WEALTH + 25, self.TEST_PLAYER.wealth)
+
+    @patch("random.randint")
+    def test_investigate_relic_vision(self, random_mock: MagicMock):
+        """
+        Ensure that investigations that 'roll' vision add to the player's seen quads.
+        :param random_mock: The mock representation of random.randint().
+        """
+        random_mock.return_value = 25
+        relic_location = (30, 40)
+
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+        result: InvestigationResult = \
+            investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, relic_location, self.TEST_CONFIG)
+        self.assertEqual(InvestigationResult.VISION, result)
+        # Vision is granted ten steps vertically and horizontally from the relic's location, making for a 21x21 square.
+        self.assertEqual(21 * 21, len(self.TEST_PLAYER.quads_seen))
+        # Also make sure the quads in the right locations have been added.
+        for i in range(relic_location[1] - 10, relic_location[1] + 11):
+            for j in range(relic_location[0] - 10, relic_location[0] + 11):
+                self.assertIn((j, i), self.TEST_PLAYER.quads_seen)
+
+    @patch("random.randint")
+    def test_investigate_relic_health(self, random_mock: MagicMock):
+        """
+        Ensure that investigations that 'roll' health add to the unit's current and maximum health.
+        :param random_mock: The mock representation of random.randint().
+        """
+        random_mock.return_value = 35
+
+        result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG)
+        self.assertEqual(InvestigationResult.HEALTH, result)
+        self.assertEqual(self.ORIGINAL_HEALTH + 5, self.TEST_UNIT.health)
+        self.assertEqual(self.ORIGINAL_PLAN_HEALTH + 5, self.TEST_UNIT.plan.max_health)
+
+    @patch("random.randint")
+    def test_investigate_relic_power(self, random_mock: MagicMock):
+        """
+        Ensure that investigations that 'roll' power add to the unit's plan's power.
+        :param random_mock: The mock representation of random.randint().
+        """
+        random_mock.return_value = 45
+
+        result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG)
+        self.assertEqual(InvestigationResult.POWER, result)
+        self.assertEqual(self.ORIGINAL_PLAN_POWER + 5, self.TEST_UNIT.plan.power)
+
+    @patch("random.randint")
+    def test_investigate_relic_stamina(self, random_mock: MagicMock):
+        """
+        Ensure that investigations that 'roll' stamina add to the unit's remaining and total stamina.
+        :param random_mock: The mock representation of random.randint().
+        """
+        random_mock.return_value = 55
+
+        result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG)
+        self.assertEqual(InvestigationResult.STAMINA, result)
+        self.assertEqual(self.ORIGINAL_PLAN_STAMINA + 1, self.TEST_UNIT.plan.total_stamina)
+        self.assertEqual(self.ORIGINAL_PLAN_STAMINA + 1, self.TEST_UNIT.remaining_stamina)
+
+    @patch("random.randint")
+    def test_investigate_relic_upkeep(self, random_mock: MagicMock):
+        """
+        Ensure that investigations that 'roll' upkeep remove the cost from the unit.
+        :param random_mock: The mock representation of random.randint().
+        """
+        random_mock.return_value = 65
+
+        self.assertTrue(self.TEST_UNIT.plan.cost)
+        result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG)
+        self.assertEqual(InvestigationResult.UPKEEP, result)
+        self.assertFalse(self.TEST_UNIT.plan.cost)
+
+    @patch("random.randint")
+    def test_investigate_relic_failure(self, random_mock: MagicMock):
+        """
+        Ensure that investigations that fail yield the correct result.
+        :param random_mock: The mock representation of random.randint().
+        """
+        random_mock.return_value = 90
+
+        self.assertEqual(InvestigationResult.NONE,
+                         investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG))
 
 
 if __name__ == '__main__':

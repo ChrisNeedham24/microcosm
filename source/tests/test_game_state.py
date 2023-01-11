@@ -46,6 +46,16 @@ class GameStateTest(unittest.TestCase):
         self.assertEqual(self.TEST_CONFIG.player_faction, non_ai_players[0].faction)
         self.assertEqual(self.TEST_CONFIG.player_count, len(self.game_state.players))
 
+    """
+    Process heathens cases to test
+    
+    Infidel is in range but does not attack, also updates quads seen
+    Unit is not within range
+    Unit has too much health
+    Attack succeeds on left, unit dies
+    Attack succeeds on right, heathen dies
+    """
+
     def test_initialise_ais(self):
         """
         Ensure that AI players have their settlements correctly initialised.
