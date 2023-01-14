@@ -3,15 +3,16 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from source.display.board import Board
-from source.display.menu import SetupOption, WikiOption
+from source.display.menu import SetupOption, WikiOption, MainMenuOption
 from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS, get_available_improvements, \
-    get_available_unit_plans, PROJECTS
+    get_available_unit_plans, PROJECTS, IMPROVEMENTS
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
-    Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit, Construction, CompletedConstruction
+    Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit, Construction, CompletedConstruction, \
+    SettlementAttackType, PauseOption
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
     on_key_arrow_right, on_key_shift, on_key_f, on_key_d, on_key_s, on_key_n, on_key_a, on_key_c, on_key_tab, \
-    on_key_escape, on_key_m, on_key_j, on_key_space, on_key_b
+    on_key_escape, on_key_m, on_key_j, on_key_space, on_key_b, on_key_return
 from source.game_management.game_state import GameState
 
 
@@ -29,6 +30,7 @@ class GameInputHandlerTest(unittest.TestCase):
     PLAYER_WEALTH = 1000
     TEST_PLAYER = Player("Tester", Faction.NOCTURNE, 0, PLAYER_WEALTH,
                          [TEST_SETTLEMENT, TEST_SETTLEMENT_2, TEST_SETTLEMENT_WITH_WORK], [TEST_UNIT], [], set(), set())
+    TEST_PLAYER_2 = Player("Tester The Second", Faction.FUNDAMENTALISTS, 0, 0, [], [], [], set(), set())
 
     @patch("source.game_management.game_controller.MusicPlayer")
     def setUp(self, _: MagicMock) -> None:
@@ -42,15 +44,18 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state = GameState()
         self.game_state.board = Board(GameConfig(4, Faction.NOCTURNE, True, True, True), Namer())
         self.game_state.on_menu = False
-        self.game_state.players = [self.TEST_PLAYER]
+        self.game_state.players = [self.TEST_PLAYER, self.TEST_PLAYER_2]
         self.TEST_PLAYER.wealth = self.PLAYER_WEALTH
         self.TEST_PLAYER.units = [self.TEST_UNIT]
         self.TEST_PLAYER.settlements = [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_WITH_WORK]
         self.TEST_PLAYER.faction = Faction.NOCTURNE
         self.TEST_SETTLEMENT.garrison = []
         self.TEST_SETTLEMENT.current_work = None
+        self.TEST_SETTLEMENT.besieged = False
+        self.TEST_SETTLEMENT.strength = 100
         self.TEST_SETTLEMENT_WITH_WORK.current_work = Construction(UNIT_PLANS[0])
         self.TEST_SETTLEMENT_WITH_WORK.garrison = []
+        self.TEST_UNIT.besieging = False
 
     def test_arrow_down_menu(self):
         """
@@ -356,25 +361,396 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_right(self.game_controller, self.game_state, True)
         self.assertTupleEqual((pos_x + 6, pos_y), self.game_state.map_pos)
 
+    @patch("random.seed")
+    @patch("pyxel.mouse")
+    def test_return_start_game(self, mouse_mock: MagicMock, random_mock: MagicMock):
         """
-        Return cases to test
+        Ensure that when pressing the return key while in game setup and selecting the Start Game button, the correct
+        game preparation state modification occurs.
+        :param mouse_mock: The mock representation of pyxel.mouse().
+        :param random_mock: The mock representation of random.seed().
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.in_game_setup = True
+        self.game_controller.menu.setup_option = SetupOption.START_GAME
+        self.game_controller.namer.reset = MagicMock()
+        self.game_controller.music_player.stop_menu_music = MagicMock()
+        self.game_controller.music_player.play_game_music = MagicMock()
 
-        Starting a game from the menu
-        Pressing cancel on the load game screen
-        Loading a game
-        Going back from the Wiki
-        Selecting an option in the Wiki
-        Selecting an option on the main menu
-        Returning to the menu after winning/being eliminated
-        Choosing a construction
-        Choosing a blessing
-        Attacking a settlement - attacker killed
-        Attacking a settlement - settlement taken, was besieged
-        Besiege a settlement
-        Leaving settlement click overlay
-        Selecting an option on the pause overlay
-        Ending a turn, with autosave
+        # In this test suite, the game state is initialised before each test. We reset it here so that we can properly
+        # verify the functionality.
+        self.game_state.players = []
+        self.game_state.board = None
+
+        self.assertFalse(self.game_state.game_started)
+        self.assertIsNone(self.game_controller.move_maker.board_ref)
+
+        on_key_return(self.game_controller, self.game_state)
+
+        mouse_mock.assert_called_with(visible=True)
+        self.assertTrue(self.game_state.game_started)
+        self.assertEqual(1, self.game_state.turn)
+        random_mock.assert_called()
+        # We use assertAlmostEqual() here because the number of turns until night can be between 10 and 20. We don't
+        # really care what the value is, just that it's within that range.
+        self.assertAlmostEqual(15, self.game_state.until_night, delta=5)
+        self.assertFalse(self.game_state.nighttime_left)
+        self.assertFalse(self.game_state.on_menu)
+        # The players and board should now be initialised.
+        self.assertTrue(self.game_state.players)
+        self.assertIsNotNone(self.game_state.board)
+        self.assertIsNotNone(self.game_controller.move_maker.board_ref)
+        # The tutorial overlay should now be displayed.
+        self.assertTrue(self.game_state.board.overlay.is_tutorial())
+        self.game_controller.namer.reset.assert_called()
+        # The AI players should now each have a settlement.
+        self.assertTrue(all(player.settlements for player in self.game_state.players if player.ai_playstyle))
+        self.game_controller.music_player.stop_menu_music.assert_called()
+        self.game_controller.music_player.play_game_music.assert_called()
+
+    def test_return_cancel_load_game(self):
         """
+        Ensure that when pressing the return key while on the load game screen with no save selected, the player is
+        returned to the main menu.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.loading_game = True
+        self.game_controller.menu.save_idx = -1
+        on_key_return(self.game_controller, self.game_state)
+        self.assertFalse(self.game_controller.menu.loading_game)
+
+    @patch("source.game_management.game_input_handler.load_game")
+    def test_return_load_game(self, load_mock: MagicMock):
+        """
+        Ensure that when pressing the return key while on the load game screen with a save selected, the save is loaded.
+        :param load_mock: The mock implementation of the load_game() function.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.loading_game = True
+        self.game_controller.menu.save_idx = 9
+        on_key_return(self.game_controller, self.game_state)
+        load_mock.assert_called_with(self.game_state, self.game_controller)
+
+    def test_return_exit_wiki(self):
+        """
+        Ensure that when pressing the return key while in the wiki menu with the back button selected, the player is
+        returned to the main menu.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.in_wiki = True
+        self.game_controller.menu.wiki_option = WikiOption.BACK
+        on_key_return(self.game_controller, self.game_state)
+        self.assertFalse(self.game_controller.menu.in_wiki)
+
+    def test_return_select_wiki_option(self):
+        """
+        Ensure that when pressing the return key while in the wiki menu with a wiki option selected, the player is taken
+        to the wiki page for the selected option.
+        """
+        wiki_option = WikiOption.VICTORIES
+
+        self.game_state.on_menu = True
+        self.game_controller.menu.in_wiki = True
+        self.game_controller.menu.wiki_option = wiki_option
+
+        on_key_return(self.game_controller, self.game_state)
+
+        self.assertEqual(wiki_option, self.game_controller.menu.wiki_showing)
+
+    def test_return_select_main_menu_option_new_game(self):
+        """
+        Ensure that the game setup page is presented to the player after pressing the return key on the main menu with
+        the New Game option selected.
+        """
+        self.game_state.on_menu = True
+        self.assertFalse(self.game_controller.menu.in_game_setup)
+        self.game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
+        on_key_return(self.game_controller, self.game_state)
+        self.assertTrue(self.game_controller.menu.in_game_setup)
+
+    @patch("source.game_management.game_input_handler.get_saves")
+    def test_return_select_main_menu_option_load_game(self, get_saves_mock: MagicMock):
+        """
+        Ensure that the load game page is presented to the player after pressing the return key on the main menu with
+        the Load Game option selected.
+        :param get_saves_mock: The mock implementation of the get_saves() function.
+        """
+        self.game_state.on_menu = True
+        self.assertFalse(self.game_controller.menu.loading_game)
+        self.game_controller.menu.main_menu_option = MainMenuOption.LOAD_GAME
+        on_key_return(self.game_controller, self.game_state)
+        self.assertTrue(self.game_controller.menu.loading_game)
+        get_saves_mock.assert_called_with(self.game_controller)
+
+    def test_return_select_main_menu_option_wiki(self):
+        """
+        Ensure that the wiki menu is presented to the player after pressing the return key on the main menu with the
+        Wiki option selected.
+        """
+        self.game_state.on_menu = True
+        self.assertFalse(self.game_controller.menu.in_wiki)
+        self.game_controller.menu.main_menu_option = MainMenuOption.WIKI
+        on_key_return(self.game_controller, self.game_state)
+        self.assertTrue(self.game_controller.menu.in_wiki)
+
+    @patch("pyxel.quit")
+    def test_return_select_main_menu_option(self, quit_mock: MagicMock):
+        """
+        Ensure that the game is exited after pressing the return key on the main menu with the Exit option selected.
+        :param quit_mock: The mock implementation of pyxel.quit().
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.main_menu_option = MainMenuOption.EXIT
+        on_key_return(self.game_controller, self.game_state)
+        quit_mock.assert_called()
+
+    def test_return_back_to_menu_victory(self):
+        """
+        Ensure that when pressing the return key after winning a game, the player is brought back to the main menu.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.VICTORY]
+        self.game_controller.music_player.stop_game_music = MagicMock()
+        self.game_controller.music_player.play_menu_music = MagicMock()
+
+        self.assertFalse(self.game_state.on_menu)
+
+        on_key_return(self.game_controller, self.game_state)
+
+        self.assertFalse(self.game_state.game_started)
+        self.assertTrue(self.game_state.on_menu)
+        self.assertFalse(self.game_controller.menu.loading_game)
+        self.assertFalse(self.game_controller.menu.in_game_setup)
+        self.assertEqual(MainMenuOption.NEW_GAME, self.game_controller.menu.main_menu_option)
+        self.game_controller.music_player.stop_game_music.assert_called()
+        self.game_controller.music_player.play_menu_music.assert_called()
+
+    def test_return_back_to_menu_eliminated(self):
+        """
+        Ensure that when pressing the return key after being eliminated from a game, the player is brought back to the
+        main menu.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.ELIMINATION]
+        self.game_state.players[0].eliminated = True
+        self.game_controller.music_player.stop_game_music = MagicMock()
+        self.game_controller.music_player.play_menu_music = MagicMock()
+
+        self.assertFalse(self.game_state.on_menu)
+
+        on_key_return(self.game_controller, self.game_state)
+
+        self.assertFalse(self.game_state.game_started)
+        self.assertTrue(self.game_state.on_menu)
+        self.assertFalse(self.game_controller.menu.loading_game)
+        self.assertFalse(self.game_controller.menu.in_game_setup)
+        self.assertEqual(MainMenuOption.NEW_GAME, self.game_controller.menu.main_menu_option)
+        self.game_controller.music_player.stop_game_music.assert_called()
+        self.game_controller.music_player.play_menu_music.assert_called()
+
+    def test_return_select_construction(self):
+        """
+        Ensure that pressing the return key when selecting a construction for a settlement confirms the selection.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.CONSTRUCTION]
+        self.game_state.board.overlay.selected_construction = IMPROVEMENTS[0]
+        self.game_state.board.overlay.toggle_construction = MagicMock()
+        self.game_state.board.selected_settlement = self.TEST_SETTLEMENT
+
+        on_key_return(self.game_controller, self.game_state)
+        self.assertEqual(IMPROVEMENTS[0], self.TEST_SETTLEMENT.current_work.construction)
+        self.game_state.board.overlay.toggle_construction.assert_called_with([], [], [])
+
+    def test_return_select_blessing(self):
+        """
+        Ensure that pressing the return key when selecting a blessing confirms the selection.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.BLESSING]
+        self.game_state.board.overlay.selected_blessing = BLESSINGS["beg_spl"]
+        self.game_state.board.overlay.toggle_blessing = MagicMock()
+
+        on_key_return(self.game_controller, self.game_state)
+        self.assertEqual(BLESSINGS["beg_spl"], self.game_state.players[0].ongoing_blessing.blessing)
+        self.game_state.board.overlay.toggle_blessing.assert_called_with([])
+
+    def test_return_attack_settlement_attacker_dies(self):
+        """
+        Ensure that the correct state and overlay modification occurs when pressing the return key to attack a
+        settlement. In this instance, we expect the attacker unit to perish and the settlement to remain.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.SETL_CLICK]
+        self.game_state.board.overlay.setl_attack_opt = SettlementAttackType.ATTACK
+        self.game_state.board.overlay.toggle_setl_click = MagicMock()
+        self.game_state.board.overlay.toggle_unit = MagicMock()
+        self.game_state.board.overlay.toggle_setl_attack = MagicMock()
+
+        # Setting up our combatants - note that TEST_UNIT and TEST_SETTLEMENT actually both belong to TEST_PLAYER. For
+        # our purposes, it doesn't matter that a player's unit is attacking its own settlement.
+        self.game_state.board.selected_unit = self.TEST_UNIT
+        self.game_state.board.overlay.attacked_settlement = self.TEST_SETTLEMENT
+        self.game_state.board.overlay.attacked_settlement_owner = self.TEST_PLAYER
+
+        on_key_return(self.game_controller, self.game_state)
+        self.game_state.board.overlay.toggle_setl_click.assert_called_with(None, None)
+        # Since the unit died, we expect the player to no longer have any units, and the unit's overlay to be removed.
+        self.assertFalse(self.TEST_PLAYER.units)
+        self.assertIsNone(self.game_state.board.selected_unit)
+        self.game_state.board.overlay.toggle_unit.assert_called_with(None)
+        # We should also now see the settlement attack overlay.
+        self.game_state.board.overlay.toggle_setl_attack.assert_called()
+        self.assertFalse(self.game_state.board.attack_time_bank)
+
+    def test_return_attack_besieged_settlement_taken(self):
+        """
+        Ensure that the correct state and overlay modification occurs when pressing the return key to attack an already
+        besieged settlement. In this instance, we expect the attacker unit to succeed and take the settlement.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.SETL_CLICK]
+        self.game_state.board.overlay.setl_attack_opt = SettlementAttackType.ATTACK
+        self.game_state.board.overlay.toggle_setl_click = MagicMock()
+        self.game_state.board.overlay.toggle_unit = MagicMock()
+        self.game_state.board.overlay.toggle_setl_attack = MagicMock()
+
+        # Setting up our combatants - we make sure that the unit will be able to take the settlement by setting the
+        # settlement's strength to 1.
+        self.game_state.board.selected_unit = self.TEST_UNIT
+        self.game_state.board.overlay.attacked_settlement = self.TEST_SETTLEMENT
+        self.game_state.board.overlay.attacked_settlement_owner = self.TEST_PLAYER_2
+        self.TEST_SETTLEMENT.besieged = True
+        self.TEST_SETTLEMENT.strength = 1
+        self.TEST_UNIT.besieging = True
+        self.TEST_PLAYER.settlements = []
+        self.TEST_PLAYER_2.settlements = [self.TEST_SETTLEMENT]
+
+        on_key_return(self.game_controller, self.game_state)
+        self.game_state.board.overlay.toggle_setl_click.assert_called_with(None, None)
+        # Now that the siege is over and the settlement has been taken, we expect the settlement and unit to reflect
+        # that.
+        self.assertFalse(self.TEST_SETTLEMENT.besieged)
+        self.assertFalse(self.TEST_UNIT.besieging)
+        # The settlement should have changed hands.
+        self.assertTrue(self.TEST_PLAYER.settlements)
+        self.assertFalse(self.TEST_PLAYER_2.settlements)
+        # We should also now see the settlement attack overlay.
+        self.game_state.board.overlay.toggle_setl_attack.assert_called()
+        self.assertFalse(self.game_state.board.attack_time_bank)
+
+    def test_return_besiege_settlement(self):
+        """
+        Ensure that the correct state and overlay modification occurs when pressing the return key to besiege a
+        settlement.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.SETL_CLICK]
+        self.game_state.board.overlay.setl_attack_opt = SettlementAttackType.BESIEGE
+        self.game_state.board.overlay.toggle_setl_click = MagicMock()
+
+        self.game_state.board.selected_unit = self.TEST_UNIT
+        self.game_state.board.overlay.attacked_settlement = self.TEST_SETTLEMENT
+
+        on_key_return(self.game_controller, self.game_state)
+        self.assertTrue(self.TEST_UNIT.besieging)
+        self.assertTrue(self.TEST_SETTLEMENT.besieged)
+        self.game_state.board.overlay.toggle_setl_click.assert_called_with(None, None)
+
+    def test_return_leave_settlement_click_overlay(self):
+        """
+        Ensure that the settlement click overlay is removed when the return key is pressed and the cancel button is
+        selected in the overlay.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.SETL_CLICK]
+        self.game_state.board.overlay.setl_attack_opt = None
+        self.game_state.board.overlay.toggle_setl_click = MagicMock()
+
+        on_key_return(self.game_controller, self.game_state)
+        self.game_state.board.overlay.toggle_setl_click.assert_called_with(None, None)
+
+    def test_return_select_pause_option_resume(self):
+        """
+        Ensure that the pause overlay is toggled when its resume option is selected and the return key is pressed.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.PAUSE]
+        self.game_state.board.overlay.pause_option = PauseOption.RESUME
+        self.game_state.board.overlay.toggle_pause = MagicMock()
+        on_key_return(self.game_controller, self.game_state)
+        self.game_state.board.overlay.toggle_pause.assert_called()
+
+    @patch("source.game_management.game_input_handler.save_game")
+    def test_return_select_pause_option_save(self, save_mock: MagicMock):
+        """
+        Ensure that the game is saved and the pause overlay updated when the return key is pressed with the save game
+        option selected.
+        :param save_mock: The mock implementation of the save_game() function.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.PAUSE]
+        self.game_state.board.overlay.pause_option = PauseOption.SAVE
+
+        self.assertFalse(self.game_state.board.overlay.has_saved)
+        on_key_return(self.game_controller, self.game_state)
+        save_mock.assert_called_with(self.game_state)
+        self.assertTrue(self.game_state.board.overlay.has_saved)
+
+    def test_return_select_pause_option_controls(self):
+        """
+        Ensure that the controls overlay is toggled when the return key is pressed with the controls option in the
+        pause overlay selected.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.PAUSE]
+        self.game_state.board.overlay.pause_option = PauseOption.CONTROLS
+        self.game_state.board.overlay.toggle_controls = MagicMock()
+
+        on_key_return(self.game_controller, self.game_state)
+        self.assertFalse(self.game_state.board.overlay.show_additional_controls)
+        self.game_state.board.overlay.toggle_controls.assert_called()
+
+    def test_return_select_pause_option_quit(self):
+        """
+        Ensure that the player returns to the main menu after pressing the return key when in the pause overlay with the
+        quit option selected.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.PAUSE]
+        self.game_state.board.overlay.pause_option = PauseOption.QUIT
+        self.game_controller.music_player.stop_game_music = MagicMock()
+        self.game_controller.music_player.play_menu_music = MagicMock()
+
+        self.assertFalse(self.game_state.on_menu)
+        on_key_return(self.game_controller, self.game_state)
+        self.assertFalse(self.game_state.game_started)
+        self.assertTrue(self.game_state.on_menu)
+        self.assertFalse(self.game_controller.menu.loading_game)
+        self.assertFalse(self.game_controller.menu.in_game_setup)
+        self.assertEqual(MainMenuOption.NEW_GAME, self.game_controller.menu.main_menu_option)
+        self.game_controller.music_player.stop_game_music.assert_called()
+        self.game_controller.music_player.play_menu_music.assert_called()
+
+    @patch("source.game_management.game_input_handler.save_game")
+    def test_return_end_turn(self, save_mock: MagicMock):
+        """
+        Ensure that the correct state updates occur when pressing the return key to end a turn.
+        :param save_mock: The mock implementation of the save_game() function.
+        """
+        self.game_state.game_started = True
+        self.game_state.turn = 10
+        # We mock out our complex game state functions here to avoid any potential issues.
+        self.game_state.end_turn = MagicMock(return_value=True)
+        self.game_state.board.overlay.update_turn = MagicMock()
+        self.game_state.process_heathens = MagicMock()
+        self.game_state.process_ais = MagicMock()
+
+        on_key_return(self.game_controller, self.game_state)
+        save_mock.assert_called_with(self.game_state, auto=True)
+        self.game_state.board.overlay.update_turn.assert_called_with(10)
+        self.game_state.process_heathens.assert_called()
+        self.game_state.process_ais.assert_called_with(self.game_controller.move_maker)
 
     def test_shift(self):
         """
