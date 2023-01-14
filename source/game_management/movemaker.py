@@ -352,7 +352,7 @@ def search_for_relics_or_move(unit: Unit,
     investigate_range = unit.remaining_stamina + 1
     for i in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
         for j in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
-            if 0 <= i <= 89 and 0 <= j <= 99 and quads[i][j].is_relic:
+            if 0 <= i <= 89 and 0 <= j <= 99 and quads[j][i].is_relic:
                 first_resort: (int, int)
                 second_resort = j, i + 1
                 third_resort = j, i - 1
@@ -371,7 +371,7 @@ def search_for_relics_or_move(unit: Unit,
                 unit.remaining_stamina = 0
                 if found_valid_loc:
                     investigate_relic(player, unit, (j, i), cfg)
-                    quads[i][j].is_relic = False
+                    quads[j][i].is_relic = False
                     return
     # We only get to this point if a valid relic was not found. Make sure when moving randomly that the unit does not
     # collide with other units or settlements.

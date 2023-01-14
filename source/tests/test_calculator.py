@@ -147,6 +147,28 @@ class CalculatorTest(unittest.TestCase):
         self.assertFalse(setl_attack_data.attacker_was_killed)
         self.assertTrue(setl_attack_data.setl_was_taken)
 
+    """
+    Get player/setl totals cases to test
+    
+    Agriculturists
+    Fundamentalists
+    Strict rounding
+    Economical project
+    Recession
+    Boom
+    Godless
+    Orthodox
+    Bountiful project
+    Poor harvest
+    Besieged
+    Plentiful harvest
+    Ravenous
+    Night harvest/fortune (show nocturne is fine)
+    Magical project
+    Scrutineers
+    Standard no penalties, no bonuses
+    """
+
     def test_complete_construction(self):
         """
         Ensure that when completing a construction that yields added strength and satisfaction, the related settlement

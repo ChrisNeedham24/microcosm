@@ -356,6 +356,26 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_right(self.game_controller, self.game_state, True)
         self.assertTupleEqual((pos_x + 6, pos_y), self.game_state.map_pos)
 
+        """
+        Return cases to test
+
+        Starting a game from the menu
+        Pressing cancel on the load game screen
+        Loading a game
+        Going back from the Wiki
+        Selecting an option in the Wiki
+        Selecting an option on the main menu
+        Returning to the menu after winning/being eliminated
+        Choosing a construction
+        Choosing a blessing
+        Attacking a settlement - attacker killed
+        Attacking a settlement - settlement taken, was besieged
+        Besiege a settlement
+        Leaving settlement click overlay
+        Selecting an option on the pause overlay
+        Ending a turn, with autosave
+        """
+
     def test_shift(self):
         """
         Ensure that the correct overlay toggle occurs when the shift key is pressed.

@@ -382,6 +382,9 @@ class GameState:
                     heathen.location = within_range.location[0] - 1, within_range.location[1]
                 heathen.remaining_stamina = 0
                 data = attack(heathen, within_range)
+                # Only show the attack overlay if the unit attacked was the non-AI player's.
+                if within_range in self.players[0].units:
+                    self.board.overlay.toggle_attack(data)
                 if within_range.health <= 0:
                     for player in self.players:
                         if within_range in player.units:
@@ -392,9 +395,6 @@ class GameState:
                         self.board.overlay.toggle_unit(None)
                 if heathen.health <= 0:
                     self.heathens.remove(heathen)
-                # Only show the attack overlay if the unit attacked was the non-AI player's.
-                if within_range in self.players[0].units:
-                    self.board.overlay.toggle_attack(data)
             else:
                 # If there are no units within range, just move randomly.
                 x_movement = random.randint(-heathen.remaining_stamina, heathen.remaining_stamina)
