@@ -3,9 +3,9 @@ import unittest
 from unittest.mock import MagicMock
 
 from source.display.board import Board
-from source.foundation.catalogue import Namer, UNIT_PLANS, get_heathen_plan
+from source.foundation.catalogue import Namer, UNIT_PLANS, get_heathen_plan, IMPROVEMENTS, BLESSINGS
 from source.foundation.models import GameConfig, Faction, Player, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
-    Unit, Heathen
+    Unit, Heathen, Settlement, Victory, VictoryType, Construction
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
 
@@ -18,6 +18,8 @@ class GameStateTest(unittest.TestCase):
     TEST_NAMER = Namer()
     TEST_UNIT = Unit(1, 2, (3, 4), False, UNIT_PLANS[0])
     TEST_HEATHEN = Heathen(40, 6, (3, 3), get_heathen_plan(1))
+    TEST_SETTLEMENT = Settlement("Numero Uno", (0, 0), [], [], [])
+    TEST_SETTLEMENT_2 = Settlement("Numero Duo", (1, 1), [], [], [])
 
     def setUp(self) -> None:
         """
@@ -41,6 +43,10 @@ class GameStateTest(unittest.TestCase):
         self.TEST_HEATHEN.location = 3, 3
         self.TEST_HEATHEN.health = 40
         self.TEST_HEATHEN.remaining_stamina = 6
+        self.TEST_SETTLEMENT.satisfaction = 50
+        self.TEST_SETTLEMENT.level = 1
+        self.TEST_SETTLEMENT.current_work = None
+        self.TEST_SETTLEMENT.improvements = []
 
     def test_gen_players(self):
         """
@@ -54,6 +60,189 @@ class GameStateTest(unittest.TestCase):
         self.assertEqual(1, len(non_ai_players))
         self.assertEqual(self.TEST_CONFIG.player_faction, non_ai_players[0].faction)
         self.assertEqual(self.TEST_CONFIG.player_count, len(self.game_state.players))
+
+    def test_check_for_victory_close(self):
+        """
+        Ensure that when a player is close to achieving a victory, their state is updated and the correct overlay is
+        displayed. For our purposes, the player will be close to every victory.
+        """
+        # To aid the Jubilation, Gluttony, and Vigour victories, the test settlement will become a sort of super
+        # settlement, with high satisfaction and level, and a current construction of the Holy Sanctum.
+        self.TEST_SETTLEMENT.satisfaction = 100
+        self.TEST_SETTLEMENT.level = 10
+        self.TEST_SETTLEMENT.current_work = Construction(IMPROVEMENTS[-1])
+        # We give the player eight copies of the settlement to get close to the ten required for a Gluttony victory.
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT] * 8
+        # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
+        # victory. Conveniently, as there is only one other settlement in the game, the main player is also considered
+        # to be close to an Elimination victory.
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2]
+        # 75000 is close to the 100000 required for an Affluence victory.
+        self.game_state.players[0].accumulated_wealth = 75000
+        # We give the player two of the three required pieces of ardour for a Serendipity victory.
+        self.game_state.players[0].blessings = [BLESSINGS["ard_one"], BLESSINGS["ard_two"]]
+        self.game_state.board.overlay.toggle_close_to_vic = MagicMock()
+
+        # No actual victory should have been detected.
+        self.assertIsNone(self.game_state.check_for_victory())
+
+        # We expect the overlay to have been called six times, for each victory type.
+        self.game_state.board.overlay.toggle_close_to_vic.assert_called()
+        close_to_vics = self.game_state.board.overlay.toggle_close_to_vic.call_args[0][0]
+        self.assertEqual(6, len(close_to_vics))
+
+        # Ensure each type is represented in the mock calls.
+        self.assertEqual(Victory(self.game_state.players[0], VictoryType.ELIMINATION), close_to_vics[0])
+        self.assertEqual(Victory(self.game_state.players[0], VictoryType.VIGOUR), close_to_vics[1])
+        self.assertEqual(Victory(self.game_state.players[0], VictoryType.JUBILATION), close_to_vics[2])
+        self.assertEqual(Victory(self.game_state.players[0], VictoryType.GLUTTONY), close_to_vics[3])
+        self.assertEqual(Victory(self.game_state.players[0], VictoryType.AFFLUENCE), close_to_vics[4])
+        self.assertEqual(Victory(self.game_state.players[0], VictoryType.SERENDIPITY), close_to_vics[5])
+
+        # Also make sure the player's state is updated.
+        self.assertIn(VictoryType.ELIMINATION, self.game_state.players[0].imminent_victories)
+        self.assertIn(VictoryType.VIGOUR, self.game_state.players[0].imminent_victories)
+        self.assertIn(VictoryType.JUBILATION, self.game_state.players[0].imminent_victories)
+        self.assertIn(VictoryType.GLUTTONY, self.game_state.players[0].imminent_victories)
+        self.assertIn(VictoryType.AFFLUENCE, self.game_state.players[0].imminent_victories)
+        self.assertIn(VictoryType.SERENDIPITY, self.game_state.players[0].imminent_victories)
+
+    def test_check_for_victory_jubilation(self):
+        """
+        Ensure that when the conditions are met for a Jubilation victory, it is detected.
+        """
+        # Five duplicate settlements at 100 satisfaction are required for this victory.
+        self.TEST_SETTLEMENT.satisfaction = 100
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT] * 5
+        # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
+        # victory.
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2]
+        # The required number of turns in a row with five settlements at 100 satisfaction is 25. As such, we set it as
+        # 24 to let it be incremented by the method, and then validated.
+        self.game_state.players[0].jubilation_ctr = 24
+
+        self.assertEqual(Victory(self.game_state.players[0], VictoryType.JUBILATION),
+                         self.game_state.check_for_victory())
+
+    def test_check_for_victory_gluttony(self):
+        """
+        Ensure that when the conditions are met for a Gluttony victory, it is detected.
+        """
+        # Ten settlements at level 10 are required for this victory.
+        self.TEST_SETTLEMENT.level = 10
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT] * 10
+        # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
+        # victory.
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2]
+
+        self.assertEqual(Victory(self.game_state.players[0], VictoryType.GLUTTONY), self.game_state.check_for_victory())
+
+    def test_check_for_victory_vigour(self):
+        """
+        Ensure that when the conditions are met for a Vigour victory, it is detected.
+        """
+        # The Holy Sanctum having been constructed is required for this victory.
+        self.TEST_SETTLEMENT.improvements = [IMPROVEMENTS[-1]]
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
+        # victory.
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2]
+
+        self.assertEqual(Victory(self.game_state.players[0], VictoryType.VIGOUR), self.game_state.check_for_victory())
+
+    def test_check_for_victory_affluence(self):
+        """
+        Ensure that when the conditions are met for an Affluence victory, it is detected.
+        """
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
+        # victory.
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2]
+        # Over the course of the game, an accumulation of 100000 wealth is required for this victory.
+        self.game_state.players[0].accumulated_wealth = 100000
+
+        self.assertEqual(Victory(self.game_state.players[0], VictoryType.AFFLUENCE),
+                         self.game_state.check_for_victory())
+
+    def test_check_for_victory_serendipity(self):
+        """
+        Ensure that when the conditions are met for a Serendipity victory, it is detected.
+        """
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
+        # victory.
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2]
+        # The undergoing of the three pieces of ardour as blessings is required for this victory.
+        self.game_state.players[0].blessings = [BLESSINGS["ard_one"], BLESSINGS["ard_two"], BLESSINGS["ard_three"]]
+
+        self.assertEqual(Victory(self.game_state.players[0], VictoryType.SERENDIPITY),
+                         self.game_state.check_for_victory())
+
+    def test_check_for_victory_elimination(self):
+        """
+        Ensure that when the conditions are met for an Elimination victory, it is detected.
+        """
+        # Let us imagine that the first player has just taken the second settlement from the second player. Now, there
+        # is only one player with one or more settlements, which is the requirement for this victory.
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2]
+        self.game_state.board.overlay.toggle_elimination = MagicMock()
+
+        # The other players should not be eliminated before the check.
+        self.assertFalse(self.game_state.players[1].eliminated)
+        self.assertFalse(self.game_state.players[2].eliminated)
+        self.assertFalse(self.game_state.players[3].eliminated)
+        self.assertEqual(Victory(self.game_state.players[0], VictoryType.ELIMINATION),
+                         self.game_state.check_for_victory())
+        # The other players should now each be eliminated, and the elimination overlay should have been called for each
+        # of them.
+        self.assertTrue(self.game_state.players[1].eliminated)
+        self.assertTrue(self.game_state.players[2].eliminated)
+        self.assertTrue(self.game_state.players[3].eliminated)
+        self.assertEqual(3, self.game_state.board.overlay.toggle_elimination.call_count)
+
+    def test_check_for_victory_reset_jubilation_counter(self):
+        """
+        Ensure that when a player is on the brink of achieving a Jubilation victory, but the satisfaction of one or more
+        of their settlements drops, their cumulative turn counter resets to 0.
+        """
+        # 99 is not enough for a Jubilation victory - it must be 100.
+        self.TEST_SETTLEMENT.satisfaction = 99
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT] * 5
+        # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
+        # victory.
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2]
+        # If the settlement's satisfaction was at 100, this 24 would be incremented to 25 and the victory triggered.
+        self.game_state.players[0].jubilation_ctr = 24
+
+        # As such, no victory should have been achieved, and the counter should have been reset for the relevant player.
+        self.assertIsNone(self.game_state.check_for_victory())
+        self.assertFalse(self.game_state.players[0].jubilation_ctr)
+
+    def test_check_for_victory_settler_preventing_elimination(self):
+        """
+        Ensure that when the human player has a settler unit remaining despite losing all of their settlements, they are
+        protected from being eliminated. Because of this, the only AI player with one or more settlements should also
+        not be granted victory.
+        """
+        # Let us imagine that the AI player has just taken the second settlement from the human player. Now, there
+        # is only one player with one or more settlements, which is the requirement for this victory.
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2]
+        # However! The human player has a settler unit leftover, protecting them from elimination.
+        self.game_state.players[0].units = [Unit(0, 0, (0, 0), False, next(up for up in UNIT_PLANS if up.can_settle))]
+        self.game_state.board.overlay.toggle_elimination = MagicMock()
+
+        # To begin with, the other players should not be eliminated.
+        self.assertFalse(self.game_state.players[0].eliminated)
+        self.assertFalse(self.game_state.players[2].eliminated)
+        self.assertFalse(self.game_state.players[3].eliminated)
+        # Due to the human player's protection, no victory should have been achieved.
+        self.assertIsNone(self.game_state.check_for_victory())
+        # Despite the human player not being eliminated, the other two players should still have been eliminated, and
+        # the elimination overlay displayed for them.
+        self.assertFalse(self.game_state.players[0].eliminated)
+        self.assertTrue(self.game_state.players[2].eliminated)
+        self.assertTrue(self.game_state.players[3].eliminated)
+        self.assertEqual(2, self.game_state.board.overlay.toggle_elimination.call_count)
 
     def test_process_heathens_infidel(self):
         """

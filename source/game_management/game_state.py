@@ -321,9 +321,9 @@ class GameState:
                 # If the player has constructed the Holy Sanctum, they have achieved a VIGOUR victory.
                 if constructed_sanctum:
                     return Victory(p, VictoryType.VIGOUR)
-            elif any(unit.plan.can_settle for unit in self.players[0].units):
-                players_with_setls += 1
-            elif not p.eliminated:
+            # The player has a special advantage over the AIs - if they have a settler unit despite losing all of their
+            # settlements, they are considered to still be in the game.
+            elif not (p == self.players[0] and any(unit.plan.can_settle for unit in p.units)) and not p.eliminated:
                 p.eliminated = True
                 self.board.overlay.toggle_elimination(p)
             # If the player has accumulated at least 100k wealth over the game, they have achieved an AFFLUENCE victory.
@@ -344,8 +344,10 @@ class GameState:
                 close_to_vics.append(Victory(p, VictoryType.SERENDIPITY))
                 p.imminent_victories.add(VictoryType.SERENDIPITY)
 
-        if players_with_setls == 1:
-            # If there is only one player with settlements, they have achieved an ELIMINATION victory.
+        if players_with_setls == 1 and \
+                not (not self.players[0].settlements and any(unit.plan.can_settle for unit in self.players[0].units)):
+            # If there is only one player with settlements (and the human player doesn't have a settler), they have
+            # achieved an ELIMINATION victory.
             return Victory(next(player for player in self.players if len(player.settlements) > 0),
                            VictoryType.ELIMINATION)
 
