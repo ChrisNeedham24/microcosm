@@ -1,11 +1,12 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
-from source.foundation.catalogue import UNIT_PLANS, BLESSINGS
+from source.foundation.catalogue import UNIT_PLANS, BLESSINGS, PROJECTS
 from source.foundation.models import Biome, Unit, AttackData, HealData, Settlement, SetlAttackData, Player, Faction, \
-    Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing
+    Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing, \
+    Quad, EconomicStatus, HarvestStatus
 from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction, \
-    investigate_relic
+    investigate_relic, get_player_totals, get_setl_totals
 
 
 class CalculatorTest(unittest.TestCase):
@@ -147,27 +148,285 @@ class CalculatorTest(unittest.TestCase):
         self.assertFalse(setl_attack_data.attacker_was_killed)
         self.assertTrue(setl_attack_data.setl_was_taken)
 
-    """
-    Get player/setl totals cases to test
-    
-    Agriculturists
-    Fundamentalists
-    Strict rounding
-    Economical project
-    Recession
-    Boom
-    Godless
-    Orthodox
-    Bountiful project
-    Poor harvest
-    Besieged
-    Plentiful harvest
-    Ravenous
-    Night harvest/fortune (show nocturne is fine)
-    Magical project
-    Scrutineers
-    Standard no penalties, no bonuses
-    """
+    def test_get_player_totals_agriculturists(self):
+        """
+        Ensure that the zeal yield is calculated correctly for players of the Agriculturists faction.
+        """
+        quad_imp_zeal = 4
+        imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement", Effect(zeal=quad_imp_zeal), None)
+        quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, 0)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        player = Player("Tester", Faction.AGRICULTURISTS, 0, 0, [setl], [], [], set(), set())
+
+        _, _, zeal, _ = get_player_totals(player, False)
+        # Agriculturists receive 75% of the zeal that players of other factions do.
+        self.assertEqual(2 * quad_imp_zeal * 0.75, zeal)
+
+    def test_get_player_totals_fundamentalists(self):
+        """
+        Ensure that the zeal yield is calculated correctly for players of the Fundamentalists faction.
+        """
+        quad_imp_zeal = 4
+        imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement", Effect(zeal=quad_imp_zeal), None)
+        quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, 0)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        player = Player("Tester", Faction.FUNDAMENTALISTS, 0, 0, [setl], [], [], set(), set())
+
+        _, _, zeal, _ = get_player_totals(player, False)
+        # Fundamentalists receive 125% of the zeal that players of other factions do.
+        self.assertEqual(2 * quad_imp_zeal * 1.25, zeal)
+
+    def test_get_player_totals_economical_project(self):
+        """
+        Ensure that the wealth yield is calculated correctly when a settlement is working on the economical project.
+        """
+        quad_imp_zeal = 4
+        quad_imp_wealth = 2
+
+        imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement",
+                          Effect(zeal=quad_imp_zeal, wealth=quad_imp_wealth), None)
+        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, quad_imp_zeal, 0)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [], current_work=Construction(PROJECTS[1]))
+        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+
+        wealth, _, _, _ = get_player_totals(player, False)
+        # We expect the standard quad and improvement wealth to be supplemented with a quarter of the produced zeal.
+        self.assertEqual(2 * quad_imp_wealth + 2 * quad_imp_zeal / 4, wealth)
+
+    def test_get_player_totals_recession(self):
+        """
+        Ensure that the wealth yield is calculated correctly when a settlement is in recession.
+        """
+        quad_imp_wealth = 4
+        imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
+        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, economic_status=EconomicStatus.RECESSION)
+        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+
+        wealth, _, _, _ = get_player_totals(player, False)
+        # The wealth would normally be 26, but is instead 0 due to the recession.
+        self.assertFalse(wealth)
+
+    def test_get_player_totals_boom(self):
+        """
+        Ensure that the wealth yield is calculated correctly when a settlement is in an economic boom.
+        """
+        quad_imp_wealth = 4
+        imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
+        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, economic_status=EconomicStatus.BOOM)
+        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+
+        wealth, _, _, _ = get_player_totals(player, False)
+        # Add the quad and improvement wealth together to begin with.
+        expected_wealth = 2 * quad_imp_wealth
+        # Then, add the level bonus.
+        expected_wealth += (setl.level - 1) * 0.25 * expected_wealth
+        # Lastly, being in an economic boom grants an extra 50% on top.
+        expected_wealth *= 1.5
+        self.assertEqual(expected_wealth, wealth)
+
+    def test_get_player_totals_godless(self):
+        """
+        Ensure that the wealth yield is calculated correctly for players of the Godless faction.
+        """
+        quad_imp_wealth = 4
+        imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
+        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        player = Player("Tester", Faction.GODLESS, 0, 0, [setl], [], [], set(), set())
+
+        wealth, _, _, _ = get_player_totals(player, False)
+        # The Godless receive 125% of the wealth that players of other factions do.
+        self.assertEqual(2 * quad_imp_wealth * 1.25, wealth)
+
+    def test_get_player_totals_orthodox(self):
+        """
+        Ensure that the wealth and fortune yields are calculated correctly for players of the Orthodox faction.
+        """
+        quad_imp_wealth = 4
+        quad_imp_fortune = 2
+        imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement",
+                          Effect(wealth=quad_imp_wealth, fortune=quad_imp_fortune), None)
+        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, quad_imp_fortune)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        player = Player("Tester", Faction.ORTHODOX, 0, 0, [setl], [], [], set(), set())
+
+        wealth, _, _, fortune = get_player_totals(player, False)
+        # The Orthodox receive 75% of the wealth and 125% of the fortune that players of other factions do.
+        self.assertEqual(2 * quad_imp_wealth * 0.75, wealth)
+        self.assertEqual(2 * quad_imp_fortune * 1.25, fortune)
+
+    def test_get_player_totals_bountiful_project(self):
+        """
+        Ensure that the harvest yield is calculated correctly when a settlement is working on the bountiful project.
+        """
+        quad_imp_zeal = 4
+        quad_imp_harvest = 2
+
+        imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement",
+                          Effect(zeal=quad_imp_zeal, harvest=quad_imp_harvest), None)
+        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, quad_imp_zeal, 0)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [], current_work=Construction(PROJECTS[0]))
+        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+
+        _, harvest, _, _ = get_player_totals(player, False)
+        # We expect the standard quad and improvement harvest to be supplemented with a quarter of the produced zeal.
+        self.assertEqual(2 * quad_imp_harvest + 2 * quad_imp_zeal / 4, harvest)
+
+    def test_get_player_totals_poor_harvest(self):
+        """
+        Ensure that the harvest yield is calculated correctly when a settlement has a poor harvest.
+        """
+        quad_imp_harvest = 4
+        imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
+        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, harvest_status=HarvestStatus.POOR)
+        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+
+        _, harvest, _, _ = get_player_totals(player, False)
+        # The harvest would normally be 26, but is instead 0 due to the poor harvest.
+        self.assertFalse(harvest)
+
+    def test_get_player_totals_besieged(self):
+        """
+        Ensure that the harvest yield is calculated correctly when a settlement is under siege.
+        """
+        quad_imp_harvest = 4
+        imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
+        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, besieged=True)
+        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+
+        _, harvest, _, _ = get_player_totals(player, False)
+        # The harvest would normally be 26, but is instead 0 due to the siege.
+        self.assertFalse(harvest)
+
+    def test_get_player_totals_plentiful_harvest(self):
+        """
+        Ensure that the harvest yield is calculated correctly when a settlement has a plentiful harvest.
+        """
+        quad_imp_harvest = 4
+        imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
+        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, harvest_status=HarvestStatus.PLENTIFUL)
+        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+
+        _, harvest, _, _ = get_player_totals(player, False)
+        # Add the quad and improvement harvest together to begin with.
+        expected_harvest = 2 * quad_imp_harvest
+        # Then, add the level bonus.
+        expected_harvest += (setl.level - 1) * 0.25 * expected_harvest
+        # Lastly, having a plentiful harvest grants an extra 50% on top.
+        expected_harvest *= 1.5
+        self.assertEqual(expected_harvest, harvest)
+
+    def test_get_player_totals_ravenous(self):
+        """
+        Ensure that the harvest yield is calculated correctly for players of the Ravenous faction.
+        """
+        quad_imp_harvest = 4
+        imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
+        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        player = Player("Tester", Faction.RAVENOUS, 0, 0, [setl], [], [], set(), set())
+
+        _, harvest, _, _ = get_player_totals(player, False)
+        # The Ravenous receive 125% of the harvest that players of other factions do.
+        self.assertEqual(2 * quad_imp_harvest * 1.25, harvest)
+
+    def test_get_player_totals_magical_project(self):
+        """
+        Ensure that the fortune yield is calculated correctly when a settlement is working on the magical project.
+        """
+        quad_imp_zeal = 4
+        quad_imp_fortune = 2
+
+        imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement",
+                          Effect(zeal=quad_imp_zeal, fortune=quad_imp_fortune), None)
+        quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, quad_imp_fortune)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [], current_work=Construction(PROJECTS[2]))
+        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+
+        _, _, _, fortune = get_player_totals(player, False)
+        # We expect the standard quad and improvement fortune to be supplemented with a quarter of the produced zeal.
+        self.assertEqual(2 * quad_imp_fortune + 2 * quad_imp_zeal / 4, fortune)
+
+    def test_get_player_totals_scrutineers(self):
+        """
+        Ensure that the fortune yield is calculated correctly for players of the Scrutineers faction.
+        """
+        quad_imp_fortune = 4
+        imp = Improvement(ImprovementType.MAGICAL, 0, "Test", "Improvement", Effect(fortune=quad_imp_fortune), None)
+        quad = Quad(Biome.SEA, 0, 0, 0, quad_imp_fortune)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        player = Player("Tester", Faction.SCRUTINEERS, 0, 0, [setl], [], [], set(), set())
+
+        _, _, _, fortune = get_player_totals(player, False)
+        # Scrutineers receive 75% of the fortune that players of other factions do.
+        self.assertEqual(2 * quad_imp_fortune * 0.75, fortune)
+
+    def test_get_player_totals_night(self):
+        """
+        Ensure that harvest and fortune yields are calculated correctly when it is nighttime.
+        """
+        quad_imp_fortune = 5
+        quad_imp_harvest = 4
+        imp = Improvement(ImprovementType.MAGICAL, 0, "Test", "Improvement",
+                          Effect(harvest=quad_imp_harvest, fortune=quad_imp_fortune), None)
+        quad = Quad(Biome.SEA, 0, quad_imp_harvest, 0, quad_imp_fortune)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+
+        _, harvest, _, fortune = get_player_totals(player, True)
+        # For players of all factions but The Nocturne, nighttime results in 50% of the usual harvest, and 110% of the
+        # usual fortune.
+        self.assertEqual(2 * quad_imp_harvest / 2, harvest)
+        self.assertEqual(2 * quad_imp_fortune * 1.1, fortune)
+
+        player.faction = Faction.NOCTURNE
+        _, harvest, _, fortune = get_player_totals(player, True)
+        # However, players of the Nocturne do not suffer the harvest penalty, and still receive the fortune bonus.
+        self.assertEqual(2 * quad_imp_harvest, harvest)
+        self.assertEqual(2 * quad_imp_fortune * 1.1, fortune)
+
+    def test_get_player_totals_standard(self):
+        """
+        Ensure that player totals are calculated correctly in a situation with no penalties or bonuses.
+        """
+        quad_wealth = 2
+        imp_harvest = 4
+        quad_zeal = 6
+        imp_fortune = 8
+        imp = Improvement(ImprovementType.MAGICAL, 0, "Standard", "Improvement",
+                          Effect(harvest=imp_harvest, fortune=imp_fortune), None)
+        quad = Quad(Biome.MOUNTAIN, quad_wealth, 0, quad_zeal, 0)
+        setl = Settlement("Pleasantville", (0, 0), [imp], [quad], [], level=10)
+        player = Player("Johnny Appleseed", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+
+        wealth, harvest, zeal, fortune = get_player_totals(player, False)
+        # Each yield should be the base quad/improvement value, with the level bonus added on.
+        self.assertEqual(quad_wealth + 2.25 * quad_wealth, wealth)
+        self.assertEqual(imp_harvest + 2.25 * imp_harvest, harvest)
+        self.assertEqual(quad_zeal + 2.25 * quad_zeal, zeal)
+        self.assertEqual(imp_fortune + 2.25 * imp_fortune, fortune)
+
+    def test_get_setl_totals_strict(self):
+        """
+        Ensure that the strict parameter functions correctly when retrieving settlement totals.
+        """
+        setl = Settlement("Test Town", (0, 0), [], [], [])
+        player = Player("Testerman", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+
+        _, _, zeal, fortune = get_setl_totals(player, setl, False)
+        # A settlement will always produce at least 0.5 zeal and fortune when strict is False.
+        self.assertEqual(0.5, zeal)
+        self.assertEqual(0.5, fortune)
+
+        _, _, zeal, fortune = get_setl_totals(player, setl, False, strict=True)
+        # However, when strict is True, settlements can produce 0 zeal and fortune.
+        self.assertFalse(zeal)
+        self.assertFalse(fortune)
 
     def test_complete_construction(self):
         """
