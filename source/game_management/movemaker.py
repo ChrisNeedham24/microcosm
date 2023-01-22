@@ -167,11 +167,7 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
             for i in harv_imps:
                 if i.effect.harvest > most_harvest[0] and i.cost <= most_harvest[1]:
                     most_harvest = i.effect.harvest, i.cost, i
-            # Again, don't do the improvement if it takes too long relatively.
-            if avail_imps[0].cost * 5 < most_harvest[1]:
-                setl.current_work = Construction(ideal)
-            else:
-                setl.current_work = Construction(most_harvest[2])
+            setl.current_work = Construction(most_harvest[2])
         # In all other circumstances, i.e. most of the time, just construct the ideal improvement.
         else:
             setl.current_work = Construction(ideal)

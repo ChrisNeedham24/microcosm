@@ -1,11 +1,12 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from source.display.board import Board
-from source.foundation.catalogue import Namer, UNIT_PLANS, BLESSINGS, get_unlockable_improvements
+from source.foundation.catalogue import Namer, UNIT_PLANS, BLESSINGS, get_unlockable_improvements, get_improvement, \
+    get_available_improvements
 from source.foundation.models import GameConfig, Faction, Unit, Player, Settlement, AIPlaystyle, AttackPlaystyle, \
-    ExpansionPlaystyle, Blessing
-from source.game_management.movemaker import search_for_relics_or_move, set_blessing
+    ExpansionPlaystyle, Blessing, Quad, Biome
+from source.game_management.movemaker import search_for_relics_or_move, set_blessing, set_player_construction
 
 
 class MovemakerTest(unittest.TestCase):
@@ -47,6 +48,10 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_UNIT_2.location = self.relic_coords[0] - 1, self.relic_coords[1]
         self.TEST_UNIT_3.location = self.relic_coords[0], self.relic_coords[1] + 1
         self.TEST_SETTLEMENT.location = self.relic_coords[0], self.relic_coords[1] - 1
+        self.TEST_SETTLEMENT.current_work = None
+        self.TEST_SETTLEMENT.quads = []
+        self.TEST_SETTLEMENT.satisfaction = 50
+        self.TEST_SETTLEMENT.improvements = []
         self.TEST_PLAYER.units = [self.TEST_UNIT]
         self.TEST_PLAYER.blessings = []
         self.TEST_PLAYER.ongoing_blessing = None
@@ -162,6 +167,163 @@ class MovemakerTest(unittest.TestCase):
         # 15.
         new_blessing: Blessing = self.TEST_PLAYER.ongoing_blessing.blessing
         self.assertEqual(BLESSINGS["met_alt"], new_blessing)
+
+    def test_set_player_construction_no_units(self):
+        """
+        Ensure that when a player has no deployed units nor any in the settlement's garrison, the first available unit
+        should be selected for construction.
+        """
+        self.TEST_PLAYER.units = []
+
+        set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
+        self.assertEqual(UNIT_PLANS[0], self.TEST_SETTLEMENT.current_work.construction)
+
+    def test_set_player_construction_wealth(self):
+        """
+        Ensure that when a player's settlement is lacking wealth, the correct improvement is selected for construction.
+        """
+        # Harvest needs to be higher so that we are above the harvest boundary.
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 0, 100, 1, 1)]
+        self.TEST_PLAYER.blessings = list(BLESSINGS.values())
+        # Remove a blessing to create a suitable test environment.
+        self.TEST_PLAYER.blessings.remove(BLESSINGS["sl_vau"])
+
+        set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
+        # Technically, Planned Economy, which grants 20 wealth is the ideal improvement for this situation. However,
+        # that improvement also decreases satisfaction by 2, meaning that the settlement's satisfaction would be lowered
+        # to 48, which is not ideal. As such, Federal Museum is selected instead, as it has the next most wealth and
+        # does not negatively impact satisfaction.
+        self.assertEqual(get_improvement("Federal Museum"), self.TEST_SETTLEMENT.current_work.construction)
+
+    def test_set_player_construction_harvest(self):
+        """
+        Ensure that when a player's settlement is lacking harvest, the correct improvement is selected for construction.
+        """
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.DESERT, 100, 99, 100, 100)]
+        self.TEST_PLAYER.blessings = list(BLESSINGS.values())
+        # Remove a blessing to create a suitable test environment.
+        self.TEST_PLAYER.blessings.remove(BLESSINGS["art_pht"])
+
+        set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
+        # Technically, Impenetrable Stores, which grants 25 harvest is the ideal improvement for this situation.
+        # However, that improvement also decreases satisfaction by 5, meaning that the settlement's satisfaction would
+        # be lowered to 45, which is not ideal. As such, Genetic Clinics is selected instead, as it has the next most
+        # harvest and does not negatively impact satisfaction.
+        self.assertEqual(get_improvement("Genetic Clinics"), self.TEST_SETTLEMENT.current_work.construction)
+
+    def test_set_player_construction_zeal(self):
+        """
+        Ensure that when a player's settlement is lacking zeal, the correct improvement is selected for construction.
+        """
+        # Harvest needs to be higher so that we are above the harvest boundary.
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_PLAYER.blessings = list(BLESSINGS.values())
+
+        set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
+        # Technically, Automated Production, which grants 30 zeal is the ideal improvement for this situation.
+        # However, that improvement also decreases satisfaction by 10, meaning that the settlement's satisfaction would
+        # be lowered to 40, which is not ideal. As such, Endless Mine is selected instead, as it has the next most
+        # zeal and does not negatively impact satisfaction.
+        self.assertEqual(get_improvement("Endless Mine"), self.TEST_SETTLEMENT.current_work.construction)
+
+    @patch("source.game_management.movemaker.get_available_improvements")
+    def test_set_player_construction_fortune(self, imps_mock: MagicMock):
+        """
+        Ensure that when a player's settlement is lacking fortune, the correct improvement is selected for construction.
+        :param imps_mock: The mock implementation of the get_available_improvements() function.
+        """
+        # Harvest needs to be higher so that we are above the harvest boundary.
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 1, 0)]
+        self.TEST_PLAYER.blessings = [BLESSINGS["beg_spl"]]
+        # We need to mock out the available improvements so as to achieve full coverage, reaching a block where the
+        # improvement with the most fortune is updated. We do this by simply switching the first two improvements in the
+        # list, as the eventual selection is normally the first in the list.
+        test_imps = get_available_improvements(self.TEST_PLAYER, self.TEST_SETTLEMENT)
+        test_imps[0], test_imps[1] = test_imps[1], test_imps[0]
+        imps_mock.return_value = test_imps
+
+        set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
+        # Technically, Haunted Forest, which grants 8 fortune is the ideal improvement for this situation.
+        # However, that improvement also decreases satisfaction by 5, meaning that the settlement's satisfaction would
+        # be lowered to 45, which is not ideal. As such, Melting Pot is selected instead, as it has the next most
+        # fortune and does not negatively impact satisfaction.
+        self.assertEqual(get_improvement("Melting Pot"), self.TEST_SETTLEMENT.current_work.construction)
+
+    def test_set_player_construction_unsatisfied_too_expensive(self):
+        """
+        Ensure that when a player's settlement is below 50 satisfaction, but there are no improvements that would
+        increase it without taking too many turns, the ideal improvement is selected for construction instead.
+        """
+        # Harvest needs to be higher so that we are above the harvest boundary.
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.satisfaction = 49
+        # Give the settlement all the improvements in the first 'tier' that grant satisfaction.
+        self.TEST_SETTLEMENT.improvements = [
+            get_improvement("Aqueduct"),
+            get_improvement("Collectivised Farms"),
+            get_improvement("City Market"),
+            get_improvement("Melting Pot"),
+            get_improvement("Insurmountable Walls")
+        ]
+        self.TEST_PLAYER.blessings = list(BLESSINGS.values())
+
+        set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
+        # Since any of the improvements in the second 'tier' take too many turns, we expect the ideal improvement to be
+        # selected instead. In this case, the ideal improvement is Local Forge, since zeal is the lowest of the four.
+        self.assertEqual(get_improvement("Local Forge"), self.TEST_SETTLEMENT.current_work.construction)
+
+    def test_set_player_construction_unsatisfied(self):
+        """
+        Ensure that when a player's settlement is below 50 satisfaction, the improvement that would grant the most
+        combined satisfaction and harvest upon completion without taking too many turns is selected for construction.
+        """
+        # Harvest needs to be higher so that we are above the harvest boundary.
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.satisfaction = 49
+        self.TEST_PLAYER.blessings = list(BLESSINGS.values())
+
+        set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
+        # We expect the Aqueduct improvement to be selected, as it grants 2 harvest and 5 satisfaction, which is the
+        # most combined in the first 'tier' of improvements.
+        self.assertEqual(get_improvement("Aqueduct"), self.TEST_SETTLEMENT.current_work.construction)
+
+    def test_set_player_construction_harvest_boundary(self):
+        """
+        Ensure that when a player's settlement is below the harvest boundary, the improvement that would grant the most
+        harvest upon completion without taking too many turns is selected for construction.
+        """
+        # Harvest needs to be higher so that we are above the harvest boundary.
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 100, 0, 100, 100)]
+        self.TEST_PLAYER.blessings = list(BLESSINGS.values())
+
+        set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
+        # We expect the Collectivised Farms improvement to be selected, as it grants 10 harvest, which is the most in
+        # the first 'tier' of improvements.
+        self.assertEqual(get_improvement("Collectivised Farms"), self.TEST_SETTLEMENT.current_work.construction)
+
+    """
+    Set AI construction cases to test
+    
+    No units or garrison - makes unit
+    Produces settler when appropriate
+    Doesn't produce settler when concentrated
+    Doesn't produce settler when done before
+    Produces settler when all settlements dissatisfied
+    Needs wealth (check better one that reduces satisfaction too)
+    Needs harvest (check better one that reduces satisfaction too)
+    Needs zeal (check better one that reduces satisfaction too)
+    Needs fortune (check better one that reduces satisfaction too)
+    Unsatisfied settlement - improvement too expensive
+    Unsatisfied settlement - most beneficial found
+    Below harvest boundary - most harvest found
+    Aggressive AI - makes healer
+    Aggressive AI - most powerful unit
+    Aggressive AI - enough units
+    Defensive AI - makes healer
+    Defensive AI - makes healthy unit
+    Defensive AI - strength improvement
+    Defensive AI - enough units, no strength improvements
+    """
 
     @patch("source.game_management.movemaker.investigate_relic", lambda *args: None)
     def test_search_for_relics_success_left(self):

@@ -18,21 +18,26 @@ class BoardTest(unittest.TestCase):
     TEST_ENEMY_SETTLEMENT = Settlement("Bad Town", (6, 6), [], [], [])
     TEST_UNIT_PLAN = UnitPlan(100, 100, 2, "TestMan", None, 0)
     TEST_UNIT = Unit(100, 2, (5, 5), False, TEST_UNIT_PLAN)
+    TEST_UNIT_2 = Unit(100, 2, (8, 8), False, TEST_UNIT_PLAN)
+    TEST_UNIT_3 = Unit(100, 10, (9, 9), False, TEST_UNIT_PLAN)
     TEST_PLAYER = Player("Mr. Tester", Faction.FUNDAMENTALISTS, 0, 0, [TEST_SETTLEMENT], [], [], set(), set())
     TEST_ENEMY_PLAYER = Player("Dr. Evil", Faction.INFIDELS, 0, 0, [TEST_ENEMY_SETTLEMENT], [], [], set(), set())
     TEST_HEATHEN = Heathen(100, 2, (10, 10), get_heathen_plan(1))
 
     def setUp(self) -> None:
         """
-        Instantiate a standard Board object with generated quads before each test. Also reset the test player's details
-        and save some relevant quad coordinates.
+        Instantiate a standard Board object with generated quads before each test. Also reset the test models and save
+        some relevant quad coordinates.
         """
         self.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
         self.TEST_UNIT.location = (5, 5)
+        self.TEST_UNIT_3.besieging = False
         self.TEST_PLAYER.units = [self.TEST_UNIT]
         self.TEST_PLAYER.faction = Faction.FUNDAMENTALISTS
         self.TEST_SETTLEMENT.garrison = []
         self.TEST_PLAYER.settlements = [self.TEST_SETTLEMENT]
+        self.TEST_ENEMY_PLAYER.units = [self.TEST_UNIT_2]
+        self.TEST_ENEMY_SETTLEMENT.besieged = False
         # We need to find a relic quad before each test, because the quads are re-generated each time.
         self.relic_coords: (int, int) = -1, -1
         for i in range(90):
@@ -592,18 +597,111 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(self.TEST_UNIT, self.board.selected_unit)
         self.board.overlay.toggle_unit.assert_called_with(self.TEST_UNIT)
 
-    """
-    Unit movement cases to test
-    
-    Can't move heathen
-    Can't move another player's unit
-    Can't move where another unit is
-    Can't move where another settlement is
-    Can't move on top of a relic
-    Can't move further than stamina
-    Regular movement
-    Movement into siege
-    """
+    def test_left_click_move_heathen(self):
+        """
+        Ensure that when a heathen is selected, clicking on an adjacent quad does not move it.
+        """
+        self.board.selected_unit = self.TEST_HEATHEN
+
+        self.assertTupleEqual((10, 10), self.TEST_HEATHEN.location)
+        self.board.process_left_click(55, 50, True, self.TEST_PLAYER, (5, 5), [], self.TEST_PLAYER.units, [], [])
+        # The heathen should not have moved and should no longer be selected.
+        self.assertTupleEqual((10, 10), self.TEST_HEATHEN.location)
+        self.assertIsNone(self.board.selected_unit)
+
+    def test_left_click_move_other_player_unit(self):
+        """
+        Ensure that when another player's unit is selected, clicking on a quad that it is within its range does not move
+        the unit.
+        """
+        self.board.selected_unit = self.TEST_UNIT_2
+
+        self.assertTupleEqual((8, 8), self.TEST_UNIT_2.location)
+        self.board.process_left_click(40, 30, True, self.TEST_PLAYER, (5, 5), [],
+                                      [self.TEST_UNIT, self.TEST_UNIT_2], [], [])
+        # The unit should not have moved and should no longer be selected.
+        self.assertTupleEqual((8, 8), self.TEST_UNIT_2.location)
+        self.assertIsNone(self.board.selected_unit)
+
+    def test_left_click_move_on_top_of_other_unit(self):
+        """
+        Ensure that when a player's unit is selected, clicking on a quad that is within its range, but is occupied by
+        another of the player's units, does not move the unit.
+        """
+        self.TEST_PLAYER.units.append(self.TEST_UNIT_3)
+
+        self.assertTupleEqual((9, 9), self.TEST_UNIT_3.location)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (5, 5), [],
+                                      [self.TEST_UNIT, self.TEST_UNIT_3], [], [])
+        # The original unit should not have moved and the other player unit should now be selected.
+        self.assertTupleEqual((9, 9), self.TEST_UNIT_3.location)
+        self.assertEqual(self.TEST_UNIT, self.board.selected_unit)
+
+    def test_left_click_move_unit_on_top_of_enemy_settlement(self):
+        """
+        Ensure that when a player's unit is selected, clicking on a quad that is within its range, but is occupied by an
+        enemy settlement, does not move the unit.
+        """
+        self.board.selected_unit = self.TEST_UNIT
+        self.board.overlay.toggle_setl_click = MagicMock()
+
+        self.assertTupleEqual((5, 5), self.TEST_UNIT.location)
+        self.board.process_left_click(15, 15, True, self.TEST_PLAYER, (5, 5), [], [],
+                                      [self.TEST_PLAYER, self.TEST_ENEMY_PLAYER], [self.TEST_ENEMY_SETTLEMENT])
+        # The unit should not have moved and the settlement click overlay should have been toggled.
+        self.assertTupleEqual((5, 5), self.TEST_UNIT.location)
+        self.board.overlay.toggle_setl_click.assert_called()
+
+    def test_left_click_move_unit_on_top_of_relic(self):
+        """
+        Ensure that when a player's unit is selected, clicking on an adjacent quad that is occupied by a relic does not
+        move the unit.
+        """
+        self.board.selected_unit = self.TEST_UNIT
+        # Position the unit next to a relic.
+        self.board.selected_unit.location = (self.relic_coords[1], self.relic_coords[0] + 1)
+
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (self.relic_coords[1], self.relic_coords[0]), [],
+                                      [], [], [])
+        # The unit should not have moved, and instead the relic should have been investigated.
+        self.assertTupleEqual((self.relic_coords[1], self.relic_coords[0] + 1), self.board.selected_unit.location)
+        self.assertFalse(self.board.quads[self.relic_coords[0]][self.relic_coords[1]].is_relic)
+
+    def test_left_click_move_unit_not_enough_stamina(self):
+        """
+        Ensure that when a player's unit is selected, clicking on a quad outside its range does not move it.
+        """
+        self.board.selected_unit = self.TEST_UNIT
+
+        self.assertTupleEqual((5, 5), self.TEST_UNIT.location)
+        self.board.process_left_click(50, 50, True, self.TEST_PLAYER, (4, 4), [], [], [], [])
+        self.assertTupleEqual((5, 5), self.TEST_UNIT.location)
+
+    def test_left_click_move_unit(self):
+        """
+        Ensure that when a player's unit is selected, clicking on a quad within its range moves it there.
+        """
+        self.board.selected_unit = self.TEST_UNIT
+
+        self.assertTupleEqual((5, 5), self.TEST_UNIT.location)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (4, 4), [], [], [], [])
+        self.assertTupleEqual((4, 4), self.TEST_UNIT.location)
+
+    def test_left_click_move_unit_into_siege(self):
+        """
+        Ensure that when a player's unit is moved within range of an enemy settlement currently under siege, the unit's
+        state is correctly updated.
+        """
+        self.TEST_ENEMY_SETTLEMENT.besieged = True
+        self.TEST_PLAYER.units.append(self.TEST_UNIT_3)
+        self.board.selected_unit = self.TEST_UNIT_3
+
+        self.assertTupleEqual((9, 9), self.TEST_UNIT_3.location)
+        self.board.process_left_click(25, 15, True, self.TEST_PLAYER, (5, 5), [], [],
+                                      [self.TEST_PLAYER, self.TEST_ENEMY_PLAYER], [self.TEST_ENEMY_SETTLEMENT])
+        # The unit should have moved next to the settlement under siege and the unit should now be besieging.
+        self.assertTupleEqual((7, 6), self.TEST_UNIT_3.location)
+        self.assertTrue(self.TEST_UNIT_3.besieging)
 
     def test_left_click_relic(self):
         """
