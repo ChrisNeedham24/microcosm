@@ -16,7 +16,7 @@ class BoardTest(unittest.TestCase):
     TEST_UPDATE_TIME_OVER = 4
     TEST_SETTLEMENT = Settlement("Test Town", (7, 7), [], [], [])
     TEST_ENEMY_SETTLEMENT = Settlement("Bad Town", (6, 6), [], [], [])
-    TEST_UNIT_PLAN = UnitPlan(100, 100, 2, "TestMan", None, 0)
+    TEST_UNIT_PLAN = UnitPlan(100, 100, 2, "TestMan", None, 0, heals=True)
     TEST_UNIT = Unit(100, 2, (5, 5), False, TEST_UNIT_PLAN)
     TEST_UNIT_2 = Unit(100, 2, (8, 8), False, TEST_UNIT_PLAN)
     TEST_UNIT_3 = Unit(100, 10, (9, 9), False, TEST_UNIT_PLAN)
@@ -31,7 +31,12 @@ class BoardTest(unittest.TestCase):
         """
         self.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
         self.TEST_UNIT.location = (5, 5)
+        self.TEST_UNIT.has_acted = False
+        self.TEST_UNIT.health = 100
+        self.TEST_UNIT_2.health = 100
         self.TEST_UNIT_3.besieging = False
+        self.TEST_UNIT_3.health = 100
+        self.TEST_HEATHEN.health = 100
         self.TEST_PLAYER.units = [self.TEST_UNIT]
         self.TEST_PLAYER.faction = Faction.FUNDAMENTALISTS
         self.TEST_SETTLEMENT.garrison = []
@@ -551,19 +556,174 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(self.TEST_HEATHEN, self.board.selected_unit)
         self.board.overlay.toggle_unit.assert_called_with(self.TEST_HEATHEN)
 
-    """
-    Attack cases to test
-    
-    Unit has already acted
-    Unit has clicked on itself
-    Unit has clicked on a unit too far away
-    Unit attack - none killed
-    Unit attack - attacker killed
-    Unit attack - heathen killed
-    Unit attack - defender killed
-    Heal
-    Select other unit
-    """
+    def test_left_click_attack_already_acted(self):
+        """
+        Ensure that when a unit has already acted, clicking on an adjacent enemy unit does not initiate an attack.
+        """
+        self.TEST_UNIT.has_acted = True
+        # Move the unit next to TEST_UNIT_2, which is at (8, 8).
+        self.TEST_UNIT.location = (7, 8)
+        self.board.selected_unit = self.TEST_UNIT
+        self.board.overlay.toggle_attack = MagicMock()
+
+        self.board.process_left_click(15, 15, True, self.TEST_PLAYER, (7, 7), [], [self.TEST_UNIT, self.TEST_UNIT_2],
+                                      [self.TEST_PLAYER, self.TEST_ENEMY_PLAYER], [])
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_attack.assert_not_called()
+
+    def test_left_click_attack_itself(self):
+        """
+        Ensure that when the selected unit is clicked on, the unit does not somehow attack itself.
+        """
+        self.board.selected_unit = self.TEST_UNIT
+        self.board.overlay.toggle_attack = MagicMock()
+
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (5, 5), [],
+                                      [self.TEST_UNIT], [self.TEST_PLAYER], [])
+        self.assertEqual(self.TEST_UNIT, self.board.selected_unit)
+        self.board.overlay.toggle_attack.assert_not_called()
+
+    def test_left_click_attack_too_far_away(self):
+        """
+        Ensure that when an enemy unit outside the selected unit's range is clicked on, an attack is not initiated.
+        """
+        self.board.selected_unit = self.TEST_UNIT
+        self.board.overlay.toggle_attack = MagicMock()
+
+        # TEST_UNIT is at (5, 5) and TEST_UNIT_2 is being clicked on here, which is at (8, 8). This is clearly too far
+        # away.
+        self.board.process_left_click(35, 35, True, self.TEST_PLAYER, (5, 5), [], [self.TEST_UNIT, self.TEST_UNIT_2],
+                                      [self.TEST_PLAYER, self.TEST_ENEMY_PLAYER], [])
+        self.assertEqual(self.TEST_UNIT, self.board.selected_unit)
+        self.board.overlay.toggle_attack.assert_not_called()
+
+    def test_left_click_attack_no_casualties(self):
+        """
+        Ensure that the correct state and overlay updates occur when an attack between units occurs with no casualties.
+        """
+        # Move the unit next to TEST_UNIT_2, which is at (8, 8).
+        self.TEST_UNIT.location = (7, 8)
+        self.board.selected_unit = self.TEST_UNIT
+        self.board.overlay.toggle_attack = MagicMock()
+
+        self.board.process_left_click(15, 15, True, self.TEST_PLAYER, (7, 7), [], [self.TEST_UNIT, self.TEST_UNIT_2],
+                                      [self.TEST_PLAYER, self.TEST_ENEMY_PLAYER], [])
+        self.assertEqual(self.TEST_UNIT, self.board.selected_unit)
+        # The overlay should be displayed and its time bank reset.
+        self.board.overlay.toggle_attack.assert_called()
+        self.assertFalse(self.board.attack_time_bank)
+        # The units themselves should also still be associated with their players.
+        self.assertIn(self.TEST_UNIT, self.TEST_PLAYER.units)
+        self.assertIn(self.TEST_UNIT_2, self.TEST_ENEMY_PLAYER.units)
+
+    def test_left_click_attack_attacker_killed(self):
+        """
+        Ensure that the correct state and overlay updates occur when an attack between units occurs and the attacker
+        player unit is killed.
+        """
+        # Move the unit next to TEST_UNIT_2, which is at (8, 8). Also reduce its health to make its death certain.
+        self.TEST_UNIT.location = (7, 8)
+        self.TEST_UNIT.health = 1
+        self.board.selected_unit = self.TEST_UNIT
+        self.board.overlay.toggle_attack = MagicMock()
+        self.board.overlay.toggle_unit = MagicMock()
+
+        self.board.process_left_click(15, 15, True, self.TEST_PLAYER, (7, 7), [], [self.TEST_UNIT, self.TEST_UNIT_2],
+                                      [self.TEST_PLAYER, self.TEST_ENEMY_PLAYER], [])
+        # The unit should have been removed from the player's units.
+        self.assertNotIn(self.TEST_UNIT, self.TEST_PLAYER.units)
+        # The unit should also no longer be selected, and its overlay removed.
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_called_with(None)
+        # The attack overlay should however be displayed and its time bank reset.
+        self.board.overlay.toggle_attack.assert_called()
+        self.assertFalse(self.board.attack_time_bank)
+        # Make sure the enemy unit is still alive.
+        self.assertIn(self.TEST_UNIT_2, self.TEST_ENEMY_PLAYER.units)
+
+    def test_left_click_attack_heathen_killed(self):
+        """
+        Ensure that the correct state and overlay updates occur when an attack between unit and heathen occurs and the
+        heathen is killed.
+        """
+        # Move the unit next to TEST_HEATHEN, which is at (10, 10).
+        self.TEST_UNIT.location = (9, 10)
+        # Reduce the heathen's health to make its death certain.
+        self.TEST_HEATHEN.health = 1
+        # We need to pre-define the list of heathens because the board processing method will remove the heathen from
+        # this list if it is killed.
+        heathen_list = [self.TEST_HEATHEN]
+        self.board.selected_unit = self.TEST_UNIT
+        self.board.overlay.toggle_attack = MagicMock()
+
+        self.board.process_left_click(15, 15, True, self.TEST_PLAYER, (9, 9),
+                                      heathen_list, [self.TEST_UNIT], [self.TEST_PLAYER], [])
+        # The heathen should have been removed from our list, as expected.
+        self.assertFalse(heathen_list)
+        self.assertEqual(self.TEST_UNIT, self.board.selected_unit)
+        # The attack overlay should be displayed and its time bank reset.
+        self.board.overlay.toggle_attack.assert_called()
+        self.assertFalse(self.board.attack_time_bank)
+        # Make sure the player unit is still alive.
+        self.assertIn(self.TEST_UNIT, self.TEST_PLAYER.units)
+
+    def test_left_click_attack_defender_killed(self):
+        """
+        Ensure that the correct state and overlay updates occur when an attack occurs between units and the defender is
+        killed.
+        """
+        # Move the unit next to TEST_UNIT_2, which is at (8, 8).
+        self.TEST_UNIT.location = (7, 8)
+        # Reduce the enemy unit's health to make its death certain.
+        self.TEST_UNIT_2.health = 1
+        self.board.selected_unit = self.TEST_UNIT
+        self.board.overlay.toggle_attack = MagicMock()
+
+        self.board.process_left_click(15, 15, True, self.TEST_PLAYER, (7, 7), [], [self.TEST_UNIT, self.TEST_UNIT_2],
+                                      [self.TEST_PLAYER, self.TEST_ENEMY_PLAYER], [])
+        # The enemy unit should have been removed from its player's units.
+        self.assertNotIn(self.TEST_UNIT_2, self.TEST_ENEMY_PLAYER.units)
+        self.assertEqual(self.TEST_UNIT, self.board.selected_unit)
+        # The attack overlay should be displayed and its time bank reset.
+        self.board.overlay.toggle_attack.assert_called()
+        self.assertFalse(self.board.attack_time_bank)
+        # Make sure the player unit is still alive.
+        self.assertIn(self.TEST_UNIT, self.TEST_PLAYER.units)
+
+    def test_left_click_attack_heal(self):
+        """
+        Ensure that the correct state and overlay updates occur when an adjacent friendly unit is clicked on when a
+        healer unit is selected.
+        """
+        self.TEST_PLAYER.units.append(self.TEST_UNIT_3)
+        # Move the unit next to TEST_UNIT_3, which is at (9, 9).
+        self.TEST_UNIT.location = (8, 9)
+        original_health = 1
+        self.TEST_UNIT_3.health = original_health
+        self.board.selected_unit = self.TEST_UNIT
+        self.board.overlay.toggle_heal = MagicMock()
+
+        self.board.process_left_click(15, 15, True, self.TEST_PLAYER, (8, 8), [],
+                                      [self.TEST_UNIT, self.TEST_UNIT_3], [self.TEST_PLAYER], [])
+        # The friendly unit should have had its health increased.
+        self.assertGreater(self.TEST_UNIT_3.health, original_health)
+        # The heal overlay should be displayed and its time bank reset.
+        self.board.overlay.toggle_heal.assert_called()
+        self.assertFalse(self.board.heal_time_bank)
+        self.assertEqual(self.TEST_UNIT, self.board.selected_unit)
+
+    def test_left_click_attack_select_other_unit(self):
+        """
+        Ensure that clicking on friendly units changes the currently-selected unit to them.
+        """
+        self.TEST_PLAYER.units.append(self.TEST_UNIT_3)
+        self.board.selected_unit = self.TEST_UNIT
+        self.board.overlay.update_unit = MagicMock()
+
+        self.board.process_left_click(15, 15, True, self.TEST_PLAYER, (8, 8), [],
+                                      [self.TEST_UNIT, self.TEST_UNIT_3], [self.TEST_PLAYER], [])
+        self.assertEqual(self.TEST_UNIT_3, self.board.selected_unit)
+        self.board.overlay.update_unit.assert_called_with(self.TEST_UNIT_3)
 
     def test_left_click_setl_click(self):
         """
