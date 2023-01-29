@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 from source.display.board import Board
 from source.foundation.catalogue import Namer, UNIT_PLANS, get_heathen_plan, IMPROVEMENTS, BLESSINGS
 from source.foundation.models import GameConfig, Faction, Player, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
-    Unit, Heathen, Settlement, Victory, VictoryType, Construction
+    Unit, Heathen, Settlement, Victory, VictoryType, Construction, OngoingBlessing, EconomicStatus, UnitPlan
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
 
@@ -16,9 +16,12 @@ class GameStateTest(unittest.TestCase):
     """
     TEST_CONFIG = GameConfig(5, Faction.NOCTURNE, True, False, True)
     TEST_NAMER = Namer()
-    TEST_UNIT = Unit(1, 2, (3, 4), False, UNIT_PLANS[0])
+    TEST_UNIT_PLAN = UnitPlan(100, 100, 3, "Plan Man", None, 25)
+    TEST_UNIT_PLAN_2 = UnitPlan(100, 100, 3, "Man With Plan", None, 25)
+    TEST_UNIT = Unit(1, 2, (3, 4), False, TEST_UNIT_PLAN)
+    TEST_UNIT_2 = Unit(5, 6, (7, 8), True, TEST_UNIT_PLAN_2)
     TEST_HEATHEN = Heathen(40, 6, (3, 3), get_heathen_plan(1))
-    TEST_SETTLEMENT = Settlement("Numero Uno", (0, 0), [], [], [])
+    TEST_SETTLEMENT = Settlement("Numero Uno", (0, 0), [], [], [TEST_UNIT_2])
     TEST_SETTLEMENT_2 = Settlement("Numero Duo", (1, 1), [], [], [])
 
     def setUp(self) -> None:
@@ -40,13 +43,22 @@ class GameStateTest(unittest.TestCase):
         self.game_state.heathens = [self.TEST_HEATHEN]
         self.TEST_UNIT.location = 3, 4
         self.TEST_UNIT.health = 1
+        self.TEST_UNIT_2.health = 5
         self.TEST_HEATHEN.location = 3, 3
         self.TEST_HEATHEN.health = 40
         self.TEST_HEATHEN.remaining_stamina = 6
+        self.TEST_HEATHEN.plan = get_heathen_plan(1)
         self.TEST_SETTLEMENT.satisfaction = 50
         self.TEST_SETTLEMENT.level = 1
         self.TEST_SETTLEMENT.current_work = None
         self.TEST_SETTLEMENT.improvements = []
+        self.TEST_SETTLEMENT.economic_status = EconomicStatus.STANDARD
+        self.TEST_UNIT_PLAN.power = 100
+        self.TEST_UNIT_PLAN.max_health = 100
+        self.TEST_UNIT_PLAN.total_stamina = 3
+        self.TEST_UNIT_PLAN_2.power = 100
+        self.TEST_UNIT_PLAN_2.max_health = 100
+        self.TEST_UNIT_PLAN_2.total_stamina = 3
 
     def test_gen_players(self):
         """
@@ -60,6 +72,154 @@ class GameStateTest(unittest.TestCase):
         self.assertEqual(1, len(non_ai_players))
         self.assertEqual(self.TEST_CONFIG.player_faction, non_ai_players[0].faction)
         self.assertEqual(self.TEST_CONFIG.player_count, len(self.game_state.players))
+
+    def test_check_for_warnings_no_issues(self):
+        """
+        Ensure that no warning is generated when all of a player's settlements are busy, the player is undergoing a
+        blessing, and they have wealth.
+        """
+        self.TEST_SETTLEMENT.current_work = Construction(IMPROVEMENTS[0])
+        # For coverage purposes, let's say this settlement is in an economic boom.
+        self.TEST_SETTLEMENT.economic_status = EconomicStatus.BOOM
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        self.game_state.players[0].ongoing_blessing = OngoingBlessing(BLESSINGS["beg_spl"])
+        self.game_state.players[0].wealth = 1000
+        # Again for coverage purposes, let's say the player is of the Godless faction.
+        self.game_state.players[0].faction = Faction.GODLESS
+
+        self.assertFalse(self.game_state.check_for_warnings())
+
+    def test_check_for_warnings_no_construction(self):
+        """
+        Ensure that when at least one of the player's settlements is idle, a warning is generated.
+        """
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        # Make sure the player has an ongoing blessing and wealth, so that we know it is the construction that is
+        # causing the warning.
+        self.game_state.players[0].ongoing_blessing = OngoingBlessing(BLESSINGS["beg_spl"])
+        self.game_state.players[0].wealth = 1000
+
+        self.assertIsNone(self.TEST_SETTLEMENT.current_work)
+        self.assertTrue(self.game_state.check_for_warnings())
+
+    def test_check_for_warnings_no_blessing(self):
+        """
+        Ensure that when the player is not undergoing a blessing, a warning is generated.
+        """
+        # Make sure the player has only busy settlements and wealth, so we know it is the blessing that is causing the
+        # warning.
+        self.TEST_SETTLEMENT.current_work = Construction(IMPROVEMENTS[0])
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        self.game_state.players[0].wealth = 1000
+
+        self.assertIsNone(self.game_state.players[0].ongoing_blessing)
+        self.assertTrue(self.game_state.check_for_warnings())
+
+    def test_check_for_warnings_negative_wealth(self):
+        """
+        Ensure that when the player will go into negative wealth next turn, a warning is generated.
+        """
+        # Make sure the player has only busy settlements and an ongoing blessing, so we know it is the wealth that is
+        # causing the warning.
+        self.TEST_SETTLEMENT.current_work = Construction(IMPROVEMENTS[0])
+        # For coverage purposes, let's say this settlement is in a recession.
+        self.TEST_SETTLEMENT.economic_status = EconomicStatus.RECESSION
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        self.game_state.players[0].ongoing_blessing = OngoingBlessing(BLESSINGS["beg_spl"])
+        # Again for coverage purposes, let's say the player is of the Orthodox faction.
+        self.game_state.players[0].faction = Faction.ORTHODOX
+
+        self.assertFalse(self.game_state.players[0].wealth)
+        self.assertTrue(self.game_state.check_for_warnings())
+
+    def test_process_climatic_effects_daytime_continue(self):
+        """
+        Ensure that when a turn is ended and daytime is to continue, the nighttime tracking variables are updated
+        correctly.
+        """
+        self.game_state.nighttime_left = 0
+        original_turns_left = 5
+        self.game_state.until_night = original_turns_left
+
+        self.game_state.process_climatic_effects()
+        self.assertEqual(original_turns_left - 1, self.game_state.until_night)
+
+    def test_process_climatic_effects_night_begins(self):
+        """
+        Ensure that when a turn is ended and nighttime is to begin, the nighttime tracking variables are updated
+        correctly and heathen and Nocturne unit's power is increased.
+        """
+        self.game_state.nighttime_left = 0
+        self.game_state.until_night = 1
+        self.game_state.board.overlay.toggle_night = MagicMock()
+        # We need to know the original powers for the heathen and the two units so that we can compare them later.
+        original_heathen_power = self.TEST_HEATHEN.plan.power
+        self.game_state.players[0].faction = Faction.NOCTURNE
+        original_unit_power = self.TEST_UNIT.plan.power
+        original_unit_2_power = self.TEST_SETTLEMENT.garrison[0].plan.power
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+
+        self.game_state.process_climatic_effects()
+
+        self.game_state.board.overlay.toggle_night.assert_called_with(True)
+        # The nighttime left variable should now be initialised to some number between 5 and 20.
+        self.assertTrue(self.game_state.nighttime_left)
+        # Each unit should now have their power doubled.
+        self.assertEqual(2 * original_heathen_power, self.TEST_HEATHEN.plan.power)
+        self.assertEqual(2 * original_unit_power, self.TEST_UNIT.plan.power)
+        self.assertEqual(2 * original_unit_2_power, self.TEST_SETTLEMENT.garrison[0].plan.power)
+
+    def test_process_climatic_effects_night_continues(self):
+        """
+        Ensure that when a turn is ended and nighttime is to continue, the nighttime tracking variables are updated
+        correctly.
+        """
+        original_turns_left = 5
+        self.game_state.nighttime_left = original_turns_left
+        self.game_state.until_night = 0
+
+        self.game_state.process_climatic_effects()
+        self.assertEqual(original_turns_left - 1, self.game_state.nighttime_left)
+
+    def test_process_climatic_effects_daytime_begins(self):
+        """
+        Ensure that when a turn is ended and daytime is to begin, the nighttime tracking variables are updated
+        correctly and heathen and Nocturne unit's power, health, and stamina is decreased.
+        """
+        self.game_state.nighttime_left = 1
+        self.game_state.until_night = 0
+        self.game_state.board.overlay.toggle_night = MagicMock()
+        self.game_state.players[0].faction = Faction.NOCTURNE
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+
+        # Keep track of the heathen's power, and the units' power, health and maximum health, and total stamina for
+        # later comparison.
+        original_heathen_power = self.TEST_HEATHEN.plan.power
+        original_unit_power = self.TEST_UNIT.plan.power
+        original_unit_health = self.TEST_UNIT.health
+        original_unit_max_health = self.TEST_UNIT.plan.max_health
+        original_unit_total_stamina = self.TEST_UNIT.plan.total_stamina
+        original_unit_2_power = self.TEST_SETTLEMENT.garrison[0].plan.power
+        original_unit_2_health = self.TEST_UNIT_2.health
+        original_unit_2_max_health = self.TEST_UNIT_2.plan.max_health
+        original_unit_2_total_stamina = self.TEST_UNIT_2.plan.total_stamina
+
+        self.game_state.process_climatic_effects()
+        # The until night variable should now be initialised to some number between 10 and 20.
+        self.assertTrue(self.game_state.until_night)
+        self.game_state.board.overlay.toggle_night.assert_called_with(False)
+        # Each unit should now have their power reduced. Heathens are brought back to their standard level, whereas
+        # Nocturne units should have their power (and health, maximum health, and total stamina) reduced to half of the
+        # usual nighttime level.
+        self.assertEqual(round(original_heathen_power / 2), self.TEST_HEATHEN.plan.power)
+        self.assertEqual(round(original_unit_power / 4), self.TEST_UNIT.plan.power)
+        self.assertEqual(round(original_unit_health / 2), self.TEST_UNIT.health)
+        self.assertEqual(round(original_unit_max_health / 2), self.TEST_UNIT.plan.max_health)
+        self.assertEqual(round(original_unit_total_stamina / 2), self.TEST_UNIT.plan.total_stamina)
+        self.assertEqual(round(original_unit_2_power / 4), self.TEST_SETTLEMENT.garrison[0].plan.power)
+        self.assertEqual(round(original_unit_2_health / 2), self.TEST_UNIT_2.health)
+        self.assertEqual(round(original_unit_2_max_health / 2), self.TEST_UNIT_2.plan.max_health)
+        self.assertEqual(round(original_unit_2_total_stamina / 2), self.TEST_UNIT_2.plan.total_stamina)
 
     def test_check_for_victory_close(self):
         """

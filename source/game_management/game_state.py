@@ -53,13 +53,12 @@ class GameState:
                                        ai_playstyle=AIPlaystyle(random.choice(list(AttackPlaystyle)),
                                                                 random.choice(list(ExpansionPlaystyle)))))
 
-    def end_turn(self) -> bool:
+    def check_for_warnings(self) -> bool:
         """
-        Ends the current game turn, processing settlements, blessings, and units.
-        :return: Whether the turn was successfully ended. Will be False in cases where a warning is generated, or the
-        game ends.
+        Check if the player has anything preventing them from ending their turn, e.g. idle settlements, no ongoing
+        blessing, or negative wealth per turn.
+        :return: Whether the player should be prevented from ending their turn.
         """
-        # First make sure the player hasn't ended their turn without a construction or blessing.
         problematic_settlements = []
         total_wealth = 0
         for setl in self.players[0].settlements:
@@ -84,126 +83,193 @@ class GameState:
         if not self.board.overlay.is_warning() and \
                 (len(problematic_settlements) > 0 or has_no_blessing or will_have_negative_wealth):
             self.board.overlay.toggle_warning(problematic_settlements, has_no_blessing, will_have_negative_wealth)
+            return True
+        return False
+
+    def process_player(self, player: Player):
+        """
+        Process a player when they are ending their turn. The following things are done in this method:
+
+        - Update settlement harvest and economic statuses.
+        - Update strength for besieged or recently besieged settlements.
+        - Reset unit and garrison unit state.
+        - Update settlement satisfaction.
+        - Process settlement current work.
+        - Update settlement level.
+        - Show notifications for completed constructions or blessings.
+        - Process ongoing blessing.
+        - Update player wealth, auto-selling units if required.
+        :param player: The player being processed.
+        """
+        overall_fortune = 0
+        overall_wealth = 0
+        completed_constructions: typing.List[CompletedConstruction] = []
+        levelled_up_settlements: typing.List[Settlement] = []
+        for setl in player.settlements:
+            # Based on the settlement's satisfaction, place the settlement in a specific state of wealth and
+            # harvest. More specifically, a satisfaction of less than 20 will yield 0 wealth and 0 harvest, a
+            # satisfaction of [20, 40) will yield 0 harvest, a satisfaction of [60, 80) will yield 150% harvest,
+            # and a satisfaction of 80 or more will yield 150% wealth and 150% harvest.
+            if setl.satisfaction < 20:
+                if player.faction is not Faction.AGRICULTURISTS:
+                    setl.harvest_status = HarvestStatus.POOR
+                if player.faction is not Faction.CAPITALISTS:
+                    setl.economic_status = EconomicStatus.RECESSION
+            elif setl.satisfaction < 40:
+                if player.faction is not Faction.AGRICULTURISTS:
+                    setl.harvest_status = HarvestStatus.POOR
+                setl.economic_status = EconomicStatus.STANDARD
+            elif setl.satisfaction < 60:
+                setl.harvest_status = HarvestStatus.STANDARD
+                setl.economic_status = EconomicStatus.STANDARD
+            elif setl.satisfaction < 80:
+                setl.harvest_status = HarvestStatus.PLENTIFUL
+                setl.economic_status = EconomicStatus.STANDARD
+            else:
+                setl.harvest_status = HarvestStatus.PLENTIFUL
+                setl.economic_status = EconomicStatus.BOOM
+
+            total_wealth, total_harvest, total_zeal, total_fortune = \
+                get_setl_totals(player, setl, self.nighttime_left > 0)
+            overall_fortune += total_fortune
+            overall_wealth += total_wealth
+
+            # If the settlement is under siege, decrease its strength based on the number of besieging units.
+            if setl.besieged:
+                besieging_units: typing.List[Unit] = []
+                for p in self.players:
+                    if p is not player:
+                        for u in p.units:
+                            if abs(u.location[0] - setl.location[0]) <= 1 and \
+                                    abs(u.location[1] - setl.location[1]) <= 1:
+                                besieging_units.append(u)
+                if not besieging_units:
+                    setl.besieged = False
+                else:
+                    if all(u.health <= 0 for u in besieging_units):
+                        setl.besieged = False
+                    else:
+                        setl.strength = max(0.0, setl.strength - 10 * len(besieging_units))
+            else:
+                # Otherwise, increase the settlement's strength if it was recently under siege and is not at full
+                # strength.
+                if setl.strength < setl.max_strength:
+                    setl.strength = min(setl.strength + setl.max_strength * 0.1, setl.max_strength)
+
+            # Reset all units in the garrison in case any were garrisoned this turn.
+            for g in setl.garrison:
+                g.has_acted = False
+                g.remaining_stamina = g.plan.total_stamina
+                if g.health < g.plan.max_health:
+                    g.health = min(g.health + g.plan.max_health * 0.1, g.plan.max_health)
+
+            # Settlement satisfaction is regulated by the amount of harvest generated against the level.
+            if total_harvest < setl.level * 4:
+                setl.satisfaction -= (1 if player.faction is Faction.CAPITALISTS else 0.5)
+            elif total_harvest >= setl.level * 8:
+                setl.satisfaction += 0.25
+            setl.satisfaction = clamp(setl.satisfaction, 0, 100)
+
+            # Process the current construction, completing it if it has been finished.
+            if setl.current_work is not None and not isinstance(setl.current_work.construction, Project):
+                setl.current_work.zeal_consumed += total_zeal
+                if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
+                    completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
+                    complete_construction(setl, player)
+
+            setl.harvest_reserves += total_harvest
+            # Settlement levels are increased if the settlement's harvest reserves exceed a certain level (specified
+            # in models.py).
+            level_cap = 5 if player.faction is Faction.RAVENOUS else 10
+            if setl.harvest_reserves >= pow(setl.level, 2) * 25 and setl.level < level_cap:
+                setl.level += 1
+                levelled_up_settlements.append(setl)
+
+        # Show notifications if the player's constructions have completed or one of their settlements has levelled
+        # up.
+        if player.ai_playstyle is None and len(completed_constructions) > 0:
+            self.board.overlay.toggle_construction_notification(completed_constructions)
+        if player.ai_playstyle is None and len(levelled_up_settlements) > 0:
+            self.board.overlay.toggle_level_up_notification(levelled_up_settlements)
+        # Reset all units.
+        for unit in player.units:
+            unit.remaining_stamina = unit.plan.total_stamina
+            # Heal the unit.
+            if unit.health < unit.plan.max_health:
+                unit.health = min(unit.health + unit.plan.max_health * 0.1, unit.plan.max_health)
+            unit.has_acted = False
+            overall_wealth -= unit.plan.cost / 10
+        # Process the current blessing, completing it if it was finished.
+        if player.ongoing_blessing is not None:
+            player.ongoing_blessing.fortune_consumed += overall_fortune
+            if player.ongoing_blessing.fortune_consumed >= player.ongoing_blessing.blessing.cost:
+                player.blessings.append(player.ongoing_blessing.blessing)
+                # Show a notification if the player is non-AI.
+                if player.ai_playstyle is None:
+                    self.board.overlay.toggle_blessing_notification(player.ongoing_blessing.blessing)
+                player.ongoing_blessing = None
+        # If the player's wealth will go into the negative this turn, sell their units until it's above 0 again.
+        while player.wealth + overall_wealth < 0:
+            sold_unit = player.units.pop()
+            if self.board.selected_unit is sold_unit:
+                self.board.selected_unit = None
+                self.board.overlay.toggle_unit(None)
+            player.wealth += sold_unit.plan.cost
+        # Update the player's wealth.
+        player.wealth = max(player.wealth + overall_wealth, 0)
+        player.accumulated_wealth += overall_wealth
+
+    def process_climatic_effects(self):
+        """
+        Updates current night tracking variables, and toggles nighttime if the correct turn arrives.
+        """
+        random.seed()
+        if self.nighttime_left == 0:
+            self.until_night -= 1
+            if self.until_night == 0:
+                self.board.overlay.toggle_night(True)
+                # Nights last for between 5 and 20 turns.
+                self.nighttime_left = random.randint(5, 20)
+                for h in self.heathens:
+                    h.plan.power = round(2 * h.plan.power)
+                if self.players[0].faction is Faction.NOCTURNE:
+                    for u in self.players[0].units:
+                        u.plan.power = round(2 * u.plan.power)
+                    for setl in self.players[0].settlements:
+                        for unit in setl.garrison:
+                            unit.plan.power = round(2 * unit.plan.power)
+        else:
+            self.nighttime_left -= 1
+            if self.nighttime_left == 0:
+                self.until_night = random.randint(10, 20)
+                self.board.overlay.toggle_night(False)
+                for h in self.heathens:
+                    h.plan.power = round(h.plan.power / 2)
+                if self.players[0].faction is Faction.NOCTURNE:
+                    for u in self.players[0].units:
+                        u.plan.power = round(u.plan.power / 4)
+                        u.health = round(u.health / 2)
+                        u.plan.max_health = round(u.plan.max_health / 2)
+                        u.plan.total_stamina = round(u.plan.total_stamina / 2)
+                    for setl in self.players[0].settlements:
+                        for unit in setl.garrison:
+                            unit.plan.power = round(unit.plan.power / 4)
+                            unit.health = round(unit.health / 2)
+                            unit.plan.max_health = round(unit.plan.max_health / 2)
+                            unit.plan.total_stamina = round(unit.plan.total_stamina / 2)
+
+    def end_turn(self) -> bool:
+        """
+        Ends the current game turn, processing settlements, blessings, and units.
+        :return: Whether the turn was successfully ended. Will be False in cases where a warning is generated, or the
+        game ends.
+        """
+        # First make sure the player hasn't ended their turn without a construction or blessing.
+        if self.check_for_warnings():
             return False
 
         for player in self.players:
-            overall_fortune = 0
-            overall_wealth = 0
-            completed_constructions: typing.List[CompletedConstruction] = []
-            levelled_up_settlements: typing.List[Settlement] = []
-            for setl in player.settlements:
-                # Based on the settlement's satisfaction, place the settlement in a specific state of wealth and
-                # harvest. More specifically, a satisfaction of less than 20 will yield 0 wealth and 0 harvest, a
-                # satisfaction of [20, 40) will yield 0 harvest, a satisfaction of [60, 80) will yield 150% harvest,
-                # and a satisfaction of 80 or more will yield 150% wealth and 150% harvest.
-                if setl.satisfaction < 20:
-                    if player.faction is not Faction.AGRICULTURISTS:
-                        setl.harvest_status = HarvestStatus.POOR
-                    if player.faction is not Faction.CAPITALISTS:
-                        setl.economic_status = EconomicStatus.RECESSION
-                elif setl.satisfaction < 40:
-                    if player.faction is not Faction.AGRICULTURISTS:
-                        setl.harvest_status = HarvestStatus.POOR
-                    setl.economic_status = EconomicStatus.STANDARD
-                elif setl.satisfaction < 60:
-                    setl.harvest_status = HarvestStatus.STANDARD
-                    setl.economic_status = EconomicStatus.STANDARD
-                elif setl.satisfaction < 80:
-                    setl.harvest_status = HarvestStatus.PLENTIFUL
-                    setl.economic_status = EconomicStatus.STANDARD
-                else:
-                    setl.harvest_status = HarvestStatus.PLENTIFUL
-                    setl.economic_status = EconomicStatus.BOOM
-
-                total_wealth, total_harvest, total_zeal, total_fortune = \
-                    get_setl_totals(player, setl, self.nighttime_left > 0)
-                overall_fortune += total_fortune
-                overall_wealth += total_wealth
-
-                # If the settlement is under siege, decrease its strength based on the number of besieging units.
-                if setl.besieged:
-                    besieging_units: typing.List[Unit] = []
-                    for p in self.players:
-                        if p is not player:
-                            for u in p.units:
-                                if abs(u.location[0] - setl.location[0]) <= 1 and \
-                                        abs(u.location[1] - setl.location[1]) <= 1:
-                                    besieging_units.append(u)
-                    if not besieging_units:
-                        setl.besieged = False
-                    else:
-                        if all(u.health <= 0 for u in besieging_units):
-                            setl.besieged = False
-                        else:
-                            setl.strength = max(0.0, setl.strength - 10 * len(besieging_units))
-                else:
-                    # Otherwise, increase the settlement's strength if it was recently under siege and is not at full
-                    # strength.
-                    if setl.strength < setl.max_strength:
-                        setl.strength = min(setl.strength + setl.max_strength * 0.1, setl.max_strength)
-
-                # Reset all units in the garrison in case any were garrisoned this turn.
-                for g in setl.garrison:
-                    g.has_acted = False
-                    g.remaining_stamina = g.plan.total_stamina
-                    if g.health < g.plan.max_health:
-                        g.health = min(g.health + g.plan.max_health * 0.1, g.plan.max_health)
-
-                # Settlement satisfaction is regulated by the amount of harvest generated against the level.
-                if total_harvest < setl.level * 4:
-                    setl.satisfaction -= (1 if player.faction is Faction.CAPITALISTS else 0.5)
-                elif total_harvest >= setl.level * 8:
-                    setl.satisfaction += 0.25
-                setl.satisfaction = clamp(setl.satisfaction, 0, 100)
-
-                # Process the current construction, completing it if it has been finished.
-                if setl.current_work is not None and not isinstance(setl.current_work.construction, Project):
-                    setl.current_work.zeal_consumed += total_zeal
-                    if setl.current_work.zeal_consumed >= setl.current_work.construction.cost:
-                        completed_constructions.append(CompletedConstruction(setl.current_work.construction, setl))
-                        complete_construction(setl, player)
-
-                setl.harvest_reserves += total_harvest
-                # Settlement levels are increased if the settlement's harvest reserves exceed a certain level (specified
-                # in models.py).
-                level_cap = 5 if player.faction is Faction.RAVENOUS else 10
-                if setl.harvest_reserves >= pow(setl.level, 2) * 25 and setl.level < level_cap:
-                    setl.level += 1
-                    levelled_up_settlements.append(setl)
-
-            # Show notifications if the player's constructions have completed or one of their settlements has levelled
-            # up.
-            if player.ai_playstyle is None and len(completed_constructions) > 0:
-                self.board.overlay.toggle_construction_notification(completed_constructions)
-            if player.ai_playstyle is None and len(levelled_up_settlements) > 0:
-                self.board.overlay.toggle_level_up_notification(levelled_up_settlements)
-            # Reset all units.
-            for unit in player.units:
-                unit.remaining_stamina = unit.plan.total_stamina
-                # Heal the unit.
-                if unit.health < unit.plan.max_health:
-                    unit.health = min(unit.health + unit.plan.max_health * 0.1, unit.plan.max_health)
-                unit.has_acted = False
-                overall_wealth -= unit.plan.cost / 10
-            # Process the current blessing, completing it if it was finished.
-            if player.ongoing_blessing is not None:
-                player.ongoing_blessing.fortune_consumed += overall_fortune
-                if player.ongoing_blessing.fortune_consumed >= player.ongoing_blessing.blessing.cost:
-                    player.blessings.append(player.ongoing_blessing.blessing)
-                    # Show a notification if the player is non-AI.
-                    if player.ai_playstyle is None:
-                        self.board.overlay.toggle_blessing_notification(player.ongoing_blessing.blessing)
-                    player.ongoing_blessing = None
-            # If the player's wealth will go into the negative this turn, sell their units until it's above 0 again.
-            while player.wealth + overall_wealth < 0:
-                sold_unit = player.units.pop()
-                if self.board.selected_unit is sold_unit:
-                    self.board.selected_unit = None
-                    self.board.overlay.toggle_unit(None)
-                player.wealth += sold_unit.plan.cost
-            # Update the player's wealth.
-            player.wealth = max(player.wealth + overall_wealth, 0)
-            player.accumulated_wealth += overall_wealth
+            self.process_player(player)
 
         # Spawn a heathen every 5 turns.
         if self.turn % 5 == 0:
@@ -221,40 +287,7 @@ class GameState:
 
         # Make night-related calculations, but only if climatic effects are enabled.
         if self.board.game_config.climatic_effects:
-            random.seed()
-            if self.nighttime_left == 0:
-                self.until_night -= 1
-                if self.until_night == 0:
-                    self.board.overlay.toggle_night(True)
-                    # Nights last for between 5 and 20 turns.
-                    self.nighttime_left = random.randint(5, 20)
-                    for h in self.heathens:
-                        h.plan.power = round(2 * h.plan.power)
-                    if self.players[0].faction is Faction.NOCTURNE:
-                        for u in self.players[0].units:
-                            u.plan.power = round(2 * u.plan.power)
-                        for setl in self.players[0].settlements:
-                            for unit in setl.garrison:
-                                unit.plan.power = round(2 * unit.plan.power)
-            else:
-                self.nighttime_left -= 1
-                if self.nighttime_left == 0:
-                    self.until_night = random.randint(10, 20)
-                    self.board.overlay.toggle_night(False)
-                    for h in self.heathens:
-                        h.plan.power = round(h.plan.power / 2)
-                    if self.players[0].faction is Faction.NOCTURNE:
-                        for u in self.players[0].units:
-                            u.plan.power = round(u.plan.power / 4)
-                            u.health = round(u.health / 2)
-                            u.plan.max_health = round(u.plan.max_health / 2)
-                            u.plan.total_stamina = round(u.plan.total_stamina / 2)
-                        for setl in self.players[0].settlements:
-                            for unit in setl.garrison:
-                                unit.plan.power = round(unit.plan.power / 4)
-                                unit.health = round(unit.health / 2)
-                                unit.plan.max_health = round(unit.plan.max_health / 2)
-                                unit.plan.total_stamina = round(unit.plan.total_stamina / 2)
+            self.process_climatic_effects()
 
         possible_victory = self.check_for_victory()
         if possible_victory is not None:
