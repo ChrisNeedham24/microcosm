@@ -132,6 +132,19 @@ class GameStateTest(unittest.TestCase):
         self.assertFalse(self.game_state.players[0].wealth)
         self.assertTrue(self.game_state.check_for_warnings())
 
+    """
+    Process player cases to test
+    
+    5 settlements - each of one category of satisfaction
+    4 settlements - one besieged, one previously besieged, one recovering, one killed all besiegers
+    Garrison units and deployed units reset
+    Satisfaction adjusted by harvest - compare capitalists to others
+    Current work is completed, overlay shown
+    Harvest reserves added to and levelled up - compare ravenous to others, overlay shown
+    Blessing is completed, overlay shown
+    Player units auto-sold and accumulated wealth increased
+    """
+
     def test_process_climatic_effects_daytime_continue(self):
         """
         Ensure that when a turn is ended and daytime is to continue, the nighttime tracking variables are updated

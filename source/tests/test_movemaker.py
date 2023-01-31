@@ -5,9 +5,9 @@ from source.display.board import Board
 from source.foundation.catalogue import Namer, UNIT_PLANS, BLESSINGS, get_unlockable_improvements, get_improvement, \
     get_available_improvements, get_unit_plan, IMPROVEMENTS
 from source.foundation.models import GameConfig, Faction, Unit, Player, Settlement, AIPlaystyle, AttackPlaystyle, \
-    ExpansionPlaystyle, Blessing, Quad, Biome
+    ExpansionPlaystyle, Blessing, Quad, Biome, UnitPlan
 from source.game_management.movemaker import search_for_relics_or_move, set_blessing, set_player_construction, \
-    set_ai_construction
+    set_ai_construction, MoveMaker, move_healer_unit
 
 
 class MovemakerTest(unittest.TestCase):
@@ -16,9 +16,13 @@ class MovemakerTest(unittest.TestCase):
     """
     TEST_CONFIG = GameConfig(2, Faction.NOCTURNE, True, True, True)
     TEST_BOARD = Board(TEST_CONFIG, Namer())
+    TEST_SETTLER_PLAN = UnitPlan(25, 25, 5, "Likes To Roam", None, 25)
+    TEST_HEALER_PLAN = UnitPlan(25, 50, 3, "More health please", None, 25)
     TEST_UNIT = Unit(1, UNIT_PLANS[0].total_stamina, (3, 4), False, UNIT_PLANS[0])
     TEST_UNIT_2 = Unit(5, 6, (7, 8), False, UNIT_PLANS[0])
     TEST_UNIT_3 = Unit(9, 10, (11, 12), False, UNIT_PLANS[0])
+    TEST_SETTLER_UNIT = Unit(13, 5, (14, 15), False, TEST_SETTLER_PLAN)
+    TEST_HEALER_UNIT = Unit(16, 3, (17, 18), False, TEST_HEALER_PLAN)
     TEST_PLAYER = Player("TesterMan", Faction.NOCTURNE, 0, 0, [], [TEST_UNIT], [], set(), set(),
                          ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
     TEST_SETTLEMENT = Settlement("Obstructionville", (0, 0), [], [], [])
@@ -27,6 +31,8 @@ class MovemakerTest(unittest.TestCase):
         """
         Generate the quads to use, locate a relic, and reset the test models.
         """
+        self.movemaker = MoveMaker(Namer())
+        self.movemaker.board_ref = self.TEST_BOARD
         self.TEST_BOARD.generate_quads(self.TEST_CONFIG.biome_clustering)
         self.QUADS = self.TEST_BOARD.quads
         # We need to find a relic quad before each test, because the quads are re-generated each time.
@@ -43,12 +49,17 @@ class MovemakerTest(unittest.TestCase):
             for j in range(80):
                 if self.QUADS[i][j].is_relic and self.relic_coords != (i, j):
                     self.QUADS[i][j].is_relic = False
+        self.TEST_SETTLER_PLAN.total_stamina = 5
         self.TEST_UNIT.location = 3, 4
         self.TEST_UNIT.remaining_stamina = UNIT_PLANS[0].total_stamina
         self.TEST_UNIT.plan.heals = False
         # Position the other two units and settlement to be surrounding the relic, obstructing its access.
         self.TEST_UNIT_2.location = self.relic_coords[0] - 1, self.relic_coords[1]
         self.TEST_UNIT_3.location = self.relic_coords[0], self.relic_coords[1] + 1
+        self.TEST_SETTLER_UNIT.location = 14, 15
+        self.TEST_SETTLER_UNIT.remaining_stamina = 5
+        self.TEST_HEALER_UNIT.location = 17, 18
+        self.TEST_HEALER_UNIT.remaining_stamina = 3
         self.TEST_SETTLEMENT.location = self.relic_coords[0], self.relic_coords[1] - 1
         self.TEST_SETTLEMENT.current_work = None
         self.TEST_SETTLEMENT.quads = []
@@ -696,6 +707,52 @@ class MovemakerTest(unittest.TestCase):
         # Make sure the unit exhausted its stamina.
         self.assertFalse(self.TEST_UNIT.remaining_stamina)
 
+    @patch("source.game_management.movemaker.heal")
+    def test_move_healer_unit_nothing_within_range(self, heal_mock: MagicMock):
+        """
+        Ensure that healer units simply move randomly if there are no heal-able units within range.
+        :param heal_mock: The mock implementation of heal().
+        """
+        self.TEST_PLAYER.units = [self.TEST_HEALER_UNIT]
+        original_location = self.TEST_HEALER_UNIT.location
+
+        move_healer_unit(self.TEST_PLAYER, self.TEST_HEALER_UNIT, [], [], self.QUADS, self.TEST_CONFIG)
+        # We expect no heal to have occurred, but the unit should still have moved.
+        heal_mock.assert_not_called()
+        self.assertNotEqual(original_location, self.TEST_HEALER_UNIT.location)
+
+    @patch("source.game_management.movemaker.heal")
+    def test_move_healer_unit_heal_from_left(self, heal_mock: MagicMock):
+        """
+        Ensure that healer units to the left of a heal-able unit move next to said unit and heal it.
+        :param heal_mock: The mock implementation of heal().
+        """
+        self.TEST_HEALER_UNIT.location = self.TEST_UNIT.location[0] - 2, self.TEST_UNIT.location[1]
+        self.TEST_PLAYER.units.append(self.TEST_HEALER_UNIT)
+
+        move_healer_unit(self.TEST_PLAYER, self.TEST_HEALER_UNIT, [], [], self.QUADS, self.TEST_CONFIG)
+        # The healer should have moved directly to the left of the heal-able unit and healed it.
+        self.assertTupleEqual((self.TEST_UNIT.location[0] - 1, self.TEST_UNIT.location[1]),
+                              self.TEST_HEALER_UNIT.location)
+        self.assertFalse(self.TEST_HEALER_UNIT.remaining_stamina)
+        heal_mock.assert_called_with(self.TEST_HEALER_UNIT, self.TEST_UNIT)
+
+    @patch("source.game_management.movemaker.heal")
+    def test_move_healer_unit_heal_from_right(self, heal_mock: MagicMock):
+        """
+        Ensure that healer units to the right of a heal-able unit move next to said unit and heal it.
+        :param heal_mock: The mock implementation of heal().
+        """
+        self.TEST_HEALER_UNIT.location = self.TEST_UNIT.location[0] + 2, self.TEST_UNIT.location[1]
+        self.TEST_PLAYER.units.append(self.TEST_HEALER_UNIT)
+
+        move_healer_unit(self.TEST_PLAYER, self.TEST_HEALER_UNIT, [], [], self.QUADS, self.TEST_CONFIG)
+        # The healer should have moved directly to the right of the heal-able unit and healed it.
+        self.assertTupleEqual((self.TEST_UNIT.location[0] + 1, self.TEST_UNIT.location[1]),
+                              self.TEST_HEALER_UNIT.location)
+        self.assertFalse(self.TEST_HEALER_UNIT.remaining_stamina)
+        heal_mock.assert_called_with(self.TEST_HEALER_UNIT, self.TEST_UNIT)
+
     """
     Make move cases to test / things to verify
     
@@ -713,6 +770,82 @@ class MovemakerTest(unittest.TestCase):
     Unit deployed when below max strength
     Unit deployed for defensive AI when not besieged and at max strength but garrison size of 4
     """
+
+    def test_move_settler_unit_not_far_enough(self):
+        """
+        Ensure that when a settler unit has not moved far enough away from its original settlement, it does not found a
+        new settlement.
+        """
+        # We place the settler unit on top of its original settlement. Since its stamina is 5, it will not be able to
+        # reach the required 10 quad away distance to found a new settlement.
+        self.TEST_SETTLER_UNIT.location = self.TEST_SETTLEMENT.location
+        self.TEST_PLAYER.units.append(self.TEST_SETTLER_UNIT)
+
+        self.assertEqual(1, len(self.TEST_PLAYER.settlements))
+        self.assertEqual(2, len(self.TEST_PLAYER.units))
+        self.movemaker.move_settler_unit(self.TEST_SETTLER_UNIT, self.TEST_PLAYER, [], [self.TEST_SETTLEMENT])
+        # The unit should have moved and used its stamina, but should not have founded a settlement.
+        self.assertNotEqual(self.TEST_SETTLEMENT.location, self.TEST_SETTLER_UNIT.location)
+        self.assertFalse(self.TEST_SETTLER_UNIT.remaining_stamina)
+        self.assertEqual(1, len(self.TEST_PLAYER.settlements))
+        self.assertEqual(2, len(self.TEST_PLAYER.units))
+
+    def test_move_settler_unit_far_enough_frontiersmen(self):
+        """
+        Ensure that when a settler unit has moved far enough away from its original Frontiersmen settlement, it founds
+        a new settlement.
+        """
+        # Put the test settlement smack bang in the middle of the board so that we can't be caught out by the unit
+        # being too close to the edge of the board to move far enough away.
+        self.TEST_SETTLEMENT.location = 50, 50
+        # Give the test unit sufficient stamina to always be able to move far enough away.
+        self.TEST_SETTLER_PLAN.total_stamina = 50
+        self.TEST_SETTLER_UNIT.remaining_stamina = 50
+        self.TEST_SETTLER_UNIT.location = self.TEST_SETTLEMENT.location
+        self.TEST_PLAYER.units.append(self.TEST_SETTLER_UNIT)
+        self.TEST_PLAYER.faction = Faction.FRONTIERSMEN
+
+        self.assertEqual(1, len(self.TEST_PLAYER.settlements))
+        self.assertEqual(2, len(self.TEST_PLAYER.units))
+        self.movemaker.move_settler_unit(self.TEST_SETTLER_UNIT, self.TEST_PLAYER, [], [self.TEST_SETTLEMENT])
+        # The settler should have moved away from the settlement and used all of its stamina.
+        self.assertNotEqual(self.TEST_SETTLEMENT.location, self.TEST_SETTLER_UNIT.location)
+        self.assertFalse(self.TEST_SETTLER_UNIT.remaining_stamina)
+        # However, since it's also now far enough away, a new settlement should have been founded and the unit should
+        # have been disassociated with the player.
+        self.assertEqual(2, len(self.TEST_PLAYER.settlements))
+        self.assertEqual(1, len(self.TEST_PLAYER.units))
+        # Since the player is of the Frontiersmen faction, we expect the satisfaction to be initially elevated as well.
+        self.assertEqual(75, self.TEST_PLAYER.settlements[1].satisfaction)
+
+    def test_move_settler_unit_far_enough_imperials(self):
+        """
+        Ensure that when a settler unit has moved far enough away from its original Imperials settlement, it founds a
+        new settlement.
+        """
+        # Put the test settlement smack bang in the middle of the board so that we can't be caught out by the unit
+        # being too close to the edge of the board to move far enough away.
+        self.TEST_SETTLEMENT.location = 50, 50
+        # Give the test unit sufficient stamina to always be able to move far enough away.
+        self.TEST_SETTLER_PLAN.total_stamina = 50
+        self.TEST_SETTLER_UNIT.remaining_stamina = 50
+        self.TEST_SETTLER_UNIT.location = self.TEST_SETTLEMENT.location
+        self.TEST_PLAYER.units.append(self.TEST_SETTLER_UNIT)
+        self.TEST_PLAYER.faction = Faction.IMPERIALS
+
+        self.assertEqual(1, len(self.TEST_PLAYER.settlements))
+        self.assertEqual(2, len(self.TEST_PLAYER.units))
+        self.movemaker.move_settler_unit(self.TEST_SETTLER_UNIT, self.TEST_PLAYER, [], [self.TEST_SETTLEMENT])
+        # The settler should have moved away from the settlement and used all of its stamina.
+        self.assertNotEqual(self.TEST_SETTLEMENT.location, self.TEST_SETTLER_UNIT.location)
+        self.assertFalse(self.TEST_SETTLER_UNIT.remaining_stamina)
+        # However, since it's also now far enough away, a new settlement should have been founded and the unit should
+        # have been disassociated with the player.
+        self.assertEqual(2, len(self.TEST_PLAYER.settlements))
+        self.assertEqual(1, len(self.TEST_PLAYER.units))
+        # Since the player is of the Imperials faction, we expect the strength to be permanently decreased as well.
+        self.assertEqual(50, self.TEST_PLAYER.settlements[1].strength)
+        self.assertEqual(50, self.TEST_PLAYER.settlements[1].max_strength)
 
 
 if __name__ == '__main__':
