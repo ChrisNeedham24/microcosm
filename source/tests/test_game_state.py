@@ -5,7 +5,8 @@ from unittest.mock import MagicMock
 from source.display.board import Board
 from source.foundation.catalogue import Namer, UNIT_PLANS, get_heathen_plan, IMPROVEMENTS, BLESSINGS
 from source.foundation.models import GameConfig, Faction, Player, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
-    Unit, Heathen, Settlement, Victory, VictoryType, Construction, OngoingBlessing, EconomicStatus, UnitPlan
+    Unit, Heathen, Settlement, Victory, VictoryType, Construction, OngoingBlessing, EconomicStatus, UnitPlan, \
+    HarvestStatus, Quad, Biome, CompletedConstruction
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
 
@@ -132,18 +133,253 @@ class GameStateTest(unittest.TestCase):
         self.assertFalse(self.game_state.players[0].wealth)
         self.assertTrue(self.game_state.check_for_warnings())
 
-    """
-    Process player cases to test
-    
-    5 settlements - each of one category of satisfaction
-    4 settlements - one besieged, one previously besieged, one recovering, one killed all besiegers
-    Garrison units and deployed units reset
-    Satisfaction adjusted by harvest - compare capitalists to others
-    Current work is completed, overlay shown
-    Harvest reserves added to and levelled up - compare ravenous to others, overlay shown
-    Blessing is completed, overlay shown
-    Player units auto-sold and accumulated wealth increased
-    """
+    def test_process_player_settlement_statuses(self):
+        """
+        Ensure that the harvest and economic statuses of settlements with varying levels of satisfaction are updated
+        correctly at the end of a turn.
+        """
+        test_setl_real_bad = Settlement("Real Bad", (60, 60), [], [], [], satisfaction=19)
+        test_setl_bad = Settlement("Bad", (61, 61), [], [], [], satisfaction=39)
+        test_setl_okay = Settlement("Okay", (62, 62), [], [], [], satisfaction=59)
+        test_setl_good = Settlement("Good", (63, 63), [], [], [], satisfaction=79)
+        test_setl_real_good = Settlement("Real Good", (64, 64), [], [], [], satisfaction=99)
+        self.game_state.players[0].settlements = \
+            [test_setl_real_bad, test_setl_bad, test_setl_okay, test_setl_good, test_setl_real_good]
+
+        setls = self.game_state.players[0].settlements
+        # Each settlement should have standard for both to begin with.
+        for setl in setls:
+            self.assertEqual(HarvestStatus.STANDARD, setl.harvest_status)
+            self.assertEqual(EconomicStatus.STANDARD, setl.economic_status)
+
+        self.game_state.process_player(self.game_state.players[0])
+
+        # At below 20 satisfaction, we expect both statuses to be lowered.
+        self.assertEqual(HarvestStatus.POOR, setls[0].harvest_status)
+        self.assertEqual(EconomicStatus.RECESSION, setls[0].economic_status)
+        # At below 40 satisfaction, we expect only the harvest status to be lowered.
+        self.assertEqual(HarvestStatus.POOR, setls[1].harvest_status)
+        self.assertEqual(EconomicStatus.STANDARD, setls[1].economic_status)
+        # At between 40 and 60 satisfaction, we expect no change.
+        self.assertEqual(HarvestStatus.STANDARD, setls[2].harvest_status)
+        self.assertEqual(EconomicStatus.STANDARD, setls[2].economic_status)
+        # At above 60 satisfaction, we expect only the harvest status to be raised.
+        self.assertEqual(HarvestStatus.PLENTIFUL, setls[3].harvest_status)
+        self.assertEqual(EconomicStatus.STANDARD, setls[3].economic_status)
+        # At above 80 satisfaction, we expect both statuses to be raised.
+        self.assertEqual(HarvestStatus.PLENTIFUL, setls[4].harvest_status)
+        self.assertEqual(EconomicStatus.BOOM, setls[4].economic_status)
+
+        # However, if we try the same operation with a player of the Agriculturists faction, we expect different
+        # results.
+        self.game_state.players[0].faction = Faction.AGRICULTURISTS
+        test_setl_real_bad.harvest_status = HarvestStatus.STANDARD
+        test_setl_bad.harvest_status = HarvestStatus.STANDARD
+
+        self.game_state.process_player(self.game_state.players[0])
+
+        # Namely, we expect players of the Agriculturists faction to have the harvest statuses of their settlements
+        # unaffected by satisfaction.
+        self.assertEqual(HarvestStatus.STANDARD, test_setl_real_bad.harvest_status)
+        self.assertEqual(HarvestStatus.STANDARD, test_setl_bad.harvest_status)
+
+        # Once again, if we do the same with the Capitalists faction, we expect different results.
+        self.game_state.players[0].faction = Faction.CAPITALISTS
+        test_setl_real_bad.economic_status = EconomicStatus.STANDARD
+
+        self.game_state.process_player(self.game_state.players[0])
+
+        # This different result being that players of the Capitalists faction have the economic statuses of their
+        # settlements unaffected by satisfaction.
+        self.assertEqual(EconomicStatus.STANDARD, test_setl_real_bad.economic_status)
+
+    def test_process_player_besieged_settlements(self):
+        """
+        Ensure that settlements that are currently under siege or were recently have their strengths updated correctly
+        at the end of a turn.
+        """
+        # The first settlement is currently under active siege.
+        besieged_settlement = Settlement("Under Siege", (10, 20), [], [], [], besieged=True)
+        # The second settlement was under siege, but now there are no units surrounding it.
+        previously_besieged_settlement = Settlement("Previously", (30, 40), [], [], [], besieged=True)
+        # The third settlement was under siege some time ago, and is now recovering its strength.
+        recovering_settlement = Settlement("Recovering", (50, 60), [], [], [], besieged=False, strength=50)
+        # The last settlement is under siege, but it has just killed the last unit surrounding it.
+        killed_all_settlement = Settlement("Killed All", (70, 80), [], [], [], besieged=True)
+        self.game_state.players[0].units = []
+        # Place TEST_UNIT next to the first settlement.
+        self.TEST_UNIT.location = 11, 20
+        # Place TEST_UNIT_2 next to the final settlement, and reduce its health to simulate a defeated unit.
+        self.TEST_UNIT_2.location = 71, 80
+        self.TEST_UNIT_2.health = 0
+        # Give the units to another player so they are counted.
+        self.game_state.players[1].units = [self.TEST_UNIT, self.TEST_UNIT_2]
+
+        self.game_state.players[0].settlements = \
+            [besieged_settlement, previously_besieged_settlement, recovering_settlement, killed_all_settlement]
+
+        self.assertEqual(100, besieged_settlement.strength)
+
+        self.game_state.process_player(self.game_state.players[0])
+
+        # The first settlement should have had its strength reduced by 10% of its max.
+        self.assertEqual(0.9 * besieged_settlement.max_strength, besieged_settlement.strength)
+        # The second settlement should no longer be under siege.
+        self.assertFalse(previously_besieged_settlement.besieged)
+        # The third settlement should have had its strength increased by 10% of its max.
+        self.assertEqual(50 + 0.1 * recovering_settlement.max_strength, recovering_settlement.strength)
+        # The final settlement should no longer be under siege.
+        self.assertFalse(killed_all_settlement.besieged)
+
+    def test_process_player_units_reset(self):
+        """
+        Ensure that both deployed and garrison units are correctly reset at the end of a turn.
+        """
+        self.TEST_UNIT.has_acted = True
+        self.TEST_UNIT.remaining_stamina = 0
+        self.TEST_UNIT.health = 1
+        self.TEST_UNIT_2.has_acted = True
+        self.TEST_UNIT_2.remaining_stamina = 0
+        self.TEST_UNIT_2.health = 1
+        self.TEST_SETTLEMENT.garrison = [self.TEST_UNIT]
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        self.game_state.players[0].units = [self.TEST_UNIT_2]
+
+        self.game_state.process_player(self.game_state.players[0])
+
+        # We expect both units to have now not acted, to have had their stamina replenished, and their health increased.
+        self.assertFalse(self.TEST_UNIT.has_acted)
+        self.assertTrue(self.TEST_UNIT.remaining_stamina)
+        self.assertGreater(self.TEST_UNIT.health, 1)
+        self.assertFalse(self.TEST_UNIT_2.has_acted)
+        self.assertTrue(self.TEST_UNIT_2.remaining_stamina)
+        self.assertGreater(self.TEST_UNIT_2.health, 1)
+
+    def test_process_player_harvest_satisfaction_effect(self):
+        """
+        Ensure that the harvest yield of a settlement is correctly used to update satisfaction at the end of a turn.
+        """
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+
+        self.assertEqual(50, self.TEST_SETTLEMENT.satisfaction)
+        self.game_state.process_player(self.game_state.players[0])
+        # We expect the satisfaction to be reduced by 0.5 since the settlement does not have sufficient harvest.
+        self.assertEqual(49.5, self.TEST_SETTLEMENT.satisfaction)
+
+        # For players of the Capitalists faction however, we expect satisfaction to be reduced by 1.
+        self.game_state.players[0].faction = Faction.CAPITALISTS
+        self.game_state.process_player(self.game_state.players[0])
+        self.assertEqual(48.5, self.TEST_SETTLEMENT.satisfaction)
+
+        # Now if we give the settlement sufficient harvest for its level of 1, we expect satisfaction to be increased by
+        # 0.25.
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=10, wealth=0, zeal=0, fortune=0)]
+        self.game_state.process_player(self.game_state.players[0])
+        self.assertEqual(48.75, self.TEST_SETTLEMENT.satisfaction)
+
+    def test_process_player_current_work_completed(self):
+        """
+        Ensure that when a settlement's current work is completed at the end of a turn, the correct state and overlay
+        updates occur.
+        """
+        self.game_state.board.overlay.toggle_construction_notification = MagicMock()
+        self.TEST_SETTLEMENT.current_work = Construction(IMPROVEMENTS[0])
+        # Give the settlement enough zeal to complete the construction.
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=0, wealth=0, zeal=IMPROVEMENTS[0].cost, fortune=0)]
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        self.game_state.players[0].ai_playstyle = None
+
+        self.game_state.process_player(self.game_state.players[0])
+
+        # The overlay should be shown with the right settlement and improvement, and the improvement should be added to
+        # the settlement's improvements.
+        self.game_state.board.overlay.toggle_construction_notification.assert_called_with(
+            [CompletedConstruction(IMPROVEMENTS[0], self.TEST_SETTLEMENT)])
+        self.assertIn(IMPROVEMENTS[0], self.TEST_SETTLEMENT.improvements)
+
+    def test_process_player_settlement_level_up(self):
+        """
+        Ensure that when a settlement's harvest reserves exceed the required amount to level up at the end of a turn,
+        the correct state updates occur.
+        """
+        self.game_state.board.overlay.toggle_level_up_notification = MagicMock()
+        harvest_amount = 30
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=harvest_amount, wealth=0, zeal=0, fortune=0)]
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        self.game_state.players[0].ai_playstyle = None
+
+        self.game_state.process_player(self.game_state.players[0])
+
+        # The harvest reserves and level of the settlement should have been updated, and the overlay displayed.
+        self.assertEqual(harvest_amount, self.TEST_SETTLEMENT.harvest_reserves)
+        self.assertEqual(2, self.TEST_SETTLEMENT.level)
+        self.game_state.board.overlay.toggle_level_up_notification.assert_called_with([self.TEST_SETTLEMENT])
+
+    def test_process_player_settlement_level_up_ravenous(self):
+        """
+        Ensure that when a player of the Ravenous faction has a settlement that exceeds the amount that would usually
+        trigger a level up from 5 to 6 at the end of a turn, no such change occurs.
+        """
+        self.game_state.board.overlay.toggle_level_up_notification = MagicMock()
+        original_reserves = 600
+        harvest_amount = 30
+        # The Ravenous have their settlements capped at level 5.
+        self.TEST_SETTLEMENT.level = 5
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=harvest_amount, wealth=0, zeal=0, fortune=0)]
+        self.TEST_SETTLEMENT.harvest_reserves = original_reserves
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        self.game_state.players[0].ai_playstyle = None
+        self.game_state.players[0].faction = Faction.RAVENOUS
+
+        self.game_state.process_player(self.game_state.players[0])
+
+        # We expect the harvest reserves to be updated, but the level should not have changed, and the overlay not
+        # displayed.
+        self.assertEqual(original_reserves + 2.5 * harvest_amount, self.TEST_SETTLEMENT.harvest_reserves)
+        self.assertEqual(5, self.TEST_SETTLEMENT.level)
+        self.game_state.board.overlay.toggle_level_up_notification.assert_not_called()
+
+    def test_process_player_blessing_completed(self):
+        """
+        Ensure that when a player completes an ongoing blessing at the end of a turn, the correct state and overlay
+        updates occur.
+        """
+        self.game_state.board.overlay.toggle_blessing_notification = MagicMock()
+        blessing = BLESSINGS["beg_spl"]
+        self.game_state.players[0].ongoing_blessing = OngoingBlessing(blessing)
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=0, wealth=0, zeal=0, fortune=blessing.cost)]
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        self.game_state.players[0].ai_playstyle = None
+
+        self.assertFalse(self.game_state.players[0].blessings)
+        self.game_state.process_player(self.game_state.players[0])
+        # The blessing should be added to the player's collection and the overlay displayed, with the ongoing blessing
+        # reset.
+        self.assertTrue(self.game_state.players[0].blessings)
+        self.game_state.board.overlay.toggle_blessing_notification.assert_called_with(blessing)
+        self.assertIsNone(self.game_state.players[0].ongoing_blessing)
+
+    def test_process_player_units_sold_wealth_increased(self):
+        """
+        Ensure that when a player would have negative wealth at the end of a turn, their units are automatically sold to
+        recoup losses, and their wealth is updated.
+        """
+        self.game_state.board.selected_unit = self.TEST_UNIT
+        self.game_state.board.overlay.toggle_unit = MagicMock()
+
+        self.assertListEqual([self.TEST_UNIT], self.game_state.players[0].units)
+        self.game_state.process_player(self.game_state.players[0])
+        # Since the test player has a deployed unit, no wealth, and no quads that yield wealth, they will have negative
+        # wealth. As such, their only unit should have been sold and deselected.
+        self.assertFalse(self.game_state.players[0].units)
+        self.assertIsNone(self.game_state.board.selected_unit)
+        self.game_state.board.overlay.toggle_unit.assert_called_with(None)
+        # We expect the player to now have wealth equal to 90% of the unit's cost. This is because their wealth began at
+        # 0 and the upkeep of the unit was 10% of the unit's cost. Adding the unit's total cost to this figure results
+        # in the 90% value.
+        self.assertEqual(0.9 * self.TEST_UNIT.plan.cost, self.game_state.players[0].wealth)
+        # However, we do not include auto-sold units in accumulated wealth.
+        self.assertEqual(-0.1 * self.TEST_UNIT.plan.cost, self.game_state.players[0].accumulated_wealth)
 
     def test_process_climatic_effects_daytime_continue(self):
         """
