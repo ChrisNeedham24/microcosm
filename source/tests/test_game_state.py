@@ -54,6 +54,7 @@ class GameStateTest(unittest.TestCase):
         self.TEST_SETTLEMENT.current_work = None
         self.TEST_SETTLEMENT.improvements = []
         self.TEST_SETTLEMENT.economic_status = EconomicStatus.STANDARD
+        self.TEST_SETTLEMENT.harvest_reserves = 0
         self.TEST_UNIT_PLAN.power = 100
         self.TEST_UNIT_PLAN.max_health = 100
         self.TEST_UNIT_PLAN.total_stamina = 3
