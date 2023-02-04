@@ -471,6 +471,79 @@ class GameStateTest(unittest.TestCase):
         self.assertEqual(round(original_unit_2_max_health / 2), self.TEST_UNIT_2.plan.max_health)
         self.assertEqual(round(original_unit_2_total_stamina / 2), self.TEST_UNIT_2.plan.total_stamina)
 
+    def test_end_turn_warning(self):
+        """
+        Ensure that when a turn is ended and there are warnings for the player, the method returns False and the turn is
+        not ended.
+        """
+        # Verify that the causes of the warning are no blessing and negative wealth.
+        self.assertIsNone(self.game_state.players[0].ongoing_blessing)
+        self.assertFalse(self.game_state.players[0].wealth)
+        self.assertFalse(self.game_state.end_turn())
+
+    def test_end_turn_victory(self):
+        """
+        Ensure that when a turn is ended and a player has achieved a victory, the method returns False and the turn is
+        not ended.
+        """
+        self.game_state.board.overlay.toggle_victory = MagicMock()
+        # Make sure there are no warnings for the player by giving the settlement a construction and the player an
+        # ongoing blessing and wealth.
+        self.TEST_SETTLEMENT.current_work = Construction(IMPROVEMENTS[0])
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        self.game_state.players[0].ongoing_blessing = OngoingBlessing(BLESSINGS["beg_spl"])
+        self.game_state.players[0].wealth = 1000
+
+        self.assertFalse(self.game_state.end_turn())
+        # Since the first player is the only one with a settlement, they should have achieved an Elimination victory.
+        self.game_state.board.overlay.toggle_victory.assert_called_with(
+            Victory(self.game_state.players[0], VictoryType.ELIMINATION)
+        )
+
+    def test_end_turn(self):
+        """
+        Ensure that when ending a turn in the standard non-warning and non-victory case, the correct state and overlay
+        updates occur.
+        """
+        # Give the settlement a construction to prevent a warning.
+        self.TEST_SETTLEMENT.current_work = Construction(IMPROVEMENTS[0])
+        self.TEST_HEATHEN.remaining_stamina = 0
+        self.TEST_HEATHEN.health = 1
+
+        self.game_state.process_player = MagicMock()
+        self.game_state.board.overlay.remove_warning_if_possible = MagicMock()
+        self.game_state.process_climatic_effects = MagicMock()
+
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        # Give the player an ongoing blessing and wealth to prevent warnings.
+        self.game_state.players[0].ongoing_blessing = OngoingBlessing(BLESSINGS["beg_spl"])
+        self.game_state.players[0].wealth = 1000
+        # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
+        # victory.
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2]
+        # Set the turn to 5 so that a heathen will be spawned.
+        self.game_state.turn = 5
+
+        self.assertEqual(1, len(self.game_state.heathens))
+        self.assertEqual(self.TEST_HEATHEN, self.game_state.heathens[0])
+
+        # We expect the method to return True, and the turn to be successfully ended. The game should then move on to
+        # the next turn.
+        self.assertTrue(self.game_state.end_turn())
+
+        # We expect each player to be processed.
+        self.assertEqual(len(self.game_state.players), self.game_state.process_player.call_count)
+        # We also expect a new heathen to be spawned, and for all existing heathens to have their stamina reset and
+        # their health partly replenished.
+        self.assertEqual(2, len(self.game_state.heathens))
+        self.assertTrue(self.TEST_HEATHEN.remaining_stamina)
+        self.assertGreater(self.TEST_HEATHEN.health, 1)
+        self.game_state.board.overlay.remove_warning_if_possible.assert_called()
+        # The turn should also be incremented and climatic effects processed, since our test game configuration has them
+        # enabled.
+        self.assertEqual(6, self.game_state.turn)
+        self.game_state.process_climatic_effects.assert_called()
+
     def test_check_for_victory_close(self):
         """
         Ensure that when a player is close to achieving a victory, their state is updated and the correct overlay is
