@@ -5,7 +5,7 @@ from source.display.board import Board
 from source.foundation.catalogue import Namer, UNIT_PLANS, BLESSINGS, get_unlockable_improvements, get_improvement, \
     get_available_improvements, get_unit_plan, IMPROVEMENTS
 from source.foundation.models import GameConfig, Faction, Unit, Player, Settlement, AIPlaystyle, AttackPlaystyle, \
-    ExpansionPlaystyle, Blessing, Quad, Biome, UnitPlan
+    ExpansionPlaystyle, Blessing, Quad, Biome, UnitPlan, SetlAttackData
 from source.game_management.movemaker import search_for_relics_or_move, set_blessing, set_player_construction, \
     set_ai_construction, MoveMaker, move_healer_unit
 
@@ -16,21 +16,28 @@ class MovemakerTest(unittest.TestCase):
     """
     TEST_CONFIG = GameConfig(2, Faction.NOCTURNE, True, True, True)
     TEST_BOARD = Board(TEST_CONFIG, Namer())
-    TEST_SETTLER_PLAN = UnitPlan(25, 25, 5, "Likes To Roam", None, 25)
-    TEST_HEALER_PLAN = UnitPlan(25, 50, 3, "More health please", None, 25)
-    TEST_UNIT = Unit(1, UNIT_PLANS[0].total_stamina, (3, 4), False, UNIT_PLANS[0])
-    TEST_UNIT_2 = Unit(5, 6, (7, 8), False, UNIT_PLANS[0])
-    TEST_UNIT_3 = Unit(9, 10, (11, 12), False, UNIT_PLANS[0])
-    TEST_SETTLER_UNIT = Unit(13, 5, (14, 15), False, TEST_SETTLER_PLAN)
-    TEST_HEALER_UNIT = Unit(16, 3, (17, 18), False, TEST_HEALER_PLAN)
-    TEST_PLAYER = Player("TesterMan", Faction.NOCTURNE, 0, 0, [], [TEST_UNIT], [], set(), set(),
-                         ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
-    TEST_SETTLEMENT = Settlement("Obstructionville", (0, 0), [], [], [])
 
     def setUp(self) -> None:
         """
-        Generate the quads to use, locate a relic, and reset the test models.
+        Generate the quads to use, locate a relic, and initialise the test models.
         """
+        self.TEST_SETTLER_PLAN = UnitPlan(25, 25, 5, "Likes To Roam", None, 25, can_settle=True)
+        self.TEST_HEALER_PLAN = UnitPlan(25, 50, 3, "More health please", None, 25, heals=True)
+        self.TEST_UNIT_PLAN = UnitPlan(100, 100, 3, "Fighting Man", None, 25)
+        self.TEST_UNIT = Unit(1, self.TEST_UNIT_PLAN.total_stamina, (3, 4), False, self.TEST_UNIT_PLAN)
+        self.TEST_UNIT_2 = Unit(5, 6, (7, 8), False, self.TEST_UNIT_PLAN)
+        self.TEST_UNIT_3 = Unit(9, 10, (11, 12), False, self.TEST_UNIT_PLAN)
+        self.TEST_SETTLER_UNIT = Unit(13, 5, (14, 15), False, self.TEST_SETTLER_PLAN)
+        self.TEST_HEALER_UNIT = Unit(16, 3, (17, 18), False, self.TEST_HEALER_PLAN)
+        self.TEST_SETTLEMENT = Settlement("Obstructionville", (0, 0), [], [], [])
+        self.TEST_SETTLEMENT_2 = Settlement("EnemyTown", (40, 40), [], [], [])
+        self.TEST_PLAYER = Player("TesterMan", Faction.NOCTURNE, 0, 0, [self.TEST_SETTLEMENT], [self.TEST_UNIT], [],
+                                  set(), set(),
+                                  ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
+        self.TEST_PLAYER_2 = Player("TesterMan2", Faction.AGRICULTURISTS, 0, 0, [self.TEST_SETTLEMENT_2], [], [],
+                                    set(), set(),
+                                    ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
+
         self.movemaker = MoveMaker(Namer())
         self.movemaker.board_ref = self.TEST_BOARD
         self.TEST_BOARD.generate_quads(self.TEST_CONFIG.biome_clustering)
@@ -49,30 +56,10 @@ class MovemakerTest(unittest.TestCase):
             for j in range(80):
                 if self.QUADS[i][j].is_relic and self.relic_coords != (i, j):
                     self.QUADS[i][j].is_relic = False
-        self.TEST_SETTLER_PLAN.total_stamina = 5
-        self.TEST_UNIT.location = 3, 4
-        self.TEST_UNIT.remaining_stamina = UNIT_PLANS[0].total_stamina
-        self.TEST_UNIT.plan.heals = False
         # Position the other two units and settlement to be surrounding the relic, obstructing its access.
         self.TEST_UNIT_2.location = self.relic_coords[0] - 1, self.relic_coords[1]
         self.TEST_UNIT_3.location = self.relic_coords[0], self.relic_coords[1] + 1
-        self.TEST_SETTLER_UNIT.location = 14, 15
-        self.TEST_SETTLER_UNIT.remaining_stamina = 5
-        self.TEST_HEALER_UNIT.location = 17, 18
-        self.TEST_HEALER_UNIT.remaining_stamina = 3
         self.TEST_SETTLEMENT.location = self.relic_coords[0], self.relic_coords[1] - 1
-        self.TEST_SETTLEMENT.current_work = None
-        self.TEST_SETTLEMENT.quads = []
-        self.TEST_SETTLEMENT.satisfaction = 50
-        self.TEST_SETTLEMENT.improvements = []
-        self.TEST_SETTLEMENT.level = 1
-        self.TEST_SETTLEMENT.produced_settler = False
-        self.TEST_PLAYER.units = [self.TEST_UNIT]
-        self.TEST_PLAYER.blessings = []
-        self.TEST_PLAYER.ongoing_blessing = None
-        self.TEST_PLAYER.ai_playstyle = AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)
-        self.TEST_PLAYER.settlements = [self.TEST_SETTLEMENT]
-        self.TEST_PLAYER.faction = Faction.NOCTURNE
 
     def test_set_blessing_none_available(self):
         """
@@ -846,6 +833,301 @@ class MovemakerTest(unittest.TestCase):
         # Since the player is of the Imperials faction, we expect the strength to be permanently decreased as well.
         self.assertEqual(50, self.TEST_PLAYER.settlements[1].strength)
         self.assertEqual(50, self.TEST_PLAYER.settlements[1].max_strength)
+
+    def test_move_unit_settler(self):
+        """
+        Ensure that when a settler unit is being moved, the appropriate method is called.
+        """
+        self.movemaker.move_settler_unit = MagicMock()
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_SETTLER_UNIT, [], [], [], self.QUADS, self.TEST_CONFIG)
+        self.movemaker.move_settler_unit.assert_called_with(self.TEST_SETTLER_UNIT, self.TEST_PLAYER, [], [])
+
+    @patch("source.game_management.movemaker.move_healer_unit")
+    def test_move_unit_healer(self, move_healer_mock: MagicMock):
+        """
+        Ensure that when a healer unit is being moved, the appropriate method is called.
+        :param move_healer_mock: The mock implementation of the move_healer_unit() function.
+        """
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_HEALER_UNIT, [], [], [], self.QUADS, self.TEST_CONFIG)
+        move_healer_mock.assert_called_with(self.TEST_PLAYER, self.TEST_HEALER_UNIT, [], [],
+                                            self.QUADS, self.TEST_CONFIG)
+
+    def test_move_unit_attack_infidel(self):
+        """
+        Ensure that when a unit is being moved and there is an infidel unit within range, the infidel unit is always
+        attacked.
+        """
+        # By making the test player defensive, we guarantee that the reason for attack is the other unit's faction.
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
+        self.TEST_PLAYER.units.append(self.TEST_UNIT_2)
+        infidel_player = Player("Inf", Faction.INFIDELS, 0, 0, [], [self.TEST_UNIT_3], [], set(), set())
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_2, [self.TEST_UNIT_3],
+                                 [self.TEST_PLAYER, infidel_player], [], self.QUADS, self.TEST_CONFIG)
+
+        # We expect the unit to have moved next to the infidel unit, and for an attack to have been made, killing both
+        # units.
+        self.assertTupleEqual((self.TEST_UNIT_3.location[0] - 1, self.TEST_UNIT_3.location[1]),
+                              self.TEST_UNIT_2.location)
+        self.assertFalse(self.TEST_UNIT_2.remaining_stamina)
+        self.assertFalse(infidel_player.units)
+        self.assertNotIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+
+    def test_move_unit_attack_unit_because_besieged(self):
+        """
+        Ensure that when a unit is being moved for a player with one or more settlements under siege, the unit will
+        always attack anything within range.
+        """
+        self.TEST_SETTLEMENT.besieged = True
+        # By making the test player defensive, we guarantee that the reason for attack is the settlement being under
+        # siege.
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
+        self.TEST_PLAYER.units = [self.TEST_UNIT_3]
+        self.TEST_PLAYER_2.units = [self.TEST_UNIT_2]
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_3, [self.TEST_UNIT_2],
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG)
+
+        # We expect the unit to have moved next to the other unit, and for an attack to have been made, killing both
+        # units.
+        self.assertTupleEqual((self.TEST_UNIT_2.location[0] + 1, self.TEST_UNIT_2.location[1]),
+                              self.TEST_UNIT_3.location)
+        self.assertFalse(self.TEST_UNIT_3.remaining_stamina)
+        self.assertFalse(self.TEST_PLAYER_2.units)
+        self.assertFalse(self.TEST_PLAYER.units)
+
+    def test_move_unit_attack_unit_because_settlement_weakened(self):
+        """
+        Ensure that when a unit is being moved for a player with one or more settlements that are significantly
+        weakened, the unit will always attack anything within range.
+        """
+        self.TEST_SETTLEMENT.strength = 1
+        # By making the test player defensive, we guarantee that the reason for attack is the settlement weakened.
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
+        self.TEST_PLAYER.units = [self.TEST_UNIT_3]
+        self.TEST_PLAYER_2.units = [self.TEST_UNIT_2]
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_3, [self.TEST_UNIT_2],
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG)
+
+        # We expect the unit to have moved next to the other unit, and for an attack to have been made, killing both
+        # units.
+        self.assertTupleEqual((self.TEST_UNIT_2.location[0] + 1, self.TEST_UNIT_2.location[1]),
+                              self.TEST_UNIT_3.location)
+        self.assertFalse(self.TEST_UNIT_3.remaining_stamina)
+        self.assertFalse(self.TEST_PLAYER_2.units)
+        self.assertFalse(self.TEST_PLAYER.units)
+
+    def test_move_unit_attack_unit_aggressive_ai(self):
+        """
+        Ensure that when a unit is being moved for an aggressive AI player, it will always attack if there are any enemy
+        units within range.
+        """
+        self.TEST_PLAYER_2.ai_playstyle.attacking = AttackPlaystyle.AGGRESSIVE
+        self.TEST_PLAYER_2.units = [self.TEST_UNIT_3]
+        self.TEST_PLAYER.units = [self.TEST_UNIT_2]
+        self.movemaker.board_ref.overlay.toggle_attack = MagicMock()
+
+        self.movemaker.move_unit(self.TEST_PLAYER_2, self.TEST_UNIT_3, [self.TEST_UNIT_2],
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG)
+
+        # We expect the unit to have moved next to the other unit, and for an attack to have been made, killing both
+        # units.
+        self.assertTupleEqual((self.TEST_UNIT_2.location[0] + 1, self.TEST_UNIT_2.location[1]),
+                              self.TEST_UNIT_3.location)
+        self.assertFalse(self.TEST_UNIT_3.remaining_stamina)
+        # Because the 'human' player in this test is being attacked, we also expect the overlay to have been toggled.
+        self.movemaker.board_ref.overlay.toggle_attack.assert_called()
+        self.assertFalse(self.TEST_PLAYER_2.units)
+        self.assertFalse(self.TEST_PLAYER.units)
+
+    def test_move_unit_attack_unit_neutral_ai(self):
+        """
+        Ensure that when a unit is being moved for a neutral AI player, it will attack if it has at least double the
+        health of the enemy unit.
+        """
+        self.TEST_UNIT_3.health = 20
+        self.TEST_UNIT_2.health = 10
+        self.TEST_PLAYER.units = [self.TEST_UNIT_3]
+        self.TEST_PLAYER_2.units = [self.TEST_UNIT_2]
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_3, [self.TEST_UNIT_2],
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG)
+
+        # We expect the unit to have moved next to the other unit, and for an attack to have been made, killing both
+        # units.
+        self.assertTupleEqual((self.TEST_UNIT_2.location[0] + 1, self.TEST_UNIT_2.location[1]),
+                              self.TEST_UNIT_3.location)
+        self.assertFalse(self.TEST_UNIT_3.remaining_stamina)
+        self.assertFalse(self.TEST_PLAYER_2.units)
+        self.assertFalse(self.TEST_PLAYER.units)
+
+    def test_move_unit_attack_settlement_aggressive_ai(self):
+        """
+        Ensure that when a unit is being moved for an aggressive AI player, it will attack settlements within range if
+        its health is at least double the strength of the settlement.
+        """
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.AGGRESSIVE
+        self.TEST_UNIT.location = self.TEST_SETTLEMENT_2.location[0] - 2, self.TEST_SETTLEMENT_2.location[1]
+        self.TEST_UNIT.health = 100
+        self.TEST_SETTLEMENT_2.strength = 50
+        self.movemaker.board_ref.overlay.toggle_setl_attack = MagicMock()
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER_2, self.TEST_PLAYER],
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG)
+
+        # We expect the unit to have moved next to the settlement, and for an attack to have been made, harming both
+        # the unit and the settlement.
+        self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] - 1, self.TEST_SETTLEMENT_2.location[1]),
+                              self.TEST_UNIT.location)
+        self.assertFalse(self.TEST_UNIT.remaining_stamina)
+        self.assertLess(self.TEST_UNIT.health, 100)
+        self.assertLess(self.TEST_SETTLEMENT_2.strength, 50)
+        # Because the 'human' player in this test is being attacked, we also expect the overlay to have been toggled.
+        self.movemaker.board_ref.overlay.toggle_setl_attack.assert_called()
+
+    @patch("source.game_management.movemaker.attack_setl")
+    def test_move_unit_attack_settlement_attacker_killed(self, attack_setl_mock: MagicMock):
+        """
+        Ensure that when an attack occurs between a unit and a settlement and the attacker is killed, the appropriate
+        state changes occur.
+        :param attack_setl_mock: The mock implementation of the attack_setl() function. This is required because it is
+        difficult (and potentially impossible) to recreate a situation where an AI unit will attack a settlement and be
+        subsequently killed.
+        """
+        # Mock the results of the attack to show that the attacker was killed.
+        attack_setl_mock.return_value = \
+            SetlAttackData(self.TEST_UNIT, self.TEST_SETTLEMENT_2, self.TEST_PLAYER_2, 15, 2, True, True, False)
+
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.AGGRESSIVE
+        self.TEST_UNIT.location = self.TEST_SETTLEMENT_2.location[0] - 2, self.TEST_SETTLEMENT_2.location[1]
+        self.TEST_UNIT.health = 10
+        self.TEST_SETTLEMENT_2.strength = 5
+        self.movemaker.board_ref.overlay.toggle_setl_attack = MagicMock()
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER_2, self.TEST_PLAYER],
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG)
+
+        # We expect the unit to have moved next to the settlement, and for an attack to have been made, killing the unit
+        # and damaging the settlement.
+        self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] - 1, self.TEST_SETTLEMENT_2.location[1]),
+                              self.TEST_UNIT.location)
+        self.assertFalse(self.TEST_UNIT.remaining_stamina)
+        self.assertFalse(self.TEST_PLAYER.units)
+        self.assertLess(self.TEST_SETTLEMENT_2.strength, 50)
+        # Because the 'human' player in this test is being attacked, we also expect the overlay to have been toggled.
+        self.movemaker.board_ref.overlay.toggle_setl_attack.assert_called()
+
+    def test_move_unit_attack_settlement_neutral_ai(self):
+        """
+        Ensure that when a unit is being moved for a neutral AI player, it will attack settlements within range if
+        its health is at least 10x the strength of the settlement.
+        """
+        self.TEST_UNIT.location = self.TEST_SETTLEMENT_2.location[0] + 2, self.TEST_SETTLEMENT_2.location[1]
+        self.TEST_UNIT.health = 100
+        # In this example, the unit is currently placing the settlement under siege.
+        self.TEST_UNIT.besieging = True
+        self.TEST_SETTLEMENT_2.strength = 10
+        self.TEST_SETTLEMENT_2.besieged = True
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG)
+
+        # We expect the unit to have moved next to the settlement, and for an attack to have been made, taking the
+        # settlement for the player and ending the siege.
+        self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] + 1, self.TEST_SETTLEMENT_2.location[1]),
+                              self.TEST_UNIT.location)
+        self.assertFalse(self.TEST_UNIT.remaining_stamina)
+        self.assertFalse(self.TEST_SETTLEMENT_2.besieged)
+        self.assertFalse(self.TEST_UNIT.besieging)
+        self.assertIn(self.TEST_SETTLEMENT_2, self.TEST_PLAYER.settlements)
+        self.assertFalse(self.TEST_PLAYER_2.settlements)
+
+    def test_move_unit_attack_settlement_defensive_ai(self):
+        """
+        Ensure that when a unit is being moved for a defensive AI player, it will attack settlements within range if
+        the settlement has no remaining strength.
+        """
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
+        self.TEST_UNIT.location = self.TEST_SETTLEMENT_2.location[0] + 2, self.TEST_SETTLEMENT_2.location[1]
+        # In this example, the unit is currently placing the settlement under siege.
+        self.TEST_UNIT.besieging = True
+        self.TEST_SETTLEMENT_2.strength = 0
+        self.TEST_SETTLEMENT_2.besieged = True
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG)
+
+        # We expect the unit to have moved next to the settlement, and for an attack to have been made, taking the
+        # settlement for the player and ending the siege.
+        self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] + 1, self.TEST_SETTLEMENT_2.location[1]),
+                              self.TEST_UNIT.location)
+        self.assertFalse(self.TEST_UNIT.remaining_stamina)
+        self.assertFalse(self.TEST_SETTLEMENT_2.besieged)
+        self.assertFalse(self.TEST_UNIT.besieging)
+        self.assertIn(self.TEST_SETTLEMENT_2, self.TEST_PLAYER.settlements)
+        self.assertFalse(self.TEST_PLAYER_2.settlements)
+
+    def test_move_unit_besiege_settlement_aggressive_ai(self):
+        """
+        Ensure that when a unit is being moved for an aggressive AI player, it will place settlements within range under
+        siege if the unit health to settlement strength ratio is not favourable enough.
+        """
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.AGGRESSIVE
+        self.TEST_UNIT.location = self.TEST_SETTLEMENT_2.location[0] - 2, self.TEST_SETTLEMENT_2.location[1]
+        # 10 vs 50 is clearly not favourable enough to attack, even for aggressive AIs.
+        self.TEST_UNIT.health = 10
+        self.TEST_SETTLEMENT_2.strength = 50
+        self.movemaker.board_ref.overlay.toggle_siege_notif = MagicMock()
+
+        self.assertFalse(self.TEST_UNIT.besieging)
+        self.assertFalse(self.TEST_SETTLEMENT_2.besieged)
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER_2, self.TEST_PLAYER],
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG)
+
+        # We expect the unit to have moved next to the settlement, and for a siege to have been begun.
+        self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] - 1, self.TEST_SETTLEMENT_2.location[1]),
+                              self.TEST_UNIT.location)
+        self.assertFalse(self.TEST_UNIT.remaining_stamina)
+        self.assertTrue(self.TEST_UNIT.besieging)
+        self.assertTrue(self.TEST_SETTLEMENT_2.besieged)
+        # Because the 'human' player in this test is having their settlement placed under siege, we also expect the
+        # overlay to have been toggled.
+        self.movemaker.board_ref.overlay.toggle_siege_notif.assert_called_with(self.TEST_SETTLEMENT_2, self.TEST_PLAYER)
+
+    def test_move_unit_besiege_settlement_neutral_ai(self):
+        """
+        Ensure that when a unit is being moved for a neutral AI player, it will place settlements within range under
+        siege if the unit health to settlement strength ratio is not favourable enough.
+        """
+        self.TEST_UNIT.location = self.TEST_SETTLEMENT_2.location[0] + 2, self.TEST_SETTLEMENT_2.location[1]
+        # For a neutral AI, 2:1 is not good enough to attack.
+        self.TEST_UNIT.health = 100
+        self.TEST_SETTLEMENT_2.strength = 50
+
+        self.assertFalse(self.TEST_UNIT.besieging)
+        self.assertFalse(self.TEST_SETTLEMENT_2.besieged)
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG)
+
+        # We expect the unit to have moved next to the settlement, and for a siege to have been begun.
+        self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] + 1, self.TEST_SETTLEMENT_2.location[1]),
+                              self.TEST_UNIT.location)
+        self.assertFalse(self.TEST_UNIT.remaining_stamina)
+        self.assertTrue(self.TEST_UNIT.besieging)
+        self.assertTrue(self.TEST_SETTLEMENT_2.besieged)
+
+    @patch("source.game_management.movemaker.search_for_relics_or_move")
+    def test_move_unit_nothing_within_range(self, search_or_move_mock: MagicMock):
+        """
+        Ensure that in cases where a unit is being moved and there are no other units within range that present options
+        for an attack or siege, the correct search/move function is called.
+        :param search_or_move_mock: The mock implementation of the search_for_relics_or_move() function.
+        """
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [], [], self.QUADS, self.TEST_CONFIG)
+        search_or_move_mock.assert_called_with(self.TEST_UNIT, self.QUADS, self.TEST_PLAYER, [], [], self.TEST_CONFIG)
 
 
 if __name__ == '__main__':
