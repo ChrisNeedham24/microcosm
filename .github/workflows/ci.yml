@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint:
+  validate:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -23,9 +23,24 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: "3.10"
+      - name: Install system packages (Ubuntu)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libsdl2-2.0-0
+          sudo apt-get install -y vlc
+        if: matrix.os == 'ubuntu-latest'
+      - name: Install system packages (MacOS)
+        run: |
+          brew update
+          brew install --cask vlc
+        if: matrix.os == 'macos-latest'
       - name: Install requirements
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Lint
         run: pylint $(git ls-files '*.py')
+      - name: Test
+        run: coverage run -m unittest discover -s source/tests/ -t source/tests/
+      - name: Coverage
+        run: coverage report -m --fail-under=100

@@ -167,11 +167,7 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
             for i in harv_imps:
                 if i.effect.harvest > most_harvest[0] and i.cost <= most_harvest[1]:
                     most_harvest = i.effect.harvest, i.cost, i
-            # Again, don't do the improvement if it takes too long relatively.
-            if avail_imps[0].cost * 5 < most_harvest[1]:
-                setl.current_work = Construction(ideal)
-            else:
-                setl.current_work = Construction(most_harvest[2])
+            setl.current_work = Construction(most_harvest[2])
         # In all other circumstances, i.e. most of the time, just construct the ideal improvement.
         else:
             setl.current_work = Construction(ideal)
@@ -281,11 +277,7 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool):
             for i in harv_imps:
                 if i.effect.harvest > most_harvest[0] and i.cost <= most_harvest[1]:
                     most_harvest = i.effect.harvest, i.cost, i
-            # Again, don't do the improvement if it takes too long relatively.
-            if avail_imps[0].cost * 5 < most_harvest[1]:
-                setl.current_work = Construction(ideal)
-            else:
-                setl.current_work = Construction(most_harvest[2])
+            setl.current_work = Construction(most_harvest[2])
         else:
             # Aggressive AIs will, in most cases, pick the available unit with the most power, if the settlement level
             # is high enough. However, if they do not have an acceptable number of healer units (20% of total), one of
@@ -352,7 +344,7 @@ def search_for_relics_or_move(unit: Unit,
     investigate_range = unit.remaining_stamina + 1
     for i in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
         for j in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
-            if 0 <= i <= 89 and 0 <= j <= 99 and quads[i][j].is_relic:
+            if 0 <= i <= 99 and 0 <= j <= 89 and quads[j][i].is_relic:
                 first_resort: (int, int)
                 second_resort = j, i + 1
                 third_resort = j, i - 1
@@ -371,7 +363,7 @@ def search_for_relics_or_move(unit: Unit,
                 unit.remaining_stamina = 0
                 if found_valid_loc:
                     investigate_relic(player, unit, (j, i), cfg)
-                    quads[i][j].is_relic = False
+                    quads[j][i].is_relic = False
                     return
     # We only get to this point if a valid relic was not found. Make sure when moving randomly that the unit does not
     # collide with other units or settlements.
@@ -389,10 +381,60 @@ def search_for_relics_or_move(unit: Unit,
             unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
 
+def move_healer_unit(player: Player, unit: Unit, other_units: typing.List[Unit],
+                     all_setls: typing.List[Settlement], quads: typing.List[typing.List[Quad]], cfg: GameConfig):
+    """
+    Search for any friendly units within range that aren't at full health. If one is found, move next to it and
+    heal it. Otherwise, the healer unit looks for relics or moves randomly.
+    :param player: The player owner of the healer unit.
+    :param unit: The healer unit itself.
+    :param other_units: The other units in the game. Used to make sure no unit collisions occur.
+    :param all_setls: All of the settlements in the game. Used to make sure no collisions occur between the healer unit
+    and settlements.
+    :param quads: The quads on the board.
+    :param cfg: The current game configuration.
+    """
+    within_range: typing.Optional[Unit] = None
+    for player_u in player.units:
+        if max(abs(unit.location[0] - player_u.location[0]),
+               abs(unit.location[1] - player_u.location[1])) <= unit.remaining_stamina and \
+                player_u.health < player_u.plan.max_health and player_u is not unit:
+            within_range = player_u
+            break
+    if within_range is not None:
+        # Now that we have determined that there is another unit for our unit to heal, we need to work out where
+        # we will move our unit to. There are three options for this, directly to the sides of the unit, below
+        # the unit, or above the unit.
+        first_resort: (int, int)
+        second_resort = within_range.location[0], within_range.location[1] + 1
+        third_resort = within_range.location[0], within_range.location[1] - 1
+        if within_range.location[0] - unit.location[0] < 0:
+            first_resort = within_range.location[0] + 1, within_range.location[1]
+        else:
+            first_resort = within_range.location[0] - 1, within_range.location[1]
+        found_valid_loc = False
+        # We have to ensure that no other units or settlements are in the location we intend to move to.
+        for loc in [first_resort, second_resort, third_resort]:
+            if not any(u.location == loc for u in player.units) and \
+                    not any(other_u.location == loc for other_u in other_units) and \
+                    not any(setl.location == loc for setl in all_setls):
+                unit.location = loc
+                found_valid_loc = True
+                break
+        unit.remaining_stamina = 0
+        # Assuming we found a valid location, the healing can take place.
+        if found_valid_loc:
+            heal(unit, within_range)
+    # If there's nothing within range, look for relics or just move randomly.
+    else:
+        search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)
+
+
 class MoveMaker:
     """
     The MoveMaker class handles AI moves for each turn.
     """
+
     def __init__(self, namer: Namer):
         """
         Initialise the MoveMaker's Namer reference.
@@ -415,6 +457,7 @@ class MoveMaker:
         for pl in all_players:
             all_setls.extend(pl.settlements)
         player_totals = get_player_totals(player, is_night)
+        overall_wealth = player_totals[0]
         if player.ongoing_blessing is None:
             set_blessing(player, player_totals)
         for setl in player.settlements:
@@ -426,12 +469,11 @@ class MoveMaker:
                 # circumstances where the settlement's satisfaction is less than 50 and the construction would yield
                 # harvest or satisfaction, buy it out as soon as the AI is able to afford it. Fundamentalist AIs are
                 # exempt from this, as they cannot buy out constructions.
-                if rem_work := (constr.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or \
-                               (setl.satisfaction < 50 and player.wealth >= constr.cost and
-                                isinstance(constr, Improvement) and
-                                (constr.effect.satisfaction > 0 or constr.effect.harvest > 0)):
+                if (constr.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or \
+                        (setl.satisfaction < 50 and player.wealth >= constr.cost and isinstance(constr, Improvement) and
+                         (constr.effect.satisfaction > 0 or constr.effect.harvest > 0)):
+                    player.wealth -= constr.cost - setl.current_work.zeal_consumed
                     complete_construction(setl, player)
-                    player.wealth -= rem_work
             # If the settlement has a settler, deploy them.
             if len([unit for unit in setl.garrison if unit.plan.can_settle]) > 0:
                 for unit in setl.garrison:
@@ -461,9 +503,53 @@ class MoveMaker:
             if pow_health := (unit.health + unit.plan.power) < min_pow_health[0]:
                 min_pow_health = pow_health, unit
             self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg)
-        if player.wealth + player_totals[0] < 0:
+            overall_wealth -= unit.plan.cost / 10
+        if player.wealth + overall_wealth < 0:
             player.wealth += min_pow_health[1].plan.cost
             player.units.remove(min_pow_health[1])
+
+    def move_settler_unit(self, unit: Unit, player: Player, other_units: typing.List[Unit],
+                          all_setls: typing.List[Settlement]):
+        """
+        Randomly move the given settler until it is far enough away from any of the player's other settlements, ensuring
+        that it does not collide with any other units or settlements. Once this has been achieved, found a new
+        settlement and destroy the unit.
+        :param unit: The settler unit.
+        :param player: The player owner of the settler unit.
+        :param other_units: The other units in the game. Used to make sure no unit collisions occur.
+        :param all_setls: All of the settlements in the game. Used to make sure no collisions occur between the settler
+        and settlements.
+        """
+        found_valid_loc = False
+        while not found_valid_loc:
+            x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
+            rem_movement = unit.remaining_stamina - abs(x_movement)
+            y_movement = random.choice([-rem_movement, rem_movement])
+            loc = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
+            if not any(u.location == loc and u != unit for u in player.units) and \
+                    not any(other_u.location == loc for other_u in other_units) and \
+                    not any(setl.location == loc for setl in all_setls):
+                unit.location = loc
+                found_valid_loc = True
+                unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
+
+        far_enough = True
+        for setl in player.settlements:
+            dist = max(abs(unit.location[0] - setl.location[0]), abs(unit.location[1] - setl.location[1]))
+            if dist < 10:
+                far_enough = False
+        if far_enough:
+            quad_biome = self.board_ref.quads[unit.location[1]][unit.location[0]].biome
+            setl_name = self.namer.get_settlement_name(quad_biome)
+            new_settl = Settlement(setl_name, unit.location, [],
+                                   [self.board_ref.quads[unit.location[1]][unit.location[0]]], [])
+            if player.faction is Faction.FRONTIERSMEN:
+                new_settl.satisfaction = 75
+            elif player.faction is Faction.IMPERIALS:
+                new_settl.strength /= 2
+                new_settl.max_strength /= 2
+            player.settlements.append(new_settl)
+            player.units.remove(unit)
 
     def move_unit(self, player: Player, unit: Unit, other_units: typing.List[Unit], all_players: typing.List[Player],
                   all_setls: typing.List[Settlement], quads: typing.List[typing.List[Quad]], cfg: GameConfig):
@@ -481,73 +567,11 @@ class MoveMaker:
         # settlements, ensuring that it does not collide with any other units or settlements. Once this has been
         # achieved, found a new settlement and destroy the unit.
         if unit.plan.can_settle:
-            found_valid_loc = False
-            while not found_valid_loc:
-                x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
-                rem_movement = unit.remaining_stamina - abs(x_movement)
-                y_movement = random.choice([-rem_movement, rem_movement])
-                loc = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
-                if not any(u.location == loc and u != unit for u in player.units) and \
-                        not any(other_u.location == loc for other_u in other_units) and \
-                        not any(setl.location == loc for setl in all_setls):
-                    unit.location = loc
-                    found_valid_loc = True
-                    unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
-
-            far_enough = True
-            for setl in player.settlements:
-                dist = max(abs(unit.location[0] - setl.location[0]), abs(unit.location[1] - setl.location[1]))
-                if dist < 10:
-                    far_enough = False
-            if far_enough:
-                quad_biome = self.board_ref.quads[unit.location[1]][unit.location[0]].biome
-                setl_name = self.namer.get_settlement_name(quad_biome)
-                new_settl = Settlement(setl_name, unit.location, [],
-                                       [self.board_ref.quads[unit.location[1]][unit.location[0]]], [])
-                if player.faction is Faction.FRONTIERSMEN:
-                    new_settl.satisfaction = 75
-                elif player.faction is Faction.IMPERIALS:
-                    new_settl.strength /= 2
-                    new_settl.max_strength /= 2
-                player.settlements.append(new_settl)
-                player.units.remove(unit)
+            self.move_settler_unit(unit, player, other_units, all_setls)
         # If the unit is a healer, look around for any friendly units within range that aren't at full health. If one is
         # found, move next to it and heal it. Otherwise, just look for relics or move randomly.
         elif unit.plan.heals:
-            within_range: typing.Optional[Unit] = None
-            for player_u in player.units:
-                if max(abs(unit.location[0] - player_u.location[0]),
-                       abs(unit.location[1] - player_u.location[1])) <= unit.remaining_stamina and \
-                       player_u.health < player_u.plan.max_health and player_u is not unit:
-                    within_range = player_u
-                    break
-            if within_range is not None:
-                # Now that we have determined that there is another unit for our unit to heal, we need to work out where
-                # we will move our unit to. There are three options for this, directly to the sides of the unit, below
-                # the unit, or above the unit.
-                first_resort: (int, int)
-                second_resort = within_range.location[0], within_range.location[1] + 1
-                third_resort = within_range.location[0], within_range.location[1] - 1
-                if within_range.location[0] - unit.location[0] < 0:
-                    first_resort = within_range.location[0] + 1, within_range.location[1]
-                else:
-                    first_resort = within_range.location[0] - 1, within_range.location[1]
-                found_valid_loc = False
-                # We have to ensure that no other units or settlements are in the location we intend to move to.
-                for loc in [first_resort, second_resort, third_resort]:
-                    if not any(u.location == loc for u in player.units) and \
-                            not any(other_u.location == loc for other_u in other_units) and \
-                            not any(setl.location == loc for setl in all_setls):
-                        unit.location = loc
-                        found_valid_loc = True
-                        break
-                unit.remaining_stamina = 0
-                # Assuming we found a valid location, the healing can take place.
-                if found_valid_loc:
-                    heal(unit, within_range)
-            # If there's nothing within range, look for relics or just move randomly.
-            else:
-                search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)
+            move_healer_unit(player, unit, other_units, all_setls, quads, cfg)
         else:
             attack_over_siege = True  # If False, the unit will siege the settlement.
             within_range: typing.Optional[Unit | Settlement] = None

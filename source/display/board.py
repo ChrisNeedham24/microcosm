@@ -62,7 +62,7 @@ class Board:
         self.selected_unit: typing.Optional[Unit | Heathen] = None
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
-             is_night: bool, turns_until_change: int):
+             is_night: bool, turns_until_change: int):  # pragma: no cover
         """
         Draws the board and its objects to the screen.
         :param players: The players in the game.
@@ -421,10 +421,14 @@ class Board:
             # Work out which quad they've clicked, and select it.
             adj_x = int((mouse_x - 4) / 8) + map_pos[0]
             adj_y = int((mouse_y - 4) / 8) + map_pos[1]
-            self.quads[adj_y][adj_x].selected = not self.quads[adj_y][adj_x].selected
-            if self.quad_selected is not None:
-                self.quad_selected.selected = False
-            self.quad_selected = self.quads[adj_y][adj_x]
+            if self.quads[adj_y][adj_x].selected:
+                self.quads[adj_y][adj_x].selected = False
+                self.quad_selected = None
+            else:
+                self.quads[adj_y][adj_x].selected = True
+                if self.quad_selected is not None:
+                    self.quad_selected.selected = False
+                self.quad_selected = self.quads[adj_y][adj_x]
 
     def process_left_click(self, mouse_x: int, mouse_y: int, settled: bool,
                            player: Player, map_pos: (int, int), heathens: typing.List[Heathen],
@@ -469,6 +473,7 @@ class Board:
                     match player.faction:
                         case Faction.CONCENTRATED:
                             new_settl.strength *= 2
+                            new_settl.max_strength *= 2
                         case Faction.FRONTIERSMEN:
                             new_settl.satisfaction = 75
                         case Faction.IMPERIALS:

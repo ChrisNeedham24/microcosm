@@ -22,8 +22,7 @@ class SaveEncoder(JSONEncoder):
         # dict.
         if isinstance(o, ObjectConverter):
             return o.__dict__
-        # Otherwise, let the standard JSONEncoder handle it.
-        return super().default(o)
+        return {}
 
 
 class ObjectConverter:

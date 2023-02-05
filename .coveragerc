@@ -1,0 +1,11 @@
+[run]
+include = source/*
+omit = source/tests/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def draw
+    def display_overlay
+    class Game:
+    def on_mouse_button

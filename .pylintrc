@@ -1,6 +1,6 @@
 [MESSAGES CONTROL]
 
-disable=missing-module-docstring,invalid-name,wrong-import-position,unused-import,too-many-locals,too-many-arguments,too-many-instance-attributes,too-many-statements,too-many-branches,too-many-lines,too-many-public-methods,no-member,too-many-boolean-expressions,too-many-nested-blocks,too-many-return-statements,consider-using-enumerate,pointless-string-statement,too-few-public-methods,chained-comparison,duplicate-code
+disable=missing-module-docstring,invalid-name,wrong-import-position,unused-import,too-many-locals,too-many-arguments,too-many-instance-attributes,too-many-statements,too-many-branches,too-many-lines,too-many-public-methods,no-member,too-many-boolean-expressions,too-many-nested-blocks,too-many-return-statements,consider-using-enumerate,pointless-string-statement,too-few-public-methods,chained-comparison,duplicate-code,arguments-differ
 
 [FORMAT]
 
