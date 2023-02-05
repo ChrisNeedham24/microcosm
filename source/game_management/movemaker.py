@@ -434,6 +434,7 @@ class MoveMaker:
     """
     The MoveMaker class handles AI moves for each turn.
     """
+
     def __init__(self, namer: Namer):
         """
         Initialise the MoveMaker's Namer reference.
@@ -456,6 +457,7 @@ class MoveMaker:
         for pl in all_players:
             all_setls.extend(pl.settlements)
         player_totals = get_player_totals(player, is_night)
+        overall_wealth = player_totals[0]
         if player.ongoing_blessing is None:
             set_blessing(player, player_totals)
         for setl in player.settlements:
@@ -467,12 +469,11 @@ class MoveMaker:
                 # circumstances where the settlement's satisfaction is less than 50 and the construction would yield
                 # harvest or satisfaction, buy it out as soon as the AI is able to afford it. Fundamentalist AIs are
                 # exempt from this, as they cannot buy out constructions.
-                if rem_work := (constr.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or \
-                               (setl.satisfaction < 50 and player.wealth >= constr.cost and
-                                isinstance(constr, Improvement) and
-                                (constr.effect.satisfaction > 0 or constr.effect.harvest > 0)):
+                if (constr.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or \
+                        (setl.satisfaction < 50 and player.wealth >= constr.cost and isinstance(constr, Improvement) and
+                         (constr.effect.satisfaction > 0 or constr.effect.harvest > 0)):
+                    player.wealth -= constr.cost - setl.current_work.zeal_consumed
                     complete_construction(setl, player)
-                    player.wealth -= rem_work
             # If the settlement has a settler, deploy them.
             if len([unit for unit in setl.garrison if unit.plan.can_settle]) > 0:
                 for unit in setl.garrison:
@@ -502,7 +503,8 @@ class MoveMaker:
             if pow_health := (unit.health + unit.plan.power) < min_pow_health[0]:
                 min_pow_health = pow_health, unit
             self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg)
-        if player.wealth + player_totals[0] < 0:
+            overall_wealth -= unit.plan.cost / 10
+        if player.wealth + overall_wealth < 0:
             player.wealth += min_pow_health[1].plan.cost
             player.units.remove(min_pow_health[1])
 

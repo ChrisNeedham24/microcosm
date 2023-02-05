@@ -5,7 +5,7 @@ from source.display.board import Board
 from source.foundation.catalogue import Namer, UNIT_PLANS, BLESSINGS, get_unlockable_improvements, get_improvement, \
     get_available_improvements, get_unit_plan, IMPROVEMENTS
 from source.foundation.models import GameConfig, Faction, Unit, Player, Settlement, AIPlaystyle, AttackPlaystyle, \
-    ExpansionPlaystyle, Blessing, Quad, Biome, UnitPlan, SetlAttackData
+    ExpansionPlaystyle, Blessing, Quad, Biome, UnitPlan, SetlAttackData, Construction
 from source.game_management.movemaker import search_for_relics_or_move, set_blessing, set_player_construction, \
     set_ai_construction, MoveMaker, move_healer_unit
 
@@ -740,23 +740,196 @@ class MovemakerTest(unittest.TestCase):
         self.assertFalse(self.TEST_HEALER_UNIT.remaining_stamina)
         heal_mock.assert_called_with(self.TEST_HEALER_UNIT, self.TEST_UNIT)
 
-    """
-    Make move cases to test / things to verify
-    
-    ---All in one test---
-    Blessing is set
-    Construction is set
-    Construction is bought out in situations where it should be
-    Settler is deployed
-    Units are moved
-    Units are sold
-    
-    ---Individual tests for deployment---
-    Non-defensive AI auto-deploys garrisoned units
-    Unit deployed when besieged
-    Unit deployed when below max strength
-    Unit deployed for defensive AI when not besieged and at max strength but garrison size of 4
-    """
+    def test_make_move_blessing(self):
+        """
+        Ensure that when an AI player is making their move, if they have no ongoing blessing, one is set.
+        """
+        self.assertIsNone(self.TEST_PLAYER.ongoing_blessing)
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.assertIsNotNone(self.TEST_PLAYER.ongoing_blessing)
+
+    def test_make_move_set_construction(self):
+        """
+        Ensure that when an AI player is making their move, if they have a settlement with no current work, a
+        construction is set for that settlement.
+        """
+        self.assertIsNone(self.TEST_SETTLEMENT.current_work)
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.assertIsNotNone(self.TEST_SETTLEMENT.current_work)
+
+    @patch("source.game_management.movemaker.investigate_relic", lambda *args: None)
+    def test_make_move_construction_buyout(self):
+        """
+        Ensure that when an AI player has more than 3x the required wealth to buyout a current construction, they do so.
+        """
+        self.TEST_SETTLEMENT.current_work = Construction(IMPROVEMENTS[-1])
+        self.TEST_PLAYER.wealth = IMPROVEMENTS[-1].cost * 5
+
+        self.assertFalse(self.TEST_SETTLEMENT.improvements)
+
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+
+        # We expect the settlement to now have the improvement and the player's wealth to have been reduced
+        # appropriately.
+        self.assertIn(IMPROVEMENTS[-1], self.TEST_SETTLEMENT.improvements)
+        self.assertEqual(IMPROVEMENTS[-1].cost * 4, self.TEST_PLAYER.wealth)
+
+    def test_make_move_construction_buyout_satisfaction(self):
+        """
+        Ensure that when an AI player has a settlement with reduced satisfaction and the means to buyout its current
+        construction that will grant satisfaction, they do so.
+        """
+        self.TEST_SETTLEMENT.satisfaction = 49
+        # IMPROVEMENTS[0] is Melting Pot, which grants 2 satisfaction.
+        self.TEST_SETTLEMENT.current_work = Construction(IMPROVEMENTS[0])
+        self.TEST_PLAYER.wealth = IMPROVEMENTS[0].cost
+
+        self.assertFalse(self.TEST_SETTLEMENT.improvements)
+
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+
+        # We expect the settlement to now have the improvement.
+        self.assertIn(IMPROVEMENTS[0], self.TEST_SETTLEMENT.improvements)
+
+    def test_make_move_settler_deployed(self):
+        """
+        Ensure that when an AI player has a settler unit garrisoned, it is deployed.
+        """
+        self.TEST_SETTLER_UNIT.garrisoned = True
+        self.TEST_SETTLEMENT.garrison = [self.TEST_SETTLER_UNIT]
+
+        self.assertNotIn(self.TEST_SETTLER_UNIT, self.TEST_PLAYER.units)
+
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+
+        self.assertFalse(self.TEST_SETTLER_UNIT.garrisoned)
+        self.assertIn(self.TEST_SETTLER_UNIT, self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_SETTLEMENT.garrison)
+
+    def test_make_move_aggressive_ai_deploy_unit(self):
+        """
+        Ensure that when an aggressive AI player has a unit garrisoned, it is deployed.
+        """
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.AGGRESSIVE
+        self.TEST_UNIT_2.garrisoned = True
+        self.TEST_SETTLEMENT.garrison = [self.TEST_UNIT_2]
+
+        self.assertNotIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+
+        self.assertFalse(self.TEST_UNIT_2.garrisoned)
+        self.assertIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_SETTLEMENT.garrison)
+
+    def test_make_move_neutral_ai_deploy_unit(self):
+        """
+        Ensure that when a neutral AI player has a unit garrisoned, it is deployed.
+        """
+        # The test player is neutral by default, but we set it here as well for clarity.
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.NEUTRAL
+        self.TEST_UNIT_2.garrisoned = True
+        self.TEST_SETTLEMENT.garrison = [self.TEST_UNIT_2]
+
+        self.assertNotIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+
+        self.assertFalse(self.TEST_UNIT_2.garrisoned)
+        self.assertIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_SETTLEMENT.garrison)
+
+    def test_make_move_besieged_settlement_deploy_unit(self):
+        """
+        Ensure that when an AI player has a settlement under siege with a unit in its garrison, the unit is deployed.
+        """
+        # Set the attack playstyle to defensive, so we guarantee that it is the settlement's besieged nature that is
+        # causing the deployment.
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
+        self.TEST_UNIT_2.garrisoned = True
+        self.TEST_SETTLEMENT.garrison = [self.TEST_UNIT_2]
+        self.TEST_SETTLEMENT.besieged = True
+
+        self.assertNotIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+
+        self.movemaker.make_move(self.TEST_PLAYER, [self.TEST_PLAYER, self.TEST_PLAYER_2],
+                                 self.QUADS, self.TEST_CONFIG, False)
+
+        self.assertFalse(self.TEST_UNIT_2.garrisoned)
+        self.assertIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_SETTLEMENT.garrison)
+
+    def test_make_move_weakened_settlement_deploy_unit(self):
+        """
+        Ensure that when an AI player has a weakened settlement with a unit in its garrison, the unit is deployed.
+        """
+        # Set the attack playstyle to defensive, so we guarantee that it is the settlement's weakened nature that is
+        # causing the deployment.
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
+        self.TEST_UNIT_2.garrisoned = True
+        self.TEST_SETTLEMENT.garrison = [self.TEST_UNIT_2]
+        self.TEST_SETTLEMENT.strength = 1
+
+        self.assertNotIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+
+        self.assertFalse(self.TEST_UNIT_2.garrisoned)
+        self.assertIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_SETTLEMENT.garrison)
+
+    def test_make_move_garrison_too_full_deploy_unit(self):
+        """
+        Ensure that when an AI player has more than three units in a settlement's garrison, one is deployed, no matter
+        the circumstances.
+        """
+        extra_unit = Unit(90, 90, (9, 0), True, self.TEST_UNIT_PLAN)
+
+        # Set the attack playstyle to defensive, so we guarantee that nothing else is causing the deployment.
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
+        self.TEST_PLAYER.units = []
+        # Give the player enough wealth so the deployed unit is not auto-sold.
+        self.TEST_PLAYER.wealth = 999
+        self.TEST_UNIT.garrisoned = True
+        self.TEST_UNIT_2.garrisoned = True
+        self.TEST_UNIT_3.garrisoned = True
+        self.TEST_SETTLEMENT.garrison = [self.TEST_UNIT, self.TEST_UNIT_2, self.TEST_UNIT_3, extra_unit]
+
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+
+        self.assertFalse(extra_unit.garrisoned)
+        self.assertIn(extra_unit, self.TEST_PLAYER.units)
+        # The remaining three units should still be in the garrison.
+        self.assertEqual(3, len(self.TEST_SETTLEMENT.garrison))
+
+    def test_make_move_unit_is_moved(self):
+        """
+        Ensure that the appropriate moving method is called for each of the AI player units.
+        """
+        # Give the opposing player a unit so that we can fully test the arguments supplied to the mock.
+        self.TEST_PLAYER_2.units = [self.TEST_UNIT_2]
+        self.movemaker.move_unit = MagicMock()
+
+        self.movemaker.make_move(self.TEST_PLAYER, [self.TEST_PLAYER, self.TEST_PLAYER_2],
+                                 self.QUADS, self.TEST_CONFIG, False)
+
+        self.assertEqual(1, self.movemaker.move_unit.call_count)
+        self.movemaker.move_unit.assert_called_with(self.TEST_PLAYER, self.TEST_UNIT, [self.TEST_UNIT_2],
+                                                    [self.TEST_PLAYER, self.TEST_PLAYER_2],
+                                                    [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2],
+                                                    self.QUADS, self.TEST_CONFIG)
+
+    @patch("source.game_management.movemaker.investigate_relic", lambda *args: None)
+    def test_make_move_negative_wealth(self):
+        """
+        Ensure that when an AI player would have negative wealth at the end of their turn, they stay ahead of the curve
+        and sell a unit.
+        """
+        self.assertTrue(self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_PLAYER.wealth)
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.assertEqual(self.TEST_UNIT.plan.cost, self.TEST_PLAYER.wealth)
+        self.assertFalse(self.TEST_PLAYER.units)
 
     def test_move_settler_unit_not_far_enough(self):
         """
