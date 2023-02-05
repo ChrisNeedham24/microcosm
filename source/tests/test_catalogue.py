@@ -11,18 +11,15 @@ class CatalogueTest(unittest.TestCase):
     """
     The test class for catalogue.py.
     """
-    TEST_PLAYER = Player("Frontiersman", Faction.FRONTIERSMEN, 0, 0, [], [], [], set(), set())
-    TEST_PLAYER_2 = Player("Farmer Man", Faction.AGRICULTURISTS, 0, 0, [], [], [], set(), set())
     TEST_BLESSING = BLESSINGS["beg_spl"]
     TEST_IMPROVEMENT = IMPROVEMENTS[0]
 
     def setUp(self) -> None:
         """
-        Reset the test player's faction and both players' blessings before each test.
+        Initialise the test players before each test.
         """
-        self.TEST_PLAYER.faction = Faction.FRONTIERSMEN
-        self.TEST_PLAYER.blessings = []
-        self.TEST_PLAYER_2.blessings = []
+        self.TEST_PLAYER = Player("Frontiersman", Faction.FRONTIERSMEN, 0, 0, [], [], [], set(), set())
+        self.TEST_PLAYER_2 = Player("Farmer Man", Faction.AGRICULTURISTS, 0, 0, [], [], [], set(), set())
 
     def test_namer(self):
         """

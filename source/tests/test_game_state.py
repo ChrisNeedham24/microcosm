@@ -17,18 +17,20 @@ class GameStateTest(unittest.TestCase):
     """
     TEST_CONFIG = GameConfig(5, Faction.NOCTURNE, True, False, True)
     TEST_NAMER = Namer()
-    TEST_UNIT_PLAN = UnitPlan(100, 100, 3, "Plan Man", None, 25)
-    TEST_UNIT_PLAN_2 = UnitPlan(100, 100, 3, "Man With Plan", None, 25)
-    TEST_UNIT = Unit(1, 2, (3, 4), False, TEST_UNIT_PLAN)
-    TEST_UNIT_2 = Unit(5, 6, (7, 8), True, TEST_UNIT_PLAN_2)
-    TEST_HEATHEN = Heathen(40, 6, (3, 3), get_heathen_plan(1))
-    TEST_SETTLEMENT = Settlement("Numero Uno", (0, 0), [], [], [TEST_UNIT_2])
-    TEST_SETTLEMENT_2 = Settlement("Numero Duo", (1, 1), [], [], [])
 
     def setUp(self) -> None:
         """
-        Initialise a standard GameState object with players and a board before each test. Also reset the test models.
+        Initialise a standard GameState object with players and a board before each test. Also initialise the test
+        models.
         """
+        self.TEST_UNIT_PLAN = UnitPlan(100, 100, 3, "Plan Man", None, 25)
+        self.TEST_UNIT_PLAN_2 = UnitPlan(100, 100, 3, "Man With Plan", None, 25)
+        self.TEST_UNIT = Unit(1, 2, (3, 4), False, self.TEST_UNIT_PLAN)
+        self.TEST_UNIT_2 = Unit(5, 6, (7, 8), True, self.TEST_UNIT_PLAN_2)
+        self.TEST_HEATHEN = Heathen(40, 6, (3, 3), get_heathen_plan(1))
+        self.TEST_SETTLEMENT = Settlement("Numero Uno", (0, 0), [], [], [self.TEST_UNIT_2])
+        self.TEST_SETTLEMENT_2 = Settlement("Numero Duo", (1, 1), [], [], [])
+
         self.game_state = GameState()
         self.game_state.players = [
             Player("Infidel", Faction.INFIDELS, 0, 0, [], [self.TEST_UNIT], [], set(), set(),
@@ -42,25 +44,6 @@ class GameStateTest(unittest.TestCase):
         ]
         self.game_state.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
         self.game_state.heathens = [self.TEST_HEATHEN]
-        self.TEST_UNIT.location = 3, 4
-        self.TEST_UNIT.health = 1
-        self.TEST_UNIT_2.health = 5
-        self.TEST_HEATHEN.location = 3, 3
-        self.TEST_HEATHEN.health = 40
-        self.TEST_HEATHEN.remaining_stamina = 6
-        self.TEST_HEATHEN.plan = get_heathen_plan(1)
-        self.TEST_SETTLEMENT.satisfaction = 50
-        self.TEST_SETTLEMENT.level = 1
-        self.TEST_SETTLEMENT.current_work = None
-        self.TEST_SETTLEMENT.improvements = []
-        self.TEST_SETTLEMENT.economic_status = EconomicStatus.STANDARD
-        self.TEST_SETTLEMENT.harvest_reserves = 0
-        self.TEST_UNIT_PLAN.power = 100
-        self.TEST_UNIT_PLAN.max_health = 100
-        self.TEST_UNIT_PLAN.total_stamina = 3
-        self.TEST_UNIT_PLAN_2.power = 100
-        self.TEST_UNIT_PLAN_2.max_health = 100
-        self.TEST_UNIT_PLAN_2.total_stamina = 3
 
     def test_gen_players(self):
         """

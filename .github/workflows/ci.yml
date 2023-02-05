@@ -1,7 +1,6 @@
 name: CI
 
 on:
-  push:
   pull_request:
   workflow_dispatch:
 
@@ -39,4 +38,6 @@ jobs:
       - name: Lint
         run: pylint $(git ls-files '*.py')
       - name: Test
-        run: python -m unittest discover -t source/tests/ -s source/tests/
+        run: coverage run -m unittest discover -s source/tests/ -t source/tests/
+      - name: Coverage
+        run: coverage report -m --fail-under=100

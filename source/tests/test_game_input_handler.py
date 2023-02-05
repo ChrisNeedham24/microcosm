@@ -20,42 +20,34 @@ class GameInputHandlerTest(unittest.TestCase):
     """
     The test class for game_input_handler.py.
     """
-    TEST_UNIT = Unit(1, 1, (40, 40), True, UNIT_PLANS[0])
-    TEST_UNIT_2 = Unit(2, 2, (50, 50), False, UNIT_PLANS[0])
-    TEST_UNIT_NO_STAMINA = Unit(3, 0, (60, 60), False, UNIT_PLANS[0])
-    TEST_UNIT_BESIEGING = Unit(4, 4, (70, 70), False, UNIT_PLANS[0], besieging=True)
-    TEST_SETTLEMENT = Settlement("TestTown", (40, 40), [], [], [])
-    TEST_SETTLEMENT_2 = Settlement("TestCity", (50, 50), [], [], [])
-    TEST_SETTLEMENT_WITH_WORK = Settlement("Busyville", (60, 60), [], [], [], current_work=Construction(UNIT_PLANS[0]))
     PLAYER_WEALTH = 1000
-    TEST_PLAYER = Player("Tester", Faction.NOCTURNE, 0, PLAYER_WEALTH,
-                         [TEST_SETTLEMENT, TEST_SETTLEMENT_2, TEST_SETTLEMENT_WITH_WORK], [TEST_UNIT], [], set(), set())
-    TEST_PLAYER_2 = Player("Tester The Second", Faction.FUNDAMENTALISTS, 0, 0, [], [], [], set(), set())
 
     @patch("source.game_management.game_controller.MusicPlayer")
     def setUp(self, _: MagicMock) -> None:
         """
         Set up the GameController and GameState objects to be used as parameters in the test functions. Also instantiate
-        the Board object for the GameState and reset test models. Note that we also mock out the MusicPlayer class that
-        is used when constructing the GameController. This is because it will try to play music if not mocked.
+        the Board object for the GameState and initialise test models. Note that we also mock out the MusicPlayer class
+        that is used when constructing the GameController. This is because it will try to play music if not mocked.
         :param _: The unused MusicPlayer mock.
         """
         self.game_controller = GameController()
         self.game_state = GameState()
         self.game_state.board = Board(GameConfig(4, Faction.NOCTURNE, True, True, True), Namer())
         self.game_state.on_menu = False
+
+        self.TEST_SETTLEMENT = Settlement("TestTown", (40, 40), [], [], [])
+        self.TEST_SETTLEMENT_2 = Settlement("TestCity", (50, 50), [], [], [])
+        self.TEST_SETTLEMENT_WITH_WORK = Settlement("Busyville", (60, 60), [], [], [],
+                                                    current_work=Construction(UNIT_PLANS[0]))
+        self.TEST_UNIT = Unit(1, 1, (40, 40), True, UNIT_PLANS[0])
+        self.TEST_UNIT_2 = Unit(2, 2, (50, 50), False, UNIT_PLANS[0])
+        self.TEST_UNIT_NO_STAMINA = Unit(3, 0, (60, 60), False, UNIT_PLANS[0])
+        self.TEST_UNIT_BESIEGING = Unit(4, 4, (70, 70), False, UNIT_PLANS[0], besieging=True)
+        self.TEST_PLAYER = Player("Tester", Faction.NOCTURNE, 0, self.PLAYER_WEALTH,
+                                  [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_WITH_WORK],
+                                  [self.TEST_UNIT], [], set(), set())
+        self.TEST_PLAYER_2 = Player("Tester The Second", Faction.FUNDAMENTALISTS, 0, 0, [], [], [], set(), set())
         self.game_state.players = [self.TEST_PLAYER, self.TEST_PLAYER_2]
-        self.TEST_PLAYER.wealth = self.PLAYER_WEALTH
-        self.TEST_PLAYER.units = [self.TEST_UNIT]
-        self.TEST_PLAYER.settlements = [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_WITH_WORK]
-        self.TEST_PLAYER.faction = Faction.NOCTURNE
-        self.TEST_SETTLEMENT.garrison = []
-        self.TEST_SETTLEMENT.current_work = None
-        self.TEST_SETTLEMENT.besieged = False
-        self.TEST_SETTLEMENT.strength = 100
-        self.TEST_SETTLEMENT_WITH_WORK.current_work = Construction(UNIT_PLANS[0])
-        self.TEST_SETTLEMENT_WITH_WORK.garrison = []
-        self.TEST_UNIT.besieging = False
 
     def test_arrow_down_menu(self):
         """
@@ -933,6 +925,7 @@ class GameInputHandlerTest(unittest.TestCase):
         """
         Ensure that the space key correctly toggles in-game intrusive overlays.
         """
+
         def test_overlay(test_class: GameInputHandlerTest,
                          overlay_type: OverlayType,
                          fn_to_mock: str,

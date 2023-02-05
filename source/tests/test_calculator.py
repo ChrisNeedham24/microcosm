@@ -16,27 +16,19 @@ class CalculatorTest(unittest.TestCase):
     ORIGINAL_WEALTH = 99
     ORIGINAL_HEALTH = 1
     ORIGINAL_STAMINA = 2
-    ORIGINAL_PLAN_HEALTH = UNIT_PLANS[0].max_health
-    ORIGINAL_PLAN_POWER = UNIT_PLANS[0].power
-    ORIGINAL_PLAN_STAMINA = UNIT_PLANS[0].total_stamina
-    ORIGINAL_PLAN_COST = UNIT_PLANS[0].cost
-    TEST_PLAYER = Player("TestMan", Faction.NOCTURNE, ORIGINAL_WEALTH, 0, [], [], [], set(), set())
-    TEST_UNIT = Unit(ORIGINAL_HEALTH, ORIGINAL_STAMINA, (3, 4), False, UNIT_PLANS[0])
-    TEST_CONFIG = GameConfig(2, TEST_PLAYER.faction, True, True, True)
 
     def setUp(self) -> None:
         """
-        Reset our test models.
+        Initialise our test models.
         """
-        self.TEST_PLAYER.ongoing_blessing = None
-        self.TEST_PLAYER.wealth = self.ORIGINAL_WEALTH
-        self.TEST_PLAYER.quads_seen = set()
-        self.TEST_UNIT.health = self.ORIGINAL_HEALTH
-        self.TEST_UNIT.remaining_stamina = self.ORIGINAL_STAMINA
-        self.TEST_UNIT.plan.max_health = self.ORIGINAL_PLAN_HEALTH
-        self.TEST_UNIT.plan.power = self.ORIGINAL_PLAN_POWER
-        self.TEST_UNIT.plan.total_stamina = self.ORIGINAL_PLAN_STAMINA
-        self.TEST_UNIT.plan.cost = self.ORIGINAL_PLAN_COST
+        self.TEST_PLAYER = Player("TestMan", Faction.NOCTURNE, 0, self.ORIGINAL_WEALTH, [], [], [], set(), set())
+        self.TEST_CONFIG = GameConfig(2, self.TEST_PLAYER.faction, True, True, True)
+        self.TEST_UNIT_PLAN = UnitPlan(100, 100, 3, "TesterUnit", None, 25)
+        self.ORIGINAL_PLAN_HEALTH = self.TEST_UNIT_PLAN.max_health
+        self.ORIGINAL_PLAN_POWER = self.TEST_UNIT_PLAN.power
+        self.ORIGINAL_PLAN_STAMINA = self.TEST_UNIT_PLAN.total_stamina
+        self.ORIGINAL_PLAN_COST = self.TEST_UNIT_PLAN.cost
+        self.TEST_UNIT = Unit(self.ORIGINAL_HEALTH, self.ORIGINAL_STAMINA, (3, 4), False, self.TEST_UNIT_PLAN)
 
     def test_yield_for_quad(self):
         """

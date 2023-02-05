@@ -10,7 +10,15 @@ For those wishing to contribute, welcome and good luck.
 
 ### Testing
 
-There are no tests in the wild west.
+Tests in this repository use the built-in `unittest` library as well as the [coverage](https://pypi.org/project/coverage/) library.
+
+All business logic and functional code requires unit testing, while display-related code does not.
+A good rule of thumb is if the function has multiple references to `pyxel` in it, it does not require testing.
+
+100% coverage of functional code is required to pass the coverage CI check.
+
+If you create a new function with drawing code, you can add its signature to `.coveragerc` to exempt it from coverage checks.
+Alternatively, you can use the `# pragma: no cover` comment to do the same thing without modifying the config file.
 
 ### Environment details
 

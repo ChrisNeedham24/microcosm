@@ -14,35 +14,24 @@ class BoardTest(unittest.TestCase):
     TEST_NAMER = Namer()
     TEST_UPDATE_TIME = 2
     TEST_UPDATE_TIME_OVER = 4
-    TEST_SETTLEMENT = Settlement("Test Town", (7, 7), [], [], [])
-    TEST_ENEMY_SETTLEMENT = Settlement("Bad Town", (6, 6), [], [], [])
-    TEST_UNIT_PLAN = UnitPlan(100, 100, 2, "TestMan", None, 0, heals=True)
-    TEST_UNIT = Unit(100, 2, (5, 5), False, TEST_UNIT_PLAN)
-    TEST_UNIT_2 = Unit(100, 2, (8, 8), False, TEST_UNIT_PLAN)
-    TEST_UNIT_3 = Unit(100, 10, (9, 9), False, TEST_UNIT_PLAN)
-    TEST_PLAYER = Player("Mr. Tester", Faction.FUNDAMENTALISTS, 0, 0, [TEST_SETTLEMENT], [], [], set(), set())
-    TEST_ENEMY_PLAYER = Player("Dr. Evil", Faction.INFIDELS, 0, 0, [TEST_ENEMY_SETTLEMENT], [], [], set(), set())
-    TEST_HEATHEN = Heathen(100, 2, (10, 10), get_heathen_plan(1))
 
     def setUp(self) -> None:
         """
-        Instantiate a standard Board object with generated quads before each test. Also reset the test models and save
-        some relevant quad coordinates.
+        Instantiate a standard Board object with generated quads before each test. Also initialise the test models and
+        save some relevant quad coordinates.
         """
         self.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
-        self.TEST_UNIT.location = (5, 5)
-        self.TEST_UNIT.has_acted = False
-        self.TEST_UNIT.health = 100
-        self.TEST_UNIT_2.health = 100
-        self.TEST_UNIT_3.besieging = False
-        self.TEST_UNIT_3.health = 100
-        self.TEST_HEATHEN.health = 100
-        self.TEST_PLAYER.units = [self.TEST_UNIT]
-        self.TEST_PLAYER.faction = Faction.FUNDAMENTALISTS
-        self.TEST_SETTLEMENT.garrison = []
-        self.TEST_PLAYER.settlements = [self.TEST_SETTLEMENT]
-        self.TEST_ENEMY_PLAYER.units = [self.TEST_UNIT_2]
-        self.TEST_ENEMY_SETTLEMENT.besieged = False
+        self.TEST_UNIT_PLAN = UnitPlan(100, 100, 2, "TestMan", None, 0, heals=True)
+        self.TEST_UNIT = Unit(100, 2, (5, 5), False, self.TEST_UNIT_PLAN)
+        self.TEST_UNIT_2 = Unit(100, 2, (8, 8), False, self.TEST_UNIT_PLAN)
+        self.TEST_UNIT_3 = Unit(100, 10, (9, 9), False, self.TEST_UNIT_PLAN)
+        self.TEST_HEATHEN = Heathen(100, 2, (10, 10), get_heathen_plan(1))
+        self.TEST_SETTLEMENT = Settlement("Test Town", (7, 7), [], [], [])
+        self.TEST_ENEMY_SETTLEMENT = Settlement("Bad Town", (6, 6), [], [], [])
+        self.TEST_PLAYER = Player("Mr. Tester", Faction.FUNDAMENTALISTS, 0, 0,
+                                  [self.TEST_SETTLEMENT], [self.TEST_UNIT], [], set(), set())
+        self.TEST_ENEMY_PLAYER = Player("Dr. Evil", Faction.INFIDELS, 0, 0,
+                                        [self.TEST_ENEMY_SETTLEMENT], [self.TEST_UNIT_2], [], set(), set())
         # We need to find a relic quad before each test, because the quads are re-generated each time.
         self.relic_coords: (int, int) = -1, -1
         for i in range(90):

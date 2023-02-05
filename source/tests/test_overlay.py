@@ -12,25 +12,25 @@ class OverlayTest(unittest.TestCase):
     """
     The test class for overlay.py.
     """
-    TEST_SETTLEMENT = Settlement("Testville", (0, 0), [], [], [])
-    TEST_UNIT = Unit(1, 2, (3, 4), False, UNIT_PLANS[0])
-    TEST_UNIT_2 = Unit(5, 6, (7, 8), False, UNIT_PLANS[0])
-    TEST_BLESSING = Blessing("Cool", "Magic", 0)
-    TEST_BLESSING_2 = Blessing("Uncool", "Science", 0)
-    TEST_IMPROVEMENT = Improvement(ImprovementType.BOUNTIFUL, 0, "More", "Food", Effect(), None)
-    TEST_IMPROVEMENT_2 = Improvement(ImprovementType.MAGICAL, 0, "Magic", "Time", Effect(), None)
-    TEST_PLAYER = Player("Bob", Faction.NOCTURNE, 0, 0, [TEST_SETTLEMENT], [], [], set(), set())
-    TEST_VICTORY = Victory(TEST_PLAYER, VictoryType.VIGOUR)
-    TEST_PROJECT = Project(ProjectType.MAGICAL, "Magic", "Project")
-    TEST_PROJECT_2 = Project(ProjectType.BOUNTIFUL, "Food", "Project")
-    TEST_UNIT_PLAN = UnitPlan(0, 0, 1, "Weakling", None, 0)
-    TEST_UNIT_PLAN_2 = UnitPlan(999, 999, 999, "Strongman", None, 0)
 
     def setUp(self) -> None:
         """
-        Instantiate a standard Overlay object before each test.
+        Instantiate a standard Overlay object before each test and initialise test models.
         """
         self.overlay = Overlay()
+        self.TEST_SETTLEMENT = Settlement("Testville", (0, 0), [], [], [])
+        self.TEST_UNIT = Unit(1, 2, (3, 4), False, UNIT_PLANS[0])
+        self.TEST_UNIT_2 = Unit(5, 6, (7, 8), False, UNIT_PLANS[0])
+        self.TEST_BLESSING = Blessing("Cool", "Magic", 0)
+        self.TEST_BLESSING_2 = Blessing("Uncool", "Science", 0)
+        self.TEST_IMPROVEMENT = Improvement(ImprovementType.BOUNTIFUL, 0, "More", "Food", Effect(), None)
+        self.TEST_IMPROVEMENT_2 = Improvement(ImprovementType.MAGICAL, 0, "Magic", "Time", Effect(), None)
+        self.TEST_PLAYER = Player("Bob", Faction.NOCTURNE, 0, 0, [self.TEST_SETTLEMENT], [], [], set(), set())
+        self.TEST_VICTORY = Victory(self.TEST_PLAYER, VictoryType.VIGOUR)
+        self.TEST_PROJECT = Project(ProjectType.MAGICAL, "Magic", "Project")
+        self.TEST_PROJECT_2 = Project(ProjectType.BOUNTIFUL, "Food", "Project")
+        self.TEST_UNIT_PLAN = UnitPlan(0, 0, 1, "Weakling", None, 0)
+        self.TEST_UNIT_PLAN_2 = UnitPlan(999, 999, 999, "Strongman", None, 0)
 
     def test_toggle_standard(self):
         """
