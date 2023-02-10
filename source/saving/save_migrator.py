@@ -1,5 +1,7 @@
-from source.foundation.catalogue import get_blessing
-from source.foundation.models import UnitPlan
+from source.foundation.catalogue import get_blessing, FACTION_COLOURS
+from source.foundation.models import UnitPlan, Unit, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, Quad, \
+    Biome, GameConfig
+from source.game_management.game_state import GameState
 
 """
 The following migrations have occurred during Microcosm's development:
@@ -16,12 +18,14 @@ v1.1
   player has.
 
 v1.2
-- Climatic effects were added to the game as a part of its configuration. This can be mapped to False.
+- Climatic effects were added to the game as a part of its configuration. This can be mapped to False, and night
+  counters can be mapped to zero.
 
 v2.0
 - Factions were added for players. As it would be difficult for players to choose, their faction can be determined from
   the colour they chose.
-- The player faction was also added to the game configuration, which can be determined in the same way as above.
+- The player faction was also added to the game configuration, replacing player colour, which can be determined in the
+  same way as above.
 
 v2.2
 - Healing units were added. All existing unit plans can be mapped to False for the heals attribute.
@@ -39,3 +43,60 @@ def migrate_unit_plan(unit_plan) -> UnitPlan:
     return UnitPlan(unit_plan.power, unit_plan.max_health, unit_plan.total_stamina,
                     unit_plan.name, plan_prereq, unit_plan.cost, unit_plan.can_settle,
                     will_heal)
+
+
+def migrate_unit(unit) -> Unit:
+    will_have_acted: bool = unit.has_acted if hasattr(unit, "has_acted") else unit.has_attacked
+    will_be_besieging: bool = unit.besieging if hasattr(unit, "besieging") else unit.sieging
+    return Unit(unit.health, unit.remaining_stamina, (unit.location[0], unit.location[1]), unit.garrisoned,
+                migrate_unit_plan(unit.plan), will_have_acted, will_be_besieging)
+
+
+def migrate_player(player):
+    if player.ai_playstyle is not None:
+        if hasattr(player.ai_playstyle, "attacking"):
+            player.ai_playstyle = AIPlaystyle(AttackPlaystyle[player.ai_playstyle.attacking],
+                                              ExpansionPlaystyle[player.ai_playstyle.expansion])
+        else:
+            player.ai_playstyle = AIPlaystyle(AttackPlaystyle[player.ai_playstyle], ExpansionPlaystyle.NEUTRAL)
+    player.imminent_victories = set(player.imminent_victories) if hasattr(player, "imminent_victories") else set()
+    player.faction = Faction(player.faction) if hasattr(player, "faction") else get_faction_for_colour(player.colour)
+    if not hasattr(player, "eliminated"):
+        player.eliminated = len(player.settlements) == 0
+
+
+def migrate_climatic_effects(game_state: GameState, save):
+    game_state.until_night = save.night_status.until if hasattr(save, "night_status") else 0
+    game_state.nighttime_left = save.night_status.remaining if hasattr(save, "night_status") else 0
+
+
+def migrate_quad(quad) -> Quad:
+    new_quad = quad
+    # The biomes require special loading.
+    new_quad.biome = Biome[new_quad.biome]
+    new_quad.is_relic = new_quad.is_relic if hasattr(new_quad, "is_relic") else False
+    return new_quad
+
+
+def migrate_settlement(settlement):
+    if not hasattr(settlement, "besieged"):
+        if settlement.under_siege_by is not None:
+            settlement.besieged = True
+        else:
+            settlement.besieged = False
+
+
+def migrate_game_config(config) -> GameConfig:
+    if not hasattr(config, "climatic_effects"):
+        config.climatic_effects = False
+    if not hasattr(config, "player_faction"):
+        config.player_faction = get_faction_for_colour(config.player_colour)
+        delattr(config, "player_colour")
+    return config
+
+
+def get_faction_for_colour(colour: int) -> Faction:
+    factions = list(FACTION_COLOURS.keys())
+    colours = list(FACTION_COLOURS.values())
+    idx = colours.index(colour)
+    return factions[idx]
