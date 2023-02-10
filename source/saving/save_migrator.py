@@ -46,8 +46,18 @@ def migrate_unit_plan(unit_plan) -> UnitPlan:
 
 
 def migrate_unit(unit) -> Unit:
-    will_have_acted: bool = unit.has_acted if hasattr(unit, "has_acted") else unit.has_attacked
-    will_be_besieging: bool = unit.besieging if hasattr(unit, "besieging") else unit.sieging
+    will_have_acted: bool
+    if hasattr(unit, "has_acted"):
+        will_have_acted = unit.has_acted
+    else:
+        will_have_acted = unit.has_attacked
+        delattr(unit, "has_attacked")
+    will_be_besieging: bool
+    if hasattr(unit, "besieging"):
+        will_be_besieging = unit.besieging
+    else:
+        will_be_besieging = unit.sieging
+        delattr(unit, "sieging")
     return Unit(unit.health, unit.remaining_stamina, (unit.location[0], unit.location[1]), unit.garrisoned,
                 migrate_unit_plan(unit.plan), will_have_acted, will_be_besieging)
 
@@ -84,6 +94,7 @@ def migrate_settlement(settlement):
             settlement.besieged = True
         else:
             settlement.besieged = False
+        delattr(settlement, "under_siege_by")
 
 
 def migrate_game_config(config) -> GameConfig:
