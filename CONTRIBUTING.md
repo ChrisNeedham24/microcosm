@@ -12,6 +12,10 @@ For those wishing to contribute, welcome and good luck.
 
 Tests in this repository use the built-in `unittest` library as well as the [coverage](https://pypi.org/project/coverage/) library.
 
+To run the tests, the following command can be run from the project's root directory: `python -m unittest discover -s source/tests -t source/tests`
+
+Alternatively, to run the tests with coverage enabled, you can run the following command from the project's root directory: `coverage run -m unittest discover -s source/tests/ -t source/tests/`. You can then generate a coverage report using `coverage report -m`.
+
 All business logic and functional code requires unit testing, while display-related code does not.
 A good rule of thumb is if the function has multiple references to `pyxel` in it, it does not require testing.
 
@@ -52,7 +56,7 @@ If you think the feature may require some significant work, be sure to mention t
 
 Microcosm broadly follows [PEP-8](https://peps.python.org/pep-0008/) styling.
 Pylint is also used to guarantee conformity.
-If you're ever unsure whether you've formatted something correctly, run `pylint *.py` in the repository's root directory.
+If you're ever unsure whether you've formatted something correctly, run `pylint $(git ls-files '*.py')`.
 
 ### Code of Conduct
 
