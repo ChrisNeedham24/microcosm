@@ -169,8 +169,7 @@ class Menu:
                 pyxel.rect(25, 76, 150, 58, pyxel.COLOR_BLACK)
                 pyxel.text(85, 81, "Oh no!", pyxel.COLOR_RED)
                 pyxel.text(35, 92, "Error: This game save is invalid.", pyxel.COLOR_RED)
-                pyxel.text(55, 100, "It's either corrupted or", pyxel.COLOR_RED)
-                pyxel.text(43, 108, "incompatible with this version.", pyxel.COLOR_RED)
+                pyxel.text(53, 100, "It's probably corrupted.", pyxel.COLOR_RED)
 
                 pyxel.text(56, 120, "Press SPACE to go back", pyxel.COLOR_WHITE)
             else:

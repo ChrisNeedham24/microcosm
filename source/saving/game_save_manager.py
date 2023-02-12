@@ -2,17 +2,19 @@ import json
 import os
 from datetime import datetime
 from itertools import chain
+from json import JSONDecodeError
 
 import pyxel
 
 from source.display.board import Board
-from source.util.calculator import clamp
 from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement
+from source.foundation.models import Heathen, UnitPlan
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
-from source.foundation.models import Biome, Heathen, UnitPlan, AttackPlaystyle, AIPlaystyle, Unit, ExpansionPlaystyle, \
-    Faction
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
+from source.saving.save_migrator import migrate_unit, migrate_player, migrate_climatic_effects, \
+    migrate_quad, migrate_settlement, migrate_game_config
+from source.util.calculator import clamp
 
 # The prefix attached to save files created by the autosave feature.
 AUTOSAVE_PREFIX = "auto"
@@ -76,9 +78,7 @@ def load_game(game_state: GameState, game_controller: GameController):
             quads = [[None] * 100 for _ in range(90)]
             for i in range(90):
                 for j in range(100):
-                    quads[i][j] = save.quads[i * 100 + j]
-                    # The biomes require special loading.
-                    quads[i][j].biome = Biome[quads[i][j].biome]
+                    quads[i][j] = migrate_quad(save.quads[i * 100 + j])
             game_state.players = save.players
             # The list of tuples that is quads_seen needs special loading, as do a few other of the same type,
             # because tuples do not exist in JSON, so they are represented as arrays, which will clearly not work.
@@ -89,12 +89,7 @@ def load_game(game_state: GameState, game_controller: GameController):
             for p in game_state.players:
                 for idx, u in enumerate(p.units):
                     # We can do a direct conversion to Unit and UnitPlan objects for units.
-                    plan_prereq = None if u.plan.prereq is None else get_blessing(u.plan.prereq.name)
-                    p.units[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]), u.garrisoned,
-                                        UnitPlan(u.plan.power, u.plan.max_health, u.plan.total_stamina,
-                                                 u.plan.name, plan_prereq, u.plan.cost, u.plan.can_settle,
-                                                 u.plan.heals),
-                                        u.has_acted, u.besieging)
+                    p.units[idx] = migrate_unit(u)
                 for s in p.settlements:
                     # Make sure we remove the settlement's name so that we don't get duplicates.
                     game_controller.namer.remove_settlement_name(s.name, s.quads[0].biome)
@@ -115,19 +110,15 @@ def load_game(game_state: GameState, game_controller: GameController):
                         s.improvements[idx] = get_improvement(imp.name)
                     # Also convert all units in garrisons to Unit objects.
                     for idx, u in enumerate(s.garrison):
-                        s.garrison[idx] = Unit(u.health, u.remaining_stamina, (u.location[0], u.location[1]),
-                                               u.garrisoned, u.plan, u.has_acted, u.besieging)
+                        s.garrison[idx] = migrate_unit(u)
+                    migrate_settlement(s)
                 # We also do direct conversions to Blessing objects for the ongoing one, if there is one,
                 # as well as any previously-completed ones.
                 if p.ongoing_blessing:
                     p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
                 for idx, bls in enumerate(p.blessings):
                     p.blessings[idx] = get_blessing(bls.name)
-                if p.ai_playstyle is not None:
-                    p.ai_playstyle = AIPlaystyle(AttackPlaystyle[p.ai_playstyle.attacking],
-                                                 ExpansionPlaystyle[p.ai_playstyle.expansion])
-                p.imminent_victories = set(p.imminent_victories)
-                p.faction = Faction(p.faction)
+                migrate_player(p)
             # For the AI players, we can just make quads_seen an empty set, as it's not used.
             for i in range(1, len(game_state.players)):
                 game_state.players[i].quads_seen = set()
@@ -140,9 +131,8 @@ def load_game(game_state: GameState, game_controller: GameController):
                                                    h.has_attacked))
 
             game_state.turn = save.turn
-            game_state.until_night = save.night_status.until
-            game_state.nighttime_left = save.night_status.remaining
-            game_cfg = save.cfg
+            migrate_climatic_effects(game_state, save)
+            game_cfg = migrate_game_config(save.cfg)
         save_file.close()
         # Now do all the same logic we do when starting a game.
         pyxel.mouse(visible=True)
@@ -156,8 +146,7 @@ def load_game(game_state: GameState, game_controller: GameController):
         game_state.board.overlay.current_player = game_state.players[0]
         game_controller.music_player.stop_menu_music()
         game_controller.music_player.play_game_music()
-    # pylint: disable=broad-except
-    except Exception:
+    except (JSONDecodeError, AttributeError, KeyError, StopIteration, ValueError):
         game_controller.menu.load_failed = True
 
 
