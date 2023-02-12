@@ -37,6 +37,11 @@ v2.2
 
 
 def migrate_unit_plan(unit_plan) -> UnitPlan:
+    """
+    Apply the heals attribute migration for UnitPlans, if required.
+    :param unit_plan: The loaded unit plan object.
+    :return: An optionally-migrated UnitPlan representation.
+    """
     plan_prereq = None if unit_plan.prereq is None else get_blessing(unit_plan.prereq.name)
     will_heal: bool = unit_plan.heals if hasattr(unit_plan, "heals") else False
 
@@ -46,6 +51,13 @@ def migrate_unit_plan(unit_plan) -> UnitPlan:
 
 
 def migrate_unit(unit) -> Unit:
+    """
+    Apply the has_attacked to has_acted and sieging to besieging migrations for Units, if required.
+    :param unit: The loaded unit object.
+    :return: An optionally-migrated Unit representation.
+    """
+    # Note for the below migrations that if we detect an outdated attribute, we migrate it and then delete it so that it
+    # does not pollute future saves.
     will_have_acted: bool
     if hasattr(unit, "has_acted"):
         will_have_acted = unit.has_acted
@@ -63,6 +75,10 @@ def migrate_unit(unit) -> Unit:
 
 
 def migrate_player(player):
+    """
+    Apply the ai_playstyle, imminent_victories, faction, and eliminated migrations for Players, if required.
+    :param player: The loaded player object.
+    """
     if player.ai_playstyle is not None:
         if hasattr(player.ai_playstyle, "attacking"):
             player.ai_playstyle = AIPlaystyle(AttackPlaystyle[player.ai_playstyle.attacking],
@@ -76,11 +92,21 @@ def migrate_player(player):
 
 
 def migrate_climatic_effects(game_state: GameState, save):
+    """
+    Apply the night_status migrations for the game state, if required.
+    :param game_state: The state of the game being loaded in.
+    :param save: The loaded save data.
+    """
     game_state.until_night = save.night_status.until if hasattr(save, "night_status") else 0
     game_state.nighttime_left = save.night_status.remaining if hasattr(save, "night_status") else 0
 
 
 def migrate_quad(quad) -> Quad:
+    """
+    Apply the is_relic migration for Quads, if required.
+    :param quad: The loaded quad object.
+    :return: An optionally-migrated Quad representation.
+    """
     new_quad = quad
     # The biomes require special loading.
     new_quad.biome = Biome[new_quad.biome]
@@ -89,24 +115,40 @@ def migrate_quad(quad) -> Quad:
 
 
 def migrate_settlement(settlement):
+    """
+    Apply the besieged migration for Settlements, if required.
+    :param settlement: The loaded settlement object.
+    """
     if not hasattr(settlement, "besieged"):
         if settlement.under_siege_by is not None:
             settlement.besieged = True
         else:
             settlement.besieged = False
+        # We now delete the old attribute so that it does not pollute future saves.
         delattr(settlement, "under_siege_by")
 
 
 def migrate_game_config(config) -> GameConfig:
+    """
+    Apply the climatic_effects and player_faction migrations for game configuration, if required.
+    :param config: The loaded game configuration.
+    :return: An optionally-migrated GameConfig representation.
+    """
     if not hasattr(config, "climatic_effects"):
         config.climatic_effects = False
     if not hasattr(config, "player_faction"):
         config.player_faction = get_faction_for_colour(config.player_colour)
+        # We now delete the old attribute so that it does not pollute future saves.
         delattr(config, "player_colour")
     return config
 
 
 def get_faction_for_colour(colour: int) -> Faction:
+    """
+    Utility function that retrieves the faction for the supplied colour. Used for colour-to-faction migrations.
+    :param colour: The colour to retrieve the faction for.
+    :return: The faction for the supplied colour.
+    """
     factions = list(FACTION_COLOURS.keys())
     colours = list(FACTION_COLOURS.values())
     idx = colours.index(colour)
