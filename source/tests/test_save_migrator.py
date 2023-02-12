@@ -4,11 +4,11 @@ import pyxel
 
 from source.foundation.catalogue import UNIT_PLANS
 from source.foundation.models import UnitPlan, Unit, AttackPlaystyle, ExpansionPlaystyle, VictoryType, Faction, \
-    Settlement, Biome, Quad
+    Settlement, Biome, Quad, GameConfig
 from source.game_management.game_state import GameState
 from source.saving.save_encoder import ObjectConverter
 from source.saving.save_migrator import migrate_unit_plan, migrate_unit, migrate_player, migrate_climatic_effects, \
-    migrate_quad
+    migrate_quad, migrate_settlement, migrate_game_config
 
 
 class SaveMigratorTest(unittest.TestCase):
@@ -79,6 +79,8 @@ class SaveMigratorTest(unittest.TestCase):
         outdated_unit: Unit = migrate_unit(test_loaded_unit)
         self.assertTrue(outdated_unit.has_acted)
         self.assertFalse(outdated_unit.besieging)
+        self.assertFalse(hasattr(outdated_unit, "has_attacked"))
+        self.assertFalse(hasattr(outdated_unit, "sieging"))
 
     def test_player(self):
         test_attack_playstyle = AttackPlaystyle.AGGRESSIVE.value
@@ -162,6 +164,44 @@ class SaveMigratorTest(unittest.TestCase):
         outdated_quad: Quad = migrate_quad(test_loaded_quad)
 
         self.assertFalse(outdated_quad.is_relic)
+
+    def test_settlement(self):
+        test_loaded_besieged_settlement: ObjectConverter = ObjectConverter({
+            "under_siege_by": Unit(1, 2, (3, 4), False, UNIT_PLANS[0])
+        })
+
+        migrate_settlement(test_loaded_besieged_settlement)
+
+        self.assertTrue(test_loaded_besieged_settlement.besieged)
+        self.assertFalse(hasattr(test_loaded_besieged_settlement, "under_siege_by"))
+
+        test_loaded_settlement = ObjectConverter({
+            "under_siege_by": None
+        })
+
+        migrate_settlement(test_loaded_settlement)
+
+        self.assertFalse(test_loaded_settlement.besieged)
+        self.assertFalse(hasattr(test_loaded_settlement, "under_siege_by"))
+
+    def test_game_config(self):
+        test_player_count = 9
+
+        test_loaded_config: ObjectConverter = ObjectConverter({
+            "player_count": test_player_count,
+            "player_colour": pyxel.COLOR_ORANGE,
+            "biome_clustering": True,
+            "fog_of_war": True
+        })
+
+        outdated_config: GameConfig = migrate_game_config(test_loaded_config)
+
+        self.assertFalse(outdated_config.climatic_effects)
+        self.assertEqual(Faction.FUNDAMENTALISTS, outdated_config.player_faction)
+        self.assertFalse(hasattr(outdated_config, "player_colour"))
+        self.assertEqual(test_player_count, outdated_config.player_count)
+        self.assertTrue(outdated_config.biome_clustering)
+        self.assertTrue(outdated_config.fog_of_war)
 
 
 if __name__ == '__main__':
