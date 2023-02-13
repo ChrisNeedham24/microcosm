@@ -1,4 +1,5 @@
 import random
+import time
 import typing
 
 import pyxel
@@ -14,7 +15,7 @@ from source.foundation.models import Construction, OngoingBlessing, CompletedCon
     OverlayType, Faction, ConstructionMenu, Project
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
-from source.saving.game_save_manager import load_game, get_saves, save_game
+from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats
 
 
 def on_key_arrow_down(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
@@ -151,6 +152,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         if game_controller.menu.in_game_setup and game_controller.menu.setup_option is SetupOption.START_GAME:
             # If the player has pressed enter to start the game, generate the players, board, and AI players.
             pyxel.mouse(visible=True)
+            game_controller.last_turn_time = time.time()
             game_state.game_started = True
             game_state.turn = 1
             # Reinitialise night variables.
@@ -275,6 +277,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             # Autosave every 10 turns.
             if game_state.turn % 10 == 0:
                 save_game(game_state, auto=True)
+            time_elapsed = time.time() - game_controller.last_turn_time
+            game_controller.last_turn_time = time.time()
+            save_stats(time_elapsed)
 
             game_state.board.overlay.update_turn(game_state.turn)
             game_state.process_heathens()

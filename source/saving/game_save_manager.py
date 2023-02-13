@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from datetime import datetime
 from itertools import chain
 from json import JSONDecodeError
@@ -47,6 +48,23 @@ def save_game(game_state: GameState, auto: bool = False):
         # Note that we use the SaveEncoder here for custom encoding for some classes.
         save_file.write(json.dumps(save, cls=SaveEncoder))
     save_file.close()
+
+
+def save_stats(playtime: float):
+    playtime_to_write: float = playtime
+
+    stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
+    if os.path.isfile(stats_file_name):
+        with open(stats_file_name, "r") as stats_file:
+            stats_json = json.loads(stats_file.read())
+            playtime_to_write += stats_json["playtime"]
+
+    with open(stats_file_name, "w", encoding="utf-8") as stats_file:
+        stats = {
+            "playtime": playtime_to_write
+        }
+        stats_file.write(json.dumps(stats))
+    stats_file.close()
 
 
 def load_game(game_state: GameState, game_controller: GameController):
@@ -136,6 +154,7 @@ def load_game(game_state: GameState, game_controller: GameController):
         save_file.close()
         # Now do all the same logic we do when starting a game.
         pyxel.mouse(visible=True)
+        game_controller.last_turn_time = time.time()
         game_state.game_started = True
         game_state.on_menu = False
         game_state.board = Board(game_cfg, game_controller.namer, quads)
@@ -156,9 +175,8 @@ def get_saves(game_controller: GameController):
     """
     game_controller.menu.saves = []
     autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
-    saves = list(
-        filter(lambda file_name: not file_name == "README.md" and not file_name.startswith(AUTOSAVE_PREFIX),
-               [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
+    saves = list(filter(lambda file_name: file_name.startswith("save-"),
+                        [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
     # Default to a fake option if there are no saves available.
     if len(autosaves) + len(saves) == 0:
         game_controller.menu.save_idx = -1

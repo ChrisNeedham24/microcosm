@@ -19,6 +19,7 @@ class GameController:
         self.menu = Menu()
 
         self.last_time = time.time()
+        self.last_turn_time: float
 
         self.music_player = MusicPlayer()
         self.music_player.play_menu_music()
