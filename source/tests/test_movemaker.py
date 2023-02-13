@@ -931,6 +931,24 @@ class MovemakerTest(unittest.TestCase):
         self.assertEqual(self.TEST_UNIT.plan.cost, self.TEST_PLAYER.wealth)
         self.assertFalse(self.TEST_PLAYER.units)
 
+    @patch("source.game_management.movemaker.investigate_relic", lambda *args: None)
+    def test_make_move_negative_wealth_doesnt_remove_already_removed_units(self):
+        """
+        Ensure that when an AI player would have negative wealth at the end of their turn, the unit will die in
+        movement, so we cannot sell on negative wealth after unit dies.
+        """
+        # By making the test player defensive, we guarantee that the reason for attack is the other unit's faction.
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
+        self.TEST_PLAYER.units[0] = self.TEST_UNIT_2
+        wealth_before_combat = self.TEST_PLAYER.wealth
+        infidel_player = Player("Inf", Faction.INFIDELS, 0, 0, [], [self.TEST_UNIT_3], [], set(), set())
+
+        self.movemaker.make_move(self.TEST_PLAYER, [self.TEST_PLAYER, infidel_player], self.QUADS, self.TEST_CONFIG,
+                                 False)
+
+        self.assertEqual(wealth_before_combat, self.TEST_PLAYER.wealth)
+        self.assertFalse(self.TEST_PLAYER.units)
+
     def test_move_settler_unit_not_far_enough(self):
         """
         Ensure that when a settler unit has not moved far enough away from its original settlement, it does not found a

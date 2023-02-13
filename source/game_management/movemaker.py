@@ -504,7 +504,7 @@ class MoveMaker:
                 min_pow_health = pow_health, unit
             self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg)
             overall_wealth -= unit.plan.cost / 10
-        if player.wealth + overall_wealth < 0:
+        if (player.wealth + overall_wealth < 0) and min_pow_health[1] in player.units:
             player.wealth += min_pow_health[1].plan.cost
             player.units.remove(min_pow_health[1])
 
