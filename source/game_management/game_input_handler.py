@@ -275,7 +275,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         # If we are not in any of the above situations, end the turn.
         if game_state.end_turn():
             # Autosave every 10 turns.
-            if game_state.turn % 10 == 0:
+            if game_state.turn % 10 == 0 and game_state.players[0].settlements:
                 save_game(game_state, auto=True)
             time_elapsed = time.time() - game_controller.last_turn_time
             game_controller.last_turn_time = time.time()
@@ -386,7 +386,7 @@ def on_key_space(game_controller: GameController, game_state: GameState):
         game_controller.menu.load_failed = False
     elif game_state.on_menu and game_controller.menu.loading_game:
         game_controller.menu.loading_game = False
-    if game_state.game_started and game_state.board.overlay.is_elimination():
+    if game_state.game_started and game_state.board.overlay.is_elimination() and not game_state.players[0].eliminated:
         game_state.board.overlay.toggle_elimination(None)
     elif game_state.game_started and game_state.board.overlay.is_night():
         game_state.board.overlay.toggle_night(None)

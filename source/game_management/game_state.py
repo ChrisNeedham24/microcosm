@@ -2,6 +2,7 @@ import random
 import typing
 
 from source.display.board import Board
+from source.saving.game_save_manager import save_stats
 from source.util.calculator import clamp, attack, get_setl_totals, complete_construction
 from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
 from source.foundation.models import Heathen
@@ -292,6 +293,10 @@ class GameState:
         possible_victory = self.check_for_victory()
         if possible_victory is not None:
             self.board.overlay.toggle_victory(possible_victory)
+            if possible_victory.player is self.players[0]:
+                save_stats(victory_to_add=possible_victory.type)
+            else:
+                save_stats(increment_defeats=True)
             return False
         return True
 
@@ -359,6 +364,8 @@ class GameState:
             elif not (p == self.players[0] and any(unit.plan.can_settle for unit in p.units)) and not p.eliminated:
                 p.eliminated = True
                 self.board.overlay.toggle_elimination(p)
+                if p == self.players[0]:
+                    save_stats(increment_defeats=True)
             # If the player has accumulated at least 100k wealth over the game, they have achieved an AFFLUENCE victory.
             if p.accumulated_wealth >= 100000:
                 return Victory(p, VictoryType.AFFLUENCE)
