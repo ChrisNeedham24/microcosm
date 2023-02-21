@@ -445,3 +445,12 @@ class Victory:
     """
     player: Player
     type: VictoryType
+
+
+@dataclass
+class Statistics:
+    playtime: float
+    turns_played: int
+    victories: typing.Dict[VictoryType, int]
+    defeats: int
+    factions: typing.Dict[Faction, int]

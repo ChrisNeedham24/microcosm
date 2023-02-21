@@ -15,7 +15,7 @@ from source.foundation.models import Construction, OngoingBlessing, CompletedCon
     OverlayType, Faction, ConstructionMenu, Project
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
-from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats
+from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats, get_stats
 
 
 def on_key_arrow_down(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
@@ -161,6 +161,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.nighttime_left = 0
             game_state.on_menu = False
             cfg: GameConfig = game_controller.menu.get_game_config()
+            save_stats(faction_to_add=cfg.player_faction)
             game_state.gen_players(cfg)
             game_state.board = Board(cfg, game_controller.namer)
             game_controller.move_maker.board_ref = game_state.board
@@ -186,6 +187,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 case MainMenuOption.LOAD_GAME:
                     game_controller.menu.loading_game = True
                     get_saves(game_controller)
+                case MainMenuOption.STATISTICS:
+                    game_controller.menu.viewing_stats = True
+                    game_controller.menu.player_stats = get_stats()
                 case MainMenuOption.WIKI:
                     game_controller.menu.in_wiki = True
                 case MainMenuOption.EXIT:
@@ -386,6 +390,8 @@ def on_key_space(game_controller: GameController, game_state: GameState):
         game_controller.menu.load_failed = False
     elif game_state.on_menu and game_controller.menu.loading_game:
         game_controller.menu.loading_game = False
+    elif game_state.on_menu and game_controller.menu.viewing_stats:
+        game_controller.menu.viewing_stats = False
     if game_state.game_started and game_state.board.overlay.is_elimination() and not game_state.players[0].eliminated:
         game_state.board.overlay.toggle_elimination(None)
     elif game_state.game_started and game_state.board.overlay.is_night():

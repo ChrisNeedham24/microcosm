@@ -1,4 +1,5 @@
 import random
+import typing
 from math import ceil
 from enum import Enum
 from typing import List, Optional, Tuple
@@ -8,7 +9,7 @@ import pyxel
 from source.util.calculator import clamp
 from source.foundation.catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, \
     IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS
-from source.foundation.models import GameConfig, VictoryType, Faction, ProjectType
+from source.foundation.models import GameConfig, VictoryType, Faction, ProjectType, Statistics
 
 
 class MainMenuOption(Enum):
@@ -17,6 +18,7 @@ class MainMenuOption(Enum):
     """
     NEW_GAME = "New Game"
     LOAD_GAME = "Load Game"
+    STATISTICS = "Statistics"
     WIKI = "Wiki"
     EXIT = "Exit"
 
@@ -85,6 +87,8 @@ class Menu:
         self.faction_wiki_idx = 0
         self.load_game_boundaries = 0, 9
         self.load_failed = False
+        self.viewing_stats = False
+        self.player_stats: typing.Optional[Statistics] = None
 
     def draw(self):
         """
@@ -467,12 +471,35 @@ class Menu:
                     pyxel.text(84, 115, "Projects", self.get_option_colour(WikiOption.PROJECTS))
                     pyxel.text(90, 125, "Units", self.get_option_colour(WikiOption.UNITS))
                     pyxel.text(92, 145, "Back", self.get_option_colour(WikiOption.BACK))
+        elif self.viewing_stats:
+            pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
+            pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
+            pyxel.text(81, 25, "Statistics", pyxel.COLOR_WHITE)
+
+            playtime = self.player_stats.playtime
+            pyxel.text(28, 40, "Playtime", pyxel.COLOR_WHITE)
+            pyxel.text(150, 40, f"{int(playtime // 3600)}:{int(playtime // 60):02d}", pyxel.COLOR_WHITE)
+            pyxel.text(28, 60, "Turns played", pyxel.COLOR_WHITE)
+            pyxel.text(150, 60, str(self.player_stats.turns_played), pyxel.COLOR_WHITE)
+            pyxel.text(28, 80, "Victory count", pyxel.COLOR_WHITE)
+            pyxel.text(150, 80, str(sum(self.player_stats.victories.values())), pyxel.COLOR_GREEN)
+            pyxel.text(28, 100, "Defeat count", pyxel.COLOR_WHITE)
+            pyxel.text(150, 100, str(self.player_stats.defeats), pyxel.COLOR_RED)
+            pyxel.text(28, 120, "Favourite victory", pyxel.COLOR_WHITE)
+            pyxel.text(130, 120, max(self.player_stats.victories, key=self.player_stats.victories.get), pyxel.COLOR_WHITE)
+            pyxel.text(28, 140, "Favourite faction", pyxel.COLOR_WHITE)
+            fav_faction = max(self.player_stats.factions, key=self.player_stats.factions.get)
+            pyxel.text(120, 140, str(fav_faction), FACTION_COLOURS[fav_faction])
+            # TODO Alignment - reference game setup for faction names
+
+            pyxel.text(58, 160, "Press SPACE to go back", pyxel.COLOR_WHITE)
         else:
-            pyxel.rectb(75, 120, 50, 60, pyxel.COLOR_WHITE)
-            pyxel.rect(76, 121, 48, 58, pyxel.COLOR_BLACK)
-            pyxel.text(82, 125, "MICROCOSM", pyxel.COLOR_WHITE)
-            pyxel.text(85, 140, "New Game", self.get_option_colour(MainMenuOption.NEW_GAME))
-            pyxel.text(82, 150, "Load Game", self.get_option_colour(MainMenuOption.LOAD_GAME))
+            pyxel.rectb(75, 110, 50, 70, pyxel.COLOR_WHITE)
+            pyxel.rect(76, 111, 48, 68, pyxel.COLOR_BLACK)
+            pyxel.text(82, 115, "MICROCOSM", pyxel.COLOR_WHITE)
+            pyxel.text(85, 130, "New Game", self.get_option_colour(MainMenuOption.NEW_GAME))
+            pyxel.text(82, 140, "Load Game", self.get_option_colour(MainMenuOption.LOAD_GAME))
+            pyxel.text(80, 150, "Statistics", self.get_option_colour(MainMenuOption.STATISTICS))
             pyxel.text(92, 160, "Wiki", self.get_option_colour(MainMenuOption.WIKI))
             pyxel.text(92, 170, "Exit", self.get_option_colour(MainMenuOption.EXIT))
 

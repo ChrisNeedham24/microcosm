@@ -10,7 +10,7 @@ import pyxel
 
 from source.display.board import Board
 from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement
-from source.foundation.models import Heathen, UnitPlan, VictoryType
+from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics
 from source.game_management.game_controller import GameController
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
 from source.saving.save_migrator import migrate_unit, migrate_player, migrate_climatic_effects, \
@@ -53,11 +53,13 @@ def save_game(game_state, auto: bool = False):
 def save_stats(playtime: float = 0,
                increment_turn: bool = True,
                victory_to_add: typing.Optional[VictoryType] = None,
-               increment_defeats: bool = False):
+               increment_defeats: bool = False,
+               faction_to_add: typing.Optional[Faction] = None):
     playtime_to_write: float = playtime
     existing_turns: int = 0
     existing_victories: typing.Dict[VictoryType, int] = {}
     existing_defeats: int = 0
+    existing_factions: typing.Dict[Faction, int] = {}
 
     stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
     if os.path.isfile(stats_file_name):
@@ -67,6 +69,7 @@ def save_stats(playtime: float = 0,
             existing_turns = stats_json["turns_played"]
             existing_victories = stats_json["victories"]
             existing_defeats = stats_json["defeats"]
+            existing_factions = stats_json["factions"]
 
     victories_to_write = existing_victories
     if victory_to_add:
@@ -75,15 +78,33 @@ def save_stats(playtime: float = 0,
         else:
             existing_victories[victory_to_add] = 1
 
+    factions_to_write = existing_factions
+    if faction_to_add:
+        if faction_to_add in existing_factions:
+            existing_factions[faction_to_add] = existing_factions[faction_to_add] + 1
+        else:
+            existing_factions[faction_to_add] = 1
+
     with open(stats_file_name, "w", encoding="utf-8") as stats_file:
         stats = {
             "playtime": playtime_to_write,
             "turns_played": existing_turns + 1 if increment_turn else existing_turns,
             "victories": victories_to_write,
-            "defeats": existing_defeats + 1 if increment_defeats else existing_defeats
+            "defeats": existing_defeats + 1 if increment_defeats else existing_defeats,
+            "factions": factions_to_write
         }
         stats_file.write(json.dumps(stats))
     stats_file.close()
+
+
+def get_stats() -> Statistics:
+    stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
+    if os.path.isfile(stats_file_name):
+        with open(stats_file_name, "r") as stats_file:
+            stats_json = json.loads(stats_file.read())
+            return Statistics(**stats_json)
+    else:
+        return Statistics(0, 0, {}, 0, {})
 
 
 def load_game(game_state, game_controller: GameController):
