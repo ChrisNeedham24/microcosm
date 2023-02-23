@@ -465,7 +465,7 @@ class GameStateTest(unittest.TestCase):
         self.assertFalse(self.game_state.end_turn())
 
     @patch("source.game_management.game_state.save_stats")
-    def test_end_turn_victory(self, _: MagicMock):
+    def test_end_turn_victory(self, save_stats_mock: MagicMock):
         """
         Ensure that when a turn is ended and a player has achieved a victory, the method returns False and the turn is
         not ended.
@@ -483,6 +483,28 @@ class GameStateTest(unittest.TestCase):
         self.game_state.board.overlay.toggle_victory.assert_called_with(
             Victory(self.game_state.players[0], VictoryType.ELIMINATION)
         )
+        save_stats_mock.assert_called_with(victory_to_add=VictoryType.ELIMINATION)
+
+    @patch("source.game_management.game_state.save_stats")
+    def test_end_turn_defeat(self, save_stats_mock: MagicMock):
+        """
+        Ensure that when a turn is ended and an AI player has achieved a victory, the method returns False and the turn
+        is not ended.
+        """
+        self.game_state.board.overlay.toggle_victory = MagicMock()
+        # Make sure there are no warnings for the player by giving the settlement a construction and the player an
+        # ongoing blessing and wealth.
+        self.TEST_SETTLEMENT.current_work = Construction(IMPROVEMENTS[0])
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT]
+        self.game_state.players[0].ongoing_blessing = OngoingBlessing(BLESSINGS["beg_spl"])
+        self.game_state.players[0].wealth = 1000
+
+        self.assertFalse(self.game_state.end_turn())
+        # Since the AI player is the only one with a settlement, they should have achieved an Elimination victory.
+        self.game_state.board.overlay.toggle_victory.assert_called_with(
+            Victory(self.game_state.players[1], VictoryType.ELIMINATION)
+        )
+        save_stats_mock.assert_called_with(increment_defeats=True)
 
     def test_end_turn(self):
         """
@@ -645,27 +667,30 @@ class GameStateTest(unittest.TestCase):
         self.assertEqual(Victory(self.game_state.players[0], VictoryType.SERENDIPITY),
                          self.game_state.check_for_victory())
 
-    def test_check_for_victory_elimination(self):
+    @patch("source.game_management.game_state.save_stats")
+    def test_check_for_victory_elimination(self, save_stats_mock: MagicMock):
         """
         Ensure that when the conditions are met for an Elimination victory, it is detected.
         """
-        # Let us imagine that the first player has just taken the second settlement from the second player. Now, there
+        # Let us imagine that the second player has just taken the first settlement from the first player. Now, there
         # is only one player with one or more settlements, which is the requirement for this victory.
-        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2]
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2]
         self.game_state.board.overlay.toggle_elimination = MagicMock()
 
         # The other players should not be eliminated before the check.
-        self.assertFalse(self.game_state.players[1].eliminated)
+        self.assertFalse(self.game_state.players[0].eliminated)
         self.assertFalse(self.game_state.players[2].eliminated)
         self.assertFalse(self.game_state.players[3].eliminated)
-        self.assertEqual(Victory(self.game_state.players[0], VictoryType.ELIMINATION),
+        self.assertEqual(Victory(self.game_state.players[1], VictoryType.ELIMINATION),
                          self.game_state.check_for_victory())
         # The other players should now each be eliminated, and the elimination overlay should have been called for each
         # of them.
-        self.assertTrue(self.game_state.players[1].eliminated)
+        self.assertTrue(self.game_state.players[0].eliminated)
         self.assertTrue(self.game_state.players[2].eliminated)
         self.assertTrue(self.game_state.players[3].eliminated)
         self.assertEqual(3, self.game_state.board.overlay.toggle_elimination.call_count)
+        self.assertEqual(1, save_stats_mock.call_count)
+        save_stats_mock.assert_called_with(increment_defeats=True)
 
     def test_check_for_victory_reset_jubilation_counter(self):
         """
