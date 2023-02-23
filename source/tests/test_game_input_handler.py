@@ -353,9 +353,10 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_right(self.game_controller, self.game_state, True)
         self.assertTupleEqual((pos_x + 6, pos_y), self.game_state.map_pos)
 
+    @patch("source.game_management.game_input_handler.save_stats")
     @patch("random.seed")
     @patch("pyxel.mouse")
-    def test_return_start_game(self, mouse_mock: MagicMock, random_mock: MagicMock):
+    def test_return_start_game(self, mouse_mock: MagicMock, random_mock: MagicMock, _: MagicMock):
         """
         Ensure that when pressing the return key while in game setup and selecting the Start Game button, the correct
         game preparation state modification occurs.
@@ -724,8 +725,9 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.music_player.stop_game_music.assert_called()
         self.game_controller.music_player.play_menu_music.assert_called()
 
+    @patch("source.game_management.game_input_handler.save_stats")
     @patch("source.game_management.game_input_handler.save_game")
-    def test_return_end_turn(self, save_mock: MagicMock):
+    def test_return_end_turn(self, save_mock: MagicMock, _: MagicMock):
         """
         Ensure that the correct state updates occur when pressing the return key to end a turn.
         :param save_mock: The mock implementation of the save_game() function.
@@ -737,9 +739,11 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board.overlay.update_turn = MagicMock()
         self.game_state.process_heathens = MagicMock()
         self.game_state.process_ais = MagicMock()
+        self.game_controller.last_turn_time = 0
 
         on_key_return(self.game_controller, self.game_state)
         save_mock.assert_called_with(self.game_state, auto=True)
+        self.assertTrue(self.game_controller.last_turn_time)
         self.game_state.board.overlay.update_turn.assert_called_with(10)
         self.game_state.process_heathens.assert_called()
         self.game_state.process_ais.assert_called_with(self.game_controller.move_maker)

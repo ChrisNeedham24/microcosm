@@ -1,6 +1,6 @@
 import typing
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from source.display.board import Board
 from source.foundation.catalogue import Namer, UNIT_PLANS, get_heathen_plan, IMPROVEMENTS, BLESSINGS
@@ -464,7 +464,8 @@ class GameStateTest(unittest.TestCase):
         self.assertFalse(self.game_state.players[0].wealth)
         self.assertFalse(self.game_state.end_turn())
 
-    def test_end_turn_victory(self):
+    @patch("source.game_management.game_state.save_stats")
+    def test_end_turn_victory(self, _: MagicMock):
         """
         Ensure that when a turn is ended and a player has achieved a victory, the method returns False and the turn is
         not ended.
