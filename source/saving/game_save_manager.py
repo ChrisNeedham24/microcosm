@@ -1,5 +1,7 @@
 import json
 import os
+import time
+import typing
 from datetime import datetime
 from itertools import chain
 from json import JSONDecodeError
@@ -8,9 +10,8 @@ import pyxel
 
 from source.display.board import Board
 from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement
-from source.foundation.models import Heathen, UnitPlan
+from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics
 from source.game_management.game_controller import GameController
-from source.game_management.game_state import GameState
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
 from source.saving.save_migrator import migrate_unit, migrate_player, migrate_climatic_effects, \
     migrate_quad, migrate_settlement, migrate_game_config
@@ -22,7 +23,7 @@ AUTOSAVE_PREFIX = "auto"
 SAVES_DIR = "saves"
 
 
-def save_game(game_state: GameState, auto: bool = False):
+def save_game(game_state, auto: bool = False):
     """
     Saves the current game with the current timestamp as the file name.
     """
@@ -49,7 +50,81 @@ def save_game(game_state: GameState, auto: bool = False):
     save_file.close()
 
 
-def load_game(game_state: GameState, game_controller: GameController):
+def save_stats(playtime: float = 0,
+               increment_turn: bool = True,
+               victory_to_add: typing.Optional[VictoryType] = None,
+               increment_defeats: bool = False,
+               faction_to_add: typing.Optional[Faction] = None):
+    """
+    Saves the supplied statistics to the statistics JSON file. All parameters have default values so that they may be
+    supplied at different times.
+    :param playtime: The elapsed time since the last turn was ended.
+    :param increment_turn: Whether a turn was just ended.
+    :param victory_to_add: A victory to log, if one was achieved.
+    :param increment_defeats: Whether the player just lost a game.
+    :param faction_to_add: A chosen faction to log, if the player is starting a new game.
+    """
+    playtime_to_write: float = playtime
+    existing_turns: int = 0
+    existing_victories: typing.Dict[VictoryType, int] = {}
+    existing_defeats: int = 0
+    existing_factions: typing.Dict[Faction, int] = {}
+
+    stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
+    # If the player already has statistics, get those to add our new ones to.
+    if os.path.isfile(stats_file_name):
+        with open(stats_file_name, "r", encoding="utf-8") as stats_file:
+            stats_json = json.loads(stats_file.read())
+            playtime_to_write += stats_json["playtime"]
+            existing_turns = stats_json["turns_played"]
+            existing_victories = stats_json["victories"]
+            existing_defeats = stats_json["defeats"]
+            existing_factions = stats_json["factions"]
+
+    victories_to_write = existing_victories
+    if victory_to_add:
+        # If the player has achieved this victory before, increment it, otherwise just set it to 1.
+        if victory_to_add in existing_victories:
+            existing_victories[victory_to_add] = existing_victories[victory_to_add] + 1
+        else:
+            existing_victories[victory_to_add] = 1
+
+    factions_to_write = existing_factions
+    if faction_to_add:
+        # If the player has used this faction before, increment it, otherwise just set it to 1.
+        if faction_to_add in existing_factions:
+            existing_factions[faction_to_add] = existing_factions[faction_to_add] + 1
+        else:
+            existing_factions[faction_to_add] = 1
+
+    # Write the newly-updated statistics to the file.
+    with open(stats_file_name, "w", encoding="utf-8") as stats_file:
+        stats = {
+            "playtime": playtime_to_write,
+            "turns_played": existing_turns + 1 if increment_turn else existing_turns,
+            "victories": victories_to_write,
+            "defeats": existing_defeats + 1 if increment_defeats else existing_defeats,
+            "factions": factions_to_write
+        }
+        stats_file.write(json.dumps(stats))
+    stats_file.close()
+
+
+def get_stats() -> Statistics:
+    """
+    Retrieve the player's statistics from the statistics JSON file, if they have one.
+    :return: An object containing the player's statistics.
+    """
+    stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
+    if os.path.isfile(stats_file_name):
+        with open(stats_file_name, "r", encoding="utf-8") as stats_file:
+            stats_json = json.loads(stats_file.read())
+            return Statistics(**stats_json)
+    else:
+        return Statistics(0, 0, {}, 0, {})
+
+
+def load_game(game_state, game_controller: GameController):
     """
     Loads the game with the given index from the saves/ directory.
     :param game_controller: The current GameController object.
@@ -61,7 +136,7 @@ def load_game(game_state: GameState, game_controller: GameController):
     # displayed first in the list.
     autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
     saves = list(
-        filter(lambda file_name: not file_name == "README.md" and not file_name.startswith(AUTOSAVE_PREFIX),
+        filter(lambda file_name: file_name.startswith("save-"),
                [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
     autosaves.sort()
     autosaves.reverse()
@@ -136,6 +211,7 @@ def load_game(game_state: GameState, game_controller: GameController):
         save_file.close()
         # Now do all the same logic we do when starting a game.
         pyxel.mouse(visible=True)
+        game_controller.last_turn_time = time.time()
         game_state.game_started = True
         game_state.on_menu = False
         game_state.board = Board(game_cfg, game_controller.namer, quads)
@@ -156,9 +232,8 @@ def get_saves(game_controller: GameController):
     """
     game_controller.menu.saves = []
     autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
-    saves = list(
-        filter(lambda file_name: not file_name == "README.md" and not file_name.startswith(AUTOSAVE_PREFIX),
-               [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
+    saves = list(filter(lambda file_name: file_name.startswith("save-"),
+                        [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
     # Default to a fake option if there are no saves available.
     if len(autosaves) + len(saves) == 0:
         game_controller.menu.save_idx = -1

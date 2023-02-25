@@ -353,14 +353,16 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_right(self.game_controller, self.game_state, True)
         self.assertTupleEqual((pos_x + 6, pos_y), self.game_state.map_pos)
 
+    @patch("source.game_management.game_input_handler.save_stats")
     @patch("random.seed")
     @patch("pyxel.mouse")
-    def test_return_start_game(self, mouse_mock: MagicMock, random_mock: MagicMock):
+    def test_return_start_game(self, mouse_mock: MagicMock, random_mock: MagicMock, save_stats_mock: MagicMock):
         """
         Ensure that when pressing the return key while in game setup and selecting the Start Game button, the correct
         game preparation state modification occurs.
         :param mouse_mock: The mock representation of pyxel.mouse().
         :param random_mock: The mock representation of random.seed().
+        :param save_stats_mock: The mock implementation of the save_stats() function.
         """
         self.game_state.on_menu = True
         self.game_controller.menu.in_game_setup = True
@@ -376,10 +378,12 @@ class GameInputHandlerTest(unittest.TestCase):
 
         self.assertFalse(self.game_state.game_started)
         self.assertIsNone(self.game_controller.move_maker.board_ref)
+        self.assertFalse(hasattr(self.game_controller, "last_turn_time"))
 
         on_key_return(self.game_controller, self.game_state)
 
         mouse_mock.assert_called_with(visible=True)
+        self.assertTrue(hasattr(self.game_controller, "last_turn_time"))
         self.assertTrue(self.game_state.game_started)
         self.assertEqual(1, self.game_state.turn)
         random_mock.assert_called()
@@ -388,6 +392,9 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertAlmostEqual(15, self.game_state.until_night, delta=5)
         self.assertFalse(self.game_state.nighttime_left)
         self.assertFalse(self.game_state.on_menu)
+        # Since we're starting a new game, the faction statistic should be updated with the first faction, which is the
+        # Agriculturists. We expect it to be the first faction because we haven't updated the index.
+        save_stats_mock.assert_called_with(faction_to_add=Faction.AGRICULTURISTS)
         # The players and board should now be initialised.
         self.assertTrue(self.game_state.players)
         self.assertIsNotNone(self.game_state.board)
@@ -473,6 +480,19 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_return(self.game_controller, self.game_state)
         self.assertTrue(self.game_controller.menu.loading_game)
         get_saves_mock.assert_called_with(self.game_controller)
+
+    def test_return_select_main_menu_option_statistics(self):
+        """
+        Ensure that the statistics page is presented to the player after pressing the return key on the main menu with
+        the Statistics option selected.
+        """
+        self.game_state.on_menu = True
+        self.assertFalse(self.game_controller.menu.viewing_stats)
+        self.assertIsNone(self.game_controller.menu.player_stats)
+        self.game_controller.menu.main_menu_option = MainMenuOption.STATISTICS
+        on_key_return(self.game_controller, self.game_state)
+        self.assertTrue(self.game_controller.menu.viewing_stats)
+        self.assertIsNotNone(self.game_controller.menu.player_stats)
 
     def test_return_select_main_menu_option_wiki(self):
         """
@@ -724,11 +744,13 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.music_player.stop_game_music.assert_called()
         self.game_controller.music_player.play_menu_music.assert_called()
 
+    @patch("source.game_management.game_input_handler.save_stats")
     @patch("source.game_management.game_input_handler.save_game")
-    def test_return_end_turn(self, save_mock: MagicMock):
+    def test_return_end_turn(self, save_mock: MagicMock, save_stats_mock: MagicMock):
         """
         Ensure that the correct state updates occur when pressing the return key to end a turn.
         :param save_mock: The mock implementation of the save_game() function.
+        :param save_stats_mock: The mock implementation of the save_stats() function.
         """
         self.game_state.game_started = True
         self.game_state.turn = 10
@@ -737,9 +759,12 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board.overlay.update_turn = MagicMock()
         self.game_state.process_heathens = MagicMock()
         self.game_state.process_ais = MagicMock()
+        self.game_controller.last_turn_time = 0
 
         on_key_return(self.game_controller, self.game_state)
         save_mock.assert_called_with(self.game_state, auto=True)
+        self.assertTrue(self.game_controller.last_turn_time)
+        save_stats_mock.assert_called()
         self.game_state.board.overlay.update_turn.assert_called_with(10)
         self.game_state.process_heathens.assert_called()
         self.game_state.process_ais.assert_called_with(self.game_controller.move_maker)
@@ -920,6 +945,15 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.menu.loading_game = True
         on_key_space(self.game_controller, self.game_state)
         self.assertFalse(self.game_controller.menu.loading_game)
+
+    def test_space_menu_statistics(self):
+        """
+        Ensure that the player is returned to the menu when pressing the space key while viewing their statistics.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.viewing_stats = True
+        on_key_space(self.game_controller, self.game_state)
+        self.assertFalse(self.game_controller.menu.viewing_stats)
 
     def test_space_overlay(self):
         """

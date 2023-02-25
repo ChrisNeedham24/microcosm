@@ -1,4 +1,5 @@
 import random
+import time
 import typing
 
 import pyxel
@@ -14,7 +15,7 @@ from source.foundation.models import Construction, OngoingBlessing, CompletedCon
     OverlayType, Faction, ConstructionMenu, Project
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
-from source.saving.game_save_manager import load_game, get_saves, save_game
+from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats, get_stats
 
 
 def on_key_arrow_down(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
@@ -151,6 +152,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         if game_controller.menu.in_game_setup and game_controller.menu.setup_option is SetupOption.START_GAME:
             # If the player has pressed enter to start the game, generate the players, board, and AI players.
             pyxel.mouse(visible=True)
+            game_controller.last_turn_time = time.time()
             game_state.game_started = True
             game_state.turn = 1
             # Reinitialise night variables.
@@ -159,6 +161,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.nighttime_left = 0
             game_state.on_menu = False
             cfg: GameConfig = game_controller.menu.get_game_config()
+            # Update stats to include the newly-selected faction.
+            save_stats(faction_to_add=cfg.player_faction)
             game_state.gen_players(cfg)
             game_state.board = Board(cfg, game_controller.namer)
             game_controller.move_maker.board_ref = game_state.board
@@ -184,6 +188,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 case MainMenuOption.LOAD_GAME:
                     game_controller.menu.loading_game = True
                     get_saves(game_controller)
+                case MainMenuOption.STATISTICS:
+                    game_controller.menu.viewing_stats = True
+                    game_controller.menu.player_stats = get_stats()
                 case MainMenuOption.WIKI:
                     game_controller.menu.in_wiki = True
                 case MainMenuOption.EXIT:
@@ -272,9 +279,13 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.overlay.is_investigation() or game_state.board.overlay.is_night()):
         # If we are not in any of the above situations, end the turn.
         if game_state.end_turn():
-            # Autosave every 10 turns.
-            if game_state.turn % 10 == 0:
+            # Autosave every 10 turns, but only if the player is actually still in the game.
+            if game_state.turn % 10 == 0 and game_state.players[0].settlements:
                 save_game(game_state, auto=True)
+            # Update the playtime statistic.
+            time_elapsed = time.time() - game_controller.last_turn_time
+            game_controller.last_turn_time = time.time()
+            save_stats(time_elapsed)
 
             game_state.board.overlay.update_turn(game_state.turn)
             game_state.process_heathens()
@@ -381,7 +392,10 @@ def on_key_space(game_controller: GameController, game_state: GameState):
         game_controller.menu.load_failed = False
     elif game_state.on_menu and game_controller.menu.loading_game:
         game_controller.menu.loading_game = False
-    if game_state.game_started and game_state.board.overlay.is_elimination():
+    elif game_state.on_menu and game_controller.menu.viewing_stats:
+        game_controller.menu.viewing_stats = False
+    # You should only be able to toggle the elimination overlay if you're actually still in the game.
+    if game_state.game_started and game_state.board.overlay.is_elimination() and not game_state.players[0].eliminated:
         game_state.board.overlay.toggle_elimination(None)
     elif game_state.game_started and game_state.board.overlay.is_night():
         game_state.board.overlay.toggle_night(None)

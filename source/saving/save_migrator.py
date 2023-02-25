@@ -1,7 +1,6 @@
 from source.foundation.catalogue import get_blessing, FACTION_COLOURS
 from source.foundation.models import UnitPlan, Unit, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, Quad, \
     Biome, GameConfig
-from source.game_management.game_state import GameState
 
 """
 The following migrations have occurred during Microcosm's development:
@@ -91,7 +90,7 @@ def migrate_player(player):
         player.eliminated = len(player.settlements) == 0
 
 
-def migrate_climatic_effects(game_state: GameState, save):
+def migrate_climatic_effects(game_state, save):
     """
     Apply the night_status migrations for the game state, if required.
     :param game_state: The state of the game being loaded in.
