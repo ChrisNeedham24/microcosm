@@ -8,10 +8,10 @@ from unittest.mock import patch, MagicMock, mock_open
 from source.display.board import Board
 from source.foundation.catalogue import Namer, get_heathen_plan
 from source.foundation.models import GameConfig, Faction, Heathen, Project, UnitPlan, Improvement, Unit, Blessing, \
-    AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle
+    AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, VictoryType
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
-from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game
+from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game, save_stats, get_stats
 from source.saving.save_encoder import SaveEncoder
 
 
@@ -83,6 +83,120 @@ class GameSaveManagerTest(unittest.TestCase):
         open_mock.return_value.write.assert_called_with(json.dumps(expected_save_data, cls=SaveEncoder))
         open_mock.return_value.close.assert_called()
 
+    @patch("os.path.isfile", lambda *args: True)
+    def test_save_stats(self):
+        original_playtime = 100
+        original_turns = 4
+        original_defeats = 2
+        added_playtime = 200
+        added_victory = VictoryType.ELIMINATION
+        added_faction = Faction.FUNDAMENTALISTS
+
+        sample_stats = f"""
+        {{
+            "playtime": {original_playtime},
+            "turns_played": {original_turns},
+            "victories": {{}},
+            "defeats": {original_defeats},
+            "factions": {{}}
+        }}
+        """
+        expected_new_stats = {
+            "playtime": original_playtime + added_playtime,
+            "turns_played": original_turns + 1,
+            "victories": {
+                added_victory: 1
+            },
+            "defeats": original_defeats + 1,
+            "factions": {
+                added_faction: 1
+            }
+        }
+
+        with patch("source.saving.game_save_manager.open", mock_open(read_data=sample_stats)) as open_mock:
+            save_stats(playtime=added_playtime,
+                       increment_turn=True,
+                       victory_to_add=added_victory,
+                       increment_defeats=True,
+                       faction_to_add=added_faction)
+            open_mock.return_value.write.assert_called_with(json.dumps(expected_new_stats))
+
+    @patch("os.path.isfile", lambda *args: True)
+    def test_save_stats_existing_victory_faction(self):
+        victory = VictoryType.ELIMINATION
+        faction = Faction.FUNDAMENTALISTS
+
+        sample_stats = f"""
+        {{
+            "playtime": 1.23,
+            "turns_played": 1,
+            "victories": {{
+                "{victory}": 1
+            }},
+            "defeats": 0,
+            "factions": {{
+                "{faction}": 1
+            }}
+        }}
+        """
+        expected_new_stats = {
+            "playtime": 1.23,
+            "turns_played": 1,
+            "victories": {
+                victory: 2
+            },
+            "defeats": 0,
+            "factions": {
+                faction: 2
+            }
+        }
+
+        with patch("source.saving.game_save_manager.open", mock_open(read_data=sample_stats)) as open_mock:
+            save_stats(increment_turn=False, victory_to_add=victory, faction_to_add=faction)
+            open_mock.return_value.write.assert_called_with(json.dumps(expected_new_stats))
+
+    @patch("os.path.isfile", lambda *args: True)
+    def test_get_stats(self):
+        playtime = 1.23
+        turns_played = 1
+        victory = VictoryType.ELIMINATION
+        victory_count = 2
+        defeats = 3
+        faction = Faction.FUNDAMENTALISTS
+        faction_count = 3
+
+        sample_stats = f"""
+        {{
+            "playtime": {playtime},
+            "turns_played": {turns_played},
+            "victories": {{
+                "{victory}": {victory_count}
+            }},
+            "defeats": {defeats},
+            "factions": {{
+                "{faction}": {faction_count}
+            }}
+        }}
+        """
+
+        with patch("source.saving.game_save_manager.open", mock_open(read_data=sample_stats)):
+            retrieved_stats = get_stats()
+            self.assertEqual(playtime, retrieved_stats.playtime)
+            self.assertEqual(turns_played, retrieved_stats.turns_played)
+            self.assertIn(victory, retrieved_stats.victories)
+            self.assertEqual(victory_count, retrieved_stats.victories[victory])
+            self.assertEqual(defeats, retrieved_stats.defeats)
+            self.assertIn(faction, retrieved_stats.factions)
+            self.assertEqual(faction_count, retrieved_stats.factions[faction])
+
+    def test_get_stats_no_file(self):
+        retrieved_stats = get_stats()
+        self.assertFalse(retrieved_stats.playtime)
+        self.assertFalse(retrieved_stats.turns_played)
+        self.assertFalse(retrieved_stats.victories)
+        self.assertFalse(retrieved_stats.defeats)
+        self.assertFalse(retrieved_stats.factions)
+
     @patch("source.saving.game_save_manager.SAVES_DIR", "source/tests/resources")
     @patch("source.game_management.game_controller.MusicPlayer")
     @patch("pyxel.mouse")
@@ -127,6 +241,7 @@ class GameSaveManagerTest(unittest.TestCase):
         self.game_controller.namer.remove_settlement_name = MagicMock()
         self.game_controller.music_player.stop_menu_music = MagicMock()
         self.game_controller.music_player.play_game_music = MagicMock()
+        self.game_controller.last_turn_time = 0
 
         load_game(self.game_state, self.game_controller)
 
@@ -192,6 +307,7 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertFalse(self.game_state.nighttime_left)
 
         mouse_mock.assert_called_with(visible=True)
+        self.assertTrue(self.game_controller.last_turn_time)
         self.assertTrue(self.game_state.game_started)
         self.assertFalse(self.game_state.on_menu)
 
