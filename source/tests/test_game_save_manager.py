@@ -85,6 +85,9 @@ class GameSaveManagerTest(unittest.TestCase):
 
     @patch("os.path.isfile", lambda *args: True)
     def test_save_stats(self):
+        """
+        Ensure that the correct statistics are saved when the method is called.
+        """
         original_playtime = 100
         original_turns = 4
         original_defeats = 2
@@ -113,19 +116,31 @@ class GameSaveManagerTest(unittest.TestCase):
             }
         }
 
+        # We have to use a context manager for this patch so that we can pass the read_data param to mock_open().
         with patch("source.saving.game_save_manager.open", mock_open(read_data=sample_stats)) as open_mock:
+            # This method will never be called in this way, with every parameter at once, but it illustrates the same
+            # functionality.
             save_stats(playtime=added_playtime,
                        increment_turn=True,
                        victory_to_add=added_victory,
                        increment_defeats=True,
                        faction_to_add=added_faction)
+            # We expect open() to be called twice - once for reading in the previous values, and once for saving the new
+            # values.
+            self.assertEqual(2, open_mock.call_count)
             open_mock.return_value.write.assert_called_with(json.dumps(expected_new_stats))
 
     @patch("os.path.isfile", lambda *args: True)
     def test_save_stats_existing_victory_faction(self):
+        """
+        Ensure that the correct statistics are saved when the method is called and pre-existing victories and factions
+        are supplied.
+        """
         victory = VictoryType.ELIMINATION
         faction = Faction.FUNDAMENTALISTS
 
+        # In this case, the victory the player has achieved and the faction the player is using have already been used
+        # before.
         sample_stats = f"""
         {{
             "playtime": 1.23,
@@ -151,12 +166,21 @@ class GameSaveManagerTest(unittest.TestCase):
             }
         }
 
+        # We have to use a context manager for this patch so that we can pass the read_data param to mock_open().
         with patch("source.saving.game_save_manager.open", mock_open(read_data=sample_stats)) as open_mock:
+            # This method will never be called in this way, with every parameter at once, but it illustrates the same
+            # functionality.
             save_stats(increment_turn=False, victory_to_add=victory, faction_to_add=faction)
+            # We expect open() to be called twice - once for reading in the previous values, and once for saving the new
+            # values.
+            self.assertEqual(2, open_mock.call_count)
             open_mock.return_value.write.assert_called_with(json.dumps(expected_new_stats))
 
     @patch("os.path.isfile", lambda *args: True)
     def test_get_stats(self):
+        """
+        Ensure that the correct statistic values are parsed when the method is called.
+        """
         playtime = 1.23
         turns_played = 1
         victory = VictoryType.ELIMINATION
@@ -179,8 +203,10 @@ class GameSaveManagerTest(unittest.TestCase):
         }}
         """
 
+        # We have to use a context manager for this patch so that we can pass the read_data param to mock_open().
         with patch("source.saving.game_save_manager.open", mock_open(read_data=sample_stats)):
             retrieved_stats = get_stats()
+            # Each statistic should have been set correctly.
             self.assertEqual(playtime, retrieved_stats.playtime)
             self.assertEqual(turns_played, retrieved_stats.turns_played)
             self.assertIn(victory, retrieved_stats.victories)
@@ -190,6 +216,9 @@ class GameSaveManagerTest(unittest.TestCase):
             self.assertEqual(faction_count, retrieved_stats.factions[faction])
 
     def test_get_stats_no_file(self):
+        """
+        Ensure that when there are no statistics to load in, each value is set to zero or its equivalent.
+        """
         retrieved_stats = get_stats()
         self.assertFalse(retrieved_stats.playtime)
         self.assertFalse(retrieved_stats.turns_played)

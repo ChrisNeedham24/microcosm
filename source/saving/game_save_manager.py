@@ -55,6 +55,15 @@ def save_stats(playtime: float = 0,
                victory_to_add: typing.Optional[VictoryType] = None,
                increment_defeats: bool = False,
                faction_to_add: typing.Optional[Faction] = None):
+    """
+    Saves the supplied statistics to the statistics JSON file. All parameters have default values so that they may be
+    supplied at different times.
+    :param playtime: The elapsed time since the last turn was ended.
+    :param increment_turn: Whether a turn was just ended.
+    :param victory_to_add: A victory to log, if one was achieved.
+    :param increment_defeats: Whether the player just lost a game.
+    :param faction_to_add: A chosen faction to log, if the player is starting a new game.
+    """
     playtime_to_write: float = playtime
     existing_turns: int = 0
     existing_victories: typing.Dict[VictoryType, int] = {}
@@ -62,8 +71,9 @@ def save_stats(playtime: float = 0,
     existing_factions: typing.Dict[Faction, int] = {}
 
     stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
+    # If the player already has statistics, get those to add our new ones to.
     if os.path.isfile(stats_file_name):
-        with open(stats_file_name, "r") as stats_file:
+        with open(stats_file_name, "r", encoding="utf-8") as stats_file:
             stats_json = json.loads(stats_file.read())
             playtime_to_write += stats_json["playtime"]
             existing_turns = stats_json["turns_played"]
@@ -73,6 +83,7 @@ def save_stats(playtime: float = 0,
 
     victories_to_write = existing_victories
     if victory_to_add:
+        # If the player has achieved this victory before, increment it, otherwise just set it to 1.
         if victory_to_add in existing_victories:
             existing_victories[victory_to_add] = existing_victories[victory_to_add] + 1
         else:
@@ -80,11 +91,13 @@ def save_stats(playtime: float = 0,
 
     factions_to_write = existing_factions
     if faction_to_add:
+        # If the player has used this faction before, increment it, otherwise just set it to 1.
         if faction_to_add in existing_factions:
             existing_factions[faction_to_add] = existing_factions[faction_to_add] + 1
         else:
             existing_factions[faction_to_add] = 1
 
+    # Write the newly-updated statistics to the file.
     with open(stats_file_name, "w", encoding="utf-8") as stats_file:
         stats = {
             "playtime": playtime_to_write,
@@ -98,9 +111,13 @@ def save_stats(playtime: float = 0,
 
 
 def get_stats() -> Statistics:
+    """
+    Retrieve the player's statistics from the statistics JSON file, if they have one.
+    :return: An object containing the player's statistics.
+    """
     stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
     if os.path.isfile(stats_file_name):
-        with open(stats_file_name, "r") as stats_file:
+        with open(stats_file_name, "r", encoding="utf-8") as stats_file:
             stats_json = json.loads(stats_file.read())
             return Statistics(**stats_json)
     else:

@@ -161,6 +161,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.nighttime_left = 0
             game_state.on_menu = False
             cfg: GameConfig = game_controller.menu.get_game_config()
+            # Update stats to include the newly-selected faction.
             save_stats(faction_to_add=cfg.player_faction)
             game_state.gen_players(cfg)
             game_state.board = Board(cfg, game_controller.namer)
@@ -278,9 +279,10 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.overlay.is_investigation() or game_state.board.overlay.is_night()):
         # If we are not in any of the above situations, end the turn.
         if game_state.end_turn():
-            # Autosave every 10 turns.
+            # Autosave every 10 turns, but only if the player is actually still in the game.
             if game_state.turn % 10 == 0 and game_state.players[0].settlements:
                 save_game(game_state, auto=True)
+            # Update the playtime statistic.
             time_elapsed = time.time() - game_controller.last_turn_time
             game_controller.last_turn_time = time.time()
             save_stats(time_elapsed)
@@ -392,6 +394,7 @@ def on_key_space(game_controller: GameController, game_state: GameState):
         game_controller.menu.loading_game = False
     elif game_state.on_menu and game_controller.menu.viewing_stats:
         game_controller.menu.viewing_stats = False
+    # You should only be able to toggle the elimination overlay if you're actually still in the game.
     if game_state.game_started and game_state.board.overlay.is_elimination() and not game_state.players[0].eliminated:
         game_state.board.overlay.toggle_elimination(None)
     elif game_state.game_started and game_state.board.overlay.is_night():

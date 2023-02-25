@@ -362,6 +362,7 @@ class GameInputHandlerTest(unittest.TestCase):
         game preparation state modification occurs.
         :param mouse_mock: The mock representation of pyxel.mouse().
         :param random_mock: The mock representation of random.seed().
+        :param save_stats_mock: The mock implementation of the save_stats() function.
         """
         self.game_state.on_menu = True
         self.game_controller.menu.in_game_setup = True
@@ -391,6 +392,8 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertAlmostEqual(15, self.game_state.until_night, delta=5)
         self.assertFalse(self.game_state.nighttime_left)
         self.assertFalse(self.game_state.on_menu)
+        # Since we're starting a new game, the faction statistic should be updated with the first faction, which is the
+        # Agriculturists. We expect it to be the first faction because we haven't updated the index.
         save_stats_mock.assert_called_with(faction_to_add=Faction.AGRICULTURISTS)
         # The players and board should now be initialised.
         self.assertTrue(self.game_state.players)
@@ -747,6 +750,7 @@ class GameInputHandlerTest(unittest.TestCase):
         """
         Ensure that the correct state updates occur when pressing the return key to end a turn.
         :param save_mock: The mock implementation of the save_game() function.
+        :param save_stats_mock: The mock implementation of the save_stats() function.
         """
         self.game_state.game_started = True
         self.game_state.turn = 10

@@ -293,9 +293,14 @@ class GameState:
         possible_victory = self.check_for_victory()
         if possible_victory is not None:
             self.board.overlay.toggle_victory(possible_victory)
+            # Update the victory/defeat statistics, depending on whether the player achieved a victory, or an AI player
+            # did.
             if possible_victory.player is self.players[0]:
                 save_stats(victory_to_add=possible_victory.type)
-            else:
+            # We need an extra eliminated check in here because if the player was eliminated at the same time that the
+            # victory was achieved, e.g. in an elimination victory between two players, the defeat count would be
+            # incremented twice - once here and once when they are marked as eliminated.
+            elif not self.players[0].eliminated:
                 save_stats(increment_defeats=True)
             return False
         return True
@@ -364,6 +369,7 @@ class GameState:
             elif not (p == self.players[0] and any(unit.plan.can_settle for unit in p.units)) and not p.eliminated:
                 p.eliminated = True
                 self.board.overlay.toggle_elimination(p)
+                # Update the defeats stat if the eliminated player is the human player.
                 if p == self.players[0]:
                     save_stats(increment_defeats=True)
             # If the player has accumulated at least 100k wealth over the game, they have achieved an AFFLUENCE victory.
