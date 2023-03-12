@@ -188,21 +188,21 @@ class Board:
                 if (not fog_of_war_impacts or settlement.location in quads_to_show) and \
                         map_pos[0] <= settlement.location[0] < map_pos[0] + 24 and \
                         map_pos[1] <= settlement.location[1] < map_pos[1] + 22:
-                    quad: Quad = self.quads[settlement.location[1]][settlement.location[0]]
-                    match quad.biome:
-                        case Biome.DESERT:
-                            setl_x = 0
-                        case Biome.FOREST:
-                            setl_x = 8
-                        case Biome.SEA:
-                            setl_x = 16
-                        case _:
-                            setl_x = 24
-                    if is_night and not settlement.besieged:
-                        setl_x += 32
-                    pyxel.blt((settlement.location[0] - map_pos[0]) * 8 + 4,
-                              (settlement.location[1] - map_pos[1]) * 8 + 4, 0, setl_x,
-                              68 if settlement.besieged else 4, 8, 8)
+                    for setl_quad in settlement.quads:
+                        match setl_quad.biome:
+                            case Biome.DESERT:
+                                setl_x = 0
+                            case Biome.FOREST:
+                                setl_x = 8
+                            case Biome.SEA:
+                                setl_x = 16
+                            case _:
+                                setl_x = 24
+                        if is_night and not settlement.besieged:
+                            setl_x += 32
+                        pyxel.blt((setl_quad.location[0] - map_pos[0]) * 8 + 4,
+                                  (setl_quad.location[1] - map_pos[1]) * 8 + 4, 0, setl_x,
+                                  68 if settlement.besieged else 4, 8, 8)
 
         for player in players:
             for settlement in player.settlements:
@@ -241,8 +241,9 @@ class Board:
                             pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
                             pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
                     else:
-                        pyxel.rectb((settlement.location[0] - map_pos[0]) * 8 + 4,
-                                    (settlement.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
+                        for setl_quad in settlement.quads:
+                            pyxel.rectb((setl_quad.location[0] - map_pos[0]) * 8 + 4,
+                                        (setl_quad.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
 
         # For the selected quad, display its yield.
         if self.quad_selected is not None and selected_quad_coords is not None and \
@@ -399,7 +400,7 @@ class Board:
                 if relic_chance < 1:
                     is_relic = True
 
-                self.quads[i][j] = Quad(biome, *quad_yield, is_relic=is_relic)
+                self.quads[i][j] = Quad(biome, *quad_yield, location=(j, i), is_relic=is_relic)
 
     def process_right_click(self, mouse_x: int, mouse_y: int, map_pos: (int, int)):
         """

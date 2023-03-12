@@ -5,7 +5,7 @@ from source.display.board import Board
 from source.saving.game_save_manager import save_stats
 from source.util.calculator import clamp, attack, get_setl_totals, complete_construction
 from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
-from source.foundation.models import Heathen
+from source.foundation.models import Heathen, Quad
 from source.foundation.models import Player, Settlement, CompletedConstruction, Unit, HarvestStatus, EconomicStatus, \
     AttackPlaystyle, GameConfig, Victory, VictoryType, AIPlaystyle, ExpansionPlaystyle, Faction, Project
 from source.game_management.movemaker import MoveMaker
@@ -185,6 +185,17 @@ class GameState:
             if setl.harvest_reserves >= pow(setl.level, 2) * 25 and setl.level < level_cap:
                 setl.level += 1
                 levelled_up_settlements.append(setl)
+                if player.faction is Faction.CONCENTRATED:
+                    best_quad_with_yield: (Quad, float) = None, 0
+                    for setl_quad in setl.quads:
+                        for i in range(setl_quad.location[0] - 1, setl_quad.location[0] + 2):
+                            for j in range(setl_quad.location[1] - 1, setl_quad.location[1] + 2):
+                                quad_to_test = self.board.quads[j][i]
+                                quad_yield = \
+                                    quad_to_test.wealth + quad_to_test.harvest + quad_to_test.zeal + quad_to_test.fortune
+                                if quad_to_test not in setl.quads and quad_yield > best_quad_with_yield[1]:
+                                    best_quad_with_yield = quad_to_test, quad_yield
+                    setl.quads.append(best_quad_with_yield[0])
 
         # Show notifications if the player's constructions have completed or one of their settlements has levelled
         # up.

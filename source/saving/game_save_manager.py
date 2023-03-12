@@ -153,7 +153,7 @@ def load_game(game_state, game_controller: GameController):
             quads = [[None] * 100 for _ in range(90)]
             for i in range(90):
                 for j in range(100):
-                    quads[i][j] = migrate_quad(save.quads[i * 100 + j])
+                    quads[i][j] = migrate_quad(save.quads[i * 100 + j], (j, i))
             game_state.players = save.players
             # The list of tuples that is quads_seen needs special loading, as do a few other of the same type,
             # because tuples do not exist in JSON, so they are represented as arrays, which will clearly not work.

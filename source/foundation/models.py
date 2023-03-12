@@ -190,6 +190,7 @@ class Quad:
     harvest: float
     zeal: float
     fortune: float
+    location: (int, int)
     selected: bool = False
     is_relic: bool = False
 
