@@ -110,7 +110,7 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
     # The biomes require special loading.
     new_quad.biome = Biome[new_quad.biome]
     new_quad.is_relic = new_quad.is_relic if hasattr(new_quad, "is_relic") else False
-    new_quad.location = new_quad.location if hasattr(new_quad, "location") else location
+    new_quad.location = (new_quad.location[0], new_quad.location[1]) if hasattr(new_quad, "location") else location
     return new_quad
 
 
@@ -126,7 +126,8 @@ def migrate_settlement(settlement):
             settlement.besieged = False
         # We now delete the old attribute so that it does not pollute future saves.
         delattr(settlement, "under_siege_by")
-    settlement.quads[0] = migrate_quad(settlement.quads[0], settlement.location)
+    for i in range(len(settlement.quads)):
+        settlement.quads[i] = migrate_quad(settlement.quads[i], settlement.location)
 
 
 def migrate_game_config(config) -> GameConfig:

@@ -354,6 +354,7 @@ def search_for_relics_or_move(unit: Unit,
                     first_resort = j - 1, i
                 found_valid_loc = False
                 for loc in [first_resort, second_resort, third_resort]:
+                    # TODO Check all quads not just location
                     if not any(u.location == loc for u in player.units) and \
                             not any(other_u.location == loc for other_u in other_units) and \
                             not any(setl.location == loc for setl in all_setls):
@@ -373,6 +374,7 @@ def search_for_relics_or_move(unit: Unit,
         rem_movement = unit.remaining_stamina - abs(x_movement)
         y_movement = random.choice([-rem_movement, rem_movement])
         loc = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
+        # TODO Check all quads not just location
         if not any(u.location == loc and u != unit for u in player.units) and \
                 not any(other_u.location == loc for other_u in other_units) and \
                 not any(setl.location == loc for setl in all_setls):
@@ -415,6 +417,7 @@ def move_healer_unit(player: Player, unit: Unit, other_units: typing.List[Unit],
         found_valid_loc = False
         # We have to ensure that no other units or settlements are in the location we intend to move to.
         for loc in [first_resort, second_resort, third_resort]:
+            # TODO Check all quads not just location
             if not any(u.location == loc for u in player.units) and \
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(setl.location == loc for setl in all_setls):
@@ -479,6 +482,8 @@ class MoveMaker:
                 for unit in setl.garrison:
                     if unit.plan.can_settle:
                         unit.garrisoned = False
+                        # TODO Bit more difficult here - need to find a quad to deploy too that isn't now a part of the
+                        #  settlement
                         unit.location = setl.location[0], setl.location[1] + 1
                         player.units.append(unit)
                         setl.garrison.remove(unit)
@@ -489,6 +494,8 @@ class MoveMaker:
                  or setl.strength < setl.max_strength / 2)) or len(setl.garrison) > 3:
                 deployed = setl.garrison.pop()
                 deployed.garrisoned = False
+                # TODO Bit more difficult here - need to find a quad to deploy too that isn't now a part of the
+                #  settlement
                 deployed.location = setl.location[0], setl.location[1] + 1
                 player.units.append(deployed)
         all_units = []
@@ -526,6 +533,7 @@ class MoveMaker:
             rem_movement = unit.remaining_stamina - abs(x_movement)
             y_movement = random.choice([-rem_movement, rem_movement])
             loc = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
+            # TODO Check all quads not just location
             if not any(u.location == loc and u != unit for u in player.units) and \
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(setl.location == loc for setl in all_setls):
@@ -609,6 +617,7 @@ class MoveMaker:
                                              (player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE and
                                               other_setl.strength == 0)
                         if could_attack:
+                            # TODO Check all quads not just location
                             if max(abs(unit.location[0] - other_setl.location[0]),
                                    abs(unit.location[1] - other_setl.location[1])) <= unit.remaining_stamina:
                                 within_range = other_setl
@@ -621,6 +630,7 @@ class MoveMaker:
                                                 (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
                                                  unit.health >= other_setl.strength * 2)
                             if could_siege:
+                                # TODO Check all quads not just location
                                 if max(abs(unit.location[0] - other_setl.location[0]),
                                        abs(unit.location[1] - other_setl.location[1])) <= unit.remaining_stamina:
                                     within_range = other_setl
@@ -630,6 +640,7 @@ class MoveMaker:
                 # Now that we have determined that there is some entity (unit or settlement) that our unit will attack,
                 # we need to work out where we will move our unit to. There are three options for this, directly to the
                 # sides of the entity, below the entity, or above the entity.
+                # TODO Consider implications of multi-quad settlements - this might actually be okay?
                 first_resort: (int, int)
                 second_resort = within_range.location[0], within_range.location[1] + 1
                 third_resort = within_range.location[0], within_range.location[1] - 1
@@ -640,6 +651,7 @@ class MoveMaker:
                 found_valid_loc = False
                 # We have to ensure that no other units or settlements are in the location we intend to move to.
                 for loc in [first_resort, second_resort, third_resort]:
+                    # TODO Check all quads not just location
                     if not any(u.location == loc for u in player.units) and \
                             not any(other_u.location == loc for other_u in other_units) and \
                             not any(setl.location == loc for setl in all_setls):
@@ -685,6 +697,7 @@ class MoveMaker:
                                 elif data.setl_was_taken:
                                     data.settlement.besieged = False
                                     for u in player.units:
+                                        # TODO Check all quads not just location
                                         if abs(u.location[0] - data.settlement.location[0]) <= 1 and \
                                                 abs(u.location[1] - data.settlement.location[1]) <= 1:
                                             u.besieging = False
