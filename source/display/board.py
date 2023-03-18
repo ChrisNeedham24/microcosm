@@ -501,17 +501,19 @@ class Board:
                         self.overlay.toggle_settlement(None, player)
                     # If the player has selected neither a unit or settlement, and they have clicked on one of their
                     # settlements, select it.
-                    # TODO Check all quads not just location
                     elif self.selected_unit is None and self.selected_settlement is None and \
-                            any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
+                            any((to_select := setl) and any(setl_quad.location == (adj_x, adj_y)
+                                                            for setl_quad in setl.quads)
+                                for setl in player.settlements):
                         self.selected_settlement = to_select
                         self.overlay.toggle_settlement(to_select, player)
                     # If the player has selected a unit, and they have clicked on one of their settlements, garrison the
                     # selected unit in the settlement, ensuring it is within range.
-                    # TODO Check all quads not just location
                     elif self.selected_unit is not None and self.selected_unit in player.units and \
                             self.selected_settlement is None and \
-                            any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements) and \
+                            any((to_select := setl) and any(setl_quad.location == (adj_x, adj_y)
+                                                            for setl_quad in setl.quads)
+                                for setl in player.settlements) and \
                             self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
                             self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
@@ -591,10 +593,10 @@ class Board:
                                 self.overlay.update_unit(other_unit)
                     # If the player has selected one of their units and it hasn't attacked, and the player clicks on an
                     # enemy settlement within range, bring up the overlay to prompt the player on their action.
-                    # TODO Check all quads not just location
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
                             self.selected_unit in player.units and not self.selected_unit.has_acted and \
-                            any((to_attack := setl).location == (adj_x, adj_y) for setl in other_setls):
+                            any((to_attack := setl) and any(setl_quad.location == (adj_x, adj_y)
+                                                            for setl_quad in setl.quads) for setl in other_setls):
                         if abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
                                 abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
                             for p in all_players:
@@ -607,12 +609,12 @@ class Board:
                         self.overlay.toggle_unit(to_select)
                     # If the player has selected one of their units and they've clicked an empty quad within range, move
                     # the unit there.
-                    # TODO Check all quads not just location
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
                             not any(heathen.location == (adj_x, adj_y) for heathen in heathens) and \
                             self.selected_unit in player.units and \
                             not any(unit.location == (adj_x, adj_y) for unit in all_units) and \
-                            not any(setl.location == (adj_x, adj_y) for setl in other_setls) and \
+                            not any(any(setl_quad.location == (adj_x, adj_y) for setl_quad in setl.quads)
+                                    for setl in other_setls) and \
                             not self.quads[adj_y][adj_x].is_relic and \
                             self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
@@ -659,10 +661,10 @@ class Board:
         can_settle = True
         for setl in player.settlements:
             # Of course, players cannot found settlements where they already have one.
-            # TODO Check all quads not just location
-            if setl.location == self.selected_unit.location:
-                can_settle = False
-                break
+            for setl_quad in setl.quads:
+                if setl_quad.location == self.selected_unit.location:
+                    can_settle = False
+                    break
         if can_settle:
             quad_biome = self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]].biome
             setl_name = self.namer.get_settlement_name(quad_biome)
