@@ -2,7 +2,7 @@ import random
 import typing
 
 from source.util.calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, \
-    attack_setl, investigate_relic, heal
+    attack_setl, investigate_relic, heal, gen_spiral_indices
 from source.foundation.catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
 from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
@@ -479,9 +479,8 @@ class MoveMaker:
                 for unit in setl.garrison:
                     if unit.plan.can_settle:
                         unit.garrisoned = False
-                        # TODO Bit more difficult here - need to find a quad to deploy too that isn't now a part of the
-                        #  settlement
-                        unit.location = setl.location[0], setl.location[1] + 1
+                        unit.location = next(loc for loc in gen_spiral_indices(setl.location)
+                                             if not any(setl_quad.location == loc for setl_quad in setl.quads))
                         player.units.append(unit)
                         setl.garrison.remove(unit)
             # Deploy a unit from the garrison if the AI is not defensive, or the settlement is under siege or attack, or
@@ -491,9 +490,8 @@ class MoveMaker:
                  or setl.strength < setl.max_strength / 2)) or len(setl.garrison) > 3:
                 deployed = setl.garrison.pop()
                 deployed.garrisoned = False
-                # TODO Bit more difficult here - need to find a quad to deploy too that isn't now a part of the
-                #  settlement
-                deployed.location = setl.location[0], setl.location[1] + 1
+                deployed.location = next(loc for loc in gen_spiral_indices(setl.location)
+                                         if not any(setl_quad.location == loc for setl_quad in setl.quads))
                 player.units.append(deployed)
         all_units = []
         for p in all_players:
