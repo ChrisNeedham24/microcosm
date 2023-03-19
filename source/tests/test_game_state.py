@@ -183,13 +183,17 @@ class GameStateTest(unittest.TestCase):
         at the end of a turn.
         """
         # The first settlement is currently under active siege.
-        besieged_settlement = Settlement("Under Siege", (10, 20), [], [], [], besieged=True)
+        besieged_settlement = Settlement("Under Siege", (10, 20), [], [Quad(Biome.FOREST, 0, 0, 0, 0, (10, 20))], [],
+                                         besieged=True)
         # The second settlement was under siege, but now there are no units surrounding it.
-        previously_besieged_settlement = Settlement("Previously", (30, 40), [], [], [], besieged=True)
+        previously_besieged_settlement = Settlement("Previously", (30, 40), [],
+                                                    [Quad(Biome.SEA, 0, 0, 0, 0, (30, 40))], [], besieged=True)
         # The third settlement was under siege some time ago, and is now recovering its strength.
-        recovering_settlement = Settlement("Recovering", (50, 60), [], [], [], besieged=False, strength=50)
+        recovering_settlement = Settlement("Recovering", (50, 60), [], [Quad(Biome.MOUNTAIN, 0, 0, 0, 0, (50, 60))], [],
+                                           besieged=False, strength=50)
         # The last settlement is under siege, but it has just killed the last unit surrounding it.
-        killed_all_settlement = Settlement("Killed All", (70, 80), [], [], [], besieged=True)
+        killed_all_settlement = Settlement("Killed All", (70, 80), [], [Quad(Biome.DESERT, 0, 0, 0, 0, (70, 80))], [],
+                                           besieged=True)
         self.game_state.players[0].units = []
         # Place TEST_UNIT next to the first settlement.
         self.TEST_UNIT.location = 11, 20
@@ -257,7 +261,8 @@ class GameStateTest(unittest.TestCase):
 
         # Now if we give the settlement sufficient harvest for its level of 1, we expect satisfaction to be increased by
         # 0.25.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=10, wealth=0, zeal=0, fortune=0)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=10, wealth=0, zeal=0, fortune=0,
+                                           location=self.TEST_SETTLEMENT.location)]
         self.game_state.process_player(self.game_state.players[0])
         self.assertEqual(48.75, self.TEST_SETTLEMENT.satisfaction)
 
@@ -269,7 +274,8 @@ class GameStateTest(unittest.TestCase):
         self.game_state.board.overlay.toggle_construction_notification = MagicMock()
         self.TEST_SETTLEMENT.current_work = Construction(IMPROVEMENTS[0])
         # Give the settlement enough zeal to complete the construction.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=0, wealth=0, zeal=IMPROVEMENTS[0].cost, fortune=0)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=0, wealth=0, zeal=IMPROVEMENTS[0].cost, fortune=0,
+                                           location=self.TEST_SETTLEMENT.location)]
         self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
         self.game_state.players[0].ai_playstyle = None
 
@@ -288,7 +294,8 @@ class GameStateTest(unittest.TestCase):
         """
         self.game_state.board.overlay.toggle_level_up_notification = MagicMock()
         harvest_amount = 30
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=harvest_amount, wealth=0, zeal=0, fortune=0)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=harvest_amount, wealth=0, zeal=0, fortune=0,
+                                           location=self.TEST_SETTLEMENT.location)]
         self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
         self.game_state.players[0].ai_playstyle = None
 
@@ -297,6 +304,35 @@ class GameStateTest(unittest.TestCase):
         # The harvest reserves and level of the settlement should have been updated, and the overlay displayed.
         self.assertEqual(harvest_amount, self.TEST_SETTLEMENT.harvest_reserves)
         self.assertEqual(2, self.TEST_SETTLEMENT.level)
+        self.game_state.board.overlay.toggle_level_up_notification.assert_called_with([self.TEST_SETTLEMENT])
+
+    def test_process_player_settlement_level_up_concentrated(self):
+        """
+        Ensure that when a settlement's harvest reserves exceed the required amount to level up at the end of a turn for
+        a player of The Concentrated faction, the correct state updates occur.
+        """
+        self.game_state.board.overlay.toggle_level_up_notification = MagicMock()
+        harvest_amount = 30
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=harvest_amount, wealth=0, zeal=0, fortune=0,
+                                           location=self.TEST_SETTLEMENT.location)]
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        self.game_state.players[0].ai_playstyle = None
+        self.game_state.players[0].faction = Faction.CONCENTRATED
+
+        self.assertFalse(self.game_state.players[0].quads_seen)
+
+        self.game_state.process_player(self.game_state.players[0])
+
+        # The harvest reserves and level of the settlement should have been updated.
+        self.assertEqual(harvest_amount, self.TEST_SETTLEMENT.harvest_reserves)
+        self.assertEqual(2, self.TEST_SETTLEMENT.level)
+        # Since the player is of The Concentrated faction, the level up should also grant the settlement a new quad.
+        self.assertEqual(2, len(self.TEST_SETTLEMENT.quads))
+        # Additionally, the seen quads list for the player should be updated to include the new quad in the radius.
+        # Vision is granted five steps vertically and horizontally from the new quad's location, making for an 11x11
+        # square.
+        self.assertEqual(11 * 11, len(self.game_state.players[0].quads_seen))
+        # The overlay should also be displayed with the settlement.
         self.game_state.board.overlay.toggle_level_up_notification.assert_called_with([self.TEST_SETTLEMENT])
 
     def test_process_player_settlement_level_up_ravenous(self):
@@ -309,7 +345,8 @@ class GameStateTest(unittest.TestCase):
         harvest_amount = 30
         # The Ravenous have their settlements capped at level 5.
         self.TEST_SETTLEMENT.level = 5
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=harvest_amount, wealth=0, zeal=0, fortune=0)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=harvest_amount, wealth=0, zeal=0, fortune=0,
+                                           location=self.TEST_SETTLEMENT.location)]
         self.TEST_SETTLEMENT.harvest_reserves = original_reserves
         self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
         self.game_state.players[0].ai_playstyle = None
@@ -331,7 +368,8 @@ class GameStateTest(unittest.TestCase):
         self.game_state.board.overlay.toggle_blessing_notification = MagicMock()
         blessing = BLESSINGS["beg_spl"]
         self.game_state.players[0].ongoing_blessing = OngoingBlessing(blessing)
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=0, wealth=0, zeal=0, fortune=blessing.cost)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=0, wealth=0, zeal=0, fortune=blessing.cost,
+                                           location=self.TEST_SETTLEMENT.location)]
         self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
         self.game_state.players[0].ai_playstyle = None
 

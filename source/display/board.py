@@ -83,9 +83,10 @@ class Board:
         # Nocturne faction have no vision impacts at nighttime.
         if is_night and players[0].faction is not Faction.NOCTURNE:
             for setl in players[0].settlements:
-                for i in range(setl.location[0] - 3, setl.location[0] + 4):
-                    for j in range(setl.location[1] - 3, setl.location[1] + 4):
-                        quads_to_show.add((i, j))
+                for setl_quad in setl.quads:
+                    for i in range(setl_quad.location[0] - 3, setl_quad.location[0] + 4):
+                        for j in range(setl_quad.location[1] - 3, setl_quad.location[1] + 4):
+                            quads_to_show.add((i, j))
             for unit in players[0].units:
                 for i in range(unit.location[0] - 3, unit.location[0] + 4):
                     for j in range(unit.location[1] - 3, unit.location[1] + 4):
@@ -188,21 +189,21 @@ class Board:
                 if (not fog_of_war_impacts or settlement.location in quads_to_show) and \
                         map_pos[0] <= settlement.location[0] < map_pos[0] + 24 and \
                         map_pos[1] <= settlement.location[1] < map_pos[1] + 22:
-                    quad: Quad = self.quads[settlement.location[1]][settlement.location[0]]
-                    match quad.biome:
-                        case Biome.DESERT:
-                            setl_x = 0
-                        case Biome.FOREST:
-                            setl_x = 8
-                        case Biome.SEA:
-                            setl_x = 16
-                        case _:
-                            setl_x = 24
-                    if is_night and not settlement.besieged:
-                        setl_x += 32
-                    pyxel.blt((settlement.location[0] - map_pos[0]) * 8 + 4,
-                              (settlement.location[1] - map_pos[1]) * 8 + 4, 0, setl_x,
-                              68 if settlement.besieged else 4, 8, 8)
+                    for setl_quad in settlement.quads:
+                        match setl_quad.biome:
+                            case Biome.DESERT:
+                                setl_x = 0
+                            case Biome.FOREST:
+                                setl_x = 8
+                            case Biome.SEA:
+                                setl_x = 16
+                            case _:
+                                setl_x = 24
+                        if is_night and not settlement.besieged:
+                            setl_x += 32
+                        pyxel.blt((setl_quad.location[0] - map_pos[0]) * 8 + 4,
+                                  (setl_quad.location[1] - map_pos[1]) * 8 + 4, 0, setl_x,
+                                  68 if settlement.besieged else 4, 8, 8)
 
         for player in players:
             for settlement in player.settlements:
@@ -241,8 +242,9 @@ class Board:
                             pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
                             pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
                     else:
-                        pyxel.rectb((settlement.location[0] - map_pos[0]) * 8 + 4,
-                                    (settlement.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
+                        for setl_quad in settlement.quads:
+                            pyxel.rectb((setl_quad.location[0] - map_pos[0]) * 8 + 4,
+                                        (setl_quad.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
 
         # For the selected quad, display its yield.
         if self.quad_selected is not None and selected_quad_coords is not None and \
@@ -260,8 +262,11 @@ class Board:
             pyxel.text(base_x_pos, base_y_pos + 12, f"{round(self.quad_selected.fortune)}", pyxel.COLOR_PURPLE)
 
         if self.deploying_army:
-            pyxel.rectb((self.selected_settlement.location[0] - map_pos[0]) * 8 - 4,
-                        (self.selected_settlement.location[1] - map_pos[1]) * 8 - 4, 24, 24, pyxel.COLOR_WHITE)
+            for setl_quad in self.selected_settlement.quads:
+                for i in range(setl_quad.location[0] - 1, setl_quad.location[0] + 2):
+                    for j in range(setl_quad.location[1] - 1, setl_quad.location[1] + 2):
+                        if not any(s_q.location == (i, j) for s_q in self.selected_settlement.quads):
+                            pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_WHITE)
 
         # Also display the number of units the player can move at the bottom-right of the screen.
         movable_units = [unit for unit in players[0].units if unit.remaining_stamina > 0 and not unit.besieging]
@@ -399,7 +404,7 @@ class Board:
                 if relic_chance < 1:
                     is_relic = True
 
-                self.quads[i][j] = Quad(biome, *quad_yield, is_relic=is_relic)
+                self.quads[i][j] = Quad(biome, *quad_yield, location=(j, i), is_relic=is_relic)
 
     def process_right_click(self, mouse_x: int, mouse_y: int, map_pos: (int, int)):
         """
@@ -492,20 +497,24 @@ class Board:
                     # If the player has selected a settlement, but has now clicked elsewhere, deselect the settlement.
                     if not self.deploying_army and \
                             self.selected_settlement is not None and \
-                            self.selected_settlement.location != (adj_x, adj_y):
+                            all(quad.location != (adj_x, adj_y) for quad in self.selected_settlement.quads):
                         self.selected_settlement = None
                         self.overlay.toggle_settlement(None, player)
                     # If the player has selected neither a unit or settlement, and they have clicked on one of their
                     # settlements, select it.
                     elif self.selected_unit is None and self.selected_settlement is None and \
-                            any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements):
+                            any((to_select := setl) and any(setl_quad.location == (adj_x, adj_y)
+                                                            for setl_quad in setl.quads)
+                                for setl in player.settlements):
                         self.selected_settlement = to_select
                         self.overlay.toggle_settlement(to_select, player)
                     # If the player has selected a unit, and they have clicked on one of their settlements, garrison the
                     # selected unit in the settlement, ensuring it is within range.
                     elif self.selected_unit is not None and self.selected_unit in player.units and \
                             self.selected_settlement is None and \
-                            any((to_select := setl).location == (adj_x, adj_y) for setl in player.settlements) and \
+                            any((to_select := setl) and any(setl_quad.location == (adj_x, adj_y)
+                                                            for setl_quad in setl.quads)
+                                for setl in player.settlements) and \
                             self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
                             self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
@@ -519,10 +528,10 @@ class Board:
                     # If the player is deploying a unit and they've clicked within one quad of the settlement the unit
                     # is being deployed from, place the unit there.
                     elif self.deploying_army and \
-                            self.selected_settlement.location[0] - 1 <= adj_x <= \
-                            self.selected_settlement.location[0] + 1 and \
-                            self.selected_settlement.location[1] - 1 <= adj_y <= \
-                            self.selected_settlement.location[1] + 1:
+                            any(setl_quad.location[0] - 1 <= adj_x <= setl_quad.location[0] + 1 and
+                                setl_quad.location[1] - 1 <= adj_y <= setl_quad.location[1] + 1
+                                for setl_quad in self.selected_settlement.quads) and \
+                            not any(s_q.location == (adj_x, adj_y) for s_q in self.selected_settlement.quads):
                         deployed = self.selected_settlement.garrison.pop()
                         deployed.garrisoned = False
                         deployed.location = adj_x, adj_y
@@ -586,9 +595,10 @@ class Board:
                     # enemy settlement within range, bring up the overlay to prompt the player on their action.
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
                             self.selected_unit in player.units and not self.selected_unit.has_acted and \
-                            any((to_attack := setl).location == (adj_x, adj_y) for setl in other_setls):
-                        if abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
-                                abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
+                            any((to_attack := setl) and any((quad_to_attack := setl_quad).location == (adj_x, adj_y)
+                                                            for setl_quad in setl.quads) for setl in other_setls):
+                        if abs(self.selected_unit.location[0] - quad_to_attack.location[0]) <= 1 and \
+                                abs(self.selected_unit.location[1] - quad_to_attack.location[1]) <= 1:
                             for p in all_players:
                                 if to_attack in p.settlements:
                                     self.overlay.toggle_setl_click(to_attack, p)
@@ -603,7 +613,8 @@ class Board:
                             not any(heathen.location == (adj_x, adj_y) for heathen in heathens) and \
                             self.selected_unit in player.units and \
                             not any(unit.location == (adj_x, adj_y) for unit in all_units) and \
-                            not any(setl.location == (adj_x, adj_y) for setl in other_setls) and \
+                            not any(any(setl_quad.location == (adj_x, adj_y) for setl_quad in setl.quads)
+                                    for setl in other_setls) and \
                             not self.quads[adj_y][adj_x].is_relic and \
                             self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
@@ -649,7 +660,9 @@ class Board:
         """
         can_settle = True
         for setl in player.settlements:
-            # Of course, players cannot found settlements where they already have one.
+            # Of course, players cannot found settlements where they already have one. We also don't need to check every
+            # single quad that the settlement has, because the only settlements that can have more than one quad are of
+            # the very same faction that cannot recruit settlers.
             if setl.location == self.selected_unit.location:
                 can_settle = False
                 break

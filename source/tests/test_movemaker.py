@@ -29,14 +29,6 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_UNIT_3 = Unit(9, 10, (11, 12), False, self.TEST_UNIT_PLAN)
         self.TEST_SETTLER_UNIT = Unit(13, 5, (14, 15), False, self.TEST_SETTLER_PLAN)
         self.TEST_HEALER_UNIT = Unit(16, 3, (17, 18), False, self.TEST_HEALER_PLAN)
-        self.TEST_SETTLEMENT = Settlement("Obstructionville", (0, 0), [], [], [])
-        self.TEST_SETTLEMENT_2 = Settlement("EnemyTown", (40, 40), [], [], [])
-        self.TEST_PLAYER = Player("TesterMan", Faction.NOCTURNE, 0, 0, [self.TEST_SETTLEMENT], [self.TEST_UNIT], [],
-                                  set(), set(),
-                                  ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
-        self.TEST_PLAYER_2 = Player("TesterMan2", Faction.AGRICULTURISTS, 0, 0, [self.TEST_SETTLEMENT_2], [], [],
-                                    set(), set(),
-                                    ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
 
         self.movemaker = MoveMaker(Namer())
         self.movemaker.board_ref = self.TEST_BOARD
@@ -56,10 +48,21 @@ class MovemakerTest(unittest.TestCase):
             for j in range(80):
                 if self.QUADS[i][j].is_relic and self.relic_coords != (i, j):
                     self.QUADS[i][j].is_relic = False
+
+        self.TEST_SETTLEMENT = Settlement("Obstructionville", (0, 0), [], [self.QUADS[0][0]], [])
+        self.TEST_SETTLEMENT_2 = Settlement("EnemyTown", (40, 40), [], [self.QUADS[40][40]], [])
+        self.TEST_PLAYER = Player("TesterMan", Faction.NOCTURNE, 0, 0, [self.TEST_SETTLEMENT], [self.TEST_UNIT], [],
+                                  set(), set(),
+                                  ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
+        self.TEST_PLAYER_2 = Player("TesterMan2", Faction.AGRICULTURISTS, 0, 0, [self.TEST_SETTLEMENT_2], [], [],
+                                    set(), set(),
+                                    ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
+
         # Position the other two units and settlement to be surrounding the relic, obstructing its access.
         self.TEST_UNIT_2.location = self.relic_coords[0] - 1, self.relic_coords[1]
         self.TEST_UNIT_3.location = self.relic_coords[0], self.relic_coords[1] + 1
         self.TEST_SETTLEMENT.location = self.relic_coords[0], self.relic_coords[1] - 1
+        self.TEST_SETTLEMENT.quads = [self.QUADS[self.relic_coords[1] - 1][self.relic_coords[0]]]
 
     def test_set_blessing_none_available(self):
         """
@@ -187,7 +190,7 @@ class MovemakerTest(unittest.TestCase):
         Ensure that when a player's settlement is lacking wealth, the correct improvement is selected for construction.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 0, 100, 1, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 0, 100, 1, 1, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
         # Remove a blessing to create a suitable test environment.
         self.TEST_PLAYER.blessings.remove(BLESSINGS["sl_vau"])
@@ -203,7 +206,7 @@ class MovemakerTest(unittest.TestCase):
         """
         Ensure that when a player's settlement is lacking harvest, the correct improvement is selected for construction.
         """
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.DESERT, 100, 99, 100, 100)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.DESERT, 100, 99, 100, 100, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
         # Remove a blessing to create a suitable test environment.
         self.TEST_PLAYER.blessings.remove(BLESSINGS["art_pht"])
@@ -220,7 +223,7 @@ class MovemakerTest(unittest.TestCase):
         Ensure that when a player's settlement is lacking zeal, the correct improvement is selected for construction.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
 
         set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
@@ -237,7 +240,7 @@ class MovemakerTest(unittest.TestCase):
         :param imps_mock: The mock implementation of the get_available_improvements() function.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 1, 0)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 1, 0, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = [BLESSINGS["beg_spl"]]
         # We need to mock out the available improvements so as to achieve full coverage, reaching a block where the
         # improvement with the most fortune is updated. We do this by simply switching the first two improvements in the
@@ -259,7 +262,7 @@ class MovemakerTest(unittest.TestCase):
         increase it without taking too many turns, the ideal improvement is selected for construction instead.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
         self.TEST_SETTLEMENT.satisfaction = 49
         # Give the settlement all the improvements in the first 'tier' that grant satisfaction.
         self.TEST_SETTLEMENT.improvements = [
@@ -282,7 +285,7 @@ class MovemakerTest(unittest.TestCase):
         combined satisfaction and harvest upon completion without taking too many turns is selected for construction.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
         self.TEST_SETTLEMENT.satisfaction = 49
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
 
@@ -297,7 +300,7 @@ class MovemakerTest(unittest.TestCase):
         harvest upon completion without taking too many turns is selected for construction.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 100, 0, 100, 100)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 100, 0, 100, 100, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
 
         set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
@@ -392,7 +395,7 @@ class MovemakerTest(unittest.TestCase):
         construction.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 0, 100, 1, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 0, 100, 1, 1, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
         # Remove a blessing to create a suitable test environment.
         self.TEST_PLAYER.blessings.remove(BLESSINGS["sl_vau"])
@@ -409,7 +412,7 @@ class MovemakerTest(unittest.TestCase):
         Ensure that when an AI player's settlement is lacking harvest, the correct improvement is selected for
         construction.
         """
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.DESERT, 100, 99, 100, 100)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.DESERT, 100, 99, 100, 100, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
         # Remove a blessing to create a suitable test environment.
         self.TEST_PLAYER.blessings.remove(BLESSINGS["art_pht"])
@@ -427,7 +430,7 @@ class MovemakerTest(unittest.TestCase):
         construction.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
@@ -445,7 +448,7 @@ class MovemakerTest(unittest.TestCase):
         :param imps_mock: The mock implementation of the get_available_improvements() function.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 1, 0)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 1, 0, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = [BLESSINGS["beg_spl"]]
         # We need to mock out the available improvements so as to achieve full coverage, reaching a block where the
         # improvement with the most fortune is updated. We do this by simply switching the first two improvements in the
@@ -467,7 +470,7 @@ class MovemakerTest(unittest.TestCase):
         increase it without taking too many turns, the ideal improvement is selected for construction instead.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
         self.TEST_SETTLEMENT.satisfaction = 49
         # Give the settlement all the improvements in the first 'tier' that grant satisfaction.
         self.TEST_SETTLEMENT.improvements = [
@@ -490,7 +493,7 @@ class MovemakerTest(unittest.TestCase):
         combined satisfaction and harvest upon completion without taking too many turns is selected for construction.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
         self.TEST_SETTLEMENT.satisfaction = 49
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
 
@@ -505,7 +508,7 @@ class MovemakerTest(unittest.TestCase):
         most harvest upon completion without taking too many turns is selected for construction.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 100, 0, 100, 100)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 100, 0, 100, 100, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
@@ -523,7 +526,7 @@ class MovemakerTest(unittest.TestCase):
         # Increase the settlement level so that the player does not have enough units.
         self.TEST_SETTLEMENT.level = 2
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
         # We expect the Narcotician unit plan to be selected, as it has the greatest healing ability of all units.
@@ -541,7 +544,7 @@ class MovemakerTest(unittest.TestCase):
         # Increase the settlement level so that the player does not have enough units.
         self.TEST_SETTLEMENT.level = 2
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
         # We expect the Haruspex unit plan to be selected, as it has the greatest power of all units.
@@ -554,7 +557,7 @@ class MovemakerTest(unittest.TestCase):
         """
         self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.AGGRESSIVE
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
@@ -572,7 +575,7 @@ class MovemakerTest(unittest.TestCase):
         # Increase the settlement level so that the player does not have enough units.
         self.TEST_SETTLEMENT.level = 3
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
         # We expect the Narcotician unit plan to be selected, as it has the greatest healing ability of all units.
@@ -590,7 +593,7 @@ class MovemakerTest(unittest.TestCase):
         # Increase the settlement level so that the player does not have enough units.
         self.TEST_SETTLEMENT.level = 3
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
         # We expect the Fanatic unit plan to be selected, as it has the greatest health of all units.
@@ -604,7 +607,7 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
         self.TEST_PLAYER.blessings = BLESSINGS.values()
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
         # Since Insurmountable Walls is the first improvement that increases strength, we expect it to be chosen.
@@ -617,7 +620,7 @@ class MovemakerTest(unittest.TestCase):
         """
         self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 100, 100, 0, 100)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 100, 100, 0, 100, self.TEST_SETTLEMENT.location)]
         # Give the settlement all the improvements that increase strength.
         self.TEST_SETTLEMENT.improvements = [imp for imp in IMPROVEMENTS if imp.effect.strength > 0]
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
@@ -925,6 +928,9 @@ class MovemakerTest(unittest.TestCase):
         Ensure that when an AI player would have negative wealth at the end of their turn, they stay ahead of the curve
         and sell a unit.
         """
+        # Make sure that the settlement is not generating sufficient wealth to give the player positive wealth.
+        self.TEST_SETTLEMENT.quads[0].wealth = 0
+
         self.assertTrue(self.TEST_PLAYER.units)
         self.assertFalse(self.TEST_PLAYER.wealth)
         self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)

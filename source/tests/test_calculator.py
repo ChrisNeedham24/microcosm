@@ -1,3 +1,4 @@
+import typing
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -6,7 +7,7 @@ from source.foundation.models import Biome, Unit, AttackData, HealData, Settleme
     Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing, \
     Quad, EconomicStatus, HarvestStatus
 from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction, \
-    investigate_relic, get_player_totals, get_setl_totals
+    investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices
 
 
 class CalculatorTest(unittest.TestCase):
@@ -146,7 +147,7 @@ class CalculatorTest(unittest.TestCase):
         """
         quad_imp_zeal = 4
         imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement", Effect(zeal=quad_imp_zeal), None)
-        quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, 0)
+        quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
         player = Player("Tester", Faction.AGRICULTURISTS, 0, 0, [setl], [], [], set(), set())
 
@@ -160,7 +161,7 @@ class CalculatorTest(unittest.TestCase):
         """
         quad_imp_zeal = 4
         imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement", Effect(zeal=quad_imp_zeal), None)
-        quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, 0)
+        quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
         player = Player("Tester", Faction.FUNDAMENTALISTS, 0, 0, [setl], [], [], set(), set())
 
@@ -177,7 +178,7 @@ class CalculatorTest(unittest.TestCase):
 
         imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement",
                           Effect(zeal=quad_imp_zeal, wealth=quad_imp_wealth), None)
-        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, quad_imp_zeal, 0)
+        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, quad_imp_zeal, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], current_work=Construction(PROJECTS[1]))
         player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
 
@@ -191,7 +192,7 @@ class CalculatorTest(unittest.TestCase):
         """
         quad_imp_wealth = 4
         imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
-        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0)
+        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, economic_status=EconomicStatus.RECESSION)
         player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
 
@@ -205,7 +206,7 @@ class CalculatorTest(unittest.TestCase):
         """
         quad_imp_wealth = 4
         imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
-        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0)
+        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, economic_status=EconomicStatus.BOOM)
         player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
 
@@ -224,7 +225,7 @@ class CalculatorTest(unittest.TestCase):
         """
         quad_imp_wealth = 4
         imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
-        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0)
+        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
         player = Player("Tester", Faction.GODLESS, 0, 0, [setl], [], [], set(), set())
 
@@ -240,7 +241,7 @@ class CalculatorTest(unittest.TestCase):
         quad_imp_fortune = 2
         imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement",
                           Effect(wealth=quad_imp_wealth, fortune=quad_imp_fortune), None)
-        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, quad_imp_fortune)
+        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, quad_imp_fortune, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
         player = Player("Tester", Faction.ORTHODOX, 0, 0, [setl], [], [], set(), set())
 
@@ -258,7 +259,7 @@ class CalculatorTest(unittest.TestCase):
 
         imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement",
                           Effect(zeal=quad_imp_zeal, harvest=quad_imp_harvest), None)
-        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, quad_imp_zeal, 0)
+        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, quad_imp_zeal, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], current_work=Construction(PROJECTS[0]))
         player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
 
@@ -272,7 +273,7 @@ class CalculatorTest(unittest.TestCase):
         """
         quad_imp_harvest = 4
         imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
-        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0)
+        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, harvest_status=HarvestStatus.POOR)
         player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
 
@@ -286,7 +287,7 @@ class CalculatorTest(unittest.TestCase):
         """
         quad_imp_harvest = 4
         imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
-        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0)
+        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, besieged=True)
         player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
 
@@ -300,7 +301,7 @@ class CalculatorTest(unittest.TestCase):
         """
         quad_imp_harvest = 4
         imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
-        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0)
+        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, harvest_status=HarvestStatus.PLENTIFUL)
         player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
 
@@ -319,7 +320,7 @@ class CalculatorTest(unittest.TestCase):
         """
         quad_imp_harvest = 4
         imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
-        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0)
+        quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
         player = Player("Tester", Faction.RAVENOUS, 0, 0, [setl], [], [], set(), set())
 
@@ -336,7 +337,7 @@ class CalculatorTest(unittest.TestCase):
 
         imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement",
                           Effect(zeal=quad_imp_zeal, fortune=quad_imp_fortune), None)
-        quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, quad_imp_fortune)
+        quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, quad_imp_fortune, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], current_work=Construction(PROJECTS[2]))
         player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
 
@@ -350,7 +351,7 @@ class CalculatorTest(unittest.TestCase):
         """
         quad_imp_fortune = 4
         imp = Improvement(ImprovementType.MAGICAL, 0, "Test", "Improvement", Effect(fortune=quad_imp_fortune), None)
-        quad = Quad(Biome.SEA, 0, 0, 0, quad_imp_fortune)
+        quad = Quad(Biome.SEA, 0, 0, 0, quad_imp_fortune, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
         player = Player("Tester", Faction.SCRUTINEERS, 0, 0, [setl], [], [], set(), set())
 
@@ -366,7 +367,7 @@ class CalculatorTest(unittest.TestCase):
         quad_imp_harvest = 4
         imp = Improvement(ImprovementType.MAGICAL, 0, "Test", "Improvement",
                           Effect(harvest=quad_imp_harvest, fortune=quad_imp_fortune), None)
-        quad = Quad(Biome.SEA, 0, quad_imp_harvest, 0, quad_imp_fortune)
+        quad = Quad(Biome.SEA, 0, quad_imp_harvest, 0, quad_imp_fortune, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
         player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
 
@@ -392,7 +393,7 @@ class CalculatorTest(unittest.TestCase):
         imp_fortune = 8
         imp = Improvement(ImprovementType.MAGICAL, 0, "Standard", "Improvement",
                           Effect(harvest=imp_harvest, fortune=imp_fortune), None)
-        quad = Quad(Biome.MOUNTAIN, quad_wealth, 0, quad_zeal, 0)
+        quad = Quad(Biome.MOUNTAIN, quad_wealth, 0, quad_zeal, 0, (0, 0))
         setl = Settlement("Pleasantville", (0, 0), [imp], [quad], [], level=10)
         player = Player("Johnny Appleseed", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
 
@@ -624,6 +625,27 @@ class CalculatorTest(unittest.TestCase):
 
         self.assertEqual(InvestigationResult.NONE,
                          investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG))
+
+    def test_gen_spiral_indices(self):
+        """
+        Ensure that when spiral indices are generated around a fixed point, at least all eight directly adjacent
+        locations are generated.
+        """
+        central_loc: (int, int) = 5, 5
+        expected_indices: typing.List[typing.Tuple[int, int]] = [
+            central_loc,
+            (central_loc[0] + 1, central_loc[1]),
+            (central_loc[0] + 1, central_loc[1] + 1),
+            (central_loc[0], central_loc[1] + 1),
+            (central_loc[0] - 1, central_loc[1] + 1),
+            (central_loc[0] - 1, central_loc[1]),
+            (central_loc[0] - 1, central_loc[1] - 1),
+            (central_loc[0], central_loc[1] - 1),
+            (central_loc[0] + 1, central_loc[1] - 1)
+        ]
+        # The test does not have to be as thorough as verifying each and every index, we just want to make sure this
+        # function is working at a basic level.
+        self.assertTrue(all(index in gen_spiral_indices(central_loc) for index in expected_indices))
 
 
 if __name__ == '__main__':

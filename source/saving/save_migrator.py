@@ -100,16 +100,18 @@ def migrate_climatic_effects(game_state, save):
     game_state.nighttime_left = save.night_status.remaining if hasattr(save, "night_status") else 0
 
 
-def migrate_quad(quad) -> Quad:
+def migrate_quad(quad, location: (int, int)) -> Quad:
     """
     Apply the is_relic migration for Quads, if required.
     :param quad: The loaded quad object.
+    :param location: The backup location to use for the quad if it is from an outdated save.
     :return: An optionally-migrated Quad representation.
     """
     new_quad = quad
     # The biomes require special loading.
     new_quad.biome = Biome[new_quad.biome]
     new_quad.is_relic = new_quad.is_relic if hasattr(new_quad, "is_relic") else False
+    new_quad.location = (new_quad.location[0], new_quad.location[1]) if hasattr(new_quad, "location") else location
     return new_quad
 
 
@@ -125,6 +127,8 @@ def migrate_settlement(settlement):
             settlement.besieged = False
         # We now delete the old attribute so that it does not pollute future saves.
         delattr(settlement, "under_siege_by")
+    for i in range(len(settlement.quads)):
+        settlement.quads[i] = migrate_quad(settlement.quads[i], (settlement.location[0], settlement.location[1]))
 
 
 def migrate_game_config(config) -> GameConfig:

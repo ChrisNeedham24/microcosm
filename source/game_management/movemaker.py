@@ -2,7 +2,7 @@ import random
 import typing
 
 from source.util.calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, \
-    attack_setl, investigate_relic, heal
+    attack_setl, investigate_relic, heal, gen_spiral_indices
 from source.foundation.catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
 from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
@@ -356,7 +356,7 @@ def search_for_relics_or_move(unit: Unit,
                 for loc in [first_resort, second_resort, third_resort]:
                     if not any(u.location == loc for u in player.units) and \
                             not any(other_u.location == loc for other_u in other_units) and \
-                            not any(setl.location == loc for setl in all_setls):
+                            not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
                         unit.location = loc
                         found_valid_loc = True
                         break
@@ -375,7 +375,7 @@ def search_for_relics_or_move(unit: Unit,
         loc = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
         if not any(u.location == loc and u != unit for u in player.units) and \
                 not any(other_u.location == loc for other_u in other_units) and \
-                not any(setl.location == loc for setl in all_setls):
+                not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
             unit.location = loc
             found_valid_loc = True
             unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
@@ -417,7 +417,7 @@ def move_healer_unit(player: Player, unit: Unit, other_units: typing.List[Unit],
         for loc in [first_resort, second_resort, third_resort]:
             if not any(u.location == loc for u in player.units) and \
                     not any(other_u.location == loc for other_u in other_units) and \
-                    not any(setl.location == loc for setl in all_setls):
+                    not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
                 unit.location = loc
                 found_valid_loc = True
                 break
@@ -479,7 +479,9 @@ class MoveMaker:
                 for unit in setl.garrison:
                     if unit.plan.can_settle:
                         unit.garrisoned = False
-                        unit.location = setl.location[0], setl.location[1] + 1
+                        unit.location = next(loc for loc in gen_spiral_indices(setl.location)
+                                             if not any(setl_quad.location == loc for setl_quad in setl.quads) and
+                                             0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                         player.units.append(unit)
                         setl.garrison.remove(unit)
             # Deploy a unit from the garrison if the AI is not defensive, or the settlement is under siege or attack, or
@@ -489,7 +491,9 @@ class MoveMaker:
                  or setl.strength < setl.max_strength / 2)) or len(setl.garrison) > 3:
                 deployed = setl.garrison.pop()
                 deployed.garrisoned = False
-                deployed.location = setl.location[0], setl.location[1] + 1
+                deployed.location = next(loc for loc in gen_spiral_indices(setl.location)
+                                         if not any(setl_quad.location == loc for setl_quad in setl.quads) and
+                                         0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                 player.units.append(deployed)
         all_units = []
         for p in all_players:
@@ -528,7 +532,7 @@ class MoveMaker:
             loc = clamp(unit.location[0] + x_movement, 0, 99), clamp(unit.location[1] + y_movement, 0, 89)
             if not any(u.location == loc and u != unit for u in player.units) and \
                     not any(other_u.location == loc for other_u in other_units) and \
-                    not any(setl.location == loc for setl in all_setls):
+                    not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
                 unit.location = loc
                 found_valid_loc = True
                 unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
@@ -609,8 +613,9 @@ class MoveMaker:
                                              (player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE and
                                               other_setl.strength == 0)
                         if could_attack:
-                            if max(abs(unit.location[0] - other_setl.location[0]),
-                                   abs(unit.location[1] - other_setl.location[1])) <= unit.remaining_stamina:
+                            if any(max(abs(unit.location[0] - setl_quad.location[0]),
+                                       abs(unit.location[1] - setl_quad.location[1])) <= unit.remaining_stamina
+                                   for setl_quad in other_setl.quads):
                                 within_range = other_setl
                                 break
                         else:
@@ -621,8 +626,9 @@ class MoveMaker:
                                                 (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
                                                  unit.health >= other_setl.strength * 2)
                             if could_siege:
-                                if max(abs(unit.location[0] - other_setl.location[0]),
-                                       abs(unit.location[1] - other_setl.location[1])) <= unit.remaining_stamina:
+                                if any(max(abs(unit.location[0] - setl_quad.location[0]),
+                                           abs(unit.location[1] - setl_quad.location[1])) <= unit.remaining_stamina
+                                       for setl_quad in other_setl.quads):
                                     within_range = other_setl
                                     attack_over_siege = False
                                     break
@@ -642,7 +648,7 @@ class MoveMaker:
                 for loc in [first_resort, second_resort, third_resort]:
                     if not any(u.location == loc for u in player.units) and \
                             not any(other_u.location == loc for other_u in other_units) and \
-                            not any(setl.location == loc for setl in all_setls):
+                            not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
                         unit.location = loc
                         found_valid_loc = True
                         break
@@ -685,8 +691,9 @@ class MoveMaker:
                                 elif data.setl_was_taken:
                                     data.settlement.besieged = False
                                     for u in player.units:
-                                        if abs(u.location[0] - data.settlement.location[0]) <= 1 and \
-                                                abs(u.location[1] - data.settlement.location[1]) <= 1:
+                                        if any(abs(u.location[0] - setl_quad.location[0]) <= 1 and
+                                               abs(u.location[1] - setl_quad.location[1]) <= 1
+                                               for setl_quad in data.settlement.quads):
                                             u.besieging = False
                                     if player.faction is not Faction.CONCENTRATED:
                                         player.settlements.append(data.settlement)

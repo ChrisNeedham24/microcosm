@@ -233,9 +233,11 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     # were involved in the siege as no longer besieging.
                     data.settlement.besieged = False
                     for unit in game_state.players[0].units:
-                        if abs(unit.location[0] - data.settlement.location[0]) <= 1 and \
-                                abs(unit.location[1] - data.settlement.location[1]) <= 1:
-                            unit.besieging = False
+                        for setl_quad in data.settlement.quads:
+                            if abs(unit.location[0] - setl_quad.location[0]) <= 1 and \
+                                    abs(unit.location[1] - setl_quad.location[1]) <= 1:
+                                unit.besieging = False
+                                break
                     # The Concentrated can only have a single settlement, so when they take others, the
                     # settlements simply disappear.
                     if game_state.players[0].faction is not Faction.CONCENTRATED:

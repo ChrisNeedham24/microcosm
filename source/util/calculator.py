@@ -1,4 +1,5 @@
 import random
+import typing
 from copy import deepcopy
 
 from source.foundation.models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, \
@@ -280,3 +281,43 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
         unit.plan.cost = 0
         return InvestigationResult.UPKEEP
     return InvestigationResult.NONE
+
+
+def gen_spiral_indices(initial_loc: (int, int)) -> typing.List[typing.Tuple[int, int]]:
+    """
+    Generate indices (or locations) around a supplied point in a spiral fashion. The below diagram indicates the order
+    in which points should be returned.
+
+    ----------------
+    |20|21|22|23|24|
+    ----------------
+    |19|06|07|08|09|
+    ----------------
+    |18|05|XX|01|10|
+    ----------------
+    |17|04|03|02|11|
+    ----------------
+    |16|15|14|13|12|
+    ----------------
+
+    :param initial_loc: The point to 'spiral' around.
+    :return: A list of locations, in the order of the spiral.
+    """
+    indices: typing.List[typing.Tuple[int, int]] = []
+
+    x = 0
+    y = 0
+    delta = 1
+    m = 1
+
+    while m <= 5:
+        while 2 * x * delta < m:
+            indices.append((x + initial_loc[0], y + initial_loc[1]))
+            x += delta
+        while 2 * y * delta < m:
+            indices.append((x + initial_loc[0], y + initial_loc[1]))
+            y += delta
+        delta *= -1
+        m += 1
+
+    return indices

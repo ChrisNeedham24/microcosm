@@ -190,6 +190,7 @@ class Quad:
     harvest: float
     zeal: float
     fortune: float
+    location: (int, int)
     selected: bool = False
     is_relic: bool = False
 
@@ -319,7 +320,7 @@ class Settlement:
     name: str
     location: (int, int)
     improvements: typing.List[Improvement]
-    quads: typing.List[Quad]  # Currently, settlements only have a single quad. But this may be expanded in future.
+    quads: typing.List[Quad]  # Only players of The Concentrated faction can have more than one quad in a settlement.
     garrison: typing.List[Unit]
     strength: float = 100
     max_strength: float = 100
