@@ -595,10 +595,10 @@ class Board:
                     # enemy settlement within range, bring up the overlay to prompt the player on their action.
                     elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
                             self.selected_unit in player.units and not self.selected_unit.has_acted and \
-                            any((to_attack := setl) and any(setl_quad.location == (adj_x, adj_y)
+                            any((to_attack := setl) and any((quad_to_attack := setl_quad).location == (adj_x, adj_y)
                                                             for setl_quad in setl.quads) for setl in other_setls):
-                        if abs(self.selected_unit.location[0] - to_attack.location[0]) <= 1 and \
-                                abs(self.selected_unit.location[1] - to_attack.location[1]) <= 1:
+                        if abs(self.selected_unit.location[0] - quad_to_attack.location[0]) <= 1 and \
+                                abs(self.selected_unit.location[1] - quad_to_attack.location[1]) <= 1:
                             for p in all_players:
                                 if to_attack in p.settlements:
                                     self.overlay.toggle_setl_click(to_attack, p)

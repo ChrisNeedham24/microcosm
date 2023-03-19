@@ -197,7 +197,7 @@ class SaveMigratorTest(unittest.TestCase):
             "is_relic": True
         })
 
-        migrated_quad: Quad = migrate_quad(test_loaded_quad)
+        migrated_quad: Quad = migrate_quad(test_loaded_quad, (0, 0))
 
         # For up-to-date quads, we expect the attributes to be mapped over directly.
         self.assertEqual(test_biome, migrated_quad.biome)
@@ -206,7 +206,7 @@ class SaveMigratorTest(unittest.TestCase):
         # Now if we delete the is_relic attribute, we are replicating an outdated save.
         delattr(test_loaded_quad, "is_relic")
 
-        outdated_quad: Quad = migrate_quad(test_loaded_quad)
+        outdated_quad: Quad = migrate_quad(test_loaded_quad, (0, 0))
 
         # Even without the attribute, outdated quads should have is_relic set to False.
         self.assertFalse(outdated_quad.is_relic)
@@ -217,7 +217,8 @@ class SaveMigratorTest(unittest.TestCase):
         """
         # Simulate an outdated loaded settlement under siege.
         test_loaded_besieged_settlement: ObjectConverter = ObjectConverter({
-            "under_siege_by": Unit(1, 2, (3, 4), False, UNIT_PLANS[0])
+            "under_siege_by": Unit(1, 2, (3, 4), False, UNIT_PLANS[0]),
+            "quads": []
         })
 
         migrate_settlement(test_loaded_besieged_settlement)
@@ -229,7 +230,8 @@ class SaveMigratorTest(unittest.TestCase):
 
         # Simulate an outdated loaded settlement that is not under siege.
         test_loaded_settlement = ObjectConverter({
-            "under_siege_by": None
+            "under_siege_by": None,
+            "quads": []
         })
 
         migrate_settlement(test_loaded_settlement)

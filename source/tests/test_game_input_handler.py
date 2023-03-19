@@ -8,7 +8,7 @@ from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS, get_availa
     get_available_unit_plans, PROJECTS, IMPROVEMENTS
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
     Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit, Construction, CompletedConstruction, \
-    SettlementAttackType, PauseOption
+    SettlementAttackType, PauseOption, Quad, Biome
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
     on_key_arrow_right, on_key_shift, on_key_f, on_key_d, on_key_s, on_key_n, on_key_a, on_key_c, on_key_tab, \
@@ -35,7 +35,8 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board = Board(GameConfig(4, Faction.NOCTURNE, True, True, True), Namer())
         self.game_state.on_menu = False
 
-        self.TEST_SETTLEMENT = Settlement("TestTown", (40, 40), [], [], [])
+        self.TEST_QUAD = Quad(Biome.FOREST, 0, 0, 0, 0, (40, 40))
+        self.TEST_SETTLEMENT = Settlement("TestTown", (40, 40), [], [self.TEST_QUAD], [])
         self.TEST_SETTLEMENT_2 = Settlement("TestCity", (50, 50), [], [], [])
         self.TEST_SETTLEMENT_WITH_WORK = Settlement("Busyville", (60, 60), [], [], [],
                                                     current_work=Construction(UNIT_PLANS[0]))
