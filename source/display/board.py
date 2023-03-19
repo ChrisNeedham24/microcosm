@@ -660,11 +660,12 @@ class Board:
         """
         can_settle = True
         for setl in player.settlements:
-            # Of course, players cannot found settlements where they already have one.
-            for setl_quad in setl.quads:
-                if setl_quad.location == self.selected_unit.location:
-                    can_settle = False
-                    break
+            # Of course, players cannot found settlements where they already have one. We also don't need to check every
+            # single quad that the settlement has, because the only settlements that can have more than one quad are of
+            # the very same faction that cannot recruit settlers.
+            if setl.location == self.selected_unit.location:
+                can_settle = False
+                break
         if can_settle:
             quad_biome = self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]].biome
             setl_name = self.namer.get_settlement_name(quad_biome)

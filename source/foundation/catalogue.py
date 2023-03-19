@@ -121,7 +121,7 @@ FACTION_DETAILS = [
                   overwhelming. The sheer mass of people everywhere one looks along with the cloud-breaching towers
                   can make one feel like they have been transported to some distant future. It is this intimidatory
                   factor, in combination with the colossal ramparts surrounding the megapolis that have kept The
-                  Concentrated safe and sound for many years.""", "+ Settlements have 200% strength",
+                  Concentrated safe and sound for many years.""", "+ Stronger settlements that grow",
                   "- Limited to a single settlement", VictoryType.ELIMINATION),
     FactionDetail(Faction.FRONTIERSMEN, """Blink and you'll miss it; that's the story of the settlements of the
                   Frontier. The Frontiersmen have a near obsession with the thrill of the frontier and making
