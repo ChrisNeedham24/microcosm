@@ -236,6 +236,8 @@ class SaveMigratorTest(unittest.TestCase):
         # itself should also have been removed.
         self.assertTrue(test_loaded_besieged_settlement.besieged)
         self.assertFalse(hasattr(test_loaded_besieged_settlement, "under_siege_by"))
+        # Since the settlement's quad did not have a specified location, it should have been given the location of the
+        # settlement.
         self.assertTupleEqual((1, 2), test_loaded_besieged_settlement.quads[0].location)
 
         # Simulate an outdated loaded settlement that is not under siege.
@@ -253,6 +255,7 @@ class SaveMigratorTest(unittest.TestCase):
         # itself should also have been removed.
         self.assertFalse(test_loaded_settlement.besieged)
         self.assertFalse(hasattr(test_loaded_settlement, "under_siege_by"))
+        # Once again, the settlement's location should have been passed through to the quad.
         self.assertTupleEqual((1, 2), test_loaded_besieged_settlement.quads[0].location)
 
     def test_game_config(self):

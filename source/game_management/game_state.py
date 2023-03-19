@@ -186,17 +186,23 @@ class GameState:
             if setl.harvest_reserves >= pow(setl.level, 2) * 25 and setl.level < level_cap:
                 setl.level += 1
                 levelled_up_settlements.append(setl)
+                # For players of The Concentrated faction, every time their one and only settlement levels up, it gains
+                # an extra quad. The quad gained is determined by calculating which adjacent quad has the highest total
+                # yield.
                 if player.faction is Faction.CONCENTRATED:
                     best_quad_with_yield: (Quad, float) = None, 0
                     for setl_quad in setl.quads:
                         for i in range(setl_quad.location[0] - 1, setl_quad.location[0] + 2):
                             for j in range(setl_quad.location[1] - 1, setl_quad.location[1] + 2):
-                                quad_to_test = self.board.quads[j][i]
-                                quad_yield = \
-                                    quad_to_test.wealth + quad_to_test.harvest + quad_to_test.zeal + quad_to_test.fortune
-                                if quad_to_test not in setl.quads and quad_yield > best_quad_with_yield[1]:
-                                    best_quad_with_yield = quad_to_test, quad_yield
+                                if 0 <= i <= 99 and 0 <= j <= 89:
+                                    quad_to_test = self.board.quads[j][i]
+                                    quad_yield = (quad_to_test.wealth + quad_to_test.harvest +
+                                                  quad_to_test.zeal + quad_to_test.fortune)
+                                    if quad_to_test not in setl.quads and quad_yield > best_quad_with_yield[1]:
+                                        best_quad_with_yield = quad_to_test, quad_yield
                     setl.quads.append(best_quad_with_yield[0])
+                    # If the player playing as The Concentrated faction is the human player, updated the quads seen
+                    # list.
                     if player == self.players[0]:
                         for i in range(best_quad_with_yield[0].location[1] - 5,
                                        best_quad_with_yield[0].location[1] + 6):

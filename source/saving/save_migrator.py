@@ -104,6 +104,7 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
     """
     Apply the is_relic migration for Quads, if required.
     :param quad: The loaded quad object.
+    :param location: The backup location to use for the quad if it is from an outdated save.
     :return: An optionally-migrated Quad representation.
     """
     new_quad = quad

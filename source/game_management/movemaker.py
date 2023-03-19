@@ -480,7 +480,8 @@ class MoveMaker:
                     if unit.plan.can_settle:
                         unit.garrisoned = False
                         unit.location = next(loc for loc in gen_spiral_indices(setl.location)
-                                             if not any(setl_quad.location == loc for setl_quad in setl.quads))
+                                             if not any(setl_quad.location == loc for setl_quad in setl.quads) and
+                                             0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                         player.units.append(unit)
                         setl.garrison.remove(unit)
             # Deploy a unit from the garrison if the AI is not defensive, or the settlement is under siege or attack, or
@@ -491,7 +492,8 @@ class MoveMaker:
                 deployed = setl.garrison.pop()
                 deployed.garrisoned = False
                 deployed.location = next(loc for loc in gen_spiral_indices(setl.location)
-                                         if not any(setl_quad.location == loc for setl_quad in setl.quads))
+                                         if not any(setl_quad.location == loc for setl_quad in setl.quads) and
+                                         0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                 player.units.append(deployed)
         all_units = []
         for p in all_players:

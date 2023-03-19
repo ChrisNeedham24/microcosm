@@ -627,6 +627,10 @@ class CalculatorTest(unittest.TestCase):
                          investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG))
 
     def test_gen_spiral_indices(self):
+        """
+        Ensure that when spiral indices are generated around a fixed point, at least all eight directly adjacent
+        locations are generated.
+        """
         central_loc: (int, int) = 5, 5
         expected_indices: typing.List[typing.Tuple[int, int]] = [
             central_loc,
@@ -639,6 +643,8 @@ class CalculatorTest(unittest.TestCase):
             (central_loc[0], central_loc[1] - 1),
             (central_loc[0] + 1, central_loc[1] - 1)
         ]
+        # The test does not have to be as thorough as verifying each and every index, we just want to make sure this
+        # function is working at a basic level.
         self.assertTrue(all(index in gen_spiral_indices(central_loc) for index in expected_indices))
 
 
