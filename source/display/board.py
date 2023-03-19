@@ -261,11 +261,12 @@ class Board:
             pyxel.text(base_x_pos - 6, base_y_pos + 12, f"{round(self.quad_selected.zeal)}", pyxel.COLOR_RED)
             pyxel.text(base_x_pos, base_y_pos + 12, f"{round(self.quad_selected.fortune)}", pyxel.COLOR_PURPLE)
 
-        # TODO Players should be able to deploy units to any adjacent quad (this will probably require some complex
-        #  drawing and calculation
         if self.deploying_army:
-            pyxel.rectb((self.selected_settlement.location[0] - map_pos[0]) * 8 - 4,
-                        (self.selected_settlement.location[1] - map_pos[1]) * 8 - 4, 24, 24, pyxel.COLOR_WHITE)
+            for setl_quad in self.selected_settlement.quads:
+                for i in range(setl_quad.location[0] - 1, setl_quad.location[0] + 2):
+                    for j in range(setl_quad.location[1] - 1, setl_quad.location[1] + 2):
+                        if not any(s_q.location == (i, j) for s_q in self.selected_settlement.quads):
+                            pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_WHITE)
 
         # Also display the number of units the player can move at the bottom-right of the screen.
         movable_units = [unit for unit in players[0].units if unit.remaining_stamina > 0 and not unit.besieging]
@@ -526,12 +527,11 @@ class Board:
                         self.overlay.toggle_unit(None)
                     # If the player is deploying a unit and they've clicked within one quad of the settlement the unit
                     # is being deployed from, place the unit there.
-                    # TODO Check all quads not just location
                     elif self.deploying_army and \
-                            self.selected_settlement.location[0] - 1 <= adj_x <= \
-                            self.selected_settlement.location[0] + 1 and \
-                            self.selected_settlement.location[1] - 1 <= adj_y <= \
-                            self.selected_settlement.location[1] + 1:
+                            any(setl_quad.location[0] - 1 <= adj_x <= setl_quad.location[0] + 1 and
+                                setl_quad.location[1] - 1 <= adj_y <= setl_quad.location[1] + 1
+                                for setl_quad in self.selected_settlement.quads) and \
+                            not any(s_q.location == (adj_x, adj_y) for s_q in self.selected_settlement.quads):
                         deployed = self.selected_settlement.garrison.pop()
                         deployed.garrisoned = False
                         deployed.location = adj_x, adj_y
