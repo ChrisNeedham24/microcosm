@@ -1,3 +1,4 @@
+import typing
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -6,7 +7,7 @@ from source.foundation.models import Biome, Unit, AttackData, HealData, Settleme
     Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing, \
     Quad, EconomicStatus, HarvestStatus
 from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction, \
-    investigate_relic, get_player_totals, get_setl_totals
+    investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices
 
 
 class CalculatorTest(unittest.TestCase):
@@ -624,6 +625,21 @@ class CalculatorTest(unittest.TestCase):
 
         self.assertEqual(InvestigationResult.NONE,
                          investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG))
+
+    def test_gen_spiral_indices(self):
+        central_loc: (int, int) = 5, 5
+        expected_indices: typing.List[typing.Tuple[int, int]] = [
+            central_loc,
+            (central_loc[0] + 1, central_loc[1]),
+            (central_loc[0] + 1, central_loc[1] + 1),
+            (central_loc[0], central_loc[1] + 1),
+            (central_loc[0] - 1, central_loc[1] + 1),
+            (central_loc[0] - 1, central_loc[1]),
+            (central_loc[0] - 1, central_loc[1] - 1),
+            (central_loc[0], central_loc[1] - 1),
+            (central_loc[0] + 1, central_loc[1] - 1)
+        ]
+        self.assertTrue(all(index in gen_spiral_indices(central_loc) for index in expected_indices))
 
 
 if __name__ == '__main__':

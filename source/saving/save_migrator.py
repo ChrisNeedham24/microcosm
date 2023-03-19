@@ -127,7 +127,7 @@ def migrate_settlement(settlement):
         # We now delete the old attribute so that it does not pollute future saves.
         delattr(settlement, "under_siege_by")
     for i in range(len(settlement.quads)):
-        settlement.quads[i] = migrate_quad(settlement.quads[i], settlement.location)
+        settlement.quads[i] = migrate_quad(settlement.quads[i], (settlement.location[0], settlement.location[1]))
 
 
 def migrate_game_config(config) -> GameConfig:

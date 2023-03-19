@@ -306,6 +306,35 @@ class GameStateTest(unittest.TestCase):
         self.assertEqual(2, self.TEST_SETTLEMENT.level)
         self.game_state.board.overlay.toggle_level_up_notification.assert_called_with([self.TEST_SETTLEMENT])
 
+    def test_process_player_settlement_level_up_concentrated(self):
+        """
+        Ensure that when a settlement's harvest reserves exceed the required amount to level up at the end of a turn for
+        a player of The Concentrated faction, the correct state updates occur.
+        """
+        self.game_state.board.overlay.toggle_level_up_notification = MagicMock()
+        harvest_amount = 30
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=harvest_amount, wealth=0, zeal=0, fortune=0,
+                                           location=self.TEST_SETTLEMENT.location)]
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        self.game_state.players[0].ai_playstyle = None
+        self.game_state.players[0].faction = Faction.CONCENTRATED
+
+        self.assertFalse(self.game_state.players[0].quads_seen)
+
+        self.game_state.process_player(self.game_state.players[0])
+
+        # The harvest reserves and level of the settlement should have been updated.
+        self.assertEqual(harvest_amount, self.TEST_SETTLEMENT.harvest_reserves)
+        self.assertEqual(2, self.TEST_SETTLEMENT.level)
+        # Since the player is of The Concentrated faction, the level up should also grant the settlement a new quad.
+        self.assertEqual(2, len(self.TEST_SETTLEMENT.quads))
+        # Additionally, the seen quads list for the player should be updated to include the new quad in the radius.
+        # Vision is granted five steps vertically and horizontally from the new quad's location, making for an 11x11
+        # square.
+        self.assertEqual(11 * 11, len(self.game_state.players[0].quads_seen))
+        # The overlay should also be displayed with the settlement.
+        self.game_state.board.overlay.toggle_level_up_notification.assert_called_with([self.TEST_SETTLEMENT])
+
     def test_process_player_settlement_level_up_ravenous(self):
         """
         Ensure that when a player of the Ravenous faction has a settlement that exceeds the amount that would usually
