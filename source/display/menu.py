@@ -61,7 +61,7 @@ class Menu:
         """
         Initialise the menu with a random background image on the main menu.
         """
-        self.main_menu_option = MainMenuOption.NEW_GAME
+        self.main_menu_option = MainMenuOption.LOAD_GAME
         random.seed()
         self.image_bank = random.randint(0, 5)
         self.in_game_setup = False
@@ -75,7 +75,7 @@ class Menu:
         self.unit_boundaries = 0, 9
         self.saves: List[str] = []
         self.save_idx: Optional[int] = 0
-        self.setup_option = SetupOption.PLAYER_FACTION
+        self.setup_option = SetupOption.START_GAME
         self.faction_idx = 0
         self.player_count = 2
         self.biome_clustering_enabled = True
@@ -185,7 +185,7 @@ class Menu:
                         pyxel.text(25, 35 + (idx - self.load_game_boundaries[0]) * 10, save, pyxel.COLOR_WHITE)
                         pyxel.text(150, 35 + (idx - self.load_game_boundaries[0]) * 10, "Load",
                                    pyxel.COLOR_RED if self.save_idx is idx else pyxel.COLOR_WHITE)
-                if self.load_game_boundaries[1] != len(self.saves) - 1:
+                if self.load_game_boundaries[1] < len(self.saves) - 1:
                     self.draw_paragraph(147, 135, "More down!", 5)
                     pyxel.blt(167, 136, 0, 0, 76, 8, 8)
                 pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
@@ -373,7 +373,7 @@ class Menu:
                             else:
                                 pyxel.text(30, 63 + adj_idx * 25, "victory", pyxel.COLOR_GREEN)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
-                    if self.blessing_boundaries[1] != len(BLESSINGS) - 1:
+                    if self.blessing_boundaries[1] < len(BLESSINGS) - 1:
                         self.draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case WikiOption.IMPROVEMENTS:
@@ -412,7 +412,7 @@ class Menu:
                                 pyxel.blt(20 + effects * 25, 64 + adj_offset, 0, satisfaction_u, 28, 8, 8)
                                 pyxel.text(30 + effects * 25, 64 + adj_offset, f"{satisfaction:+}", pyxel.COLOR_WHITE)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
-                    if self.improvement_boundaries[1] != len(IMPROVEMENTS) - 1:
+                    if self.improvement_boundaries[1] < len(IMPROVEMENTS) - 1:
                         self.draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case WikiOption.PROJECTS:
@@ -456,7 +456,7 @@ class Menu:
                             pyxel.text(108, 50 + adj_idx * 10, str(unit.power), pyxel.COLOR_WHITE)
                             pyxel.text(132, 50 + adj_idx * 10, str(unit.total_stamina), pyxel.COLOR_WHITE)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
-                    if self.unit_boundaries[1] != len(UNIT_PLANS) - 1:
+                    if self.unit_boundaries[1] < len(UNIT_PLANS) - 1:
                         self.draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case _:
