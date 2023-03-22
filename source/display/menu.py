@@ -61,7 +61,7 @@ class Menu:
         """
         Initialise the menu with a random background image on the main menu.
         """
-        self.main_menu_option = MainMenuOption.LOAD_GAME
+        self.main_menu_option = MainMenuOption.NEW_GAME
         random.seed()
         self.image_bank = random.randint(0, 5)
         self.in_game_setup = False
@@ -75,7 +75,7 @@ class Menu:
         self.unit_boundaries = 0, 9
         self.saves: List[str] = []
         self.save_idx: Optional[int] = 0
-        self.setup_option = SetupOption.START_GAME
+        self.setup_option = SetupOption.PLAYER_FACTION
         self.faction_idx = 0
         self.player_count = 2
         self.biome_clustering_enabled = True
@@ -642,7 +642,7 @@ class Menu:
         current_option_idx = list(options_enum := type(current_option)).index(current_option)
 
         # Determine the index of the next option value.
-        target_option_idx = (current_option_idx + 1) % len(options_enum)
+        target_option_idx = (current_option_idx + 1) % len(list(options_enum))
         # If the currently selected option is the last option in the list and wrap-around is disabled, revert the index
         # to its original value. In other words, we're staying at the bottom of the list and not going back up.
         if (current_option_idx + 1) == len(options_enum) and not wrap_around:
@@ -661,7 +661,7 @@ class Menu:
         current_option_idx = list(options_enum := type(current_option)).index(current_option)
 
         # Determine the index of the previous option value.
-        target_option_idx = (current_option_idx - 1) % len(options_enum)
+        target_option_idx = (current_option_idx - 1) % len(list(options_enum))
         # If the currently selected option is the first option in the list and wrap-around is disabled, revert the
         # index to its original value. In other words, we're staying at the top of the list and not going back down.
         if (current_option_idx - 1) < 0 and not wrap_around:
