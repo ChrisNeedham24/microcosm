@@ -1,5 +1,6 @@
 import json
 import os
+import pathlib
 import time
 import typing
 from datetime import datetime
@@ -7,6 +8,7 @@ from itertools import chain
 from json import JSONDecodeError
 
 import pyxel
+from platformdirs import user_data_dir
 
 from source.display.board import Board
 from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement
@@ -20,7 +22,12 @@ from source.util.calculator import clamp
 # The prefix attached to save files created by the autosave feature.
 AUTOSAVE_PREFIX = "auto"
 # The directory where save files are created and loaded from.
-SAVES_DIR = "saves"
+SAVES_DIR = user_data_dir("microcosm", "microcosm")
+
+
+def init_app_data():
+    if not os.path.exists(SAVES_DIR):
+        pathlib.Path(SAVES_DIR).mkdir(parents=True, exist_ok=True)
 
 
 def save_game(game_state, auto: bool = False):

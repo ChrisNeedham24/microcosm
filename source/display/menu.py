@@ -106,13 +106,13 @@ class Menu:
             pyxel.text(28, 40, "Player Faction", self.get_option_colour(SetupOption.PLAYER_FACTION))
             faction_offset = 50 - pow(len(self.faction_colours[self.faction_idx][0]), 1.4)
             if self.faction_idx == 0:
-                pyxel.text(100 + faction_offset, 40, f"{self.faction_colours[self.faction_idx][0]} ->",
+                pyxel.text(100 + faction_offset, 40, f"{self.faction_colours[self.faction_idx][0].value} ->",
                            self.faction_colours[self.faction_idx][1])
             elif self.faction_idx == len(self.faction_colours) - 1:
-                pyxel.text(95 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0]}",
+                pyxel.text(95 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0].value}",
                            self.faction_colours[self.faction_idx][1])
             else:
-                pyxel.text(88 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0]} ->",
+                pyxel.text(88 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0].value} ->",
                            self.faction_colours[self.faction_idx][1])
             pyxel.text(26, 50, "(Press F to show more faction details)", pyxel.COLOR_WHITE)
             pyxel.text(28, 65, "Player Count", self.get_option_colour(SetupOption.PLAYER_COUNT))
