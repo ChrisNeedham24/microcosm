@@ -29,12 +29,5 @@ jobs:
           pip install -r dev_requirements.txt
       - name: Bundle
         run: |
-          python -m nuitka \
-            --standalone \
-            --include-data-dir=source=source \
-            --noinclude-data-files='*.json' \
-            --remove-output
-            --macos-create-app-bundle \
-            --macos-app-icon=source/resources/icon.png \
-            microcosm.py
+          python -m nuitka --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --macos-create-app-bundle --macos-app-icon=source/resources/icon.png microcosm.py
         if: matrix.os == 'macos-latest'
