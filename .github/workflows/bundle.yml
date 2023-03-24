@@ -30,6 +30,7 @@ jobs:
       - name: Bundle (MacOS)
         run: |
           python -m nuitka --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads --macos-create-app-bundle --macos-app-icon=source/resources/icon.png microcosm.py
+          ditto -c -k --sequesterRsrc --keepParent microcosm.app microcosm-osx.zip
         if: matrix.os == 'macos-latest'
       - name: Bundle (Ubuntu)
         run: |
@@ -43,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: microcosm-osx
-          path: microcosm.app
+          path: microcosm-osx.zip
         if: matrix.os == 'macos-latest'
       - name: Upload artifact (Ubuntu)
         uses: actions/upload-artifact@v3
@@ -51,3 +52,9 @@ jobs:
           name: microcosm-linux
           path: microcosm
         if: matrix.os == 'ubuntu-latest'
+      - name: Upload artifact (Windows)
+        uses: actions/upload-artifact@v3
+        with:
+          name: microcosm-windows
+          path: microcosm.exe
+        if: matrix.os == 'windows-latest'
