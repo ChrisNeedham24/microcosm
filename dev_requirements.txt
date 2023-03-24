@@ -2,3 +2,4 @@
 pylint==2.17.1
 coverage==6.5.0
 nuitka==1.5.3
+imageio==2.26.1
