@@ -21,11 +21,18 @@ from source.util.calculator import clamp
 
 # The prefix attached to save files created by the autosave feature.
 AUTOSAVE_PREFIX = "auto"
-# The directory where save files are created and loaded from.
+# The directory where save files are created and loaded from. This is a different directory depending on the operating
+# system the game is being run on. For example, on macOS, this will resolve to ~/Library/Application Support/microcosm.
+# Similarly, on Linux, it will resolve to ~/.local/share/microcosm. For more details, refer to the platformdirs
+# documentation.
 SAVES_DIR = user_data_dir("microcosm", "microcosm")
 
 
 def init_app_data():
+    """
+    Initialise the user application data directories for use.
+    """
+    # If the directory for saves and statistics does not exist, create it, as well as any required parent directories.
     if not os.path.exists(SAVES_DIR):
         pathlib.Path(SAVES_DIR).mkdir(parents=True, exist_ok=True)
 

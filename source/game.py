@@ -18,7 +18,7 @@ class Game:
 
     def __init__(self):
         """
-        Initialises the game.
+        Initialises the game, including the directories required for save data.
         """
         init_app_data()
 
