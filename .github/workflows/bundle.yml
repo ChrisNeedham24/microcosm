@@ -27,7 +27,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r dev_requirements.txt
-      - name: Bundle
+      - name: Bundle (MacOS)
         run: |
-          python -m nuitka --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --macos-create-app-bundle --macos-app-icon=source/resources/icon.png microcosm.py
+          python -m nuitka --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads --macos-create-app-bundle --macos-app-icon=source/resources/icon.png microcosm.py
         if: matrix.os == 'macos-latest'
+      - name: Bundle (Ubuntu)
+        run: |
+          python -m nuitka --onefile --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png -o microcosm microcosm.py
+        if: matrix.os == 'ubuntu-latest'
+      - name: Bundle (Windows)
+        run: |
+          python -m nuitka --onefile --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads --windows-icon-from-ico=source/resources/icon.png microcosm.py
+        if: matrix.os == 'macos-latest'
+      - name: Upload artifact (MacOS)
+        uses: actions/upload-artifact@v3
+        with:
+          name: microcosm-osx
+          path: microcosm.app
