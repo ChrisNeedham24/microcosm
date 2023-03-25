@@ -48,7 +48,7 @@ jobs:
       - name: Upload artifact (Ubuntu)
         uses: actions/upload-artifact@v3
         with:
-          name: microcosm-linux
+          name: microcosm-linux-x86
           path: microcosm
         if: matrix.os == 'ubuntu-latest'
       - name: Upload artifact (Windows)
