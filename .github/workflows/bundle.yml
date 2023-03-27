@@ -14,11 +14,11 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: ${{ github.ref }}
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: "3.10"
       - name: Install requirements
@@ -34,6 +34,7 @@ jobs:
         run: |
           python -m nuitka --onefile --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png -o microcosm microcosm.py
           chmod 744 microcosm
+          tar -cvf microcosm.tar.gz microcosm
         if: matrix.os == 'ubuntu-latest'
       - name: Bundle (Windows)
         run: |
@@ -49,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: microcosm-ubuntu-x86
-          path: microcosm
+          path: microcosm.tar.gz
         if: matrix.os == 'ubuntu-latest'
       - name: Upload artifact (Windows)
         uses: actions/upload-artifact@v3
@@ -61,11 +62,11 @@ jobs:
     runs-on: ubuntu-latest
     container: fedora
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: ${{ github.ref }}
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: "3.10"
       - name: Install requirements
@@ -76,8 +77,9 @@ jobs:
         run: |
           python -m nuitka --onefile --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png -o microcosm microcosm.py
           chmod 744 microcosm
+          tar -cvf microcosm.tar.gz microcosm
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: microcosm-fedora-x86
-          path: microcosm
+          path: microcosm.tar.gz
