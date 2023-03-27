@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: fedora
-      options: --user nobody
+      options: --user root
     steps:
       - uses: actions/checkout@v3
         with:
