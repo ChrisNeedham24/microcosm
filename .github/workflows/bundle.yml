@@ -27,20 +27,18 @@ jobs:
           pip install -r dev_requirements.txt
       - name: Bundle (MacOS)
         run: |
-          pip install imageio
           python -m nuitka --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads --macos-create-app-bundle --macos-app-icon=source/resources/icon.png microcosm.py
           ditto -c -k --sequesterRsrc --keepParent microcosm.app microcosm-osx.zip
         if: matrix.os == 'macos-latest'
       - name: Bundle (Ubuntu)
         run: |
-          pip install imageio
           python -m nuitka --onefile --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png -o microcosm microcosm.py
           chmod 744 microcosm
           tar -cvf microcosm.tar.gz microcosm
         if: matrix.os == 'ubuntu-latest'
       - name: Bundle (Windows)
         run: |
-          python -m nuitka --onefile --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads microcosm.py
+          python -m nuitka --onefile --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads --mingw64 microcosm.py
         if: matrix.os == 'windows-latest'
       - name: Upload artifact (MacOS)
         uses: actions/upload-artifact@v3
@@ -62,7 +60,9 @@ jobs:
         if: matrix.os == 'windows-latest'
   bundle-fedora:
     runs-on: ubuntu-latest
-    container: fedora
+    container:
+      image: fedora
+      options: --user nobody
     steps:
       - uses: actions/checkout@v3
         with:
@@ -77,7 +77,6 @@ jobs:
           pip install -r dev_requirements.txt
       - name: Bundle
         run: |
-          pip install imageio
           python -m nuitka --onefile --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png -o microcosm microcosm.py
           chmod 744 microcosm
           tar -cvf microcosm.tar.gz microcosm
