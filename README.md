@@ -10,9 +10,34 @@ your favourite operating system can be found [here](https://www.videolan.org/vlc
 python-vlc (or something like that) as an optional dependency, it is advised that players also install that. Naturally,
 Python is also required, at version 3.10 or above.
 
+## Play from release
+
+Begin by downloading the [latest release](https://github.com/ChrisNeedham24/microcosm/releases/latest) for your operating system.
+
+### macOS
+
+1. Extract the downloaded zip; double clicking it in Finder is the easiest way.
+2. An application will be extracted - right click it and select Open.
+3. In the displayed security-related dialog, press the Open button again to start the game.
+
+### Linux
+
+In terms of Linux distros, Fedora is explicitly supported and Ubuntu is built for, but the build is not tested. Other distros should find success in one of these two.
+
+Additionally, only x86 architectures are supported.
+
+1. Extract the downloaded zip using `unzip`.
+2. A tarball will be extracted - apply `tar -xvf` on it.
+3. A binary will be extracted in turn; run `./microcosm` to start the game.
+
+### Windows
+
+1. Extract the downloaded zip.
+2. An EXE file will be extracted - run this to start the game, allowing Windows Defender to run any scans if it asks to do so.
+
 ## Play from source
 
-1. Download the [latest release](https://github.com/ChrisNeedham24/microcosm/releases/latest)
+1. Clone the repository.
 2. Run `pip install -r requirements.txt`
 3. Run `pyxel run microcosm`
 
