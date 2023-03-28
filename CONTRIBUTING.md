@@ -27,7 +27,7 @@ Alternatively, you can use the `# pragma: no cover` comment to do the same thing
 ### Environment details
 
 To contribute to Microcosm, first create a fork of the repository into your own GitHub account.
-For development, Python 3.10 as well as the requirements defined in requirements.txt are needed.
+For development, Python 3.10 as well as the requirements defined in dev_requirements.txt are needed.
 
 Please note that all changes should be made on a branch *other* than main.
 

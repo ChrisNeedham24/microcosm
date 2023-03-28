@@ -106,13 +106,13 @@ class Menu:
             pyxel.text(28, 40, "Player Faction", self.get_option_colour(SetupOption.PLAYER_FACTION))
             faction_offset = 50 - pow(len(self.faction_colours[self.faction_idx][0]), 1.4)
             if self.faction_idx == 0:
-                pyxel.text(100 + faction_offset, 40, f"{self.faction_colours[self.faction_idx][0]} ->",
+                pyxel.text(100 + faction_offset, 40, f"{self.faction_colours[self.faction_idx][0].value} ->",
                            self.faction_colours[self.faction_idx][1])
             elif self.faction_idx == len(self.faction_colours) - 1:
-                pyxel.text(95 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0]}",
+                pyxel.text(95 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0].value}",
                            self.faction_colours[self.faction_idx][1])
             else:
-                pyxel.text(88 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0]} ->",
+                pyxel.text(88 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0].value} ->",
                            self.faction_colours[self.faction_idx][1])
             pyxel.text(26, 50, "(Press F to show more faction details)", pyxel.COLOR_WHITE)
             pyxel.text(28, 65, "Player Count", self.get_option_colour(SetupOption.PLAYER_COUNT))
@@ -185,7 +185,7 @@ class Menu:
                         pyxel.text(25, 35 + (idx - self.load_game_boundaries[0]) * 10, save, pyxel.COLOR_WHITE)
                         pyxel.text(150, 35 + (idx - self.load_game_boundaries[0]) * 10, "Load",
                                    pyxel.COLOR_RED if self.save_idx is idx else pyxel.COLOR_WHITE)
-                if self.load_game_boundaries[1] != len(self.saves) - 1:
+                if self.load_game_boundaries[1] < len(self.saves) - 1:
                     self.draw_paragraph(147, 135, "More down!", 5)
                     pyxel.blt(167, 136, 0, 0, 76, 8, 8)
                 pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
@@ -373,7 +373,7 @@ class Menu:
                             else:
                                 pyxel.text(30, 63 + adj_idx * 25, "victory", pyxel.COLOR_GREEN)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
-                    if self.blessing_boundaries[1] != len(BLESSINGS) - 1:
+                    if self.blessing_boundaries[1] < len(BLESSINGS) - 1:
                         self.draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case WikiOption.IMPROVEMENTS:
@@ -412,7 +412,7 @@ class Menu:
                                 pyxel.blt(20 + effects * 25, 64 + adj_offset, 0, satisfaction_u, 28, 8, 8)
                                 pyxel.text(30 + effects * 25, 64 + adj_offset, f"{satisfaction:+}", pyxel.COLOR_WHITE)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
-                    if self.improvement_boundaries[1] != len(IMPROVEMENTS) - 1:
+                    if self.improvement_boundaries[1] < len(IMPROVEMENTS) - 1:
                         self.draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case WikiOption.PROJECTS:
@@ -456,7 +456,7 @@ class Menu:
                             pyxel.text(108, 50 + adj_idx * 10, str(unit.power), pyxel.COLOR_WHITE)
                             pyxel.text(132, 50 + adj_idx * 10, str(unit.total_stamina), pyxel.COLOR_WHITE)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
-                    if self.unit_boundaries[1] != len(UNIT_PLANS) - 1:
+                    if self.unit_boundaries[1] < len(UNIT_PLANS) - 1:
                         self.draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case _:
@@ -642,7 +642,7 @@ class Menu:
         current_option_idx = list(options_enum := type(current_option)).index(current_option)
 
         # Determine the index of the next option value.
-        target_option_idx = (current_option_idx + 1) % len(options_enum)
+        target_option_idx = (current_option_idx + 1) % len(list(options_enum))
         # If the currently selected option is the last option in the list and wrap-around is disabled, revert the index
         # to its original value. In other words, we're staying at the bottom of the list and not going back up.
         if (current_option_idx + 1) == len(options_enum) and not wrap_around:
@@ -661,7 +661,7 @@ class Menu:
         current_option_idx = list(options_enum := type(current_option)).index(current_option)
 
         # Determine the index of the previous option value.
-        target_option_idx = (current_option_idx - 1) % len(options_enum)
+        target_option_idx = (current_option_idx - 1) % len(list(options_enum))
         # If the currently selected option is the first option in the list and wrap-around is disabled, revert the
         # index to its original value. In other words, we're staying at the top of the list and not going back down.
         if (current_option_idx - 1) < 0 and not wrap_around:

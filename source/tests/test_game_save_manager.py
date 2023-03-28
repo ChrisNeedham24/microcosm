@@ -1,5 +1,6 @@
 import json
 import os
+import pathlib
 import unittest
 from datetime import datetime
 from itertools import chain
@@ -11,7 +12,8 @@ from source.foundation.models import GameConfig, Faction, Heathen, Project, Unit
     AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, VictoryType
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
-from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game, save_stats, get_stats
+from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game, save_stats, get_stats, \
+    init_app_data
 from source.saving.save_encoder import SaveEncoder
 
 
@@ -33,6 +35,16 @@ class GameSaveManagerTest(unittest.TestCase):
         self.game_state.gen_players(self.TEST_CONFIG)
         self.game_state.heathens = [Heathen(1, 2, (3, 4), get_heathen_plan(1))]
         self.game_controller = GameController()
+
+    @patch("os.path.exists", lambda *args: False)
+    @patch.object(pathlib.Path, "mkdir")
+    def test_init_app_data(self, mkdir_mock: MagicMock):
+        """
+        Ensure that when initialising user application data, and the required directories are not present, they are
+        created.
+        """
+        init_app_data()
+        mkdir_mock.assert_called_with(parents=True, exist_ok=True)
 
     @patch("source.saving.game_save_manager.datetime")
     @patch("os.remove")

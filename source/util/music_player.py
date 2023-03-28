@@ -13,11 +13,11 @@ class MusicPlayer:
         """
         Load in the menu and background in-game music, shuffling them and setting their volumes.
         """
-        self.menu_player: vlc.MediaPlayer = vlc.MediaPlayer("resources/audio/menu.aiff")
+        self.menu_player: vlc.MediaPlayer = vlc.MediaPlayer("resources/audio/menu.ogg")
         self.menu_player.audio_set_volume(70)
         random.seed()
         self.game_players: typing.List[vlc.MediaPlayer] = \
-            [vlc.MediaPlayer(f"resources/audio/background{i}.aiff") for i in range(1, 9)]
+            [vlc.MediaPlayer(f"resources/audio/background{i}.ogg") for i in range(1, 9)]
         random.shuffle(self.game_players)
         for gp in self.game_players:
             gp.audio_set_volume(70)

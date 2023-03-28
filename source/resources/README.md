@@ -8,4 +8,4 @@ Currently, assets include the following:
 - Quads
 - Sprites
 - Icons
-- Audio files (.aiff)
+- Audio files (.ogg)
