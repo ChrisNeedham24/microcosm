@@ -26,9 +26,8 @@ In terms of Linux distros, Fedora is explicitly supported and Ubuntu is built fo
 
 Additionally, only x86 architectures are supported.
 
-1. Extract the downloaded zip using `unzip`.
-2. A tarball will be extracted - apply `tar -xzvf` on it.
-3. A binary will be extracted in turn; run `./microcosm` to start the game.
+1. Extract the downloaded tarball using `tar -xzvf`.
+2. A binary will be extracted; run `./microcosm` to start the game.
 
 ### Windows
 
