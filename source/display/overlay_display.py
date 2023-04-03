@@ -462,6 +462,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                                    else pyxel.COLOR_WHITE)
                         pyxel.blt(30, 42 + adj_idx * 18, 0, 8, 36, 8, 8)
                         pyxel.text(45, 42 + adj_idx * 18, str(round(unit_plan.max_health)), pyxel.COLOR_WHITE)
+                        # TODO Show max capacity for deployer units
                         power_u = 40 if unit_plan.heals else 0
                         pyxel.blt(60, 42 + adj_idx * 18, 0, power_u, 36, 8, 8)
                         pyxel.text(75, 42 + adj_idx * 18, str(round(unit_plan.power)), pyxel.COLOR_WHITE)

@@ -227,6 +227,7 @@ class GameSaveManagerTest(unittest.TestCase):
             self.assertIn(faction, retrieved_stats.factions)
             self.assertEqual(faction_count, retrieved_stats.factions[faction])
 
+    @patch("source.saving.game_save_manager.SAVES_DIR", "/")
     def test_get_stats_no_file(self):
         """
         Ensure that when there are no statistics to load in, each value is set to zero or its equivalent.

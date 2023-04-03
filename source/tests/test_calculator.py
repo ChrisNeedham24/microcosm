@@ -22,7 +22,7 @@ class CalculatorTest(unittest.TestCase):
         """
         Initialise our test models.
         """
-        self.TEST_PLAYER = Player("TestMan", Faction.NOCTURNE, 0, self.ORIGINAL_WEALTH, [], [], [], set(), set())
+        self.TEST_PLAYER = Player("TestMan", Faction.NOCTURNE, 0, wealth=self.ORIGINAL_WEALTH)
         self.TEST_CONFIG = GameConfig(2, self.TEST_PLAYER.faction, True, True, True)
         self.TEST_UNIT_PLAN = UnitPlan(100, 100, 3, "TesterUnit", None, 25)
         self.ORIGINAL_PLAN_HEALTH = self.TEST_UNIT_PLAN.max_health
@@ -123,7 +123,7 @@ class CalculatorTest(unittest.TestCase):
         settlement_strength = 20
         attacker = Unit(attacker_health, 1, (0, 0), False, UNIT_PLANS[-2])
         setl = Settlement("Test", (1, 0), [], [], [], strength=settlement_strength)
-        player = Player("Tester", Faction.NOCTURNE, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.NOCTURNE, 0, settlements=[setl])
         ai_attack = False
 
         setl_attack_data: SetlAttackData = attack_setl(attacker, setl, player, ai_attack)
@@ -149,7 +149,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement", Effect(zeal=quad_imp_zeal), None)
         quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
-        player = Player("Tester", Faction.AGRICULTURISTS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.AGRICULTURISTS, 0, settlements=[setl])
 
         _, _, zeal, _ = get_player_totals(player, False)
         # Agriculturists receive 75% of the zeal that players of other factions do.
@@ -163,7 +163,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement", Effect(zeal=quad_imp_zeal), None)
         quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
-        player = Player("Tester", Faction.FUNDAMENTALISTS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.FUNDAMENTALISTS, 0, settlements=[setl])
 
         _, _, zeal, _ = get_player_totals(player, False)
         # Fundamentalists receive 125% of the zeal that players of other factions do.
@@ -180,7 +180,7 @@ class CalculatorTest(unittest.TestCase):
                           Effect(zeal=quad_imp_zeal, wealth=quad_imp_wealth), None)
         quad = Quad(Biome.FOREST, quad_imp_wealth, 0, quad_imp_zeal, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], current_work=Construction(PROJECTS[1]))
-        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         wealth, _, _, _ = get_player_totals(player, False)
         # We expect the standard quad and improvement wealth to be supplemented with a quarter of the produced zeal.
@@ -194,7 +194,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
         quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, economic_status=EconomicStatus.RECESSION)
-        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         wealth, _, _, _ = get_player_totals(player, False)
         # The wealth would normally be 26, but is instead 0 due to the recession.
@@ -208,7 +208,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
         quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, economic_status=EconomicStatus.BOOM)
-        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         wealth, _, _, _ = get_player_totals(player, False)
         # Add the quad and improvement wealth together to begin with.
@@ -227,7 +227,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
         quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
-        player = Player("Tester", Faction.GODLESS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.GODLESS, 0, settlements=[setl])
 
         wealth, _, _, _ = get_player_totals(player, False)
         # The Godless receive 125% of the wealth that players of other factions do.
@@ -243,7 +243,7 @@ class CalculatorTest(unittest.TestCase):
                           Effect(wealth=quad_imp_wealth, fortune=quad_imp_fortune), None)
         quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, quad_imp_fortune, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
-        player = Player("Tester", Faction.ORTHODOX, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.ORTHODOX, 0, settlements=[setl])
 
         wealth, _, _, fortune = get_player_totals(player, False)
         # The Orthodox receive 75% of the wealth and 125% of the fortune that players of other factions do.
@@ -261,7 +261,7 @@ class CalculatorTest(unittest.TestCase):
                           Effect(zeal=quad_imp_zeal, harvest=quad_imp_harvest), None)
         quad = Quad(Biome.FOREST, 0, quad_imp_harvest, quad_imp_zeal, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], current_work=Construction(PROJECTS[0]))
-        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         _, harvest, _, _ = get_player_totals(player, False)
         # We expect the standard quad and improvement harvest to be supplemented with a quarter of the produced zeal.
@@ -275,7 +275,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
         quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, harvest_status=HarvestStatus.POOR)
-        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         _, harvest, _, _ = get_player_totals(player, False)
         # The harvest would normally be 26, but is instead 0 due to the poor harvest.
@@ -289,7 +289,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
         quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, besieged=True)
-        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         _, harvest, _, _ = get_player_totals(player, False)
         # The harvest would normally be 26, but is instead 0 due to the siege.
@@ -303,7 +303,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
         quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, harvest_status=HarvestStatus.PLENTIFUL)
-        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         _, harvest, _, _ = get_player_totals(player, False)
         # Add the quad and improvement harvest together to begin with.
@@ -322,7 +322,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
         quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
-        player = Player("Tester", Faction.RAVENOUS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.RAVENOUS, 0, settlements=[setl])
 
         _, harvest, _, _ = get_player_totals(player, False)
         # The Ravenous receive 125% of the harvest that players of other factions do.
@@ -339,7 +339,7 @@ class CalculatorTest(unittest.TestCase):
                           Effect(zeal=quad_imp_zeal, fortune=quad_imp_fortune), None)
         quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, quad_imp_fortune, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [], current_work=Construction(PROJECTS[2]))
-        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         _, _, _, fortune = get_player_totals(player, False)
         # We expect the standard quad and improvement fortune to be supplemented with a quarter of the produced zeal.
@@ -353,7 +353,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.MAGICAL, 0, "Test", "Improvement", Effect(fortune=quad_imp_fortune), None)
         quad = Quad(Biome.SEA, 0, 0, 0, quad_imp_fortune, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
-        player = Player("Tester", Faction.SCRUTINEERS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.SCRUTINEERS, 0, settlements=[setl])
 
         _, _, _, fortune = get_player_totals(player, False)
         # Scrutineers receive 75% of the fortune that players of other factions do.
@@ -369,7 +369,7 @@ class CalculatorTest(unittest.TestCase):
                           Effect(harvest=quad_imp_harvest, fortune=quad_imp_fortune), None)
         quad = Quad(Biome.SEA, 0, quad_imp_harvest, 0, quad_imp_fortune, (0, 0))
         setl = Settlement("Testville", (0, 0), [imp], [quad], [])
-        player = Player("Tester", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         _, harvest, _, fortune = get_player_totals(player, True)
         # For players of all factions but The Nocturne, nighttime results in 50% of the usual harvest, and 110% of the
@@ -395,7 +395,7 @@ class CalculatorTest(unittest.TestCase):
                           Effect(harvest=imp_harvest, fortune=imp_fortune), None)
         quad = Quad(Biome.MOUNTAIN, quad_wealth, 0, quad_zeal, 0, (0, 0))
         setl = Settlement("Pleasantville", (0, 0), [imp], [quad], [], level=10)
-        player = Player("Johnny Appleseed", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Johnny Appleseed", Faction.INFIDELS, 0, settlements=[setl])
 
         wealth, harvest, zeal, fortune = get_player_totals(player, False)
         # Each yield should be the base quad/improvement value, with the level bonus added on.
@@ -409,7 +409,7 @@ class CalculatorTest(unittest.TestCase):
         Ensure that the strict parameter functions correctly when retrieving settlement totals.
         """
         setl = Settlement("Test Town", (0, 0), [], [], [])
-        player = Player("Testerman", Faction.INFIDELS, 0, 0, [setl], [], [], set(), set())
+        player = Player("Testerman", Faction.INFIDELS, 0, settlements=[setl])
 
         _, _, zeal, fortune = get_setl_totals(player, setl, False)
         # A settlement will always produce at least 0.5 zeal and fortune when strict is False.
@@ -432,7 +432,7 @@ class CalculatorTest(unittest.TestCase):
         # Note that we set the settlement's satisfaction to 99.
         test_setl = Settlement("Working", (50, 50), [], [], [],
                                current_work=Construction(test_improvement), satisfaction=99)
-        test_player = Player("Tester", Faction.NOCTURNE, 0, 0, [test_setl], [], [], set(), set())
+        test_player = Player("Tester", Faction.NOCTURNE, 0, settlements=[test_setl])
 
         complete_construction(test_setl, test_player)
         self.assertIn(test_improvement, test_setl.improvements)
@@ -455,7 +455,7 @@ class CalculatorTest(unittest.TestCase):
         # Note that we set the settlement's satisfaction to 1.
         test_setl = Settlement("Working", (50, 50), [], [], [],
                                current_work=Construction(test_improvement), satisfaction=1)
-        test_player = Player("Tester", Faction.CONCENTRATED, 0, 0, [test_setl], [], [], set(), set())
+        test_player = Player("Tester", Faction.CONCENTRATED, 0, settlements=[test_setl])
 
         complete_construction(test_setl, test_player)
         self.assertIn(test_improvement, test_setl.improvements)
@@ -476,7 +476,7 @@ class CalculatorTest(unittest.TestCase):
         test_unit_plan = UnitPlan(20, 20, 10, "Settler", None, 1, can_settle=True)
         test_setl = Settlement("Working", (50, 50), [], [], [], current_work=Construction(test_unit_plan),
                                level=initial_level, harvest_reserves=initial_harvest_reserves)
-        test_player = Player("Tester", Faction.FRONTIERSMEN, 0, 0, [test_setl], [], [], set(), set())
+        test_player = Player("Tester", Faction.FRONTIERSMEN, 0, settlements=[test_setl])
 
         complete_construction(test_setl, test_player)
         # Because the unit can settle, we expect the settlement's level and harvest reserves to be reduced.
@@ -495,7 +495,7 @@ class CalculatorTest(unittest.TestCase):
         """
         # Normally, investigations only succeed when the returned value is under 70.
         random_mock.return_value = 100
-        test_player = Player("Tester", Faction.SCRUTINEERS, 0, 0, [], [], [], set(), set())
+        test_player = Player("Tester", Faction.SCRUTINEERS, 0)
 
         # We don't really care what the result is, just make sure it succeeded.
         self.assertNotEqual(InvestigationResult.NONE,

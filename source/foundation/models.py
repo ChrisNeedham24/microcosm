@@ -1,5 +1,5 @@
 import typing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -269,6 +269,11 @@ class UnitPlan:
 
 
 @dataclass
+class DeployerUnitPlan(UnitPlan):
+    max_capacity = 3
+
+
+@dataclass
 class Unit:
     """
     The actual instance of a unit, based on a UnitPlan.
@@ -280,6 +285,11 @@ class Unit:
     plan: UnitPlan
     has_acted: bool = False  # Units can only act (attack/heal) once per turn.
     besieging: bool = False
+
+
+@dataclass
+class DeployerUnit(Unit):
+    passengers: typing.List[Unit] = field(default_factory=lambda: [])
 
 
 @dataclass
@@ -373,12 +383,12 @@ class Player:
     name: str
     faction: Faction
     colour: int  # Refers to pyxel's colours, which resolve to integers.
-    wealth: float
-    settlements: typing.List[Settlement]
-    units: typing.List[Unit]
-    blessings: typing.List[Blessing]
-    quads_seen: typing.Set[typing.Tuple[int, int]]
-    imminent_victories: typing.Set[VictoryType]
+    wealth: float = 0
+    settlements: typing.List[Settlement] = field(default_factory=lambda: [])
+    units: typing.List[Unit] = field(default_factory=lambda: [])
+    blessings: typing.List[Blessing] = field(default_factory=lambda: [])
+    quads_seen: typing.Set[typing.Tuple[int, int]] = field(default_factory=lambda: set())
+    imminent_victories: typing.Set[VictoryType] = field(default_factory=lambda: set())
     ongoing_blessing: typing.Optional[OngoingBlessing] = None
     ai_playstyle: typing.Optional[AIPlaystyle] = None
     jubilation_ctr: int = 0  # How many turns the player has had 5 settlements at 100% satisfaction.

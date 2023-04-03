@@ -46,8 +46,8 @@ class GameInputHandlerTest(unittest.TestCase):
         self.TEST_UNIT_BESIEGING = Unit(4, 4, (70, 70), False, UNIT_PLANS[0], besieging=True)
         self.TEST_PLAYER = Player("Tester", Faction.NOCTURNE, 0, self.PLAYER_WEALTH,
                                   [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_WITH_WORK],
-                                  [self.TEST_UNIT], [], set(), set())
-        self.TEST_PLAYER_2 = Player("Tester The Second", Faction.FUNDAMENTALISTS, 0, 0, [], [], [], set(), set())
+                                  [self.TEST_UNIT])
+        self.TEST_PLAYER_2 = Player("Tester The Second", Faction.FUNDAMENTALISTS, 0)
         self.game_state.players = [self.TEST_PLAYER, self.TEST_PLAYER_2]
 
     def test_arrow_down_menu(self):

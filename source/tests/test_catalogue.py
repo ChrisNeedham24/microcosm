@@ -18,8 +18,8 @@ class CatalogueTest(unittest.TestCase):
         """
         Initialise the test players before each test.
         """
-        self.TEST_PLAYER = Player("Frontiersman", Faction.FRONTIERSMEN, 0, 0, [], [], [], set(), set())
-        self.TEST_PLAYER_2 = Player("Farmer Man", Faction.AGRICULTURISTS, 0, 0, [], [], [], set(), set())
+        self.TEST_PLAYER = Player("Frontiersman", Faction.FRONTIERSMEN, 0)
+        self.TEST_PLAYER_2 = Player("Farmer Man", Faction.AGRICULTURISTS, 0)
 
     def test_namer(self):
         """
@@ -131,7 +131,7 @@ class CatalogueTest(unittest.TestCase):
         Ensure that players of the Concentrated faction do not have settler units available even if the settlement is
         above level 1.
         """
-        test_player = Player("Concentrate Man", Faction.CONCENTRATED, 0, 0, [], [], [], set(), set())
+        test_player = Player("Concentrate Man", Faction.CONCENTRATED, 0)
         unit_plans: typing.List[UnitPlan] = get_available_unit_plans(test_player, 2)
         self.assertTrue(all(not up.can_settle for up in unit_plans))
 
@@ -154,7 +154,7 @@ class CatalogueTest(unittest.TestCase):
         """
         Ensure that players of the Imperials faction have units with higher power available.
         """
-        imperial_player = Player("Empire Man", Faction.IMPERIALS, 0, 0, [], [], [], set(), set())
+        imperial_player = Player("Empire Man", Faction.IMPERIALS, 0)
 
         # We compare the Imperial units with units for a player of the Agriculturists faction, which has no bonuses or
         # penalties applied. Also note that the settlement levels are the same.
@@ -172,7 +172,7 @@ class CatalogueTest(unittest.TestCase):
         """
         Ensure that players of The Persistent faction have units with increased health and reduced power available.
         """
-        persistent_player = Player("Persistence Man", Faction.PERSISTENT, 0, 0, [], [], [], set(), set())
+        persistent_player = Player("Persistence Man", Faction.PERSISTENT, 0)
 
         # We compare The Persistent units with units for a player of the Agriculturists faction, which has no bonuses or
         # penalties applied. Also note that the settlement levels are the same.
@@ -190,7 +190,7 @@ class CatalogueTest(unittest.TestCase):
         """
         Ensure that players of the Explorers faction have units with increased stamina and reduced health available.
         """
-        explorer_player = Player("Exploration Man", Faction.EXPLORERS, 0, 0, [], [], [], set(), set())
+        explorer_player = Player("Exploration Man", Faction.EXPLORERS, 0)
 
         # We compare the Explorer units with units for a player of the Agriculturists faction, which has no bonuses or
         # penalties applied. Also note that the settlement levels are the same.

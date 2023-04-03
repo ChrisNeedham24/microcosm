@@ -4,7 +4,7 @@ import typing
 from source.display.board import Board
 from source.saving.game_save_manager import save_stats
 from source.util.calculator import clamp, attack, get_setl_totals, complete_construction
-from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
+from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer, BLESSINGS
 from source.foundation.models import Heathen, Quad
 from source.foundation.models import Player, Settlement, CompletedConstruction, Unit, HarvestStatus, EconomicStatus, \
     AttackPlaystyle, GameConfig, Victory, VictoryType, AIPlaystyle, ExpansionPlaystyle, Faction, Project
@@ -42,15 +42,14 @@ class GameState:
         Generates the players for the game based on the supplied config.
         :param cfg: The game config.
         """
-        self.players = [Player("The Chosen One", cfg.player_faction, FACTION_COLOURS[cfg.player_faction],
-                               0, [], [], [], set(), set())]
+        self.players = [Player("The Chosen One", cfg.player_faction, FACTION_COLOURS[cfg.player_faction])]
         factions = list(Faction)
         # Ensure that an AI player doesn't choose the same faction as the player.
         factions.remove(cfg.player_faction)
         for i in range(1, cfg.player_count):
             faction = random.choice(factions)
             factions.remove(faction)
-            self.players.append(Player(f"NPC{i}", faction, FACTION_COLOURS[faction], 0, [], [], [], set(), set(),
+            self.players.append(Player(f"NPC{i}", faction, FACTION_COLOURS[faction],
                                        ai_playstyle=AIPlaystyle(random.choice(list(AttackPlaystyle)),
                                                                 random.choice(list(ExpansionPlaystyle)))))
 

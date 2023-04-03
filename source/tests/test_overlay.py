@@ -25,7 +25,7 @@ class OverlayTest(unittest.TestCase):
         self.TEST_BLESSING_2 = Blessing("Uncool", "Science", 0)
         self.TEST_IMPROVEMENT = Improvement(ImprovementType.BOUNTIFUL, 0, "More", "Food", Effect(), None)
         self.TEST_IMPROVEMENT_2 = Improvement(ImprovementType.MAGICAL, 0, "Magic", "Time", Effect(), None)
-        self.TEST_PLAYER = Player("Bob", Faction.NOCTURNE, 0, 0, [self.TEST_SETTLEMENT], [], [], set(), set())
+        self.TEST_PLAYER = Player("Bob", Faction.NOCTURNE, 0, settlements=[self.TEST_SETTLEMENT])
         self.TEST_VICTORY = Victory(self.TEST_PLAYER, VictoryType.VIGOUR)
         self.TEST_PROJECT = Project(ProjectType.MAGICAL, "Magic", "Project")
         self.TEST_PROJECT_2 = Project(ProjectType.BOUNTIFUL, "Food", "Project")
@@ -61,7 +61,7 @@ class OverlayTest(unittest.TestCase):
         """
         Ensure that the standard overlay can be successfully navigated.
         """
-        self.overlay.current_player = Player("Tester", Faction.NOCTURNE, 0, 0, [], [], [], set(), set())
+        self.overlay.current_player = Player("Tester", Faction.NOCTURNE, 0)
 
         # To begin with, the current player has no settlements at all. As such, navigating downwards shouldn't do
         # anything.

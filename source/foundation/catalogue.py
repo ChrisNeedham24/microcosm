@@ -5,7 +5,7 @@ from copy import deepcopy
 import pyxel
 
 from source.foundation.models import FactionDetail, Player, Improvement, ImprovementType, Effect, Blessing, \
-    Settlement, UnitPlan, Unit, Biome, Heathen, Faction, Project, ProjectType, VictoryType
+    Settlement, UnitPlan, Unit, Biome, Heathen, Faction, Project, ProjectType, VictoryType, DeployerUnitPlan
 
 # The list of settlement names, for each biome.
 SETL_NAMES = {
@@ -288,10 +288,12 @@ UNIT_PLANS = [
     UnitPlan(20, 50, 6, "Shaman", BLESSINGS["beg_spl"], 75, heals=True),
     UnitPlan(200, 40, 2, "Grenadier", BLESSINGS["rud_exp"], 100),
     UnitPlan(50, 200, 2, "Flagellant", BLESSINGS["tor_tec"], 200),
+    DeployerUnitPlan(0, 80, 8, "Trojan Horse", BLESSINGS["sl_vau"], 300),
     UnitPlan(150, 125, 3, "Sniper", BLESSINGS["apr_ref"], 400),
     UnitPlan(50, 60, 8, "MediBot", BLESSINGS["rob_exp"], 500, heals=True),
     UnitPlan(150, 150, 5, "Drone", BLESSINGS["rob_exp"], 800),
     UnitPlan(100, 75, 10, "Narcotician", BLESSINGS["brd_fan"], 1000, heals=True),
+    DeployerUnitPlan(0, 125, 12, "Golden Van", BLESSINGS["inh_luc"], 1100),
     UnitPlan(200, 200, 4, "Herculeum", BLESSINGS["met_alt"], 1200),
     UnitPlan(300, 50, 3, "Haruspex", BLESSINGS["psy_sup"], 1200),
     UnitPlan(40, 400, 2, "Fanatic", BLESSINGS["brd_fan"], 1200)

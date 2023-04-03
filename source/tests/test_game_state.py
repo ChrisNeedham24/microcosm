@@ -33,13 +33,13 @@ class GameStateTest(unittest.TestCase):
 
         self.game_state = GameState()
         self.game_state.players = [
-            Player("Infidel", Faction.INFIDELS, 0, 0, [], [self.TEST_UNIT], [], set(), set(),
+            Player("Infidel", Faction.INFIDELS, 0, units=[self.TEST_UNIT],
                    ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)),
-            Player("Concentrator", Faction.CONCENTRATED, 0, 0, [], [], [], set(), set(),
+            Player("Concentrator", Faction.CONCENTRATED, 0,
                    ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)),
-            Player("Man", Faction.FRONTIERSMEN, 0, 0, [], [], [], set(), set(),
+            Player("Man", Faction.FRONTIERSMEN, 0,
                    ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)),
-            Player("Royal", Faction.IMPERIALS, 0, 0, [], [], [], set(), set(),
+            Player("Royal", Faction.IMPERIALS, 0,
                    ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)),
         ]
         self.game_state.board = Board(self.TEST_CONFIG, self.TEST_NAMER)

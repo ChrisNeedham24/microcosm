@@ -30,10 +30,10 @@ class BoardTest(unittest.TestCase):
         self.TEST_QUAD_2 = Quad(Biome.SEA, 0, 0, 0, 0, (6, 6))
         self.TEST_SETTLEMENT = Settlement("Test Town", (7, 7), [], [self.TEST_QUAD], [])
         self.TEST_ENEMY_SETTLEMENT = Settlement("Bad Town", (6, 6), [], [self.TEST_QUAD_2], [])
-        self.TEST_PLAYER = Player("Mr. Tester", Faction.FUNDAMENTALISTS, 0, 0,
-                                  [self.TEST_SETTLEMENT], [self.TEST_UNIT], [], set(), set())
-        self.TEST_ENEMY_PLAYER = Player("Dr. Evil", Faction.INFIDELS, 0, 0,
-                                        [self.TEST_ENEMY_SETTLEMENT], [self.TEST_UNIT_2], [], set(), set())
+        self.TEST_PLAYER = Player("Mr. Tester", Faction.FUNDAMENTALISTS, 0,
+                                  settlements=[self.TEST_SETTLEMENT], units=[self.TEST_UNIT])
+        self.TEST_ENEMY_PLAYER = Player("Dr. Evil", Faction.INFIDELS, 0,
+                                  settlements=[self.TEST_ENEMY_SETTLEMENT], units=[self.TEST_UNIT_2])
         # We need to find a relic quad before each test, because the quads are re-generated each time.
         self.relic_coords: (int, int) = -1, -1
         for i in range(90):
@@ -354,7 +354,7 @@ class BoardTest(unittest.TestCase):
         self.board.overlay.toggle_tutorial = MagicMock()
         self.board.overlay.toggle_settlement = MagicMock()
 
-        test_player = Player("Mr. Agriculture", Faction.AGRICULTURISTS, 0, 0, [], [], [], set(), set())
+        test_player = Player("Mr. Agriculture", Faction.AGRICULTURISTS, 0)
 
         self.board.process_left_click(100, 100, False, test_player, (10, 10), [], [], [], [])
         # The player should now have a settlement, seen quads, and should no longer be seeing the tutorial overlay.
@@ -372,7 +372,7 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(100, new_setl.max_strength)
         self.assertEqual(50, new_setl.satisfaction)
 
-        test_player = Player("Trying to concentrate", Faction.CONCENTRATED, 0, 0, [], [], [], set(), set())
+        test_player = Player("Trying to concentrate", Faction.CONCENTRATED, 0)
 
         self.board.process_left_click(100, 100, False, test_player, (10, 10), [], [], [], [])
         self.assertTrue(test_player.settlements)
@@ -388,7 +388,7 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(200, new_setl.max_strength)
         self.assertEqual(50, new_setl.satisfaction)
 
-        test_player = Player("Man of frontier", Faction.FRONTIERSMEN, 0, 0, [], [], [], set(), set())
+        test_player = Player("Man of frontier", Faction.FRONTIERSMEN, 0)
 
         self.board.process_left_click(100, 100, False, test_player, (10, 10), [], [], [], [])
         self.assertTrue(test_player.settlements)
@@ -404,7 +404,7 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(100, new_setl.max_strength)
         self.assertEqual(75, new_setl.satisfaction)
 
-        test_player = Player("The emperor", Faction.IMPERIALS, 0, 0, [], [], [], set(), set())
+        test_player = Player("The emperor", Faction.IMPERIALS, 0)
 
         self.board.process_left_click(100, 100, False, test_player, (10, 10), [], [], [], [])
         self.assertTrue(test_player.settlements)
