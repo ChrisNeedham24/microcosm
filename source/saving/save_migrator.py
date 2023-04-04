@@ -1,6 +1,6 @@
 from source.foundation.catalogue import get_blessing, FACTION_COLOURS
 from source.foundation.models import UnitPlan, Unit, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, Quad, \
-    Biome, GameConfig
+    Biome, GameConfig, DeployerUnitPlan, DeployerUnit
 
 """
 The following migrations have occurred during Microcosm's development:
@@ -32,7 +32,13 @@ v2.2
 - The sieging attribute for units was changed to besieging, and this can also be mapped directly.
 - The under_siege_by attribute keeping track of the optional unit besieging the settlement was changed to a simple
   boolean attribute called besieged. Migration can occur by mapping to True if the value is not None.
+
+v2.3
+- The location of quads became recorded. All existing quads can be mapped to their index if they are for the board, or
+  mapped to their settlement's location if they are for a settlement.
 """
+
+# TODO Update the above for deployer unit(plan)s.
 
 
 def migrate_unit_plan(unit_plan) -> UnitPlan:
@@ -44,6 +50,10 @@ def migrate_unit_plan(unit_plan) -> UnitPlan:
     plan_prereq = None if unit_plan.prereq is None else get_blessing(unit_plan.prereq.name)
     will_heal: bool = unit_plan.heals if hasattr(unit_plan, "heals") else False
 
+    if hasattr(unit_plan, "max_capacity"):
+        return DeployerUnitPlan(unit_plan.power, unit_plan.max_health, unit_plan.total_stamina,
+                                unit_plan.name, plan_prereq, unit_plan.cost, unit_plan.can_settle,
+                                will_heal, unit_plan.max_capacity)
     return UnitPlan(unit_plan.power, unit_plan.max_health, unit_plan.total_stamina,
                     unit_plan.name, plan_prereq, unit_plan.cost, unit_plan.can_settle,
                     will_heal)
@@ -69,6 +79,9 @@ def migrate_unit(unit) -> Unit:
     else:
         will_be_besieging = unit.sieging
         delattr(unit, "sieging")
+    if hasattr(unit, "passengers"):
+        return DeployerUnit(unit.health, unit.remaining_stamina, (unit.location[0], unit.location[1]), unit.garrisoned,
+                            migrate_unit_plan(unit.plan), will_have_acted, will_be_besieging, unit.passengers)
     return Unit(unit.health, unit.remaining_stamina, (unit.location[0], unit.location[1]), unit.garrisoned,
                 migrate_unit_plan(unit.plan), will_have_acted, will_be_besieging)
 

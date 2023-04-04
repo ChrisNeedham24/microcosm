@@ -270,7 +270,7 @@ class UnitPlan:
 
 @dataclass
 class DeployerUnitPlan(UnitPlan):
-    max_capacity = 3
+    max_capacity: int = 3
 
 
 @dataclass
