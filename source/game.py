@@ -5,7 +5,8 @@ import pyxel
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
     on_key_arrow_right, on_key_return, on_mouse_button_right, on_mouse_button_left, on_key_shift, on_key_c, on_key_f, \
-    on_key_d, on_key_tab, on_key_space, on_key_m, on_key_s, on_key_n, on_key_b, on_key_escape, on_key_a, on_key_j
+    on_key_d, on_key_tab, on_key_space, on_key_m, on_key_s, on_key_n, on_key_b, on_key_escape, on_key_a, on_key_j, \
+    on_key_x
 from source.game_management.game_state import GameState
 from source.saving.game_save_manager import init_app_data
 
@@ -102,3 +103,5 @@ class Game:
             on_key_a(self.game_state)
         elif pyxel.btnp(pyxel.KEY_J):
             on_key_j(self.game_state)
+        elif pyxel.btnp(pyxel.KEY_X):
+            on_key_x(self.game_state)

@@ -36,9 +36,11 @@ v2.2
 v2.3
 - The location of quads became recorded. All existing quads can be mapped to their index if they are for the board, or
   mapped to their settlement's location if they are for a settlement.
-"""
 
-# TODO Update the above for deployer unit(plan)s.
+v2.4
+- Deploying units and their plans were added. Since they had their own unique properties, no migration for existing
+  units is required, and the new deploying units can be identified by these properties.
+"""
 
 
 def migrate_unit_plan(unit_plan) -> UnitPlan:
