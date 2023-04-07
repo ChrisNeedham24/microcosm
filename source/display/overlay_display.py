@@ -44,7 +44,6 @@ def display_overlay(overlay: Overlay, is_night: bool):
 
         pyxel.text(35, 85, "Press ENTER to return to the menu.", pyxel.COLOR_WHITE)
     # The deployment overlay displays a message instructing the player.
-    # TODO This is currently looking a bit odd for deployer units
     elif OverlayType.DEPLOYMENT in overlay.showing:
         pyxel.rectb(12, 150, 176, 15, pyxel.COLOR_WHITE)
         pyxel.rect(13, 151, 174, 13, pyxel.COLOR_BLACK)

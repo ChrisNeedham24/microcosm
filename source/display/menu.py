@@ -9,7 +9,8 @@ import pyxel
 from source.util.calculator import clamp
 from source.foundation.catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, \
     IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS
-from source.foundation.models import GameConfig, VictoryType, Faction, ProjectType, Statistics
+from source.foundation.models import GameConfig, VictoryType, Faction, ProjectType, Statistics, UnitPlan, \
+    DeployerUnitPlan
 
 
 class MainMenuOption(Enum):
@@ -49,6 +50,12 @@ class WikiOption(Enum):
     BACK = "BACK"
 
 
+class WikiUnitsOption(Enum):
+    ATTACKING = "ATT"
+    HEALING = "HEAL"
+    DEPLOYING = "DEP"
+
+
 MenuOptions = SetupOption | WikiOption | MainMenuOption | VictoryType
 
 
@@ -72,7 +79,7 @@ class Menu:
         self.victory_type = VictoryType.ELIMINATION
         self.blessing_boundaries = 0, 3
         self.improvement_boundaries = 0, 3
-        self.unit_boundaries = 0, 9
+        self.unit_boundaries = 0, 8
         self.saves: List[str] = []
         self.save_idx: Optional[int] = 0
         self.setup_option = SetupOption.PLAYER_FACTION
@@ -89,6 +96,9 @@ class Menu:
         self.load_failed = False
         self.viewing_stats = False
         self.player_stats: typing.Optional[Statistics] = None
+        self.wiki_units_option: WikiUnitsOption = WikiUnitsOption.ATTACKING
+        self.unit_plans_to_render: typing.List[UnitPlan] = \
+            [up for up in UNIT_PLANS if not up.heals and not isinstance(up, DeployerUnitPlan)]
 
     def draw(self):
         """
@@ -438,27 +448,44 @@ class Menu:
                     pyxel.load("resources/sprites.pyxres")
                     pyxel.rectb(10, 20, 180, 154, pyxel.COLOR_WHITE)
                     pyxel.rect(11, 21, 178, 152, pyxel.COLOR_BLACK)
-                    pyxel.text(90, 30, "Units", pyxel.COLOR_WHITE)
                     pyxel.text(20, 40, "Name", pyxel.COLOR_WHITE)
                     pyxel.blt(90, 39, 0, 8, 36, 8, 8)
-                    pyxel.blt(105, 39, 0, 0, 36, 8, 8)
-                    pyxel.blt(115, 39, 0, 40, 36, 8, 8)
                     pyxel.blt(130, 39, 0, 16, 36, 8, 8)
                     pyxel.text(155, 40, "Cost", pyxel.COLOR_WHITE)
                     pyxel.blt(173, 39, 0, 16, 44, 8, 8)
-                    for idx, unit in enumerate(UNIT_PLANS):
+                    pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
+                    if self.unit_boundaries[1] < len(self.unit_plans_to_render) - 1:
+                        self.draw_paragraph(152, 140, "More down!", 5)
+                        pyxel.blt(172, 141, 0, 0, 76, 8, 8)
+                    unit_plans_to_render: typing.List[UnitPlan]
+                    match self.wiki_units_option:
+                        case WikiUnitsOption.ATTACKING:
+                            pyxel.text(75, 30, "Attacking units", pyxel.COLOR_WHITE)
+                            pyxel.blt(110, 39, 0, 0, 36, 8, 8)
+                            pyxel.blt(165, 161, 0, 40, 36, 8, 8)
+                            pyxel.text(175, 162, "->", pyxel.COLOR_WHITE)
+                        case WikiUnitsOption.HEALING:
+                            pyxel.text(75, 30, "Healing units", pyxel.COLOR_WHITE)
+                            pyxel.blt(110, 39, 0, 40, 36, 8, 8)
+                            pyxel.text(18, 162, "<-", pyxel.COLOR_WHITE)
+                            pyxel.blt(28, 161, 0, 0, 36, 8, 8)
+                            pyxel.blt(165, 161, 0, 48, 36, 8, 8)
+                            pyxel.text(175, 162, "->", pyxel.COLOR_WHITE)
+                        case _:
+                            pyxel.text(75, 30, "Deploying units", pyxel.COLOR_WHITE)
+                            pyxel.blt(107, 39, 0, 48, 36, 8, 8)
+                            pyxel.text(18, 162, "<-", pyxel.COLOR_WHITE)
+                            pyxel.blt(28, 161, 0, 40, 36, 8, 8)
+                    for idx, unit in enumerate(self.unit_plans_to_render):
                         if self.unit_boundaries[0] <= idx <= self.unit_boundaries[1]:
                             adj_idx = idx - self.unit_boundaries[0]
-                            pyxel.text(20, 50 + adj_idx * 10, str(unit.name),
-                                       pyxel.COLOR_GREEN if unit.heals else pyxel.COLOR_WHITE)
+                            pyxel.text(20, 50 + adj_idx * 10, str(unit.name), pyxel.COLOR_WHITE)
                             pyxel.text(160, 50 + adj_idx * 10, str(unit.cost), pyxel.COLOR_WHITE)
                             pyxel.text(88, 50 + adj_idx * 10, str(unit.max_health), pyxel.COLOR_WHITE)
-                            pyxel.text(108, 50 + adj_idx * 10, str(unit.power), pyxel.COLOR_WHITE)
+                            pyxel.text(108, 50 + adj_idx * 10,
+                                       str(unit.max_capacity if isinstance(unit, DeployerUnitPlan) else unit.power),
+                                       pyxel.COLOR_WHITE)
                             pyxel.text(132, 50 + adj_idx * 10, str(unit.total_stamina), pyxel.COLOR_WHITE)
-                    pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
-                    if self.unit_boundaries[1] < len(UNIT_PLANS) - 1:
-                        self.draw_paragraph(152, 155, "More down!", 5)
-                        pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case _:
                     pyxel.rectb(60, 45, 80, 110, pyxel.COLOR_WHITE)
                     pyxel.rect(61, 46, 78, 108, pyxel.COLOR_BLACK)
@@ -553,7 +580,7 @@ class Menu:
                             self.improvement_boundaries = \
                                 self.improvement_boundaries[0] + 1, self.improvement_boundaries[1] + 1
                     case WikiOption.UNITS:
-                        if self.unit_boundaries[1] < len(UNIT_PLANS) - 1:
+                        if self.unit_boundaries[1] < len(self.unit_plans_to_render) - 1:
                             self.unit_boundaries = self.unit_boundaries[0] + 1, self.unit_boundaries[1] + 1
                     case _:
                         self.next_menu_option(self.wiki_option, wrap_around=True)
@@ -603,6 +630,16 @@ class Menu:
                 self.faction_wiki_idx -= 1
             elif self.in_wiki and self.wiki_showing is WikiOption.CLIMATE:
                 self.showing_night = False
+            elif self.in_wiki and self.wiki_showing is WikiOption.UNITS:
+                if self.wiki_units_option is WikiUnitsOption.HEALING:
+                    self.wiki_units_option = WikiUnitsOption.ATTACKING
+                    self.unit_plans_to_render = \
+                        [up for up in UNIT_PLANS if not up.heals and not isinstance(up, DeployerUnitPlan)]
+                    self.unit_boundaries = 0, 8
+                elif self.wiki_units_option is WikiUnitsOption.DEPLOYING:
+                    self.wiki_units_option = WikiUnitsOption.HEALING
+                    self.unit_plans_to_render = [up for up in UNIT_PLANS if up.heals]
+                    self.unit_boundaries = 0, 8
         if right:
             if self.in_game_setup:
                 match self.setup_option:
@@ -623,6 +660,15 @@ class Menu:
                 self.faction_wiki_idx += 1
             elif self.in_wiki and self.wiki_showing is WikiOption.CLIMATE:
                 self.showing_night = True
+            elif self.in_wiki and self.wiki_showing is WikiOption.UNITS:
+                if self.wiki_units_option is WikiUnitsOption.ATTACKING:
+                    self.wiki_units_option = WikiUnitsOption.HEALING
+                    self.unit_plans_to_render = [up for up in UNIT_PLANS if up.heals]
+                    self.unit_boundaries = 0, 8
+                elif self.wiki_units_option is WikiUnitsOption.HEALING:
+                    self.wiki_units_option = WikiUnitsOption.DEPLOYING
+                    self.unit_plans_to_render = [up for up in UNIT_PLANS if isinstance(up, DeployerUnitPlan)]
+                    self.unit_boundaries = 0, 8
 
     def get_game_config(self) -> GameConfig:
         """

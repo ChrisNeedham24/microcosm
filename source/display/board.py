@@ -210,42 +210,43 @@ class Board:
             for settlement in player.settlements:
                 if settlement.location in quads_to_show or not fog_of_war_impacts:
                     # Draw name tags for non-selected settlements.
-                    if self.selected_settlement is not settlement:
-                        name_len = len(settlement.name)
-                        x_offset = 11 - name_len
-                        base_x_pos = (settlement.location[0] - map_pos[0]) * 8
-                        base_y_pos = (settlement.location[1] - map_pos[1]) * 8
-                        # Besieged settlements are displayed with a black background, along with their remaining
-                        # strength.
-                        if settlement.besieged:
-                            pyxel.rect(base_x_pos - 17, base_y_pos - 8, 52, 10,
-                                       pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
-                            pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, player.colour)
-                            # We need to base the size of the strength container on the length of the string, so that it
-                            # is centred.
-                            strength_as_str = str(round(settlement.strength))
-                            match len(strength_as_str):
-                                case 3:
-                                    pyxel.rect(base_x_pos, base_y_pos - 16, 16, 10,
-                                               pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
-                                    pyxel.text(base_x_pos + 2, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
-                                case 2:
-                                    pyxel.rect(base_x_pos + 3, base_y_pos - 16, 11, 10,
-                                               pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
-                                    pyxel.text(base_x_pos + 5, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
-                                case 1:
-                                    pyxel.rect(base_x_pos + 4, base_y_pos - 16, 8, 10,
-                                               pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
-                                    pyxel.text(base_x_pos + 7, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
+                    if not self.deploying_army_from_unit:
+                        if self.selected_settlement is not settlement:
+                            name_len = len(settlement.name)
+                            x_offset = 11 - name_len
+                            base_x_pos = (settlement.location[0] - map_pos[0]) * 8
+                            base_y_pos = (settlement.location[1] - map_pos[1]) * 8
+                            # Besieged settlements are displayed with a black background, along with their remaining
+                            # strength.
+                            if settlement.besieged:
+                                pyxel.rect(base_x_pos - 17, base_y_pos - 8, 52, 10,
+                                           pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, player.colour)
+                                # We need to base the size of the strength container on the length of the string, so that it
+                                # is centred.
+                                strength_as_str = str(round(settlement.strength))
+                                match len(strength_as_str):
+                                    case 3:
+                                        pyxel.rect(base_x_pos, base_y_pos - 16, 16, 10,
+                                                   pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                        pyxel.text(base_x_pos + 2, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
+                                    case 2:
+                                        pyxel.rect(base_x_pos + 3, base_y_pos - 16, 11, 10,
+                                                   pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                        pyxel.text(base_x_pos + 5, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
+                                    case 1:
+                                        pyxel.rect(base_x_pos + 4, base_y_pos - 16, 8, 10,
+                                                   pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                        pyxel.text(base_x_pos + 7, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
+                            else:
+                                pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10,
+                                            pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
+                                pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
                         else:
-                            pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10,
-                                        pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
-                            pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
-                            pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
-                    else:
-                        for setl_quad in settlement.quads:
-                            pyxel.rectb((setl_quad.location[0] - map_pos[0]) * 8 + 4,
-                                        (setl_quad.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
+                            for setl_quad in settlement.quads:
+                                pyxel.rectb((setl_quad.location[0] - map_pos[0]) * 8 + 4,
+                                            (setl_quad.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
 
         # For the selected quad, display its yield.
         if self.quad_selected is not None and selected_quad_coords is not None and \
@@ -525,6 +526,9 @@ class Board:
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
                             self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
                             self.selected_unit.location[1] + self.selected_unit.remaining_stamina:
+                        initial = self.selected_unit.location
+                        distance_travelled = max(abs(initial[0] - adj_x), abs(initial[1] - adj_y))
+                        self.selected_unit.remaining_stamina -= distance_travelled
                         self.selected_unit.garrisoned = True
                         to_select.garrison.append(self.selected_unit)
                         player.units.remove(self.selected_unit)
@@ -535,10 +539,14 @@ class Board:
                             self.selected_unit in player.units and self.selected_settlement is None and \
                             any((to_select := unit).location == (adj_x, adj_y) and isinstance(unit, DeployerUnit)
                                 for unit in player.units) and \
+                            not isinstance(self.selected_unit, DeployerUnit) and \
                             self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
                             self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
                             self.selected_unit.location[1] + self.selected_unit.remaining_stamina:
+                        initial = self.selected_unit.location
+                        distance_travelled = max(abs(initial[0] - adj_x), abs(initial[1] - adj_y))
+                        self.selected_unit.remaining_stamina -= distance_travelled
                         to_select.passengers.append(self.selected_unit)
                         player.units.remove(self.selected_unit)
                         # Deselect the unit now.
@@ -550,7 +558,11 @@ class Board:
                             any(setl_quad.location[0] - 1 <= adj_x <= setl_quad.location[0] + 1 and
                                 setl_quad.location[1] - 1 <= adj_y <= setl_quad.location[1] + 1
                                 for setl_quad in self.selected_settlement.quads) and \
-                            not any(s_q.location == (adj_x, adj_y) for s_q in self.selected_settlement.quads):
+                            not any(s_q.location == (adj_x, adj_y) for s_q in self.selected_settlement.quads) and \
+                            not any(heathen.location == (adj_x, adj_y) for heathen in heathens) and \
+                            not any(unit.location == (adj_x, adj_y) for unit in all_units) and \
+                            not any(any(setl_quad.location == (adj_x, adj_y) for setl_quad in setl.quads)
+                                    for setl in other_setls):
                         deployed = self.selected_settlement.garrison.pop()
                         deployed.garrisoned = False
                         deployed.location = adj_x, adj_y
@@ -569,7 +581,11 @@ class Board:
                     elif self.deploying_army_from_unit and \
                             self.selected_unit.location[0] - 1 <= adj_x <= self.selected_unit.location[0] + 1 and \
                             self.selected_unit.location[1] - 1 <= adj_y <= self.selected_unit.location[1] + 1 and \
-                            not self.selected_unit.location == (adj_x, adj_y):
+                            not self.selected_unit.location == (adj_x, adj_y) and \
+                            not any(heathen.location == (adj_x, adj_y) for heathen in heathens) and \
+                            not any(unit.location == (adj_x, adj_y) for unit in all_units) and \
+                            not any(any(setl_quad.location == (adj_x, adj_y) for setl_quad in setl.quads)
+                                    for setl in other_setls):
                         deployed = self.selected_unit.passengers.pop()
                         deployed.location = adj_x, adj_y
                         player.units.append(deployed)
