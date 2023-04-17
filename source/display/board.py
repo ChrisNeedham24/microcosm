@@ -540,6 +540,7 @@ class Board:
                             any((to_select := unit).location == (adj_x, adj_y) and isinstance(unit, DeployerUnit)
                                 for unit in player.units) and \
                             not isinstance(self.selected_unit, DeployerUnit) and \
+                            len(to_select.passengers) < to_select.plan.max_capacity and \
                             self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
                             self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
@@ -586,14 +587,18 @@ class Board:
                             not any(unit.location == (adj_x, adj_y) for unit in all_units) and \
                             not any(any(setl_quad.location == (adj_x, adj_y) for setl_quad in setl.quads)
                                     for setl in other_setls):
-                        deployed = self.selected_unit.passengers.pop()
+                        unit_idx = self.overlay.unit_passengers_idx
+                        deployed = self.selected_unit.passengers[unit_idx]
                         deployed.location = adj_x, adj_y
+                        self.selected_unit.passengers[unit_idx:unit_idx + 1] = []
                         player.units.append(deployed)
                         # Add the surrounding quads to the player's seen.
                         for i in range(adj_y - 5, adj_y + 6):
                             for j in range(adj_x - 5, adj_x + 6):
                                 player.quads_seen.add((j, i))
                         self.deploying_army_from_unit = False
+                        self.overlay.unit_passengers_idx = 0
+                        self.overlay.show_unit_passengers = False
                         # Select the unit and deselect the settlement.
                         self.selected_unit = deployed
                         self.overlay.toggle_deployment()

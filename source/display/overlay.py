@@ -58,6 +58,8 @@ class Overlay:
         self.settlement_status_boundaries: typing.Tuple[int, int] = 0, 7
         self.show_auto_construction_prompt: bool = False
         self.show_additional_controls: bool = False
+        self.show_unit_passengers: bool = False
+        self.unit_passengers_idx: int = 0
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
@@ -317,6 +319,12 @@ class Overlay:
         :return: Whether the unit overlay is being displayed.
         """
         return OverlayType.UNIT in self.showing
+
+    def navigate_unit(self, down: bool):
+        if down and self.unit_passengers_idx + 1 < len(self.selected_unit.passengers):
+            self.unit_passengers_idx += 1
+        elif not down and self.unit_passengers_idx - 1 >= 0:
+            self.unit_passengers_idx -= 1
 
     def can_iter_settlements_units(self) -> bool:
         """

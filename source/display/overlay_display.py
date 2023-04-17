@@ -354,6 +354,21 @@ def display_overlay(overlay: Overlay, is_night: bool):
             y_offset = 0 if overlay.selected_unit in overlay.current_player.units else 20
             x_offset = 8 if round(overlay.selected_unit.plan.cost / 10) >= 10 and \
                 overlay.selected_unit in overlay.current_player.units else 0
+            if overlay.selected_unit in overlay.current_player.units and \
+                    isinstance(overlay.selected_unit.plan, DeployerUnitPlan):
+                if overlay.show_unit_passengers:
+                    pyxel.rectb(70 + x_offset, 110 + y_offset, 56 + x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
+                    pyxel.rect(71 + x_offset, 111 + y_offset, 54 + x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
+                    for idx, unit in enumerate(overlay.selected_unit.passengers):
+                        pyxel.text(75 + x_offset, 115 + y_offset + 10 * idx, unit.plan.name, pyxel.COLOR_WHITE)
+                        if idx == overlay.unit_passengers_idx:
+                            pyxel.blt(110 + x_offset, 115 + y_offset + 10 * idx, 0, 64, 36, 8, 8)
+                        else:
+                            pyxel.blt(110 + x_offset, 115 + y_offset + 10 * idx, 0, 56, 36, 8, 8)
+                    pyxel.text(83, 162, "Close (D)", pyxel.COLOR_WHITE)
+                else:
+                    pyxel.rectb(17, 105 + y_offset, 56 + x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
+                    pyxel.rect(18, 106 + y_offset, 54 + x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
             pyxel.rectb(12, 110 + y_offset, 56 + x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
             pyxel.rect(13, 111 + y_offset, 54 + x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
             pyxel.text(20, 114 + y_offset, overlay.selected_unit.plan.name, pyxel.COLOR_WHITE)

@@ -40,6 +40,8 @@ def on_key_arrow_down(game_controller: GameController, game_state: GameState, is
             game_state.board.overlay.navigate_pause(down=True)
         elif game_state.board.overlay.is_standard():
             game_state.board.overlay.navigate_standard(down=True)
+        elif game_state.board.overlay.is_unit() and game_state.board.overlay.show_unit_passengers:
+            game_state.board.overlay.navigate_unit(down=True)
         else:
             game_state.board.overlay.remove_warning_if_possible()
             # If we're not on a menu, pan the map when you press down.
@@ -72,6 +74,8 @@ def on_key_arrow_up(game_controller: GameController, game_state: GameState, is_c
             game_state.board.overlay.navigate_pause(down=False)
         elif game_state.board.overlay.is_standard():
             game_state.board.overlay.navigate_standard(down=False)
+        elif game_state.board.overlay.is_unit() and game_state.board.overlay.show_unit_passengers:
+            game_state.board.overlay.navigate_unit(down=False)
         else:
             game_state.board.overlay.remove_warning_if_possible()
             # If we're not on a menu, pan the map when you press up.
@@ -273,6 +277,10 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
                 game_controller.music_player.stop_game_music()
                 game_controller.music_player.play_menu_music()
+    elif game_state.game_started and game_state.board.overlay.is_unit() and \
+            game_state.board.overlay.show_unit_passengers:
+        game_state.board.deploying_army_from_unit = True
+        game_state.board.overlay.toggle_deployment()
     elif game_state.game_started and not (
             game_state.board.overlay.is_tutorial() or game_state.board.overlay.is_deployment() or
             game_state.board.overlay.is_bless_notif() or
@@ -343,12 +351,11 @@ def on_key_d(game_state: GameState):
             len(game_state.board.selected_settlement.garrison) > 0:
         game_state.board.deploying_army = True
         game_state.board.overlay.toggle_deployment()
-    if game_state.game_started and game_state.board.selected_unit is not None and \
+    elif game_state.game_started and game_state.board.selected_unit is not None and \
             game_state.board.selected_unit in game_state.players[0].units and \
             isinstance(game_state.board.selected_unit, DeployerUnit) and \
             len(game_state.board.selected_unit.passengers) > 0:
-        game_state.board.deploying_army_from_unit = True
-        game_state.board.overlay.toggle_deployment()
+        game_state.board.overlay.show_unit_passengers = not game_state.board.overlay.show_unit_passengers
 
 
 def on_key_tab(game_state: GameState):
