@@ -101,7 +101,7 @@ class CalculatorTest(unittest.TestCase):
         Ensure that heal calculations occur correctly and return the appropriate data.
         """
         healed_health = 60
-        healer = Unit(50, 2, (0, 0), False, UNIT_PLANS[-4])
+        healer = Unit(50, 2, (0, 0), False, UNIT_PLANS[-5])
         healed = Unit(healed_health, 0, (1, 0), False, UNIT_PLANS[0])
         ai_heal = False
 

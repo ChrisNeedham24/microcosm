@@ -3,7 +3,8 @@ from unittest.mock import MagicMock
 
 from source.display.board import Board, HelpOption
 from source.foundation.catalogue import Namer, get_heathen_plan
-from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement, Unit, UnitPlan, Heathen
+from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement, Unit, UnitPlan, Heathen, \
+    DeployerUnit, DeployerUnitPlan
 
 
 class BoardTest(unittest.TestCase):
@@ -22,9 +23,12 @@ class BoardTest(unittest.TestCase):
         """
         self.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
         self.TEST_UNIT_PLAN = UnitPlan(100, 100, 2, "TestMan", None, 0, heals=True)
+        self.TEST_DEPLOYER_UNIT_PLAN = DeployerUnitPlan(0, 50, 10, "Train", None, 0)
         self.TEST_UNIT = Unit(100, 2, (5, 5), False, self.TEST_UNIT_PLAN)
         self.TEST_UNIT_2 = Unit(100, 2, (8, 8), False, self.TEST_UNIT_PLAN)
         self.TEST_UNIT_3 = Unit(100, 10, (9, 9), False, self.TEST_UNIT_PLAN)
+        self.TEST_DEPLOYER_UNIT = DeployerUnit(50, 5, (4, 4), False, self.TEST_DEPLOYER_UNIT_PLAN)
+        self.TEST_DEPLOYER_UNIT_2 = DeployerUnit(40, 4, (3, 3), False, self.TEST_DEPLOYER_UNIT_PLAN)
         self.TEST_HEATHEN = Heathen(100, 2, (10, 10), get_heathen_plan(1))
         self.TEST_QUAD = Quad(Biome.MOUNTAIN, 0, 0, 0, 0, (7, 7))
         self.TEST_QUAD_2 = Quad(Biome.SEA, 0, 0, 0, 0, (6, 6))
@@ -462,12 +466,14 @@ class BoardTest(unittest.TestCase):
         self.board.selected_unit = self.TEST_PLAYER.units[0]
 
         unit = self.TEST_PLAYER.units[0]
+        initial_stamina = unit.remaining_stamina
         setl = self.TEST_PLAYER.settlements[0]
         # To begin with, the unit should not be garrisoned, and the settlement should have no units in its garrison.
         self.assertFalse(unit.garrisoned)
         self.assertFalse(setl.garrison)
         self.board.process_left_click(20, 20, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
         # The unit should now be in the settlement's garrison, removed from the player's units, and deselected.
+        self.assertLess(unit.remaining_stamina, initial_stamina)
         self.assertTrue(unit.garrisoned)
         self.assertTrue(setl.garrison)
         self.assertFalse(self.TEST_PLAYER.units)
@@ -489,6 +495,85 @@ class BoardTest(unittest.TestCase):
         # You may expect the unit to still be selected because it was not garrisoned. Not so, due to the fact that in
         # this case, the unit is instead deselected because an alternative quad is clicked where the unit cannot move
         # to.
+
+    def test_left_click_add_passenger_to_deployer_unit(self):
+        self.board.overlay.toggle_unit = MagicMock()
+        self.TEST_PLAYER.units.append(self.TEST_DEPLOYER_UNIT)
+        self.board.selected_unit = self.TEST_PLAYER.units[0]
+
+        unit = self.TEST_PLAYER.units[0]
+        initial_stamina = unit.remaining_stamina
+        dep_unit = self.TEST_DEPLOYER_UNIT
+
+        self.assertFalse(dep_unit.passengers)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (4, 4), [], [], [], [])
+        self.assertLess(unit.remaining_stamina, initial_stamina)
+        self.assertIn(unit, dep_unit.passengers)
+        self.assertNotIn(unit, self.TEST_PLAYER.units)
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_called_with(None)
+
+    def test_left_click_add_deployer_unit_passenger_to_deployer_unit(self):
+        self.TEST_PLAYER.units.extend([self.TEST_DEPLOYER_UNIT, self.TEST_DEPLOYER_UNIT_2])
+        self.board.selected_unit = self.TEST_DEPLOYER_UNIT_2
+        self.board.overlay.toggle_unit = MagicMock()
+        self.board.overlay.update_unit = MagicMock()
+
+        initial_unit = self.TEST_DEPLOYER_UNIT_2
+        initial_stamina = initial_unit.remaining_stamina
+        unit_to_board = self.TEST_DEPLOYER_UNIT
+
+        self.assertFalse(unit_to_board.passengers)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (4, 4), [],
+                                      [self.TEST_DEPLOYER_UNIT, self.TEST_DEPLOYER_UNIT_2], [], [])
+        self.assertEqual(initial_unit.remaining_stamina, initial_stamina)
+        self.assertNotIn(initial_unit, unit_to_board.passengers)
+        self.assertIn(initial_unit, self.TEST_PLAYER.units)
+        self.assertEqual(unit_to_board, self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_not_called()
+        self.board.overlay.update_unit.assert_called_with(unit_to_board)
+
+    def test_left_click_add_passenger_to_max_capacity_deployer_unit(self):
+        self.TEST_UNIT.plan.heals = False
+        self.TEST_DEPLOYER_UNIT.plan.max_capacity = 0
+        self.board.overlay.toggle_unit = MagicMock()
+        self.board.overlay.update_unit = MagicMock()
+        self.TEST_PLAYER.units.append(self.TEST_DEPLOYER_UNIT)
+        self.board.selected_unit = self.TEST_PLAYER.units[0]
+
+        unit = self.TEST_PLAYER.units[0]
+        initial_stamina = unit.remaining_stamina
+        dep_unit = self.TEST_DEPLOYER_UNIT
+
+        self.assertFalse(dep_unit.passengers)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (4, 4), [], self.TEST_PLAYER.units, [], [])
+        self.assertEqual(unit.remaining_stamina, initial_stamina)
+        self.assertNotIn(unit, dep_unit.passengers)
+        self.assertIn(unit, self.TEST_PLAYER.units)
+        self.assertEqual(dep_unit, self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_not_called()
+        self.board.overlay.update_unit.assert_called_with(dep_unit)
+
+    def test_left_click_add_passenger_to_deployer_unit_too_far_away(self):
+        self.TEST_UNIT.plan.heals = False
+        self.TEST_UNIT.location = 50, 50
+        self.board.overlay.toggle_unit = MagicMock()
+        self.board.overlay.update_unit = MagicMock()
+        self.TEST_PLAYER.units.append(self.TEST_DEPLOYER_UNIT)
+        self.board.selected_unit = self.TEST_PLAYER.units[0]
+
+        unit = self.TEST_PLAYER.units[0]
+        initial_stamina = unit.remaining_stamina
+        dep_unit = self.TEST_DEPLOYER_UNIT
+
+        self.assertFalse(dep_unit.passengers)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (4, 4), [], self.TEST_PLAYER.units, [], [])
+        self.assertEqual(unit.remaining_stamina, initial_stamina)
+        self.assertNotIn(unit, dep_unit.passengers)
+        self.assertIn(unit, self.TEST_PLAYER.units)
+        self.assertEqual(dep_unit, self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_not_called()
+        self.board.overlay.update_unit.assert_called_with(dep_unit)
 
     def test_left_click_deploy(self):
         """

@@ -12,7 +12,7 @@ from source.foundation.models import GameConfig, Faction, OverlayType, Construct
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
     on_key_arrow_right, on_key_shift, on_key_f, on_key_d, on_key_s, on_key_n, on_key_a, on_key_c, on_key_tab, \
-    on_key_escape, on_key_m, on_key_j, on_key_space, on_key_b, on_key_return
+    on_key_escape, on_key_m, on_key_j, on_key_space, on_key_b, on_key_return, on_key_x
 from source.game_management.game_state import GameState
 
 
@@ -855,9 +855,9 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertTrue(self.game_state.board.deploying_army)
         self.game_state.board.overlay.toggle_deployment.assert_called()
 
-    def test_d_disband(self):
+    def test_x_disband(self):
         """
-        Ensure that the D key correctly disbands the selected unit and credits the player.
+        Ensure that the X key correctly disbands the selected unit and credits the player.
         """
         self.game_state.game_started = True
         self.game_state.board.selected_unit = self.TEST_PLAYER.units[0]
@@ -865,7 +865,7 @@ class GameInputHandlerTest(unittest.TestCase):
 
         self.assertEqual(self.PLAYER_WEALTH, self.TEST_PLAYER.wealth)
         self.assertTrue(self.TEST_PLAYER.units)
-        on_key_d(self.game_state)
+        on_key_x(self.game_state)
         # The player should now have their wealth increased by the value of the unit.
         self.assertEqual(self.PLAYER_WEALTH + UNIT_PLANS[0].cost, self.TEST_PLAYER.wealth)
         # Additionally, the player only had one unit, so they should now have no units.
