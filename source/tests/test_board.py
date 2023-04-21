@@ -623,6 +623,54 @@ class BoardTest(unittest.TestCase):
         self.board.overlay.toggle_settlement.assert_called_with(None, self.TEST_PLAYER)
         self.board.overlay.toggle_unit.assert_called_with(unit)
 
+    def test_left_click_deploy_from_unit(self):
+        """
+        Ensure that units are deployed correctly when clicking a quad adjacent to a deployer unit.
+        """
+        self.board.overlay.toggle_deployment = MagicMock()
+        self.board.overlay.update_unit = MagicMock()
+
+        # Set up the scenario in which we have selected a deployer unit with a passenger unit, and we are deploying
+        # said passenger unit.
+        self.board.deploying_army_from_unit = True
+        self.board.selected_unit = self.TEST_DEPLOYER_UNIT
+        self.TEST_DEPLOYER_UNIT.passengers = [self.TEST_UNIT, self.TEST_UNIT_3]
+        self.TEST_PLAYER.units = [self.TEST_DEPLOYER_UNIT]
+        self.board.overlay.unit_passengers_idx = 1
+        self.board.overlay.show_unit_passengers = True
+
+        # Click a quad not adjacent to the deployer unit - this should fail.
+        self.board.process_left_click(20, 5, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        # As expected, the unit is still a passenger, and the deployment is still ongoing with no state changes or
+        # toggles of overlays.
+        self.assertListEqual([self.TEST_UNIT, self.TEST_UNIT_3], self.TEST_PLAYER.units[0].passengers)
+        self.assertListEqual([self.TEST_DEPLOYER_UNIT], self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+        self.assertTrue(self.board.deploying_army_from_unit)
+        self.assertEqual(1, self.board.overlay.unit_passengers_idx)
+        self.assertTrue(self.board.overlay.show_unit_passengers)
+        self.assertEqual(self.TEST_DEPLOYER_UNIT, self.board.selected_unit)
+        self.board.overlay.toggle_deployment.assert_not_called()
+        self.board.overlay.update_unit.assert_not_called()
+
+        # Now if we click an adjacent quad, updates should occur.
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        # The unit should be located where the click occurred.
+        self.assertTupleEqual((5, 5), self.TEST_UNIT_3.location)
+        # The player should also have the unit in their possession, not the deployer unit's, and their seen quads should
+        # be updated.
+        self.assertListEqual([self.TEST_DEPLOYER_UNIT, self.TEST_UNIT_3], self.TEST_PLAYER.units)
+        self.assertListEqual([self.TEST_UNIT], self.TEST_DEPLOYER_UNIT.passengers)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
+        # The deployment should also be concluded, updating state to show the new unit as selected, and toggling a few
+        # overlays.
+        self.assertFalse(self.board.deploying_army_from_unit)
+        self.assertEqual(0, self.board.overlay.unit_passengers_idx)
+        self.assertFalse(self.board.overlay.show_unit_passengers)
+        self.assertEqual(self.TEST_UNIT_3, self.board.selected_unit)
+        self.board.overlay.toggle_deployment.assert_called()
+        self.board.overlay.update_unit.assert_called_with(self.TEST_UNIT_3)
+
     def test_left_click_select_heathen(self):
         """
         Ensure that heathens are appropriately selected when clicked on.
