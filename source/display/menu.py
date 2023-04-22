@@ -460,7 +460,6 @@ class Menu:
                     if self.unit_boundaries[1] < len(self.unit_plans_to_render) - 1:
                         self.draw_paragraph(152, 140, "More down!", 5)
                         pyxel.blt(172, 141, 0, 0, 76, 8, 8)
-                    unit_plans_to_render: typing.List[UnitPlan]
                     match self.wiki_units_option:
                         case WikiUnitsOption.ATTACKING:
                             pyxel.text(75, 30, "Attacking units", pyxel.COLOR_WHITE)

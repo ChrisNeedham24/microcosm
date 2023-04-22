@@ -297,7 +297,7 @@ class DeployerUnit(Unit):
     """
     The actual instance of a deployer unit, based on a DeployerUnitPlan.
     """
-    passengers: typing.List[Unit] = field(default_factory=lambda: [])
+    passengers: typing.List[Unit] = field(default_factory=list)
 
 
 @dataclass
@@ -392,11 +392,11 @@ class Player:
     faction: Faction
     colour: int  # Refers to pyxel's colours, which resolve to integers.
     wealth: float = 0
-    settlements: typing.List[Settlement] = field(default_factory=lambda: [])
-    units: typing.List[Unit] = field(default_factory=lambda: [])
-    blessings: typing.List[Blessing] = field(default_factory=lambda: [])
-    quads_seen: typing.Set[typing.Tuple[int, int]] = field(default_factory=lambda: set())
-    imminent_victories: typing.Set[VictoryType] = field(default_factory=lambda: set())
+    settlements: typing.List[Settlement] = field(default_factory=list)
+    units: typing.List[Unit] = field(default_factory=list)
+    blessings: typing.List[Blessing] = field(default_factory=list)
+    quads_seen: typing.Set[typing.Tuple[int, int]] = field(default_factory=set)
+    imminent_victories: typing.Set[VictoryType] = field(default_factory=set)
     ongoing_blessing: typing.Optional[OngoingBlessing] = None
     ai_playstyle: typing.Optional[AIPlaystyle] = None
     jubilation_ctr: int = 0  # How many turns the player has had 5 settlements at 100% satisfaction.
