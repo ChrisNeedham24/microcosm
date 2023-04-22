@@ -214,16 +214,21 @@ class MenuTest(unittest.TestCase):
         self.assertTupleEqual((0, 8), self.menu.unit_boundaries)
 
     def test_navigate_wiki_units_type(self):
+        """
+        Ensure that the player can correctly navigate left and right between the different types of units in the wiki.
+        """
         self.menu.in_wiki = True
         self.menu.wiki_showing = WikiOption.UNITS
         self.menu.wiki_units_option = WikiUnitsOption.ATTACKING
 
+        # Navigating right from the attacking units should display the healing units and reset the boundaries.
         self.menu.unit_boundaries = 1, 9
         self.menu.navigate(right=True)
         self.assertEqual(WikiUnitsOption.HEALING, self.menu.wiki_units_option)
         self.assertListEqual([up for up in UNIT_PLANS if up.heals], self.menu.unit_plans_to_render)
         self.assertTupleEqual((0, 8), self.menu.unit_boundaries)
 
+        # Navigating right from the healing units should display the deploying units and reset the boundaries.
         self.menu.unit_boundaries = 1, 9
         self.menu.navigate(right=True)
         self.assertEqual(WikiUnitsOption.DEPLOYING, self.menu.wiki_units_option)
@@ -231,6 +236,7 @@ class MenuTest(unittest.TestCase):
                              self.menu.unit_plans_to_render)
         self.assertTupleEqual((0, 8), self.menu.unit_boundaries)
 
+        # Navigating right from the deploying units should do nothing since there is no further type.
         self.menu.unit_boundaries = 1, 9
         self.menu.navigate(right=True)
         self.assertEqual(WikiUnitsOption.DEPLOYING, self.menu.wiki_units_option)
@@ -238,11 +244,13 @@ class MenuTest(unittest.TestCase):
                              self.menu.unit_plans_to_render)
         self.assertTupleEqual((1, 9), self.menu.unit_boundaries)
 
+        # Navigating left from the deploying units should display the healing units and reset the boundaries.
         self.menu.navigate(left=True)
         self.assertEqual(WikiUnitsOption.HEALING, self.menu.wiki_units_option)
         self.assertListEqual([up for up in UNIT_PLANS if up.heals], self.menu.unit_plans_to_render)
         self.assertTupleEqual((0, 8), self.menu.unit_boundaries)
 
+        # Navigating left from the healing units should display the attacking units and reset the boundaries.
         self.menu.unit_boundaries = 1, 9
         self.menu.navigate(left=True)
         self.assertEqual(WikiUnitsOption.ATTACKING, self.menu.wiki_units_option)
@@ -250,6 +258,7 @@ class MenuTest(unittest.TestCase):
                              self.menu.unit_plans_to_render)
         self.assertTupleEqual((0, 8), self.menu.unit_boundaries)
 
+        # Navigating left from the attacking units should do nothing since there is no further type.
         self.menu.unit_boundaries = 1, 9
         self.menu.navigate(left=True)
         self.assertEqual(WikiUnitsOption.ATTACKING, self.menu.wiki_units_option)

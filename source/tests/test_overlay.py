@@ -873,21 +873,28 @@ class OverlayTest(unittest.TestCase):
         set_and_remove(self, OverlayType.SETTLEMENT, self.overlay.is_setl, should_return_none=False)
 
     def test_navigate_unit(self):
+        """
+        Ensure that navigating the unit overlay restricts the passenger index to within the bounds of the selected
+        deployer unit's number of passengers.
+        """
         test_deployer_unit_plan = DeployerUnitPlan(0, 1, 2, "3", None, 4)
         test_deployer_unit = DeployerUnit(1, 2, (3, 4), False, test_deployer_unit_plan,
                                           passengers=[self.TEST_UNIT, self.TEST_UNIT_2])
         self.overlay.selected_unit = test_deployer_unit
         self.overlay.unit_passengers_idx = 0
 
+        # Navigating down once should increase the index.
         self.overlay.navigate_unit(down=True)
         self.assertEqual(1, self.overlay.unit_passengers_idx)
+        # Since there are only two passenger units, navigating down again should have no effect.
         self.overlay.navigate_unit(down=True)
         self.assertEqual(1, self.overlay.unit_passengers_idx)
+        # Navigating up once should decrease the index.
         self.overlay.navigate_unit(down=False)
         self.assertEqual(0, self.overlay.unit_passengers_idx)
+        # Since the index is at 0, navigating up again should have no effect.
         self.overlay.navigate_unit(down=False)
         self.assertEqual(0, self.overlay.unit_passengers_idx)
-
 
 
 if __name__ == '__main__':

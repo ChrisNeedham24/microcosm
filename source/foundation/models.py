@@ -270,6 +270,11 @@ class UnitPlan:
 
 @dataclass
 class DeployerUnitPlan(UnitPlan):
+    """
+    The plan for a deployer unit that may be recruited.
+    """
+    # This needs to have a default value since it's a subclass of UnitPlan, meaning this argument in the constructor
+    # will come after the last UnitPlan attribute.
     max_capacity: int = 3
 
 
@@ -289,6 +294,9 @@ class Unit:
 
 @dataclass
 class DeployerUnit(Unit):
+    """
+    The actual instance of a deployer unit, based on a DeployerUnitPlan.
+    """
     passengers: typing.List[Unit] = field(default_factory=lambda: [])
 
 

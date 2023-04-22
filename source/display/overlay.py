@@ -321,6 +321,10 @@ class Overlay:
         return OverlayType.UNIT in self.showing
 
     def navigate_unit(self, down: bool):
+        """
+        Navigate the passengers part of the unit overlay for deployer units.
+        :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
+        """
         if down and self.unit_passengers_idx + 1 < len(self.selected_unit.passengers):
             self.unit_passengers_idx += 1
         elif not down and self.unit_passengers_idx - 1 >= 0:

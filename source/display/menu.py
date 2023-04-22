@@ -51,6 +51,9 @@ class WikiOption(Enum):
 
 
 class WikiUnitsOption(Enum):
+    """
+    Represents the different types of units displayed in the wiki.
+    """
     ATTACKING = "ATT"
     HEALING = "HEAL"
     DEPLOYING = "DEP"

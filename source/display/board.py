@@ -206,11 +206,13 @@ class Board:
                                   (setl_quad.location[1] - map_pos[1]) * 8 + 4, 0, setl_x,
                                   68 if settlement.besieged else 4, 8, 8)
 
-        for player in players:
-            for settlement in player.settlements:
-                if settlement.location in quads_to_show or not fog_of_war_impacts:
-                    # Draw name tags for non-selected settlements.
-                    if not self.deploying_army_from_unit:
+        # Only draw settlement additions if we're not deploying from a unit, as we want the board to be as clear as
+        # possible in those situations.
+        if not self.deploying_army_from_unit:
+            for player in players:
+                for settlement in player.settlements:
+                    if settlement.location in quads_to_show or not fog_of_war_impacts:
+                        # Draw name tags for non-selected settlements.
                         if self.selected_settlement is not settlement:
                             name_len = len(settlement.name)
                             x_offset = 11 - name_len
@@ -222,8 +224,8 @@ class Board:
                                 pyxel.rect(base_x_pos - 17, base_y_pos - 8, 52, 10,
                                            pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
                                 pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, player.colour)
-                                # We need to base the size of the strength container on the length of the string, so that it
-                                # is centred.
+                                # We need to base the size of the strength container on the length of the string, so
+                                # that it is centred.
                                 strength_as_str = str(round(settlement.strength))
                                 match len(strength_as_str):
                                     case 3:
@@ -242,7 +244,8 @@ class Board:
                                 pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10,
                                             pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
                                 pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
-                                pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
+                                pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name,
+                                           pyxel.COLOR_WHITE)
                         else:
                             for setl_quad in settlement.quads:
                                 pyxel.rectb((setl_quad.location[0] - map_pos[0]) * 8 + 4,
@@ -535,6 +538,10 @@ class Board:
                         # Deselect the unit now.
                         self.selected_unit = None
                         self.overlay.toggle_unit(None)
+                    # If the player has selected a unit, and they have clicked on one of their deployer units, add the
+                    # selected unit as a passenger to the deployer unit, ensuring it is within range. Also make sure
+                    # that the selected unit is not a deployer unit, and that the deployer unit clicked on has room for
+                    # a new passenger.
                     elif not self.deploying_army_from_unit and self.selected_unit is not None and \
                             self.selected_unit in player.units and self.selected_settlement is None and \
                             any((to_select := unit).location == (adj_x, adj_y) and isinstance(unit, DeployerUnit)
@@ -579,6 +586,8 @@ class Board:
                         self.selected_settlement = None
                         self.overlay.toggle_settlement(None, player)
                         self.overlay.toggle_unit(deployed)
+                    # If the player is deploying a unit from a deployer unit, and they've clicked within one quad of the
+                    # deployer unit being deployed from, place the unit there.
                     elif self.deploying_army_from_unit and \
                             self.selected_unit.location[0] - 1 <= adj_x <= self.selected_unit.location[0] + 1 and \
                             self.selected_unit.location[1] - 1 <= adj_y <= self.selected_unit.location[1] + 1 and \
@@ -596,10 +605,11 @@ class Board:
                         for i in range(adj_y - 5, adj_y + 6):
                             for j in range(adj_x - 5, adj_x + 6):
                                 player.quads_seen.add((j, i))
+                        # Reset the relevant deployer unit state.
                         self.deploying_army_from_unit = False
                         self.overlay.unit_passengers_idx = 0
                         self.overlay.show_unit_passengers = False
-                        # Select the unit and deselect the settlement.
+                        # Select the unit as well.
                         self.selected_unit = deployed
                         self.overlay.toggle_deployment()
                         self.overlay.update_unit(deployed)
@@ -637,9 +647,12 @@ class Board:
                             self.overlay.toggle_attack(data)
                             self.attack_time_bank = 0
                         # However, if the player clicked on another of their units, either heal or select it rather than
-                        # attacking, depending on whether the currently-selected unit can heal others or not.
+                        # attacking, depending on whether the currently-selected unit can heal others or not. Note that
+                        # healer units cannot heal deployer units, since this would create weird behaviour where
+                        # left-clicking on a friendly deployer unit is ambiguous in its purpose - healing or boarding.
                         elif other_unit in player.units:
                             if self.selected_unit is not other_unit and self.selected_unit.plan.heals and \
+                                    not isinstance(other_unit, DeployerUnit) and \
                                     abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
                                     abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
                                 data = heal(self.selected_unit, other_unit, ai=False)

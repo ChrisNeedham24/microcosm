@@ -7,7 +7,7 @@ from source.util.calculator import get_setl_totals
 from source.foundation.catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units
 from source.foundation.models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, \
     OverlayType, SettlementAttackType, PauseOption, Faction, HarvestStatus, ConstructionMenu, ProjectType, Project, \
-    DeployerUnitPlan
+    DeployerUnitPlan, DeployerUnit
 from source.display.overlay import Overlay
 
 
@@ -355,7 +355,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             x_offset = 8 if round(overlay.selected_unit.plan.cost / 10) >= 10 and \
                 overlay.selected_unit in overlay.current_player.units else 0
             if overlay.selected_unit in overlay.current_player.units and \
-                    isinstance(overlay.selected_unit.plan, DeployerUnitPlan):
+                    isinstance(overlay.selected_unit, DeployerUnit):
                 if overlay.show_unit_passengers:
                     pyxel.rectb(70 + x_offset, 110 + y_offset, 56 + x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
                     pyxel.rect(71 + x_offset, 111 + y_offset, 54 + x_offset, 58 - y_offset, pyxel.COLOR_BLACK)

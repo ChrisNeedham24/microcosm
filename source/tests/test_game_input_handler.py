@@ -122,14 +122,19 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board.overlay.navigate_standard.assert_called_with(down=True)
 
     def test_arrow_down_unit(self):
+        """
+        Ensure that the correct method is called when pressing the down arrow key while viewing the unit overlay.
+        """
         self.game_state.game_started = True
         self.game_state.board.overlay.showing = [OverlayType.UNIT]
         self.game_state.board.overlay.navigate_unit = MagicMock()
 
+        # If the deployer unit passenger view is not being displayed, the method should not be called.
         self.game_state.board.overlay.show_unit_passengers = False
         on_key_arrow_down(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_unit.assert_not_called()
 
+        # However, if the passenger view is being displayed, the method should be called.
         self.game_state.board.overlay.show_unit_passengers = True
         on_key_arrow_down(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_unit.assert_called_with(down=True)
@@ -223,14 +228,19 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board.overlay.navigate_standard.assert_called_with(down=False)
 
     def test_arrow_up_unit(self):
+        """
+        Ensure that the correct method is called when pressing the up arrow key while viewing the unit overlay.
+        """
         self.game_state.game_started = True
         self.game_state.board.overlay.showing = [OverlayType.UNIT]
         self.game_state.board.overlay.navigate_unit = MagicMock()
 
+        # If the deployer unit passenger view is not being displayed, the method should not be called.
         self.game_state.board.overlay.show_unit_passengers = False
         on_key_arrow_up(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_unit.assert_not_called()
 
+        # However, if the passenger view is being displayed, the method should be called.
         self.game_state.board.overlay.show_unit_passengers = True
         on_key_arrow_up(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_unit.assert_called_with(down=False)
@@ -772,6 +782,10 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.music_player.play_menu_music.assert_called()
 
     def test_return_deploy_from_unit(self):
+        """
+        Ensure that pressing the return key when viewing a deployer unit's passengers triggers the deployment process to
+        begin.
+        """
         self.game_state.game_started = True
         self.game_state.board.overlay.showing = [OverlayType.UNIT]
         self.game_state.board.overlay.show_unit_passengers = True
@@ -893,6 +907,9 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board.overlay.toggle_deployment.assert_called()
 
     def test_d_deployment_from_unit(self):
+        """
+        Ensure that the D key correctly toggles the passenger view for deployer units.
+        """
         test_deployer_unit_plan = DeployerUnitPlan(0, 1, 2, "3", None, 4)
         test_deployer_unit = DeployerUnit(1, 2, (3, 4), False, test_deployer_unit_plan)
         self.game_state.game_started = True
@@ -900,13 +917,14 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.players[0].units.append(test_deployer_unit)
         self.game_state.board.overlay.show_unit_passengers = False
 
+        # The toggle shouldn't occur if the deployer unit doesn't have any passengers.
         on_key_d(self.game_state)
         self.assertFalse(self.game_state.board.overlay.show_unit_passengers)
 
+        # Now that the deployer unit has a passenger, the toggle should occur.
         test_deployer_unit.passengers = [self.TEST_UNIT]
         on_key_d(self.game_state)
         self.assertTrue(self.game_state.board.overlay.show_unit_passengers)
-
 
     def test_x_disband(self):
         """

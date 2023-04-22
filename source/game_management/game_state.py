@@ -4,7 +4,7 @@ import typing
 from source.display.board import Board
 from source.saving.game_save_manager import save_stats
 from source.util.calculator import clamp, attack, get_setl_totals, complete_construction
-from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer, BLESSINGS
+from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
 from source.foundation.models import Heathen, Quad
 from source.foundation.models import Player, Settlement, CompletedConstruction, Unit, HarvestStatus, EconomicStatus, \
     AttackPlaystyle, GameConfig, Victory, VictoryType, AIPlaystyle, ExpansionPlaystyle, Faction, Project
