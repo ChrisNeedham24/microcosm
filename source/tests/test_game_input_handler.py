@@ -8,7 +8,7 @@ from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS, get_availa
     get_available_unit_plans, PROJECTS, IMPROVEMENTS
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
     Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit, Construction, CompletedConstruction, \
-    SettlementAttackType, PauseOption, Quad, Biome
+    SettlementAttackType, PauseOption, Quad, Biome, DeployerUnitPlan, DeployerUnit
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
     on_key_arrow_right, on_key_shift, on_key_f, on_key_d, on_key_s, on_key_n, on_key_a, on_key_c, on_key_tab, \
@@ -121,6 +121,19 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_down(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_standard.assert_called_with(down=True)
 
+    def test_arrow_down_unit(self):
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.UNIT]
+        self.game_state.board.overlay.navigate_unit = MagicMock()
+
+        self.game_state.board.overlay.show_unit_passengers = False
+        on_key_arrow_down(self.game_controller, self.game_state, False)
+        self.game_state.board.overlay.navigate_unit.assert_not_called()
+
+        self.game_state.board.overlay.show_unit_passengers = True
+        on_key_arrow_down(self.game_controller, self.game_state, False)
+        self.game_state.board.overlay.navigate_unit.assert_called_with(down=True)
+
     def test_arrow_down_map(self):
         """
         Ensure that the correct map panning occurs when pressing the down arrow key while no obscuring overlay is
@@ -208,6 +221,19 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board.overlay.navigate_standard = MagicMock()
         on_key_arrow_up(self.game_controller, self.game_state, False)
         self.game_state.board.overlay.navigate_standard.assert_called_with(down=False)
+
+    def test_arrow_up_unit(self):
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.UNIT]
+        self.game_state.board.overlay.navigate_unit = MagicMock()
+
+        self.game_state.board.overlay.show_unit_passengers = False
+        on_key_arrow_up(self.game_controller, self.game_state, False)
+        self.game_state.board.overlay.navigate_unit.assert_not_called()
+
+        self.game_state.board.overlay.show_unit_passengers = True
+        on_key_arrow_up(self.game_controller, self.game_state, False)
+        self.game_state.board.overlay.navigate_unit.assert_called_with(down=False)
 
     def test_arrow_up_map(self):
         """
@@ -745,6 +771,17 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.music_player.stop_game_music.assert_called()
         self.game_controller.music_player.play_menu_music.assert_called()
 
+    def test_return_deploy_from_unit(self):
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.UNIT]
+        self.game_state.board.overlay.show_unit_passengers = True
+
+        self.assertFalse(self.game_state.board.deploying_army_from_unit)
+        self.assertFalse(self.game_state.board.overlay.is_deployment())
+        on_key_return(self.game_controller, self.game_state)
+        self.assertTrue(self.game_state.board.deploying_army_from_unit)
+        self.assertTrue(self.game_state.board.overlay.is_deployment())
+
     @patch("source.game_management.game_input_handler.save_stats")
     @patch("source.game_management.game_input_handler.save_game")
     def test_return_end_turn(self, save_mock: MagicMock, save_stats_mock: MagicMock):
@@ -854,6 +891,22 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_d(self.game_state)
         self.assertTrue(self.game_state.board.deploying_army)
         self.game_state.board.overlay.toggle_deployment.assert_called()
+
+    def test_d_deployment_from_unit(self):
+        test_deployer_unit_plan = DeployerUnitPlan(0, 1, 2, "3", None, 4)
+        test_deployer_unit = DeployerUnit(1, 2, (3, 4), False, test_deployer_unit_plan)
+        self.game_state.game_started = True
+        self.game_state.board.selected_unit = test_deployer_unit
+        self.game_state.players[0].units.append(test_deployer_unit)
+        self.game_state.board.overlay.show_unit_passengers = False
+
+        on_key_d(self.game_state)
+        self.assertFalse(self.game_state.board.overlay.show_unit_passengers)
+
+        test_deployer_unit.passengers = [self.TEST_UNIT]
+        on_key_d(self.game_state)
+        self.assertTrue(self.game_state.board.overlay.show_unit_passengers)
+
 
     def test_x_disband(self):
         """

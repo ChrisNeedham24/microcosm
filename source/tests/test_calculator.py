@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 from source.foundation.catalogue import UNIT_PLANS, BLESSINGS, PROJECTS
 from source.foundation.models import Biome, Unit, AttackData, HealData, Settlement, SetlAttackData, Player, Faction, \
     Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing, \
-    Quad, EconomicStatus, HarvestStatus
+    Quad, EconomicStatus, HarvestStatus, DeployerUnitPlan, DeployerUnit
 from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction, \
     investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices
 
@@ -485,6 +485,21 @@ class CalculatorTest(unittest.TestCase):
         self.assertTrue(test_setl.produced_settler)
         # We also expect the settlement's garrison to now have a unit - the produced one.
         self.assertTrue(test_setl.garrison)
+        self.assertIsNone(test_setl.current_work)
+
+    def test_complete_construction_deployer_unit(self):
+        """
+        Ensure that when completing a construction that yields a deployer unit, the related settlement is correctly
+        updated.
+        """
+        test_deployer_unit_plan = DeployerUnitPlan(20, 20, 10, "DeployerMan", None, 1)
+        test_setl = Settlement("Working", (50, 50), [], [], [], current_work=Construction(test_deployer_unit_plan))
+        test_player = Player("Tester", Faction.FRONTIERSMEN, 0, settlements=[test_setl])
+
+        complete_construction(test_setl, test_player)
+        # We expect the settlement's garrison to now have a deployer unit - the produced one.
+        self.assertTrue(test_setl.garrison)
+        self.assertTrue(isinstance(test_setl.garrison[0], DeployerUnit))
         self.assertIsNone(test_setl.current_work)
 
     @patch("random.randint")

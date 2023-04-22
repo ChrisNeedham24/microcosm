@@ -4,7 +4,7 @@ import pyxel
 
 from source.foundation.catalogue import UNIT_PLANS
 from source.foundation.models import UnitPlan, Unit, AttackPlaystyle, ExpansionPlaystyle, VictoryType, Faction, \
-    Settlement, Biome, Quad, GameConfig
+    Settlement, Biome, Quad, GameConfig, DeployerUnitPlan, DeployerUnit
 from source.game_management.game_state import GameState
 from source.saving.save_encoder import ObjectConverter
 from source.saving.save_migrator import migrate_unit_plan, migrate_unit, migrate_player, migrate_climatic_effects, \
@@ -57,6 +57,44 @@ class SaveMigratorTest(unittest.TestCase):
         # Old unit plans should be mapped to False.
         self.assertFalse(outdated_plan.heals)
 
+    def test_deployer_unit_plan(self):
+        """
+        Ensure that migrations occur correctly for DeployerUnitPlans.
+        """
+        test_power = 100
+        test_max_health = 200
+        test_total_stamina = 4
+        test_name = "Bob"
+        test_cost = 350
+        test_max_capacity = 7
+
+        # Simulate a loaded deployer unit plan.
+        test_loaded_plan: ObjectConverter = ObjectConverter({
+            "power": test_power,
+            "max_health": test_max_health,
+            "total_stamina": test_total_stamina,
+            "name": test_name,
+            "prereq": None,
+            "cost": test_cost,
+            "can_settle": False,
+            "heals": False,
+            "max_capacity": test_max_capacity
+        })
+
+        migrated_plan: UnitPlan = migrate_unit_plan(test_loaded_plan)
+
+        # The attributes should all map across directly, and the right class should be used.
+        self.assertTrue(isinstance(migrated_plan, DeployerUnitPlan))
+        self.assertEqual(test_power, migrated_plan.power)
+        self.assertEqual(test_max_health, migrated_plan.max_health)
+        self.assertEqual(test_total_stamina, migrated_plan.total_stamina)
+        self.assertEqual(test_name, migrated_plan.name)
+        self.assertIsNone(migrated_plan.prereq)
+        self.assertEqual(test_cost, migrated_plan.cost)
+        self.assertFalse(migrated_plan.can_settle)
+        self.assertFalse(migrated_plan.heals)
+        self.assertEqual(test_max_capacity, migrated_plan.max_capacity)
+
     def test_unit(self):
         """
         Ensure that migrations occur correctly for Units.
@@ -101,6 +139,60 @@ class SaveMigratorTest(unittest.TestCase):
         # We also expect that the old attributes are deleted.
         self.assertFalse(hasattr(outdated_unit, "has_attacked"))
         self.assertFalse(hasattr(outdated_unit, "sieging"))
+
+    def test_deployer_unit(self):
+        """
+        Ensure that migrations occur correctly for DeployerUnits.
+        """
+        test_health = 300
+        test_remaining_stamina = 3
+        test_location = [1, 2]
+        test_health_passenger = 600
+        test_remaining_stamina_passenger = 4
+        test_location_passenger = [3, 4]
+
+        # Simulate a deployer unit.
+        test_loaded_unit: ObjectConverter = ObjectConverter({
+            "health": test_health,
+            "remaining_stamina": test_remaining_stamina,
+            "location": test_location,
+            "garrisoned": False,
+            "plan": UNIT_PLANS[-4],
+            "has_acted": True,
+            "besieging": False,
+            "passengers": [ObjectConverter({
+                "health": test_health_passenger,
+                "remaining_stamina": test_remaining_stamina_passenger,
+                "location": test_location_passenger,
+                "garrisoned": False,
+                "plan": UNIT_PLANS[0],
+                "has_acted": True,
+                "besieging": False,
+            })]
+        })
+
+        migrated_unit: Unit = migrate_unit(test_loaded_unit)
+
+        # The attributes should all map across directly, and the right class should be used.
+        self.assertTrue(isinstance(migrated_unit, DeployerUnit))
+        self.assertEqual(test_health, migrated_unit.health)
+        self.assertEqual(test_remaining_stamina, migrated_unit.remaining_stamina)
+        self.assertTupleEqual((test_location[0], test_location[1]), migrated_unit.location)
+        self.assertFalse(migrated_unit.garrisoned)
+        self.assertEqual(UNIT_PLANS[-4], migrated_unit.plan)
+        self.assertTrue(migrated_unit.has_acted)
+        self.assertFalse(migrated_unit.besieging)
+        self.assertEqual(1, len(migrated_unit.passengers))
+
+        # The passenger unit should also have been successfully migrated.
+        migrated_passenger: Unit = migrated_unit.passengers[0]
+        self.assertEqual(test_health_passenger, migrated_passenger.health)
+        self.assertEqual(test_remaining_stamina_passenger, migrated_passenger.remaining_stamina)
+        self.assertTupleEqual((test_location_passenger[0], test_location_passenger[1]), migrated_passenger.location)
+        self.assertFalse(migrated_passenger.garrisoned)
+        self.assertEqual(UNIT_PLANS[0], migrated_passenger.plan)
+        self.assertTrue(migrated_passenger.has_acted)
+        self.assertFalse(migrated_passenger.besieging)
 
     def test_player(self):
         """

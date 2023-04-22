@@ -5,7 +5,8 @@ from source.display.overlay import Overlay
 from source.foundation.catalogue import UNIT_PLANS
 from source.foundation.models import OverlayType, Settlement, Player, Faction, ConstructionMenu, Project, ProjectType, \
     Improvement, Effect, ImprovementType, UnitPlan, Blessing, Unit, CompletedConstruction, AttackData, HealData, \
-    SetlAttackData, Victory, VictoryType, SettlementAttackType, PauseOption, InvestigationResult
+    SetlAttackData, Victory, VictoryType, SettlementAttackType, PauseOption, InvestigationResult, DeployerUnitPlan, \
+    DeployerUnit
 
 
 class OverlayTest(unittest.TestCase):
@@ -870,6 +871,23 @@ class OverlayTest(unittest.TestCase):
         # reset the selected unit/settlement as well.
         set_and_remove(self, OverlayType.UNIT, self.overlay.is_unit, should_return_none=False)
         set_and_remove(self, OverlayType.SETTLEMENT, self.overlay.is_setl, should_return_none=False)
+
+    def test_navigate_unit(self):
+        test_deployer_unit_plan = DeployerUnitPlan(0, 1, 2, "3", None, 4)
+        test_deployer_unit = DeployerUnit(1, 2, (3, 4), False, test_deployer_unit_plan,
+                                          passengers=[self.TEST_UNIT, self.TEST_UNIT_2])
+        self.overlay.selected_unit = test_deployer_unit
+        self.overlay.unit_passengers_idx = 0
+
+        self.overlay.navigate_unit(down=True)
+        self.assertEqual(1, self.overlay.unit_passengers_idx)
+        self.overlay.navigate_unit(down=True)
+        self.assertEqual(1, self.overlay.unit_passengers_idx)
+        self.overlay.navigate_unit(down=False)
+        self.assertEqual(0, self.overlay.unit_passengers_idx)
+        self.overlay.navigate_unit(down=False)
+        self.assertEqual(0, self.overlay.unit_passengers_idx)
+
 
 
 if __name__ == '__main__':

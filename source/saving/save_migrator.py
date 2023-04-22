@@ -82,6 +82,8 @@ def migrate_unit(unit) -> Unit:
         will_be_besieging = unit.sieging
         delattr(unit, "sieging")
     if hasattr(unit, "passengers"):
+        for idx, p in enumerate(unit.passengers):
+            unit.passengers[idx] = migrate_unit(p)
         return DeployerUnit(unit.health, unit.remaining_stamina, (unit.location[0], unit.location[1]), unit.garrisoned,
                             migrate_unit_plan(unit.plan), will_have_acted, will_be_besieging, unit.passengers)
     return Unit(unit.health, unit.remaining_stamina, (unit.location[0], unit.location[1]), unit.garrisoned,
