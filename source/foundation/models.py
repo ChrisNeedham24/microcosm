@@ -297,7 +297,7 @@ class DeployerUnit(Unit):
     """
     The actual instance of a deployer unit, based on a DeployerUnitPlan.
     """
-    passengers: typing.List[Unit] = field(default_factory=list)
+    passengers: typing.List[Unit] = field(default_factory=lambda: [])
 
 
 @dataclass
@@ -392,9 +392,9 @@ class Player:
     faction: Faction
     colour: int  # Refers to pyxel's colours, which resolve to integers.
     wealth: float = 0
-    settlements: typing.List[Settlement] = field(default_factory=list)
-    units: typing.List[Unit] = field(default_factory=list)
-    blessings: typing.List[Blessing] = field(default_factory=list)
+    settlements: typing.List[Settlement] = field(default_factory=lambda: [])
+    units: typing.List[Unit] = field(default_factory=lambda: [])
+    blessings: typing.List[Blessing] = field(default_factory=lambda: [])
     quads_seen: typing.Set[typing.Tuple[int, int]] = field(default_factory=set)
     imminent_victories: typing.Set[VictoryType] = field(default_factory=set)
     ongoing_blessing: typing.Optional[OngoingBlessing] = None
