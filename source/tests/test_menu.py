@@ -2,9 +2,9 @@ import unittest
 
 import pyxel
 
-from source.display.menu import Menu, SetupOption, WikiOption, MainMenuOption
+from source.display.menu import Menu, SetupOption, WikiOption, MainMenuOption, WikiUnitsOption
 from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS
-from source.foundation.models import VictoryType, GameConfig
+from source.foundation.models import VictoryType, GameConfig, DeployerUnitPlan
 
 
 class MenuTest(unittest.TestCase):
@@ -185,31 +185,86 @@ class MenuTest(unittest.TestCase):
         self.menu.navigate(up=True)
         self.assertTupleEqual((0, 3), self.menu.improvement_boundaries)
 
-    def test_navigate_wiki_units(self):
+    def test_navigate_wiki_units_attacking(self):
         """
-        Ensure that the player can correctly navigate up and down the units page in the wiki.
+        Ensure that the player can correctly navigate up and down the attacking units page in the wiki.
         """
         self.menu.in_wiki = True
         self.menu.wiki_showing = WikiOption.UNITS
+        self.menu.wiki_units_option = WikiUnitsOption.ATTACKING
+        expected_unit_plans = [up for up in UNIT_PLANS if not up.heals and not isinstance(up, DeployerUnitPlan)]
 
-        self.assertTupleEqual((0, 9), self.menu.unit_boundaries)
+        self.assertTupleEqual((0, 8), self.menu.unit_boundaries)
         # Iterate through each unit.
-        for i in range(10, len(UNIT_PLANS)):
+        for i in range(9, len(expected_unit_plans)):
             self.menu.navigate(down=True)
-            self.assertTupleEqual((i - 9, i), self.menu.unit_boundaries)
+            self.assertTupleEqual((i - 8, i), self.menu.unit_boundaries)
         # Once we get down to the bottom, pressing down again shouldn't do anything.
-        self.assertTupleEqual((len(UNIT_PLANS) - 10, len(UNIT_PLANS) - 1), self.menu.unit_boundaries)
+        self.assertTupleEqual((len(expected_unit_plans) - 9, len(expected_unit_plans) - 1), self.menu.unit_boundaries)
         self.menu.navigate(down=True)
-        self.assertTupleEqual((len(UNIT_PLANS) - 10, len(UNIT_PLANS) - 1), self.menu.unit_boundaries)
+        self.assertTupleEqual((len(expected_unit_plans) - 9, len(expected_unit_plans) - 1), self.menu.unit_boundaries)
 
         # Go back up the page.
-        for i in range(len(UNIT_PLANS) - 11, -1, -1):
+        for i in range(len(expected_unit_plans) - 10, -1, -1):
             self.menu.navigate(up=True)
-            self.assertTupleEqual((i, i + 9), self.menu.unit_boundaries)
+            self.assertTupleEqual((i, i + 8), self.menu.unit_boundaries)
         # Now at the top, pressing up shouldn't do anything either.
-        self.assertTupleEqual((0, 9), self.menu.unit_boundaries)
+        self.assertTupleEqual((0, 8), self.menu.unit_boundaries)
         self.menu.navigate(up=True)
-        self.assertTupleEqual((0, 9), self.menu.unit_boundaries)
+        self.assertTupleEqual((0, 8), self.menu.unit_boundaries)
+
+    def test_navigate_wiki_units_type(self):
+        """
+        Ensure that the player can correctly navigate left and right between the different types of units in the wiki.
+        """
+        self.menu.in_wiki = True
+        self.menu.wiki_showing = WikiOption.UNITS
+        self.menu.wiki_units_option = WikiUnitsOption.ATTACKING
+
+        # Navigating right from the attacking units should display the healing units and reset the boundaries.
+        self.menu.unit_boundaries = 1, 9
+        self.menu.navigate(right=True)
+        self.assertEqual(WikiUnitsOption.HEALING, self.menu.wiki_units_option)
+        self.assertListEqual([up for up in UNIT_PLANS if up.heals], self.menu.unit_plans_to_render)
+        self.assertTupleEqual((0, 8), self.menu.unit_boundaries)
+
+        # Navigating right from the healing units should display the deploying units and reset the boundaries.
+        self.menu.unit_boundaries = 1, 9
+        self.menu.navigate(right=True)
+        self.assertEqual(WikiUnitsOption.DEPLOYING, self.menu.wiki_units_option)
+        self.assertListEqual([up for up in UNIT_PLANS if isinstance(up, DeployerUnitPlan)],
+                             self.menu.unit_plans_to_render)
+        self.assertTupleEqual((0, 8), self.menu.unit_boundaries)
+
+        # Navigating right from the deploying units should do nothing since there is no further type.
+        self.menu.unit_boundaries = 1, 9
+        self.menu.navigate(right=True)
+        self.assertEqual(WikiUnitsOption.DEPLOYING, self.menu.wiki_units_option)
+        self.assertListEqual([up for up in UNIT_PLANS if isinstance(up, DeployerUnitPlan)],
+                             self.menu.unit_plans_to_render)
+        self.assertTupleEqual((1, 9), self.menu.unit_boundaries)
+
+        # Navigating left from the deploying units should display the healing units and reset the boundaries.
+        self.menu.navigate(left=True)
+        self.assertEqual(WikiUnitsOption.HEALING, self.menu.wiki_units_option)
+        self.assertListEqual([up for up in UNIT_PLANS if up.heals], self.menu.unit_plans_to_render)
+        self.assertTupleEqual((0, 8), self.menu.unit_boundaries)
+
+        # Navigating left from the healing units should display the attacking units and reset the boundaries.
+        self.menu.unit_boundaries = 1, 9
+        self.menu.navigate(left=True)
+        self.assertEqual(WikiUnitsOption.ATTACKING, self.menu.wiki_units_option)
+        self.assertListEqual([up for up in UNIT_PLANS if not up.heals and not isinstance(up, DeployerUnitPlan)],
+                             self.menu.unit_plans_to_render)
+        self.assertTupleEqual((0, 8), self.menu.unit_boundaries)
+
+        # Navigating left from the attacking units should do nothing since there is no further type.
+        self.menu.unit_boundaries = 1, 9
+        self.menu.navigate(left=True)
+        self.assertEqual(WikiUnitsOption.ATTACKING, self.menu.wiki_units_option)
+        self.assertListEqual([up for up in UNIT_PLANS if not up.heals and not isinstance(up, DeployerUnitPlan)],
+                             self.menu.unit_plans_to_render)
+        self.assertTupleEqual((1, 9), self.menu.unit_boundaries)
 
     def test_navigate_main_menu(self):
         """

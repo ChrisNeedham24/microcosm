@@ -8,7 +8,7 @@ import pyxel
 from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal
 from source.foundation.catalogue import get_default_unit, Namer
 from source.foundation.models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, \
-    Faction
+    Faction, DeployerUnit
 from source.display.overlay import Overlay
 from source.display.overlay_display import display_overlay
 
@@ -59,6 +59,7 @@ class Board:
         self.overlay = Overlay()
         self.selected_settlement: typing.Optional[Settlement] = None
         self.deploying_army = False
+        self.deploying_army_from_unit = False
         self.selected_unit: typing.Optional[Unit | Heathen] = None
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
@@ -205,46 +206,50 @@ class Board:
                                   (setl_quad.location[1] - map_pos[1]) * 8 + 4, 0, setl_x,
                                   68 if settlement.besieged else 4, 8, 8)
 
-        for player in players:
-            for settlement in player.settlements:
-                if settlement.location in quads_to_show or not fog_of_war_impacts:
-                    # Draw name tags for non-selected settlements.
-                    if self.selected_settlement is not settlement:
-                        name_len = len(settlement.name)
-                        x_offset = 11 - name_len
-                        base_x_pos = (settlement.location[0] - map_pos[0]) * 8
-                        base_y_pos = (settlement.location[1] - map_pos[1]) * 8
-                        # Besieged settlements are displayed with a black background, along with their remaining
-                        # strength.
-                        if settlement.besieged:
-                            pyxel.rect(base_x_pos - 17, base_y_pos - 8, 52, 10,
-                                       pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
-                            pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, player.colour)
-                            # We need to base the size of the strength container on the length of the string, so that it
-                            # is centred.
-                            strength_as_str = str(round(settlement.strength))
-                            match len(strength_as_str):
-                                case 3:
-                                    pyxel.rect(base_x_pos, base_y_pos - 16, 16, 10,
-                                               pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
-                                    pyxel.text(base_x_pos + 2, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
-                                case 2:
-                                    pyxel.rect(base_x_pos + 3, base_y_pos - 16, 11, 10,
-                                               pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
-                                    pyxel.text(base_x_pos + 5, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
-                                case 1:
-                                    pyxel.rect(base_x_pos + 4, base_y_pos - 16, 8, 10,
-                                               pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
-                                    pyxel.text(base_x_pos + 7, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
+        # Only draw settlement additions if we're not deploying from a unit, as we want the board to be as clear as
+        # possible in those situations.
+        if not self.deploying_army_from_unit:
+            for player in players:
+                for settlement in player.settlements:
+                    if settlement.location in quads_to_show or not fog_of_war_impacts:
+                        # Draw name tags for non-selected settlements.
+                        if self.selected_settlement is not settlement:
+                            name_len = len(settlement.name)
+                            x_offset = 11 - name_len
+                            base_x_pos = (settlement.location[0] - map_pos[0]) * 8
+                            base_y_pos = (settlement.location[1] - map_pos[1]) * 8
+                            # Besieged settlements are displayed with a black background, along with their remaining
+                            # strength.
+                            if settlement.besieged:
+                                pyxel.rect(base_x_pos - 17, base_y_pos - 8, 52, 10,
+                                           pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, player.colour)
+                                # We need to base the size of the strength container on the length of the string, so
+                                # that it is centred.
+                                strength_as_str = str(round(settlement.strength))
+                                match len(strength_as_str):
+                                    case 3:
+                                        pyxel.rect(base_x_pos, base_y_pos - 16, 16, 10,
+                                                   pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                        pyxel.text(base_x_pos + 2, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
+                                    case 2:
+                                        pyxel.rect(base_x_pos + 3, base_y_pos - 16, 11, 10,
+                                                   pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                        pyxel.text(base_x_pos + 5, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
+                                    case 1:
+                                        pyxel.rect(base_x_pos + 4, base_y_pos - 16, 8, 10,
+                                                   pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                        pyxel.text(base_x_pos + 7, base_y_pos - 14, strength_as_str, pyxel.COLOR_RED)
+                            else:
+                                pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10,
+                                            pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
+                                pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
+                                pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name,
+                                           pyxel.COLOR_WHITE)
                         else:
-                            pyxel.rectb(base_x_pos - 17, base_y_pos - 8, 52, 10,
-                                        pyxel.COLOR_WHITE if is_night else pyxel.COLOR_BLACK)
-                            pyxel.rect(base_x_pos - 16, base_y_pos - 7, 50, 8, player.colour)
-                            pyxel.text(base_x_pos - 10 + x_offset, base_y_pos - 6, settlement.name, pyxel.COLOR_WHITE)
-                    else:
-                        for setl_quad in settlement.quads:
-                            pyxel.rectb((setl_quad.location[0] - map_pos[0]) * 8 + 4,
-                                        (setl_quad.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
+                            for setl_quad in settlement.quads:
+                                pyxel.rectb((setl_quad.location[0] - map_pos[0]) * 8 + 4,
+                                            (setl_quad.location[1] - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_RED)
 
         # For the selected quad, display its yield.
         if self.quad_selected is not None and selected_quad_coords is not None and \
@@ -267,6 +272,11 @@ class Board:
                     for j in range(setl_quad.location[1] - 1, setl_quad.location[1] + 2):
                         if not any(s_q.location == (i, j) for s_q in self.selected_settlement.quads):
                             pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_WHITE)
+        if self.deploying_army_from_unit:
+            for i in range(self.selected_unit.location[0] - 1, self.selected_unit.location[0] + 2):
+                for j in range(self.selected_unit.location[1] - 1, self.selected_unit.location[1] + 2):
+                    if self.selected_unit.location != (i, j):
+                        pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_WHITE)
 
         # Also display the number of units the player can move at the bottom-right of the screen.
         movable_units = [unit for unit in players[0].units if unit.remaining_stamina > 0 and not unit.besieging]
@@ -510,8 +520,8 @@ class Board:
                         self.overlay.toggle_settlement(to_select, player)
                     # If the player has selected a unit, and they have clicked on one of their settlements, garrison the
                     # selected unit in the settlement, ensuring it is within range.
-                    elif self.selected_unit is not None and self.selected_unit in player.units and \
-                            self.selected_settlement is None and \
+                    elif not self.deploying_army_from_unit and self.selected_unit is not None and \
+                            self.selected_unit in player.units and self.selected_settlement is None and \
                             any((to_select := setl) and any(setl_quad.location == (adj_x, adj_y)
                                                             for setl_quad in setl.quads)
                                 for setl in player.settlements) and \
@@ -519,8 +529,33 @@ class Board:
                             self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
                             self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
                             self.selected_unit.location[1] + self.selected_unit.remaining_stamina:
+                        initial = self.selected_unit.location
+                        distance_travelled = max(abs(initial[0] - adj_x), abs(initial[1] - adj_y))
+                        self.selected_unit.remaining_stamina -= distance_travelled
                         self.selected_unit.garrisoned = True
                         to_select.garrison.append(self.selected_unit)
+                        player.units.remove(self.selected_unit)
+                        # Deselect the unit now.
+                        self.selected_unit = None
+                        self.overlay.toggle_unit(None)
+                    # If the player has selected a unit, and they have clicked on one of their deployer units, add the
+                    # selected unit as a passenger to the deployer unit, ensuring it is within range. Also make sure
+                    # that the selected unit is not a deployer unit, and that the deployer unit clicked on has room for
+                    # a new passenger.
+                    elif not self.deploying_army_from_unit and self.selected_unit is not None and \
+                            self.selected_unit in player.units and self.selected_settlement is None and \
+                            any((to_select := unit).location == (adj_x, adj_y) and isinstance(unit, DeployerUnit)
+                                for unit in player.units) and \
+                            not isinstance(self.selected_unit, DeployerUnit) and \
+                            len(to_select.passengers) < to_select.plan.max_capacity and \
+                            self.selected_unit.location[0] - self.selected_unit.remaining_stamina <= adj_x <= \
+                            self.selected_unit.location[0] + self.selected_unit.remaining_stamina and \
+                            self.selected_unit.location[1] - self.selected_unit.remaining_stamina <= adj_y <= \
+                            self.selected_unit.location[1] + self.selected_unit.remaining_stamina:
+                        initial = self.selected_unit.location
+                        distance_travelled = max(abs(initial[0] - adj_x), abs(initial[1] - adj_y))
+                        self.selected_unit.remaining_stamina -= distance_travelled
+                        to_select.passengers.append(self.selected_unit)
                         player.units.remove(self.selected_unit)
                         # Deselect the unit now.
                         self.selected_unit = None
@@ -531,7 +566,11 @@ class Board:
                             any(setl_quad.location[0] - 1 <= adj_x <= setl_quad.location[0] + 1 and
                                 setl_quad.location[1] - 1 <= adj_y <= setl_quad.location[1] + 1
                                 for setl_quad in self.selected_settlement.quads) and \
-                            not any(s_q.location == (adj_x, adj_y) for s_q in self.selected_settlement.quads):
+                            not any(s_q.location == (adj_x, adj_y) for s_q in self.selected_settlement.quads) and \
+                            not any(heathen.location == (adj_x, adj_y) for heathen in heathens) and \
+                            not any(unit.location == (adj_x, adj_y) for unit in all_units) and \
+                            not any(any(setl_quad.location == (adj_x, adj_y) for setl_quad in setl.quads)
+                                    for setl in other_setls):
                         deployed = self.selected_settlement.garrison.pop()
                         deployed.garrisoned = False
                         deployed.location = adj_x, adj_y
@@ -547,6 +586,33 @@ class Board:
                         self.selected_settlement = None
                         self.overlay.toggle_settlement(None, player)
                         self.overlay.toggle_unit(deployed)
+                    # If the player is deploying a unit from a deployer unit, and they've clicked within one quad of the
+                    # deployer unit being deployed from, place the unit there.
+                    elif self.deploying_army_from_unit and \
+                            self.selected_unit.location[0] - 1 <= adj_x <= self.selected_unit.location[0] + 1 and \
+                            self.selected_unit.location[1] - 1 <= adj_y <= self.selected_unit.location[1] + 1 and \
+                            not self.selected_unit.location == (adj_x, adj_y) and \
+                            not any(heathen.location == (adj_x, adj_y) for heathen in heathens) and \
+                            not any(unit.location == (adj_x, adj_y) for unit in all_units) and \
+                            not any(any(setl_quad.location == (adj_x, adj_y) for setl_quad in setl.quads)
+                                    for setl in other_setls):
+                        unit_idx = self.overlay.unit_passengers_idx
+                        deployed = self.selected_unit.passengers[unit_idx]
+                        deployed.location = adj_x, adj_y
+                        self.selected_unit.passengers[unit_idx:unit_idx + 1] = []
+                        player.units.append(deployed)
+                        # Add the surrounding quads to the player's seen.
+                        for i in range(adj_y - 5, adj_y + 6):
+                            for j in range(adj_x - 5, adj_x + 6):
+                                player.quads_seen.add((j, i))
+                        # Reset the relevant deployer unit state.
+                        self.deploying_army_from_unit = False
+                        self.overlay.unit_passengers_idx = 0
+                        self.overlay.show_unit_passengers = False
+                        # Select the unit as well.
+                        self.selected_unit = deployed
+                        self.overlay.toggle_deployment()
+                        self.overlay.update_unit(deployed)
                     # If the player has not selected a unit and they've clicked on a heathen, select it.
                     elif self.selected_unit is None and \
                             any((to_select := heathen).location == (adj_x, adj_y) for heathen in heathens):
@@ -554,7 +620,8 @@ class Board:
                         self.overlay.toggle_unit(to_select)
                     # If the player has selected one of their units and it hasn't attacked, and they've clicked on
                     # either an enemy unit or a heathen within range, attack it.
-                    elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
+                    elif not self.deploying_army_from_unit and self.selected_unit is not None and \
+                            not isinstance(self.selected_unit, Heathen) and \
                             self.selected_unit in player.units and not self.selected_unit.has_acted and \
                             (any((other_unit := heathen).location == (adj_x, adj_y) for heathen in heathens) or
                              any((other_unit := unit).location == (adj_x, adj_y) for unit in all_units)):
@@ -580,9 +647,12 @@ class Board:
                             self.overlay.toggle_attack(data)
                             self.attack_time_bank = 0
                         # However, if the player clicked on another of their units, either heal or select it rather than
-                        # attacking, depending on whether the currently-selected unit can heal others or not.
+                        # attacking, depending on whether the currently-selected unit can heal others or not. Note that
+                        # healer units cannot heal deployer units, since this would create weird behaviour where
+                        # left-clicking on a friendly deployer unit is ambiguous in its purpose - healing or boarding.
                         elif other_unit in player.units:
                             if self.selected_unit is not other_unit and self.selected_unit.plan.heals and \
+                                    not isinstance(other_unit, DeployerUnit) and \
                                     abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
                                     abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
                                 data = heal(self.selected_unit, other_unit, ai=False)
@@ -593,7 +663,8 @@ class Board:
                                 self.overlay.update_unit(other_unit)
                     # If the player has selected one of their units and it hasn't attacked, and the player clicks on an
                     # enemy settlement within range, bring up the overlay to prompt the player on their action.
-                    elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
+                    elif not self.deploying_army_from_unit and self.selected_unit is not None and \
+                            not isinstance(self.selected_unit, Heathen) and \
                             self.selected_unit in player.units and not self.selected_unit.has_acted and \
                             any((to_attack := setl) and any((quad_to_attack := setl_quad).location == (adj_x, adj_y)
                                                             for setl_quad in setl.quads) for setl in other_setls):
@@ -609,7 +680,8 @@ class Board:
                         self.overlay.toggle_unit(to_select)
                     # If the player has selected one of their units and they've clicked an empty quad within range, move
                     # the unit there.
-                    elif self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
+                    elif not self.deploying_army_from_unit and self.selected_unit is not None and \
+                            not isinstance(self.selected_unit, Heathen) and \
                             not any(heathen.location == (adj_x, adj_y) for heathen in heathens) and \
                             self.selected_unit in player.units and \
                             not any(unit.location == (adj_x, adj_y) for unit in all_units) and \
@@ -637,8 +709,8 @@ class Board:
                                 player.quads_seen.add((j, i))
                     # If the player has selected one of their units and clicked on a relic, investigate it, providing
                     # that their unit is close enough.
-                    elif self.selected_unit is not None and self.selected_unit in player.units and \
-                            self.quads[adj_y][adj_x].is_relic:
+                    elif not self.deploying_army_from_unit and self.selected_unit is not None and \
+                            self.selected_unit in player.units and self.quads[adj_y][adj_x].is_relic:
                         if abs(self.selected_unit.location[0] - adj_x) <= 1 and \
                                 abs(self.selected_unit.location[1] - adj_y) <= 1:
                             result: InvestigationResult = investigate_relic(player,
@@ -649,7 +721,8 @@ class Board:
                             self.quads[adj_y][adj_x].is_relic = False
                             self.overlay.toggle_investigation(result)
                     # Lastly, if the player has selected a unit and they click elsewhere, deselect the unit.
-                    elif self.selected_unit is not None and self.selected_unit.location != (adj_x, adj_y):
+                    elif not self.deploying_army_from_unit and self.selected_unit is not None and \
+                            self.selected_unit.location != (adj_x, adj_y):
                         self.selected_unit = None
                         self.overlay.toggle_unit(None)
 

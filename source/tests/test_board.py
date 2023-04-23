@@ -3,7 +3,8 @@ from unittest.mock import MagicMock
 
 from source.display.board import Board, HelpOption
 from source.foundation.catalogue import Namer, get_heathen_plan
-from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement, Unit, UnitPlan, Heathen
+from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement, Unit, UnitPlan, Heathen, \
+    DeployerUnit, DeployerUnitPlan
 
 
 class BoardTest(unittest.TestCase):
@@ -22,18 +23,21 @@ class BoardTest(unittest.TestCase):
         """
         self.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
         self.TEST_UNIT_PLAN = UnitPlan(100, 100, 2, "TestMan", None, 0, heals=True)
+        self.TEST_DEPLOYER_UNIT_PLAN = DeployerUnitPlan(0, 50, 10, "Train", None, 0)
         self.TEST_UNIT = Unit(100, 2, (5, 5), False, self.TEST_UNIT_PLAN)
         self.TEST_UNIT_2 = Unit(100, 2, (8, 8), False, self.TEST_UNIT_PLAN)
         self.TEST_UNIT_3 = Unit(100, 10, (9, 9), False, self.TEST_UNIT_PLAN)
+        self.TEST_DEPLOYER_UNIT = DeployerUnit(50, 5, (4, 4), False, self.TEST_DEPLOYER_UNIT_PLAN)
+        self.TEST_DEPLOYER_UNIT_2 = DeployerUnit(40, 4, (3, 3), False, self.TEST_DEPLOYER_UNIT_PLAN)
         self.TEST_HEATHEN = Heathen(100, 2, (10, 10), get_heathen_plan(1))
         self.TEST_QUAD = Quad(Biome.MOUNTAIN, 0, 0, 0, 0, (7, 7))
         self.TEST_QUAD_2 = Quad(Biome.SEA, 0, 0, 0, 0, (6, 6))
         self.TEST_SETTLEMENT = Settlement("Test Town", (7, 7), [], [self.TEST_QUAD], [])
         self.TEST_ENEMY_SETTLEMENT = Settlement("Bad Town", (6, 6), [], [self.TEST_QUAD_2], [])
-        self.TEST_PLAYER = Player("Mr. Tester", Faction.FUNDAMENTALISTS, 0, 0,
-                                  [self.TEST_SETTLEMENT], [self.TEST_UNIT], [], set(), set())
-        self.TEST_ENEMY_PLAYER = Player("Dr. Evil", Faction.INFIDELS, 0, 0,
-                                        [self.TEST_ENEMY_SETTLEMENT], [self.TEST_UNIT_2], [], set(), set())
+        self.TEST_PLAYER = Player("Mr. Tester", Faction.FUNDAMENTALISTS, 0,
+                                  settlements=[self.TEST_SETTLEMENT], units=[self.TEST_UNIT])
+        self.TEST_ENEMY_PLAYER = Player("Dr. Evil", Faction.INFIDELS, 0,
+                                        settlements=[self.TEST_ENEMY_SETTLEMENT], units=[self.TEST_UNIT_2])
         # We need to find a relic quad before each test, because the quads are re-generated each time.
         self.relic_coords: (int, int) = -1, -1
         for i in range(90):
@@ -354,7 +358,7 @@ class BoardTest(unittest.TestCase):
         self.board.overlay.toggle_tutorial = MagicMock()
         self.board.overlay.toggle_settlement = MagicMock()
 
-        test_player = Player("Mr. Agriculture", Faction.AGRICULTURISTS, 0, 0, [], [], [], set(), set())
+        test_player = Player("Mr. Agriculture", Faction.AGRICULTURISTS, 0)
 
         self.board.process_left_click(100, 100, False, test_player, (10, 10), [], [], [], [])
         # The player should now have a settlement, seen quads, and should no longer be seeing the tutorial overlay.
@@ -372,7 +376,7 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(100, new_setl.max_strength)
         self.assertEqual(50, new_setl.satisfaction)
 
-        test_player = Player("Trying to concentrate", Faction.CONCENTRATED, 0, 0, [], [], [], set(), set())
+        test_player = Player("Trying to concentrate", Faction.CONCENTRATED, 0)
 
         self.board.process_left_click(100, 100, False, test_player, (10, 10), [], [], [], [])
         self.assertTrue(test_player.settlements)
@@ -388,7 +392,7 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(200, new_setl.max_strength)
         self.assertEqual(50, new_setl.satisfaction)
 
-        test_player = Player("Man of frontier", Faction.FRONTIERSMEN, 0, 0, [], [], [], set(), set())
+        test_player = Player("Man of frontier", Faction.FRONTIERSMEN, 0)
 
         self.board.process_left_click(100, 100, False, test_player, (10, 10), [], [], [], [])
         self.assertTrue(test_player.settlements)
@@ -404,7 +408,7 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(100, new_setl.max_strength)
         self.assertEqual(75, new_setl.satisfaction)
 
-        test_player = Player("The emperor", Faction.IMPERIALS, 0, 0, [], [], [], set(), set())
+        test_player = Player("The emperor", Faction.IMPERIALS, 0)
 
         self.board.process_left_click(100, 100, False, test_player, (10, 10), [], [], [], [])
         self.assertTrue(test_player.settlements)
@@ -462,12 +466,14 @@ class BoardTest(unittest.TestCase):
         self.board.selected_unit = self.TEST_PLAYER.units[0]
 
         unit = self.TEST_PLAYER.units[0]
+        initial_stamina = unit.remaining_stamina
         setl = self.TEST_PLAYER.settlements[0]
         # To begin with, the unit should not be garrisoned, and the settlement should have no units in its garrison.
         self.assertFalse(unit.garrisoned)
         self.assertFalse(setl.garrison)
         self.board.process_left_click(20, 20, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
         # The unit should now be in the settlement's garrison, removed from the player's units, and deselected.
+        self.assertLess(unit.remaining_stamina, initial_stamina)
         self.assertTrue(unit.garrisoned)
         self.assertTrue(setl.garrison)
         self.assertFalse(self.TEST_PLAYER.units)
@@ -489,6 +495,109 @@ class BoardTest(unittest.TestCase):
         # You may expect the unit to still be selected because it was not garrisoned. Not so, due to the fact that in
         # this case, the unit is instead deselected because an alternative quad is clicked where the unit cannot move
         # to.
+
+    def test_left_click_add_passenger_to_deployer_unit(self):
+        """
+        Ensure that units are successfully added as passengers to deployer units when the unit's stamina is sufficient
+        to reach the selected deployer unit.
+        """
+        self.board.overlay.toggle_unit = MagicMock()
+        self.TEST_PLAYER.units.append(self.TEST_DEPLOYER_UNIT)
+        self.board.selected_unit = self.TEST_PLAYER.units[0]
+
+        unit = self.TEST_PLAYER.units[0]
+        initial_stamina = unit.remaining_stamina
+        dep_unit = self.TEST_DEPLOYER_UNIT
+
+        # To begin with, the deployer unit should have no passengers.
+        self.assertFalse(dep_unit.passengers)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (4, 4), [], [], [], [])
+        # After clicking on the deployer unit with our other unit selected, the unit should have its stamina reduced,
+        # and subsequently be added as a passenger to the clicked-on deployer unit, while also deselecting the unit.
+        self.assertLess(unit.remaining_stamina, initial_stamina)
+        self.assertIn(unit, dep_unit.passengers)
+        self.assertNotIn(unit, self.TEST_PLAYER.units)
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_called_with(None)
+
+    def test_left_click_add_deployer_unit_passenger_to_deployer_unit(self):
+        """
+        Ensure that a deployer unit can not become a passenger of another deployer unit.
+        """
+        self.TEST_PLAYER.units.extend([self.TEST_DEPLOYER_UNIT, self.TEST_DEPLOYER_UNIT_2])
+        self.board.selected_unit = self.TEST_DEPLOYER_UNIT_2
+        self.board.overlay.toggle_unit = MagicMock()
+        self.board.overlay.update_unit = MagicMock()
+
+        initial_unit = self.TEST_DEPLOYER_UNIT_2
+        initial_stamina = initial_unit.remaining_stamina
+        unit_to_board = self.TEST_DEPLOYER_UNIT
+
+        # To begin with, our first deployer unit will not have any passengers.
+        self.assertFalse(unit_to_board.passengers)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (4, 4), [],
+                                      [self.TEST_DEPLOYER_UNIT, self.TEST_DEPLOYER_UNIT_2], [], [])
+        # After we click on the first deployer unit while the second deployer unit is selected, we do not expect the
+        # usual state changes to occur. Instead, we expect the first deployer unit to be selected.
+        self.assertEqual(initial_unit.remaining_stamina, initial_stamina)
+        self.assertNotIn(initial_unit, unit_to_board.passengers)
+        self.assertIn(initial_unit, self.TEST_PLAYER.units)
+        self.assertEqual(unit_to_board, self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_not_called()
+        self.board.overlay.update_unit.assert_called_with(unit_to_board)
+
+    def test_left_click_add_passenger_to_max_capacity_deployer_unit(self):
+        """
+        Ensure that a deployer unit cannot have more passengers than its maximum capacity.
+        """
+        self.TEST_DEPLOYER_UNIT.plan.max_capacity = 0
+        self.board.overlay.toggle_unit = MagicMock()
+        self.board.overlay.update_unit = MagicMock()
+        self.TEST_PLAYER.units.append(self.TEST_DEPLOYER_UNIT)
+        self.board.selected_unit = self.TEST_PLAYER.units[0]
+
+        unit = self.TEST_PLAYER.units[0]
+        initial_stamina = unit.remaining_stamina
+        dep_unit = self.TEST_DEPLOYER_UNIT
+
+        # The deployer unit should have no passengers to begin with.
+        self.assertFalse(dep_unit.passengers)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (4, 4), [], self.TEST_PLAYER.units, [], [])
+        # After we click on the deployer unit, we do not expect the usual state changes to occur. Instead, we expect the
+        # deployer unit to be selected.
+        self.assertEqual(unit.remaining_stamina, initial_stamina)
+        self.assertNotIn(unit, dep_unit.passengers)
+        self.assertIn(unit, self.TEST_PLAYER.units)
+        self.assertEqual(dep_unit, self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_not_called()
+        self.board.overlay.update_unit.assert_called_with(dep_unit)
+
+    def test_left_click_add_passenger_to_deployer_unit_too_far_away(self):
+        """
+        Ensure that a unit cannot become a passenger in a deployer unit if it is not within range.
+        """
+        # Place the unit very far away.
+        self.TEST_UNIT.location = 50, 50
+        self.board.overlay.toggle_unit = MagicMock()
+        self.board.overlay.update_unit = MagicMock()
+        self.TEST_PLAYER.units.append(self.TEST_DEPLOYER_UNIT)
+        self.board.selected_unit = self.TEST_PLAYER.units[0]
+
+        unit = self.TEST_PLAYER.units[0]
+        initial_stamina = unit.remaining_stamina
+        dep_unit = self.TEST_DEPLOYER_UNIT
+
+        # The deployer unit should have no passengers to begin with.
+        self.assertFalse(dep_unit.passengers)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (4, 4), [], self.TEST_PLAYER.units, [], [])
+        # After we click on the deployer unit, we do not expect the usual state changes to occur. Instead, we expect the
+        # deployer unit to be selected.
+        self.assertEqual(unit.remaining_stamina, initial_stamina)
+        self.assertNotIn(unit, dep_unit.passengers)
+        self.assertIn(unit, self.TEST_PLAYER.units)
+        self.assertEqual(dep_unit, self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_not_called()
+        self.board.overlay.update_unit.assert_called_with(dep_unit)
 
     def test_left_click_deploy(self):
         """
@@ -537,6 +646,54 @@ class BoardTest(unittest.TestCase):
         self.assertIsNone(self.board.selected_settlement)
         self.board.overlay.toggle_settlement.assert_called_with(None, self.TEST_PLAYER)
         self.board.overlay.toggle_unit.assert_called_with(unit)
+
+    def test_left_click_deploy_from_unit(self):
+        """
+        Ensure that units are deployed correctly when clicking a quad adjacent to a deployer unit.
+        """
+        self.board.overlay.toggle_deployment = MagicMock()
+        self.board.overlay.update_unit = MagicMock()
+
+        # Set up the scenario in which we have selected a deployer unit with a passenger unit, and we are deploying
+        # said passenger unit.
+        self.board.deploying_army_from_unit = True
+        self.board.selected_unit = self.TEST_DEPLOYER_UNIT
+        self.TEST_DEPLOYER_UNIT.passengers = [self.TEST_UNIT, self.TEST_UNIT_3]
+        self.TEST_PLAYER.units = [self.TEST_DEPLOYER_UNIT]
+        self.board.overlay.unit_passengers_idx = 1
+        self.board.overlay.show_unit_passengers = True
+
+        # Click a quad not adjacent to the deployer unit - this should fail.
+        self.board.process_left_click(20, 5, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        # As expected, the unit is still a passenger, and the deployment is still ongoing with no state changes or
+        # toggles of overlays.
+        self.assertListEqual([self.TEST_UNIT, self.TEST_UNIT_3], self.TEST_PLAYER.units[0].passengers)
+        self.assertListEqual([self.TEST_DEPLOYER_UNIT], self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+        self.assertTrue(self.board.deploying_army_from_unit)
+        self.assertEqual(1, self.board.overlay.unit_passengers_idx)
+        self.assertTrue(self.board.overlay.show_unit_passengers)
+        self.assertEqual(self.TEST_DEPLOYER_UNIT, self.board.selected_unit)
+        self.board.overlay.toggle_deployment.assert_not_called()
+        self.board.overlay.update_unit.assert_not_called()
+
+        # Now if we click an adjacent quad, updates should occur.
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        # The unit should be located where the click occurred.
+        self.assertTupleEqual((5, 5), self.TEST_UNIT_3.location)
+        # The player should also have the unit in their possession, not the deployer unit's, and their seen quads should
+        # be updated.
+        self.assertListEqual([self.TEST_DEPLOYER_UNIT, self.TEST_UNIT_3], self.TEST_PLAYER.units)
+        self.assertListEqual([self.TEST_UNIT], self.TEST_DEPLOYER_UNIT.passengers)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
+        # The deployment should also be concluded, updating state to show the new unit as selected, and toggling two
+        # overlays.
+        self.assertFalse(self.board.deploying_army_from_unit)
+        self.assertEqual(0, self.board.overlay.unit_passengers_idx)
+        self.assertFalse(self.board.overlay.show_unit_passengers)
+        self.assertEqual(self.TEST_UNIT_3, self.board.selected_unit)
+        self.board.overlay.toggle_deployment.assert_called()
+        self.board.overlay.update_unit.assert_called_with(self.TEST_UNIT_3)
 
     def test_left_click_select_heathen(self):
         """

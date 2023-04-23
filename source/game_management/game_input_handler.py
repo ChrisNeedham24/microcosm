@@ -12,7 +12,7 @@ from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
 from source.foundation.models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, \
-    OverlayType, Faction, ConstructionMenu, Project
+    OverlayType, Faction, ConstructionMenu, Project, DeployerUnit
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
 from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats, get_stats
@@ -40,6 +40,8 @@ def on_key_arrow_down(game_controller: GameController, game_state: GameState, is
             game_state.board.overlay.navigate_pause(down=True)
         elif game_state.board.overlay.is_standard():
             game_state.board.overlay.navigate_standard(down=True)
+        elif game_state.board.overlay.is_unit() and game_state.board.overlay.show_unit_passengers:
+            game_state.board.overlay.navigate_unit(down=True)
         else:
             game_state.board.overlay.remove_warning_if_possible()
             # If we're not on a menu, pan the map when you press down.
@@ -72,6 +74,8 @@ def on_key_arrow_up(game_controller: GameController, game_state: GameState, is_c
             game_state.board.overlay.navigate_pause(down=False)
         elif game_state.board.overlay.is_standard():
             game_state.board.overlay.navigate_standard(down=False)
+        elif game_state.board.overlay.is_unit() and game_state.board.overlay.show_unit_passengers:
+            game_state.board.overlay.navigate_unit(down=False)
         else:
             game_state.board.overlay.remove_warning_if_possible()
             # If we're not on a menu, pan the map when you press up.
@@ -273,6 +277,10 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
                 game_controller.music_player.stop_game_music()
                 game_controller.music_player.play_menu_music()
+    elif game_state.game_started and game_state.board.overlay.is_unit() and \
+            game_state.board.overlay.show_unit_passengers:
+        game_state.board.deploying_army_from_unit = True
+        game_state.board.overlay.toggle_deployment()
     elif game_state.game_started and not (
             game_state.board.overlay.is_tutorial() or game_state.board.overlay.is_deployment() or
             game_state.board.overlay.is_bless_notif() or
@@ -344,13 +352,10 @@ def on_key_d(game_state: GameState):
         game_state.board.deploying_army = True
         game_state.board.overlay.toggle_deployment()
     elif game_state.game_started and game_state.board.selected_unit is not None and \
-            game_state.board.selected_unit in game_state.players[0].units:
-        # If a unit is selected rather than a settlement, pressing D disbands the army, destroying the unit and
-        # adding to the player's wealth.
-        game_state.players[0].wealth += game_state.board.selected_unit.plan.cost
-        game_state.players[0].units.remove(game_state.board.selected_unit)
-        game_state.board.selected_unit = None
-        game_state.board.overlay.toggle_unit(None)
+            game_state.board.selected_unit in game_state.players[0].units and \
+            isinstance(game_state.board.selected_unit, DeployerUnit) and \
+            len(game_state.board.selected_unit.passengers) > 0:
+        game_state.board.overlay.show_unit_passengers = not game_state.board.overlay.show_unit_passengers
 
 
 def on_key_tab(game_state: GameState):
@@ -606,3 +611,17 @@ def on_mouse_button_left(game_state: GameState):
                                             game_state.players[0], game_state.map_pos, game_state.heathens,
                                             all_units,
                                             game_state.players, other_setls)
+
+
+def on_key_x(game_state: GameState):
+    """
+    Handles an X key event in the game loop.
+    :param game_state: The current GameState object.
+    """
+    if game_state.game_started and game_state.board.selected_unit is not None and \
+            game_state.board.selected_unit in game_state.players[0].units:
+        # If a unit is selected, pressing X disbands the army, destroying the unit and adding to the player's wealth.
+        game_state.players[0].wealth += game_state.board.selected_unit.plan.cost
+        game_state.players[0].units.remove(game_state.board.selected_unit)
+        game_state.board.selected_unit = None
+        game_state.board.overlay.toggle_unit(None)

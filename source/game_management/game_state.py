@@ -42,15 +42,14 @@ class GameState:
         Generates the players for the game based on the supplied config.
         :param cfg: The game config.
         """
-        self.players = [Player("The Chosen One", cfg.player_faction, FACTION_COLOURS[cfg.player_faction],
-                               0, [], [], [], set(), set())]
+        self.players = [Player("The Chosen One", cfg.player_faction, FACTION_COLOURS[cfg.player_faction])]
         factions = list(Faction)
         # Ensure that an AI player doesn't choose the same faction as the player.
         factions.remove(cfg.player_faction)
         for i in range(1, cfg.player_count):
             faction = random.choice(factions)
             factions.remove(faction)
-            self.players.append(Player(f"NPC{i}", faction, FACTION_COLOURS[faction], 0, [], [], [], set(), set(),
+            self.players.append(Player(f"NPC{i}", faction, FACTION_COLOURS[faction],
                                        ai_playstyle=AIPlaystyle(random.choice(list(AttackPlaystyle)),
                                                                 random.choice(list(ExpansionPlaystyle)))))
 

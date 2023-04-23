@@ -51,11 +51,10 @@ class MovemakerTest(unittest.TestCase):
 
         self.TEST_SETTLEMENT = Settlement("Obstructionville", (0, 0), [], [self.QUADS[0][0]], [])
         self.TEST_SETTLEMENT_2 = Settlement("EnemyTown", (40, 40), [], [self.QUADS[40][40]], [])
-        self.TEST_PLAYER = Player("TesterMan", Faction.NOCTURNE, 0, 0, [self.TEST_SETTLEMENT], [self.TEST_UNIT], [],
-                                  set(), set(),
+        self.TEST_PLAYER = Player("TesterMan", Faction.NOCTURNE, 0,
+                                  settlements=[self.TEST_SETTLEMENT], units=[self.TEST_UNIT],
                                   ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
-        self.TEST_PLAYER_2 = Player("TesterMan2", Faction.AGRICULTURISTS, 0, 0, [self.TEST_SETTLEMENT_2], [], [],
-                                    set(), set(),
+        self.TEST_PLAYER_2 = Player("TesterMan2", Faction.AGRICULTURISTS, 0, settlements=[self.TEST_SETTLEMENT_2],
                                     ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
 
         # Position the other two units and settlement to be surrounding the relic, obstructing its access.
@@ -947,7 +946,7 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
         self.TEST_PLAYER.units[0] = self.TEST_UNIT_2
         wealth_before_combat = self.TEST_PLAYER.wealth
-        infidel_player = Player("Inf", Faction.INFIDELS, 0, 0, [], [self.TEST_UNIT_3], [], set(), set())
+        infidel_player = Player("Inf", Faction.INFIDELS, 0, units=[self.TEST_UNIT_3])
 
         self.movemaker.make_move(self.TEST_PLAYER, [self.TEST_PLAYER, infidel_player], self.QUADS, self.TEST_CONFIG,
                                  False)
@@ -1057,7 +1056,7 @@ class MovemakerTest(unittest.TestCase):
         # By making the test player defensive, we guarantee that the reason for attack is the other unit's faction.
         self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
         self.TEST_PLAYER.units.append(self.TEST_UNIT_2)
-        infidel_player = Player("Inf", Faction.INFIDELS, 0, 0, [], [self.TEST_UNIT_3], [], set(), set())
+        infidel_player = Player("Inf", Faction.INFIDELS, 0, units=[self.TEST_UNIT_3])
 
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_2, [self.TEST_UNIT_3],
                                  [self.TEST_PLAYER, infidel_player], [], self.QUADS, self.TEST_CONFIG)

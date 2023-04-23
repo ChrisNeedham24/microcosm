@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from source.foundation.models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, \
     Settlement, Improvement, UnitPlan, SetlAttackData, GameConfig, InvestigationResult, Faction, Project, ProjectType, \
-    HealData
+    HealData, DeployerUnitPlan, DeployerUnit
 
 
 def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
@@ -230,7 +230,10 @@ def complete_construction(setl: Settlement, player: Player):
             setl.level -= 1
             setl.harvest_reserves = pow(setl.level - 1, 2) * 25
             setl.produced_settler = True
-        setl.garrison.append(Unit(plan.max_health, plan.total_stamina, setl.location, True, deepcopy(plan)))
+        if isinstance(plan, DeployerUnitPlan):
+            setl.garrison.append(DeployerUnit(plan.max_health, plan.total_stamina, setl.location, True, deepcopy(plan)))
+        else:
+            setl.garrison.append(Unit(plan.max_health, plan.total_stamina, setl.location, True, deepcopy(plan)))
     setl.current_work = None
 
 

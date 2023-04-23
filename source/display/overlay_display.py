@@ -6,7 +6,8 @@ import pyxel
 from source.util.calculator import get_setl_totals
 from source.foundation.catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units
 from source.foundation.models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, \
-    OverlayType, SettlementAttackType, PauseOption, Faction, HarvestStatus, ConstructionMenu, ProjectType, Project
+    OverlayType, SettlementAttackType, PauseOption, Faction, HarvestStatus, ConstructionMenu, ProjectType, Project, \
+    DeployerUnitPlan, DeployerUnit
 from source.display.overlay import Overlay
 
 
@@ -353,6 +354,21 @@ def display_overlay(overlay: Overlay, is_night: bool):
             y_offset = 0 if overlay.selected_unit in overlay.current_player.units else 20
             x_offset = 8 if round(overlay.selected_unit.plan.cost / 10) >= 10 and \
                 overlay.selected_unit in overlay.current_player.units else 0
+            if overlay.selected_unit in overlay.current_player.units and \
+                    isinstance(overlay.selected_unit, DeployerUnit):
+                if overlay.show_unit_passengers:
+                    pyxel.rectb(70 + x_offset, 110 + y_offset, 56 + x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
+                    pyxel.rect(71 + x_offset, 111 + y_offset, 54 + x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
+                    for idx, unit in enumerate(overlay.selected_unit.passengers):
+                        pyxel.text(75 + x_offset, 115 + y_offset + 10 * idx, unit.plan.name, pyxel.COLOR_WHITE)
+                        if idx == overlay.unit_passengers_idx:
+                            pyxel.blt(110 + x_offset, 115 + y_offset + 10 * idx, 0, 64, 36, 8, 8)
+                        else:
+                            pyxel.blt(110 + x_offset, 115 + y_offset + 10 * idx, 0, 56, 36, 8, 8)
+                    pyxel.text(83, 162, "Close (D)", pyxel.COLOR_WHITE)
+                else:
+                    pyxel.rectb(17, 105 + y_offset, 56 + x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
+                    pyxel.rect(18, 106 + y_offset, 54 + x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
             pyxel.rectb(12, 110 + y_offset, 56 + x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
             pyxel.rect(13, 111 + y_offset, 54 + x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
             pyxel.text(20, 114 + y_offset, overlay.selected_unit.plan.name, pyxel.COLOR_WHITE)
@@ -366,9 +382,19 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(18, 14, "Remember: the siege will end if all leave!", pyxel.COLOR_RED)
             pyxel.blt(20, 120 + y_offset, 0, 8, 36, 8, 8)
             pyxel.text(30, 122 + y_offset, str(round(overlay.selected_unit.health)), pyxel.COLOR_WHITE)
-            power_u = 40 if overlay.selected_unit.plan.heals else 0
+            power_u: int
+            if overlay.selected_unit.plan.heals:
+                power_u = 40
+            elif isinstance(overlay.selected_unit.plan, DeployerUnitPlan):
+                power_u = 48
+            else:
+                power_u = 0
             pyxel.blt(20, 130 + y_offset, 0, power_u, 36, 8, 8)
-            pyxel.text(30, 132 + y_offset, str(round(overlay.selected_unit.plan.power)), pyxel.COLOR_WHITE)
+            pyxel.text(30, 132 + y_offset,
+                       f"{len(overlay.selected_unit.passengers)}/{overlay.selected_unit.plan.max_capacity} (D)"
+                       if isinstance(overlay.selected_unit.plan, DeployerUnitPlan)
+                       else str(round(overlay.selected_unit.plan.power)),
+                       pyxel.COLOR_WHITE)
             pyxel.blt(20, 140 + y_offset, 0, 16, 36, 8, 8)
             pyxel.text(30, 142 + y_offset,
                        f"{overlay.selected_unit.remaining_stamina}/{overlay.selected_unit.plan.total_stamina}",
@@ -379,7 +405,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                            f"{overlay.selected_unit.plan.cost} (-{round(overlay.selected_unit.plan.cost / 10)}/T)",
                            pyxel.COLOR_WHITE)
                 pyxel.blt(20, 160, 0, 8, 52, 8, 8)
-                pyxel.text(30, 162, "Disb. (D)", pyxel.COLOR_RED)
+                pyxel.text(30, 162, "Disb. (X)", pyxel.COLOR_RED)
         # The construction overlay displays the available improvements and unit plans available for construction in
         # the currently-selected settlement, along with their effects.
         if OverlayType.CONSTRUCTION in overlay.showing:
@@ -462,9 +488,18 @@ def display_overlay(overlay: Overlay, is_night: bool):
                                    else pyxel.COLOR_WHITE)
                         pyxel.blt(30, 42 + adj_idx * 18, 0, 8, 36, 8, 8)
                         pyxel.text(45, 42 + adj_idx * 18, str(round(unit_plan.max_health)), pyxel.COLOR_WHITE)
-                        power_u = 40 if unit_plan.heals else 0
+                        power_u: int
+                        if unit_plan.heals:
+                            power_u = 40
+                        elif isinstance(unit_plan, DeployerUnitPlan):
+                            power_u = 48
+                        else:
+                            power_u = 0
                         pyxel.blt(60, 42 + adj_idx * 18, 0, power_u, 36, 8, 8)
-                        pyxel.text(75, 42 + adj_idx * 18, str(round(unit_plan.power)), pyxel.COLOR_WHITE)
+                        pyxel.text(75, 42 + adj_idx * 18,
+                                   str(unit_plan.max_capacity if isinstance(unit_plan, DeployerUnitPlan)
+                                       else round(unit_plan.power)),
+                                   pyxel.COLOR_WHITE)
                         pyxel.blt(90, 42 + adj_idx * 18, 0, 16, 36, 8, 8)
                         pyxel.text(105, 42 + adj_idx * 18, str(unit_plan.total_stamina), pyxel.COLOR_WHITE)
                         if unit_plan.can_settle:
@@ -705,7 +740,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(23, 95, "F", pyxel.COLOR_WHITE)
                 pyxel.text(83, 95, "Add/change blessing", pyxel.COLOR_WHITE)
                 pyxel.text(23, 105, "D", pyxel.COLOR_WHITE)
-                pyxel.text(83, 105, "Deploy/disband unit", pyxel.COLOR_WHITE)
+                pyxel.text(83, 105, "Deploy unit", pyxel.COLOR_WHITE)
                 pyxel.text(23, 115, "N", pyxel.COLOR_WHITE)
                 pyxel.text(83, 115, "Next song", pyxel.COLOR_WHITE)
                 pyxel.text(23, 125, "B", pyxel.COLOR_WHITE)
@@ -725,6 +760,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(83, 45, "Go through movable units", pyxel.COLOR_WHITE)
                 pyxel.text(23, 55, "J", pyxel.COLOR_WHITE)
                 pyxel.text(83, 55, "Jump to idle settlement", pyxel.COLOR_WHITE)
+                pyxel.text(23, 65, "X", pyxel.COLOR_WHITE)
+                pyxel.text(83, 65, "Disband unit", pyxel.COLOR_WHITE)
 
                 # Up arrow
                 pyxel.blt(180, 150, 0, 8, 76, 8, 8)

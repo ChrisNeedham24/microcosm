@@ -5,7 +5,8 @@ from source.display.overlay import Overlay
 from source.foundation.catalogue import UNIT_PLANS
 from source.foundation.models import OverlayType, Settlement, Player, Faction, ConstructionMenu, Project, ProjectType, \
     Improvement, Effect, ImprovementType, UnitPlan, Blessing, Unit, CompletedConstruction, AttackData, HealData, \
-    SetlAttackData, Victory, VictoryType, SettlementAttackType, PauseOption, InvestigationResult
+    SetlAttackData, Victory, VictoryType, SettlementAttackType, PauseOption, InvestigationResult, DeployerUnitPlan, \
+    DeployerUnit
 
 
 class OverlayTest(unittest.TestCase):
@@ -25,7 +26,7 @@ class OverlayTest(unittest.TestCase):
         self.TEST_BLESSING_2 = Blessing("Uncool", "Science", 0)
         self.TEST_IMPROVEMENT = Improvement(ImprovementType.BOUNTIFUL, 0, "More", "Food", Effect(), None)
         self.TEST_IMPROVEMENT_2 = Improvement(ImprovementType.MAGICAL, 0, "Magic", "Time", Effect(), None)
-        self.TEST_PLAYER = Player("Bob", Faction.NOCTURNE, 0, 0, [self.TEST_SETTLEMENT], [], [], set(), set())
+        self.TEST_PLAYER = Player("Bob", Faction.NOCTURNE, 0, settlements=[self.TEST_SETTLEMENT])
         self.TEST_VICTORY = Victory(self.TEST_PLAYER, VictoryType.VIGOUR)
         self.TEST_PROJECT = Project(ProjectType.MAGICAL, "Magic", "Project")
         self.TEST_PROJECT_2 = Project(ProjectType.BOUNTIFUL, "Food", "Project")
@@ -61,7 +62,7 @@ class OverlayTest(unittest.TestCase):
         """
         Ensure that the standard overlay can be successfully navigated.
         """
-        self.overlay.current_player = Player("Tester", Faction.NOCTURNE, 0, 0, [], [], [], set(), set())
+        self.overlay.current_player = Player("Tester", Faction.NOCTURNE, 0)
 
         # To begin with, the current player has no settlements at all. As such, navigating downwards shouldn't do
         # anything.
@@ -870,6 +871,30 @@ class OverlayTest(unittest.TestCase):
         # reset the selected unit/settlement as well.
         set_and_remove(self, OverlayType.UNIT, self.overlay.is_unit, should_return_none=False)
         set_and_remove(self, OverlayType.SETTLEMENT, self.overlay.is_setl, should_return_none=False)
+
+    def test_navigate_unit(self):
+        """
+        Ensure that navigating the unit overlay restricts the passenger index to within the bounds of the selected
+        deployer unit's number of passengers.
+        """
+        test_deployer_unit_plan = DeployerUnitPlan(0, 1, 2, "3", None, 4)
+        test_deployer_unit = DeployerUnit(1, 2, (3, 4), False, test_deployer_unit_plan,
+                                          passengers=[self.TEST_UNIT, self.TEST_UNIT_2])
+        self.overlay.selected_unit = test_deployer_unit
+        self.overlay.unit_passengers_idx = 0
+
+        # Navigating down once should increase the index.
+        self.overlay.navigate_unit(down=True)
+        self.assertEqual(1, self.overlay.unit_passengers_idx)
+        # Since there are only two passenger units, navigating down again should have no effect.
+        self.overlay.navigate_unit(down=True)
+        self.assertEqual(1, self.overlay.unit_passengers_idx)
+        # Navigating up once should decrease the index.
+        self.overlay.navigate_unit(down=False)
+        self.assertEqual(0, self.overlay.unit_passengers_idx)
+        # Since the index is at 0, navigating up again should have no effect.
+        self.overlay.navigate_unit(down=False)
+        self.assertEqual(0, self.overlay.unit_passengers_idx)
 
 
 if __name__ == '__main__':
