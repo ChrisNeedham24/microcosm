@@ -5,7 +5,8 @@ from copy import deepcopy
 import pyxel
 
 from source.foundation.models import FactionDetail, Player, Improvement, ImprovementType, Effect, Blessing, \
-    Settlement, UnitPlan, Unit, Biome, Heathen, Faction, Project, ProjectType, VictoryType, DeployerUnitPlan
+    Settlement, UnitPlan, Unit, Biome, Heathen, Faction, Project, ProjectType, VictoryType, DeployerUnitPlan, \
+    Achievement
 
 # The list of settlement names, for each biome.
 SETL_NAMES = {
@@ -326,6 +327,76 @@ VICTORY_TYPE_COLOURS: typing.Dict[VictoryType, int] = {
     VictoryType.VIGOUR: pyxel.COLOR_ORANGE,
     VictoryType.SERENDIPITY: pyxel.COLOR_PURPLE
 }
+
+
+# TODO Icons
+# TODO Verification
+# TODO Remove some of the generic ones?
+# TODO Look for more achievements
+"""
+Ideas
+
+Accumulating wealth in forest settlement
+Accumulating zeal in sea settlement
+Accumulating harvest in desert settlement
+Accumulating fortune in mountain settlement
+Build every improvement in one game (can be multi-settlement)
+Work on each project at least once in one game (can be multi-settlement)
+Have at least 5 settlements with plentiful harvests
+Have at least 5 settlements with boom economies
+Win by elimination
+Win by jubilation
+Win by gluttony
+Win by affluence
+Win by vigour
+Win by serendipity
+Win with agriculturists
+Win with capitalists
+Win with scrutineers
+Win with the godless
+Win with the ravenous
+Win with fundamentalists
+Win with the orthodox
+Win with the concentrated
+Win with frontiersmen
+Win with imperials
+Win with the persistent
+Win with explorers
+Win with infidels
+Win with the nocturne
+Found a settlement on a quad with at least 19 total yield
+Undergo all non-victory blessings
+Have 20 units
+Move a unit over 50 quads in a deployer unit
+Besiege a settlement with 8 units at once (surrounding, call it Full House)
+Kill a heathen with over 200 health (at the time)
+Fully expand a concentrated settlement
+Accumulate 10 units in a garrison
+Get a settlement to 300 strength
+Reach 100 satisfaction in a settlement
+Reach level 10 in a settlement
+Found 10 settlements
+See all quads in a fog of war game
+Have at least 3 imminent victories
+Attack an enemy unit and die yourself
+Take an enemy settlement but unit dies
+Win a game with 14 players
+Have 5 units deployed at nighttime (Sleep Walker)
+Play for 1 hour
+Play for 5 hours
+Play for 10 hours
+Play 250 turns
+Play 1000 turns
+Win every type of victory
+Use every faction
+Achieve plentiful harvest at nighttime
+Build an improvement that decreases satisfaction
+Found a settlement on the edge of the map
+Take a settlement as the concentrated
+"""
+ACHIEVEMENTS: typing.List[Achievement] = [
+    Achievement("Chicken Dinner", "Win a game.", (0, 0), lambda: False),
+]
 
 
 def get_heathen_plan(turn: int) -> UnitPlan:

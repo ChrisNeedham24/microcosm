@@ -476,3 +476,12 @@ class Statistics:
     victories: typing.Dict[VictoryType, int]
     defeats: int
     factions: typing.Dict[Faction, int]
+    achievements: typing.List[str]
+
+
+@dataclass
+class Achievement:
+    name: str
+    description: str
+    icon_coords: (int, int)
+    verification_fn: typing.Callable[[], bool]
