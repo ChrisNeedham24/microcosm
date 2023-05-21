@@ -330,18 +330,13 @@ VICTORY_TYPE_COLOURS: typing.Dict[VictoryType, int] = {
 
 
 # TODO Icons
-# TODO Verification
-# TODO Remove some of the generic ones?
-# TODO Look for more achievements
+# TODO Verification fns
+# TODO Display achievements when achieved in-game
+# TODO Save achievements
 """
 Ideas
 
-Accumulating wealth in forest settlement
-Accumulating zeal in sea settlement
-Accumulating harvest in desert settlement
-Accumulating fortune in mountain settlement
 Build every improvement in one game (can be multi-settlement)
-Work on each project at least once in one game (can be multi-settlement)
 Have at least 5 settlements with plentiful harvests
 Have at least 5 settlements with boom economies
 Win by elimination
@@ -367,9 +362,7 @@ Win with the nocturne
 Found a settlement on a quad with at least 19 total yield
 Undergo all non-victory blessings
 Have 20 units
-Move a unit over 50 quads in a deployer unit
 Besiege a settlement with 8 units at once (surrounding, call it Full House)
-Kill a heathen with over 200 health (at the time)
 Fully expand a concentrated settlement
 Accumulate 10 units in a garrison
 Get a settlement to 300 strength
@@ -378,8 +371,6 @@ Reach level 10 in a settlement
 Found 10 settlements
 See all quads in a fog of war game
 Have at least 3 imminent victories
-Attack an enemy unit and die yourself
-Take an enemy settlement but unit dies
 Win a game with 14 players
 Have 5 units deployed at nighttime (Sleep Walker)
 Play for 1 hour
@@ -392,10 +383,39 @@ Use every faction
 Achieve plentiful harvest at nighttime
 Build an improvement that decreases satisfaction
 Found a settlement on the edge of the map
-Take a settlement as the concentrated
+Win a two player game in 25 turns or less
 """
 ACHIEVEMENTS: typing.List[Achievement] = [
-    Achievement("Chicken Dinner", "Win a game.", (0, 0), lambda: False),
+    Achievement("Chicken Dinner", "Win a game."),
+    Achievement("Fully Improved", "Build every non-victory improvement in one game."),
+    Achievement("Harvest Galore", "Have at least 5 settlements with plentiful harvests."),
+    Achievement("Mansa Musa", "Have at least 5 settlements with boom economies."),
+    Achievement("Last One Standing", "Achieve an elimination victory."),
+    Achievement("They Love Me!", "Achieve a jubilation victory."),
+    Achievement("Megalopoleis", "Achieve a gluttony victory."),
+    Achievement("Wealth Upon Wealth", "Achieve an affluence victory."),
+    Achievement("Sanctum Sanctorum", "Achieve a vigour victory."),
+    Achievement("Arduously Blessed", "Achieve a serendipity victory."),
+    Achievement("Grow And Grow", "Win with the Agriculturists."),
+    Achievement("Money Talks", "Win with the Capitalists."),
+    Achievement("Telescopic", "Win with the Scrutineers."),
+    Achievement("Suitably Skeptical", "Win with The Godless."),
+    Achievement("Gallivanting Greed", "Win with The Ravenous."),
+    Achievement("The Clang Of Iron", "Win with the Fundamentalists."),
+    Achievement("The Passionate Eye", "Win with The Orthodox."),
+    Achievement("Cloudscrapers", "Win with The Concentrated."),
+    Achievement("Never Rest", "Win with the Frontiersmen."),
+    Achievement("Empirical Evidence", "Win with the Imperials."),
+    Achievement("The Singular Purpose", "Win with The Persistent."),
+    Achievement("Cartographic Courage", "Win with the Explorers."),
+    Achievement("Sub-Human, Super-Success", "Win with the Infidels."),
+    Achievement("Shine In The Dark", "Win with The Nocturne."),
+    Achievement("The Golden Quad", "Found a settlement on a quad with at least 19 total yield."),
+    Achievement("Wholly Blessed", "Undergo all non-victory blessings."),
+    Achievement("Unstoppable Force", "Have 20 units."),
+    Achievement("Full House", "Besiege a settlement with 8 units at once."),
+    Achievement("Sprawling Skyscrapers", "Fully expand a Concentrated settlement."),
+    Achievement("Ready Reservists", "Accumulate 10 units in a garrison.")
 ]
 
 

@@ -483,5 +483,5 @@ class Statistics:
 class Achievement:
     name: str
     description: str
-    icon_coords: (int, int)
-    verification_fn: typing.Callable[[], bool]
+    icon_coords: (int, int) = (0, 0)
+    verification_fn: typing.Callable[[], bool] = lambda: False
