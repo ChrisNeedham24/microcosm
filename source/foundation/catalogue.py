@@ -329,62 +329,11 @@ VICTORY_TYPE_COLOURS: typing.Dict[VictoryType, int] = {
 }
 
 
-# TODO Icons
+# TODO Icons - in progress
 # TODO Verification fns
 # TODO Display achievements when achieved in-game
 # TODO Save achievements
-"""
-Ideas
-
-Build every improvement in one game (can be multi-settlement)
-Have at least 5 settlements with plentiful harvests
-Have at least 5 settlements with boom economies
-Win by elimination
-Win by jubilation
-Win by gluttony
-Win by affluence
-Win by vigour
-Win by serendipity
-Win with agriculturists
-Win with capitalists
-Win with scrutineers
-Win with the godless
-Win with the ravenous
-Win with fundamentalists
-Win with the orthodox
-Win with the concentrated
-Win with frontiersmen
-Win with imperials
-Win with the persistent
-Win with explorers
-Win with infidels
-Win with the nocturne
-Found a settlement on a quad with at least 19 total yield
-Undergo all non-victory blessings
-Have 20 units
-Besiege a settlement with 8 units at once (surrounding, call it Full House)
-Fully expand a concentrated settlement
-Accumulate 10 units in a garrison
-Get a settlement to 300 strength
-Reach 100 satisfaction in a settlement
-Reach level 10 in a settlement
-Found 10 settlements
-See all quads in a fog of war game
-Have at least 3 imminent victories
-Win a game with 14 players
-Have 5 units deployed at nighttime (Sleep Walker)
-Play for 1 hour
-Play for 5 hours
-Play for 10 hours
-Play 250 turns
-Play 1000 turns
-Win every type of victory
-Use every faction
-Achieve plentiful harvest at nighttime
-Build an improvement that decreases satisfaction
-Found a settlement on the edge of the map
-Win a two player game in 25 turns or less
-"""
+# TODO Menu
 ACHIEVEMENTS: typing.List[Achievement] = [
     Achievement("Chicken Dinner", "Win a game."),
     Achievement("Fully Improved", "Build every non-victory improvement in one game."),
@@ -415,7 +364,27 @@ ACHIEVEMENTS: typing.List[Achievement] = [
     Achievement("Unstoppable Force", "Have 20 units."),
     Achievement("Full House", "Besiege a settlement with 8 units at once."),
     Achievement("Sprawling Skyscrapers", "Fully expand a Concentrated settlement."),
-    Achievement("Ready Reservists", "Accumulate 10 units in a garrison.")
+    Achievement("Ready Reservists", "Accumulate 10 units in a garrison."),
+    Achievement("The Big Wall", "Have a settlement reach 300 strength."),
+    Achievement("Utopia", "Reach 100 satisfaction in a settlement."),
+    Achievement("All Grown Up", "Reach level 10 in a settlement."),
+    Achievement("Terra Nullius", "Found 10 settlements."),
+    Achievement("All Is Revealed", "See all quads in a fog of war game."),
+    Achievement("Player's Choice", "Have at least 3 imminent victories in one game."),
+    # The below will need to be changed if extra factions are ever introduced.
+    Achievement("Free For All", "Win a game with 14 players."),
+    Achievement("Sleepwalker", "Have 5 units deployed at nighttime."),
+    Achievement("Just Before Bed", "Play for 1 hour total."),
+    Achievement("All Nighter", "Play for 5 hours total."),
+    Achievement("Keep Coming Back", "Play for 20 hours total."),
+    Achievement("One More Turn", "Play 250 turns."),
+    Achievement("What Time Is It?", "Play 1000 turns."),
+    Achievement("The Collector", "Achieve every type of victory."),
+    Achievement("Globalist", "Use every faction."),
+    Achievement("Midnight Feast", "Achieve plentiful harvest in a settlement at nighttime."),
+    Achievement("It's Worth It", "Build an improvement that decreases satisfaction."),
+    Achievement("On The Brink", "Found a settlement on the edge of the map."),
+    Achievement("Speed Run", "Win a 2 player game in 25 turns or less.")
 ]
 
 
