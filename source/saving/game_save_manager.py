@@ -135,7 +135,7 @@ def get_stats() -> Statistics:
             stats_json = json.loads(stats_file.read())
             return Statistics(**stats_json)
     else:
-        return Statistics(0, 0, {}, 0, {})
+        return Statistics(0, 0, {}, 0, {}, [])
 
 
 def load_game(game_state, game_controller: GameController):

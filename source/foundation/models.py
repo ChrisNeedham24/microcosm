@@ -471,12 +471,12 @@ class Statistics:
     """
     The statistics loaded from statistics.json.
     """
-    playtime: float
-    turns_played: int
-    victories: typing.Dict[VictoryType, int]
-    defeats: int
-    factions: typing.Dict[Faction, int]
-    achievements: typing.List[str]
+    playtime: float = 0
+    turns_played: int = 0
+    victories: typing.Dict[VictoryType, int] = field(default_factory=lambda: {})
+    defeats: int = 0
+    factions: typing.Dict[Faction, int] = field(default_factory=lambda: {})
+    achievements: typing.List[str] = field(default_factory=lambda: [])
 
 
 @dataclass

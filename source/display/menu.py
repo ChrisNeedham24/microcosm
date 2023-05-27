@@ -8,7 +8,7 @@ import pyxel
 
 from source.util.calculator import clamp
 from source.foundation.catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, \
-    IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS
+    IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS, ACHIEVEMENTS
 from source.foundation.models import GameConfig, VictoryType, Faction, ProjectType, Statistics, UnitPlan, \
     DeployerUnitPlan
 
@@ -20,6 +20,7 @@ class MainMenuOption(Enum):
     NEW_GAME = "New Game"
     LOAD_GAME = "Load Game"
     STATISTICS = "Statistics"
+    ACHIEVEMENTS = "Achievements"
     WIKI = "Wiki"
     EXIT = "Exit"
 
@@ -102,6 +103,8 @@ class Menu:
         self.wiki_units_option: WikiUnitsOption = WikiUnitsOption.ATTACKING
         self.unit_plans_to_render: typing.List[UnitPlan] = \
             [up for up in UNIT_PLANS if not up.heals and not isinstance(up, DeployerUnitPlan)]
+        self.viewing_achievements = False
+        self.achievements_boundaries = 0, 4
 
     def draw(self):
         """
@@ -545,13 +548,36 @@ class Menu:
             pyxel.text(105 + faction_offset, 140, str(fav_faction), faction_colour)
 
             pyxel.text(58, 160, "Press SPACE to go back", pyxel.COLOR_WHITE)
+        elif self.viewing_achievements:
+            pyxel.load("resources/achievements.pyxres")
+            pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
+            pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
+            pyxel.text(77, 25, "Achievements", pyxel.COLOR_WHITE)
+
+            for idx, ach in enumerate(ACHIEVEMENTS):
+                if self.achievements_boundaries[0] <= idx <= self.achievements_boundaries[1]:
+                    adj_idx = idx - self.achievements_boundaries[0]
+                    x_coord = (idx // 32) * 16
+                    if ach.name not in self.player_stats.achievements:
+                        x_coord += 8
+                    pyxel.blt(35, 40 + 20 * adj_idx, 0, x_coord, idx * 8 - (idx // 32) * 256, 8, 8)
+                    pyxel.text(50, 38 + 20 * adj_idx, ach.name, pyxel.COLOR_WHITE)
+                    pyxel.text(50, 46 + 20 * adj_idx, ach.description, pyxel.COLOR_GRAY)
+
+            if self.achievements_boundaries[1] < len(ACHIEVEMENTS) - 1:
+                pyxel.load("resources/sprites.pyxres")
+                self.draw_paragraph(150, 140, "More down!", 5)
+                pyxel.blt(170, 141, 0, 0, 76, 8, 8)
+
+            pyxel.text(58, 160, "Press SPACE to go back", pyxel.COLOR_WHITE)
         else:
-            pyxel.rectb(75, 110, 50, 70, pyxel.COLOR_WHITE)
-            pyxel.rect(76, 111, 48, 68, pyxel.COLOR_BLACK)
-            pyxel.text(82, 115, "MICROCOSM", pyxel.COLOR_WHITE)
-            pyxel.text(85, 130, "New Game", self.get_option_colour(MainMenuOption.NEW_GAME))
-            pyxel.text(82, 140, "Load Game", self.get_option_colour(MainMenuOption.LOAD_GAME))
-            pyxel.text(80, 150, "Statistics", self.get_option_colour(MainMenuOption.STATISTICS))
+            pyxel.rectb(72, 100, 56, 80, pyxel.COLOR_WHITE)
+            pyxel.rect(73, 101, 54, 78, pyxel.COLOR_BLACK)
+            pyxel.text(82, 105, "MICROCOSM", pyxel.COLOR_WHITE)
+            pyxel.text(85, 120, "New Game", self.get_option_colour(MainMenuOption.NEW_GAME))
+            pyxel.text(82, 130, "Load Game", self.get_option_colour(MainMenuOption.LOAD_GAME))
+            pyxel.text(80, 140, "Statistics", self.get_option_colour(MainMenuOption.STATISTICS))
+            pyxel.text(76, 150, "Achievements", self.get_option_colour(MainMenuOption.ACHIEVEMENTS))
             pyxel.text(92, 160, "Wiki", self.get_option_colour(MainMenuOption.WIKI))
             pyxel.text(92, 170, "Exit", self.get_option_colour(MainMenuOption.EXIT))
 
@@ -572,6 +598,10 @@ class Menu:
                     self.load_game_boundaries = self.load_game_boundaries[0] + 1, self.load_game_boundaries[1] + 1
                 if 0 <= self.save_idx < len(self.saves) - 1:
                     self.save_idx += 1
+            elif self.viewing_achievements:
+                if self.achievements_boundaries[1] < len(ACHIEVEMENTS) - 1:
+                    self.achievements_boundaries = \
+                        self.achievements_boundaries[0] + 1, self.achievements_boundaries[1] + 1
             elif self.in_wiki:
                 match self.wiki_showing:
                     case WikiOption.BLESSINGS:
@@ -597,6 +627,10 @@ class Menu:
                     self.load_game_boundaries = self.load_game_boundaries[0] - 1, self.load_game_boundaries[1] - 1
                 if self.save_idx > 0:
                     self.save_idx -= 1
+            elif self.viewing_achievements:
+                if self.achievements_boundaries[0] > 0:
+                    self.achievements_boundaries = \
+                        self.achievements_boundaries[0] - 1, self.achievements_boundaries[1] - 1
             elif self.in_wiki:
                 match self.wiki_showing:
                     case WikiOption.BLESSINGS:

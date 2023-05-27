@@ -195,6 +195,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 case MainMenuOption.STATISTICS:
                     game_controller.menu.viewing_stats = True
                     game_controller.menu.player_stats = get_stats()
+                case MainMenuOption.ACHIEVEMENTS:
+                    game_controller.menu.viewing_achievements = True
+                    game_controller.menu.player_stats = get_stats()
                 case MainMenuOption.WIKI:
                     game_controller.menu.in_wiki = True
                 case MainMenuOption.EXIT:
@@ -401,6 +404,8 @@ def on_key_space(game_controller: GameController, game_state: GameState):
         game_controller.menu.loading_game = False
     elif game_state.on_menu and game_controller.menu.viewing_stats:
         game_controller.menu.viewing_stats = False
+    elif game_state.on_menu and game_controller.menu.viewing_achievements:
+        game_controller.menu.viewing_achievements = False
     # You should only be able to toggle the elimination overlay if you're actually still in the game.
     if game_state.game_started and game_state.board.overlay.is_elimination() and not game_state.players[0].eliminated:
         game_state.board.overlay.toggle_elimination(None)
