@@ -104,7 +104,7 @@ class Menu:
         self.unit_plans_to_render: typing.List[UnitPlan] = \
             [up for up in UNIT_PLANS if not up.heals and not isinstance(up, DeployerUnitPlan)]
         self.viewing_achievements = False
-        self.achievements_boundaries = 0, 4
+        self.achievements_boundaries = 0, 3
 
     def draw(self):
         """
@@ -560,14 +560,16 @@ class Menu:
                     x_coord = (idx // 32) * 16
                     if ach.name not in self.player_stats.achievements:
                         x_coord += 8
-                    pyxel.blt(35, 40 + 20 * adj_idx, 0, x_coord, idx * 8 - (idx // 32) * 256, 8, 8)
-                    pyxel.text(50, 38 + 20 * adj_idx, ach.name, pyxel.COLOR_WHITE)
-                    pyxel.text(50, 46 + 20 * adj_idx, ach.description, pyxel.COLOR_GRAY)
+                    pyxel.blt(35, 40 + 30 * adj_idx, 0, x_coord, idx * 8 - (idx // 32) * 256, 8, 8)
+                    pyxel.text(50, 38 + 30 * adj_idx, ach.name, pyxel.COLOR_WHITE)
+                    self.draw_paragraph(50, 46 + 30 * adj_idx, ach.description, 30,
+                                        pyxel.COLOR_WHITE if ach.name in self.player_stats.achievements
+                                        else pyxel.COLOR_GRAY)
 
             if self.achievements_boundaries[1] < len(ACHIEVEMENTS) - 1:
                 pyxel.load("resources/sprites.pyxres")
-                self.draw_paragraph(150, 140, "More down!", 5)
-                pyxel.blt(170, 141, 0, 0, 76, 8, 8)
+                self.draw_paragraph(150, 150, "More down!", 5)
+                pyxel.blt(170, 151, 0, 0, 76, 8, 8)
 
             pyxel.text(58, 160, "Press SPACE to go back", pyxel.COLOR_WHITE)
         else:
@@ -786,7 +788,7 @@ class Menu:
         return pyxel.COLOR_RED if field_to_check is option else pyxel.COLOR_WHITE
 
     @staticmethod
-    def draw_paragraph(x_start: int, y_start: int, text: str, line_length: int) -> None:
+    def draw_paragraph(x_start: int, y_start: int, text: str, line_length: int, colour: int = pyxel.COLOR_WHITE) -> None:
         """
         Render text to the screen while automatically accounting for line breaks.
         :param x_start: x of the text's starting position.
@@ -802,7 +804,7 @@ class Menu:
             if len(text_to_draw) + len(word) <= line_length:
                 text_to_draw += word
             else:
-                pyxel.text(x_start, y_start, text_to_draw, pyxel.COLOR_WHITE)
+                pyxel.text(x_start, y_start, text_to_draw, colour)
                 text_to_draw = word
                 # Increment the y position of the text at the end of each line.
                 y_start += 6
@@ -811,4 +813,4 @@ class Menu:
             text_to_draw += " "
 
         # Draw any remaining text to the final line.
-        pyxel.text(x_start, y_start, text_to_draw, pyxel.COLOR_WHITE)
+        pyxel.text(x_start, y_start, text_to_draw, colour)

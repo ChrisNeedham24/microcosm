@@ -332,7 +332,6 @@ VICTORY_TYPE_COLOURS: typing.Dict[VictoryType, int] = {
 # TODO Verification fns
 # TODO Display achievements when achieved in-game
 # TODO Save achievements
-# TODO Menu - in progress
 ACHIEVEMENTS: typing.List[Achievement] = [
     Achievement("Chicken Dinner", "Win a game."),
     Achievement("Fully Improved", "Build every non-victory improvement in one game."),
