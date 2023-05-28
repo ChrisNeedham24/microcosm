@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 import typing
 from dataclasses import dataclass, field
 from enum import Enum
+
+if typing.TYPE_CHECKING:
+    from source.game_management.game_state import GameState
 
 
 class Biome(str, Enum):
@@ -483,4 +488,4 @@ class Statistics:
 class Achievement:
     name: str
     description: str
-    verification_fn: typing.Callable[[], bool] = lambda: False
+    verification_fn: typing.Callable[[GameState, Statistics], bool] = lambda gs, stats: False

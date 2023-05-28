@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import pathlib
@@ -11,9 +13,11 @@ import pyxel
 from platformdirs import user_data_dir
 
 from source.display.board import Board
-from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement
+from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement, ACHIEVEMENTS
 from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics
 from source.game_management.game_controller import GameController
+if typing.TYPE_CHECKING:
+    from source.game_management.game_state import GameState
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
 from source.saving.save_migrator import migrate_unit, migrate_player, migrate_climatic_effects, \
     migrate_quad, migrate_settlement, migrate_game_config
@@ -64,14 +68,15 @@ def save_game(game_state, auto: bool = False):
     save_file.close()
 
 
-def save_stats(playtime: float = 0,
-               increment_turn: bool = True,
-               victory_to_add: typing.Optional[VictoryType] = None,
-               increment_defeats: bool = False,
-               faction_to_add: typing.Optional[Faction] = None):
+def save_stats_achievements(game_state: GameState,
+                            playtime: float = 0,
+                            increment_turn: bool = True,
+                            victory_to_add: typing.Optional[VictoryType] = None,
+                            increment_defeats: bool = False,
+                            faction_to_add: typing.Optional[Faction] = None):
     """
-    Saves the supplied statistics to the statistics JSON file. All parameters have default values so that they may be
-    supplied at different times.
+    Saves the supplied statistics to the statistics JSON file. Additionally, check if any achievements have been
+    obtained. All parameters have default values so that they may be supplied at different times.
     :param playtime: The elapsed time since the last turn was ended.
     :param increment_turn: Whether a turn was just ended.
     :param victory_to_add: A victory to log, if one was achieved.
@@ -83,9 +88,10 @@ def save_stats(playtime: float = 0,
     existing_victories: typing.Dict[VictoryType, int] = {}
     existing_defeats: int = 0
     existing_factions: typing.Dict[Faction, int] = {}
+    existing_achievements: typing.List[str] = []
 
     stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
-    # If the player already has statistics, get those to add our new ones to.
+    # If the player already has statistics and achievements, get those to add our new ones to.
     if os.path.isfile(stats_file_name):
         with open(stats_file_name, "r", encoding="utf-8") as stats_file:
             stats_json = json.loads(stats_file.read())
@@ -94,6 +100,10 @@ def save_stats(playtime: float = 0,
             existing_victories = stats_json["victories"]
             existing_defeats = stats_json["defeats"]
             existing_factions = stats_json["factions"]
+            existing_achievements = stats_json["achievements"]
+
+    turns_to_write = existing_turns + 1 if increment_turn else existing_turns
+    defeats_to_write = existing_defeats + 1 if increment_defeats else existing_defeats
 
     victories_to_write = existing_victories
     if victory_to_add:
@@ -111,14 +121,22 @@ def save_stats(playtime: float = 0,
         else:
             existing_factions[faction_to_add] = 1
 
+    achievements_to_write = existing_achievements
+    if game_state.players:
+        for ach in ACHIEVEMENTS:
+            if ach.verification_fn(game_state, Statistics(playtime_to_write, turns_to_write, victories_to_write,
+                                                          defeats_to_write, factions_to_write)):
+                achievements_to_write.append(ach.name)
+
     # Write the newly-updated statistics to the file.
     with open(stats_file_name, "w", encoding="utf-8") as stats_file:
         stats = {
             "playtime": playtime_to_write,
-            "turns_played": existing_turns + 1 if increment_turn else existing_turns,
+            "turns_played": turns_to_write,
             "victories": victories_to_write,
-            "defeats": existing_defeats + 1 if increment_defeats else existing_defeats,
-            "factions": factions_to_write
+            "defeats": defeats_to_write,
+            "factions": factions_to_write,
+            "achievements": achievements_to_write
         }
         stats_file.write(json.dumps(stats))
     stats_file.close()

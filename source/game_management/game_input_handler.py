@@ -15,7 +15,7 @@ from source.foundation.models import Construction, OngoingBlessing, CompletedCon
     OverlayType, Faction, ConstructionMenu, Project, DeployerUnit
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
-from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats, get_stats
+from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats_achievements, get_stats
 
 
 def on_key_arrow_down(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
@@ -166,7 +166,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.on_menu = False
             cfg: GameConfig = game_controller.menu.get_game_config()
             # Update stats to include the newly-selected faction.
-            save_stats(faction_to_add=cfg.player_faction)
+            save_stats_achievements(game_state, faction_to_add=cfg.player_faction)
             game_state.gen_players(cfg)
             game_state.board = Board(cfg, game_controller.namer)
             game_controller.move_maker.board_ref = game_state.board
@@ -298,7 +298,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             # Update the playtime statistic.
             time_elapsed = time.time() - game_controller.last_turn_time
             game_controller.last_turn_time = time.time()
-            save_stats(time_elapsed)
+            save_stats_achievements(game_state, time_elapsed)
 
             game_state.board.overlay.update_turn(game_state.turn)
             game_state.process_heathens()

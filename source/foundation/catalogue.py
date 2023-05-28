@@ -6,7 +6,7 @@ import pyxel
 
 from source.foundation.models import FactionDetail, Player, Improvement, ImprovementType, Effect, Blessing, \
     Settlement, UnitPlan, Unit, Biome, Heathen, Faction, Project, ProjectType, VictoryType, DeployerUnitPlan, \
-    Achievement
+    Achievement, HarvestStatus, EconomicStatus
 
 # The list of settlement names, for each biome.
 SETL_NAMES = {
@@ -42,6 +42,7 @@ class Namer:
     current game and loads another (or the same) immediately, without exiting the application. This is a problem due to
     the fact that, in that case, SETL_NAMES will not be reset, as it is on application start.
     """
+
     def __init__(self):
         self.names = deepcopy(SETL_NAMES)
 
@@ -328,35 +329,59 @@ VICTORY_TYPE_COLOURS: typing.Dict[VictoryType, int] = {
     VictoryType.SERENDIPITY: pyxel.COLOR_PURPLE
 }
 
-
-# TODO Verification fns
+# TODO Verification fns - in progress
 # TODO Display achievements when achieved in-game
-# TODO Save achievements
 ACHIEVEMENTS: typing.List[Achievement] = [
-    Achievement("Chicken Dinner", "Win a game."),
-    Achievement("Fully Improved", "Build every non-victory improvement in one game."),
-    Achievement("Harvest Galore", "Have at least 5 settlements with plentiful harvests."),
-    Achievement("Mansa Musa", "Have at least 5 settlements with boom economies."),
-    Achievement("Last One Standing", "Achieve an elimination victory."),
-    Achievement("They Love Me!", "Achieve a jubilation victory."),
-    Achievement("Megalopoleis", "Achieve a gluttony victory."),
-    Achievement("Wealth Upon Wealth", "Achieve an affluence victory."),
-    Achievement("Sanctum Sanctorum", "Achieve a vigour victory."),
-    Achievement("Arduously Blessed", "Achieve a serendipity victory."),
-    Achievement("Grow And Grow", "Win with the Agriculturists."),
-    Achievement("Money Talks", "Win with the Capitalists."),
-    Achievement("Telescopic", "Win with the Scrutineers."),
-    Achievement("Suitably Skeptical", "Win with The Godless."),
-    Achievement("Gallivanting Greed", "Win with The Ravenous."),
-    Achievement("The Clang Of Iron", "Win with the Fundamentalists."),
-    Achievement("The Passionate Eye", "Win with The Orthodox."),
-    Achievement("Cloudscrapers", "Win with The Concentrated."),
-    Achievement("Never Rest", "Win with the Frontiersmen."),
-    Achievement("Empirical Evidence", "Win with the Imperials."),
-    Achievement("The Singular Purpose", "Win with The Persistent."),
-    Achievement("Cartographic Courage", "Win with the Explorers."),
-    Achievement("Sub-Human, Super-Success", "Win with the Infidels."),
-    Achievement("Shine In The Dark", "Win with The Nocturne."),
+    Achievement("Chicken Dinner", "Win a game.",
+                lambda _, stats: len(stats.victories) > 0),
+    Achievement("Fully Improved", "Build every non-victory improvement in one game.",
+                lambda gs, _: sum([len(s.improvements) for s in gs.players[0].settlements]) >= len(IMPROVEMENTS) - 1),
+    Achievement("Harvest Galore", "Have at least 5 settlements with plentiful harvests.",
+                lambda gs, _: len([s for s in gs.players[0].settlements
+                                   if s.harvest_status == HarvestStatus.PLENTIFUL]) >= 5),
+    Achievement("Mansa Musa", "Have at least 5 settlements with boom economies.",
+                lambda gs, _: len([s for s in gs.players[0].settlements
+                                   if s.economic_status == EconomicStatus.BOOM]) >= 5),
+    Achievement("Last One Standing", "Achieve an elimination victory.",
+                lambda _, stats: VictoryType.ELIMINATION in stats.victories),
+    Achievement("They Love Me!", "Achieve a jubilation victory.",
+                lambda _, stats: VictoryType.JUBILATION in stats.victories),
+    Achievement("Megalopoleis", "Achieve a gluttony victory.",
+                lambda _, stats: VictoryType.GLUTTONY in stats.victories),
+    Achievement("Wealth Upon Wealth", "Achieve an affluence victory.",
+                lambda _, stats: VictoryType.AFFLUENCE in stats.victories),
+    Achievement("Sanctum Sanctorum", "Achieve a vigour victory.",
+                lambda _, stats: VictoryType.VIGOUR in stats.victories),
+    Achievement("Arduously Blessed", "Achieve a serendipity victory.",
+                lambda _, stats: VictoryType.SERENDIPITY in stats.victories),
+    Achievement("Grow And Grow", "Win with the Agriculturists.",
+                lambda _, stats: Faction.AGRICULTURISTS in stats.factions),
+    Achievement("Money Talks", "Win with the Capitalists.",
+                lambda _, stats: Faction.CAPITALISTS in stats.factions),
+    Achievement("Telescopic", "Win with the Scrutineers.",
+                lambda _, stats: Faction.SCRUTINEERS in stats.factions),
+    Achievement("Suitably Skeptical", "Win with The Godless.",
+                lambda _, stats: Faction.GODLESS in stats.factions),
+    Achievement("Gallivanting Greed", "Win with The Ravenous.",
+                lambda _, stats: Faction.RAVENOUS in stats.factions),
+    Achievement("The Clang Of Iron", "Win with the Fundamentalists.",
+                lambda _, stats: Faction.FUNDAMENTALISTS in stats.factions),
+    Achievement("The Passionate Eye", "Win with The Orthodox.",
+                lambda _, stats: Faction.ORTHODOX in stats.factions),
+    Achievement("Cloudscrapers", "Win with The Concentrated.",
+                lambda _, stats: Faction.CONCENTRATED in stats.factions),
+    Achievement("Never Rest", "Win with the Frontiersmen.",
+                lambda _, stats: Faction.FRONTIERSMEN in stats.factions),
+    Achievement("Empirical Evidence", "Win with the Imperials.",
+                lambda _, stats: Faction.IMPERIALS in stats.factions),
+    Achievement("The Singular Purpose", "Win with The Persistent.",
+                lambda _, stats: Faction.PERSISTENT in stats.factions),
+    Achievement("Cartographic Courage", "Win with the Explorers.",
+                lambda _, stats: Faction.EXPLORERS in stats.factions),
+    Achievement("Sub-Human, Super-Success", "Win with the Infidels.",
+                lambda _, stats: Faction.INFIDELS in stats.factions),
+    Achievement("Shine In The Dark", "Win with The Nocturne.",
+                lambda _, stats: Faction.NOCTURNE in stats.factions),
     Achievement("The Golden Quad", "Found a settlement on a quad with at least 19 total yield."),
     Achievement("Wholly Blessed", "Undergo all non-victory blessings."),
     Achievement("Unstoppable Force", "Have 20 units."),
