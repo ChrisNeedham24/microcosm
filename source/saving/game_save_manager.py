@@ -104,6 +104,7 @@ def save_stats_achievements(game_state: GameState,
 
     turns_to_write = existing_turns + 1 if increment_turn else existing_turns
     defeats_to_write = existing_defeats + 1 if increment_defeats else existing_defeats
+    achievements_to_write = existing_achievements
 
     victories_to_write = existing_victories
     if victory_to_add:
@@ -113,6 +114,12 @@ def save_stats_achievements(game_state: GameState,
         else:
             existing_victories[victory_to_add] = 1
 
+        if game_state.players:
+            for ach in ACHIEVEMENTS:
+                if ach.name not in achievements_to_write and ach.post_victory and \
+                        ach.verification_fn(game_state, Statistics()):
+                    achievements_to_write.append(ach.name)
+
     factions_to_write = existing_factions
     if faction_to_add:
         # If the player has used this faction before, increment it, otherwise just set it to 1.
@@ -121,11 +128,11 @@ def save_stats_achievements(game_state: GameState,
         else:
             existing_factions[faction_to_add] = 1
 
-    achievements_to_write = existing_achievements
     if game_state.players:
         for ach in ACHIEVEMENTS:
-            if ach.verification_fn(game_state, Statistics(playtime_to_write, turns_to_write, victories_to_write,
-                                                          defeats_to_write, factions_to_write)):
+            if ach.name not in achievements_to_write and not ach.post_victory and \
+                    ach.verification_fn(game_state, Statistics(playtime_to_write, turns_to_write, victories_to_write,
+                                                               defeats_to_write, factions_to_write)):
                 achievements_to_write.append(ach.name)
 
     # Write the newly-updated statistics to the file.

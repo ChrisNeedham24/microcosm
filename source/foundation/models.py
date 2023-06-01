@@ -481,11 +481,12 @@ class Statistics:
     victories: typing.Dict[VictoryType, int] = field(default_factory=lambda: {})
     defeats: int = 0
     factions: typing.Dict[Faction, int] = field(default_factory=lambda: {})
-    achievements: typing.List[str] = field(default_factory=lambda: [])
+    achievements: typing.Set[str] = field(default_factory=set)
 
 
 @dataclass
 class Achievement:
     name: str
     description: str
-    verification_fn: typing.Callable[[GameState, Statistics], bool] = lambda gs, stats: False
+    verification_fn: typing.Callable[[GameState, Statistics], bool]
+    post_victory: bool = False
