@@ -289,7 +289,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.overlay.is_bless_notif() or
             game_state.board.overlay.is_constr_notif() or game_state.board.overlay.is_lvl_notif() or
             game_state.board.overlay.is_close_to_vic() or
-            game_state.board.overlay.is_investigation() or game_state.board.overlay.is_night()):
+            game_state.board.overlay.is_investigation() or game_state.board.overlay.is_night() or
+            game_state.board.overlay.is_ach_notif()):
         # If we are not in any of the above situations, end the turn.
         if game_state.end_turn():
             # Autosave every 10 turns, but only if the player is actually still in the game.
@@ -298,7 +299,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             # Update the playtime statistic.
             time_elapsed = time.time() - game_controller.last_turn_time
             game_controller.last_turn_time = time.time()
-            save_stats_achievements(game_state, time_elapsed)
+            if new_achs := save_stats_achievements(game_state, time_elapsed):
+                game_state.board.overlay.toggle_ach_notif(new_achs)
 
             game_state.board.overlay.update_turn(game_state.turn)
             game_state.process_heathens()
@@ -409,6 +411,8 @@ def on_key_space(game_controller: GameController, game_state: GameState):
     # You should only be able to toggle the elimination overlay if you're actually still in the game.
     if game_state.game_started and game_state.board.overlay.is_elimination() and not game_state.players[0].eliminated:
         game_state.board.overlay.toggle_elimination(None)
+    elif game_state.game_started and game_state.board.overlay.is_ach_notif():
+        game_state.board.overlay.toggle_ach_notif([])
     elif game_state.game_started and game_state.board.overlay.is_night():
         game_state.board.overlay.toggle_night(None)
     elif game_state.game_started and game_state.board.overlay.is_close_to_vic():

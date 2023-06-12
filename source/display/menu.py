@@ -6,6 +6,7 @@ from typing import List, Optional, Tuple
 
 import pyxel
 
+from source.display.display_utils import draw_paragraph
 from source.util.calculator import clamp
 from source.foundation.catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, \
     IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS, ACHIEVEMENTS
@@ -202,7 +203,7 @@ class Menu:
                         pyxel.text(150, 35 + (idx - self.load_game_boundaries[0]) * 10, "Load",
                                    pyxel.COLOR_RED if self.save_idx is idx else pyxel.COLOR_WHITE)
                 if self.load_game_boundaries[1] < len(self.saves) - 1:
-                    self.draw_paragraph(147, 135, "More down!", 5)
+                    draw_paragraph(147, 135, "More down!", 5)
                     pyxel.blt(167, 136, 0, 0, 76, 8, 8)
                 pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
         elif self.in_wiki:
@@ -217,9 +218,9 @@ class Menu:
                         case VictoryType.ELIMINATION:
                             pyxel.text(80, 40, "ELIMINATION", pyxel.COLOR_RED)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            self.draw_paragraph(30, 60, "Take control of all settlements", 36)
+                            draw_paragraph(30, 60, "Take control of all settlements", 36)
                             pyxel.line(24, 70, 175, 70, pyxel.COLOR_GRAY)
-                            self.draw_paragraph(25, 75, """Like any strong leader, you want the best for your people.
+                            draw_paragraph(25, 75, """Like any strong leader, you want the best for your people.
                                                 However, constant attacks by filthy Heathens and enemy troops are
                                                 enough to wear any great leader down. It is time to put an end to this,
                                                 and become the one true empire. Other empires will wither at your
@@ -229,9 +230,9 @@ class Menu:
                         case VictoryType.JUBILATION:
                             pyxel.text(80, 40, "JUBILATION", pyxel.COLOR_GREEN)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            self.draw_paragraph(30, 60, "Maintain 100% satisfaction in 5+ settlements for 25 turns", 36)
+                            draw_paragraph(30, 60, "Maintain 100% satisfaction in 5+ settlements for 25 turns", 36)
                             pyxel.line(24, 76, 175, 76, pyxel.COLOR_GRAY)
-                            self.draw_paragraph(25, 81, """Your rule as leader is solid, your subjects faithful. But
+                            draw_paragraph(25, 81, """Your rule as leader is solid, your subjects faithful. But
                                                 there is something missing. Your subjects, while not rebellious, do not
                                                 have the love for you that you so desire. So be it. You will fill your
                                                 empire with bread and circuses; your subjects will be the envy of all!
@@ -243,9 +244,9 @@ class Menu:
                         case VictoryType.GLUTTONY:
                             pyxel.text(84, 40, "GLUTTONY", pyxel.COLOR_GREEN)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            self.draw_paragraph(30, 60, "Reach level 10 in 10+ settlements", 36)
+                            draw_paragraph(30, 60, "Reach level 10 in 10+ settlements", 36)
                             pyxel.line(24, 70, 175, 70, pyxel.COLOR_GRAY)
-                            self.draw_paragraph(25, 75, """There is nothing more satisfying as a leader than tucking
+                            draw_paragraph(25, 75, """There is nothing more satisfying as a leader than tucking
                                                 into a generous meal prepared by your servants. But as a benevolent
                                                 leader, you question why you alone can enjoy such luxuries. You resolve
                                                 to make it your mission to feed the masses, grow your empire and spread
@@ -258,9 +259,9 @@ class Menu:
                         case VictoryType.AFFLUENCE:
                             pyxel.text(82, 40, "AFFLUENCE", pyxel.COLOR_YELLOW)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            self.draw_paragraph(30, 60, "Accumulate 100,000 wealth over the course of the game", 36)
+                            draw_paragraph(30, 60, "Accumulate 100,000 wealth over the course of the game", 36)
                             pyxel.line(24, 76, 175, 76, pyxel.COLOR_GRAY)
-                            self.draw_paragraph(25, 81, """Your empire has fallen on hard times. Recent conflicts have
+                            draw_paragraph(25, 81, """Your empire has fallen on hard times. Recent conflicts have
                                                 not gone your way, your lands have been seized, and your treasuries are
                                                 empty. This is no way for an empire to be. Your advisors tell you of
                                                 untapped riches in the vast deserts. You make it your mission to
@@ -273,10 +274,10 @@ class Menu:
                         case VictoryType.VIGOUR:
                             pyxel.text(88, 40, "VIGOUR", pyxel.COLOR_ORANGE)
                             pyxel.text(25, 45, "Objectives:", pyxel.COLOR_WHITE)
-                            self.draw_paragraph(30, 55, "Undergo the Ancient History blessing", 36)
-                            self.draw_paragraph(30, 65, "Construct the holy sanctum in a settlement", 36)
+                            draw_paragraph(30, 55, "Undergo the Ancient History blessing", 36)
+                            draw_paragraph(30, 65, "Construct the holy sanctum in a settlement", 36)
                             pyxel.line(24, 77, 175, 77, pyxel.COLOR_GRAY)
-                            self.draw_paragraph(25, 80, """You have always been fascinated with the bygone times of
+                            draw_paragraph(25, 80, """You have always been fascinated with the bygone times of
                                                 your empire and its rich history. There is never a better time than
                                                 the present to devote some time to your studies. Your advisors tell
                                                 you that the educated among your subjects have been doing some
@@ -289,10 +290,10 @@ class Menu:
                         case VictoryType.SERENDIPITY:
                             pyxel.text(78, 40, "SERENDIPITY", pyxel.COLOR_PURPLE)
                             pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
-                            self.draw_paragraph(30, 60, """Undergo the three blessings of ardour: the pieces of
+                            draw_paragraph(30, 60, """Undergo the three blessings of ardour: the pieces of
                                                 strength, passion, and divinity.""", 36)
                             pyxel.line(24, 82, 175, 82, pyxel.COLOR_GRAY)
-                            self.draw_paragraph(25, 87, """Local folklore has always said that a man of the passions
+                            draw_paragraph(25, 87, """Local folklore has always said that a man of the passions
                                                 was a man unparalleled amongst his peers. You have long aspired to be
                                                 such a man, and such a leader. You consult your local sects and are
                                                 informed that you are now ready to make the arduous journey of
@@ -320,7 +321,7 @@ class Menu:
 
                     # Draw the faction details for the currently selected faction.
                     faction_detail = FACTION_DETAILS[self.faction_wiki_idx]
-                    self.draw_paragraph(25, 40, faction_detail.lore, 38)
+                    draw_paragraph(25, 40, faction_detail.lore, 38)
                     pyxel.text(25, 140, faction_detail.buff, pyxel.COLOR_GREEN)
                     pyxel.text(25, 150, faction_detail.debuff, pyxel.COLOR_RED)
                     pyxel.text(25, 170, faction_detail.rec_victory_type,
@@ -334,7 +335,7 @@ class Menu:
                     if self.showing_night:
                         pyxel.blt(96, 25, 0, 8, 84, 8, 8)
                         pyxel.text(60, 35, "The Everlasting Night", pyxel.COLOR_DARK_BLUE)
-                        self.draw_paragraph(25, 45, """It's part of the life in this world. It's the feeling running
+                        draw_paragraph(25, 45, """It's part of the life in this world. It's the feeling running
                                             down your spine when you're walking the streets alone with only a torch to
                                             guide you. It's the devastation when this month's cultivation is smaller
                                             than the last. It's the agony of looking out on a field of crops that won't
@@ -351,7 +352,7 @@ class Menu:
                     else:
                         pyxel.blt(96, 25, 0, 0, 84, 8, 8)
                         pyxel.text(62, 35, "The Heat of the Sun", pyxel.COLOR_YELLOW)
-                        self.draw_paragraph(25, 45, """Each of those on this land can testify to the toll it takes on
+                        draw_paragraph(25, 45, """Each of those on this land can testify to the toll it takes on
                                             you. From the heat of the sun when toiling in the fields, to the icy chill
                                             of the wind atop a mountain, it changes a man. But the climb is always
                                             worth the reward, and you truly feel one with the land as you gaze outward
@@ -390,7 +391,7 @@ class Menu:
                                 pyxel.text(30, 63 + adj_idx * 25, "victory", pyxel.COLOR_GREEN)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                     if self.blessing_boundaries[1] < len(BLESSINGS) - 1:
-                        self.draw_paragraph(152, 155, "More down!", 5)
+                        draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case WikiOption.IMPROVEMENTS:
                     pyxel.load("resources/sprites.pyxres")
@@ -429,7 +430,7 @@ class Menu:
                                 pyxel.text(30 + effects * 25, 64 + adj_offset, f"{satisfaction:+}", pyxel.COLOR_WHITE)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                     if self.improvement_boundaries[1] < len(IMPROVEMENTS) - 1:
-                        self.draw_paragraph(152, 155, "More down!", 5)
+                        draw_paragraph(152, 155, "More down!", 5)
                         pyxel.blt(172, 156, 0, 0, 76, 8, 8)
                 case WikiOption.PROJECTS:
                     pyxel.load("resources/sprites.pyxres")
@@ -461,7 +462,7 @@ class Menu:
                     pyxel.blt(173, 39, 0, 16, 44, 8, 8)
                     pyxel.text(56, 162, "Press SPACE to go back", pyxel.COLOR_WHITE)
                     if self.unit_boundaries[1] < len(self.unit_plans_to_render) - 1:
-                        self.draw_paragraph(152, 140, "More down!", 5)
+                        draw_paragraph(152, 140, "More down!", 5)
                         pyxel.blt(172, 141, 0, 0, 76, 8, 8)
                     match self.wiki_units_option:
                         case WikiUnitsOption.ATTACKING:
@@ -562,13 +563,13 @@ class Menu:
                         x_coord += 8
                     pyxel.blt(35, 40 + 30 * adj_idx, 0, x_coord, idx * 8 - (idx // 32) * 256, 8, 8)
                     pyxel.text(50, 38 + 30 * adj_idx, ach.name, pyxel.COLOR_WHITE)
-                    self.draw_paragraph(50, 46 + 30 * adj_idx, ach.description, 30,
+                    draw_paragraph(50, 46 + 30 * adj_idx, ach.description, 30,
                                         pyxel.COLOR_WHITE if ach.name in self.player_stats.achievements
                                         else pyxel.COLOR_GRAY)
 
             if self.achievements_boundaries[1] < len(ACHIEVEMENTS) - 1:
                 pyxel.load("resources/sprites.pyxres")
-                self.draw_paragraph(150, 150, "More down!", 5)
+                draw_paragraph(150, 150, "More down!", 5)
                 pyxel.blt(170, 151, 0, 0, 76, 8, 8)
 
             pyxel.text(58, 160, "Press SPACE to go back", pyxel.COLOR_WHITE)
@@ -786,31 +787,3 @@ class Menu:
                 field_to_check = self.main_menu_option
 
         return pyxel.COLOR_RED if field_to_check is option else pyxel.COLOR_WHITE
-
-    @staticmethod
-    def draw_paragraph(x_start: int, y_start: int, text: str, line_length: int, colour: int = pyxel.COLOR_WHITE) -> None:
-        """
-        Render text to the screen while automatically accounting for line breaks.
-        :param x_start: x of the text's starting position.
-        :param y_start: y of the text's starting position.
-        :param text: The full text to draw.
-        :param line_length: The maximum character length of each line.
-        """
-        text_to_draw = ""
-
-        for word in text.split():
-            # Iterate through each word and check if there's enough space on the current line to add it. Otherwise,
-            # draw what we have so far and go to the next line.
-            if len(text_to_draw) + len(word) <= line_length:
-                text_to_draw += word
-            else:
-                pyxel.text(x_start, y_start, text_to_draw, colour)
-                text_to_draw = word
-                # Increment the y position of the text at the end of each line.
-                y_start += 6
-
-            # Add a space after each word (so that the reader doesn't run out of breath).
-            text_to_draw += " "
-
-        # Draw any remaining text to the final line.
-        pyxel.text(x_start, y_start, text_to_draw, colour)

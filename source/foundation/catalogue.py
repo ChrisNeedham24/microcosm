@@ -330,7 +330,6 @@ VICTORY_TYPE_COLOURS: typing.Dict[VictoryType, int] = {
     VictoryType.SERENDIPITY: pyxel.COLOR_PURPLE
 }
 
-# TODO Display achievements when achieved in-game
 ACHIEVEMENTS: typing.List[Achievement] = [
     Achievement("Chicken Dinner", "Win a game.",
                 lambda _, stats: len(stats.victories) > 0),

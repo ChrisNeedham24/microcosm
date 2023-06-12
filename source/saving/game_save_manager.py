@@ -14,7 +14,7 @@ from platformdirs import user_data_dir
 
 from source.display.board import Board
 from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement, ACHIEVEMENTS
-from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics
+from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement
 from source.game_management.game_controller import GameController
 if typing.TYPE_CHECKING:
     from source.game_management.game_state import GameState
@@ -73,7 +73,7 @@ def save_stats_achievements(game_state: GameState,
                             increment_turn: bool = True,
                             victory_to_add: typing.Optional[VictoryType] = None,
                             increment_defeats: bool = False,
-                            faction_to_add: typing.Optional[Faction] = None):
+                            faction_to_add: typing.Optional[Faction] = None) -> typing.List[Achievement]:
     """
     Saves the supplied statistics to the statistics JSON file. Additionally, check if any achievements have been
     obtained. All parameters have default values so that they may be supplied at different times.
@@ -89,6 +89,7 @@ def save_stats_achievements(game_state: GameState,
     existing_defeats: int = 0
     existing_factions: typing.Dict[Faction, int] = {}
     existing_achievements: typing.List[str] = []
+    new_achievements: typing.List[Achievement] = []
 
     stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
     # If the player already has statistics and achievements, get those to add our new ones to.
@@ -119,6 +120,7 @@ def save_stats_achievements(game_state: GameState,
                 if ach.name not in achievements_to_write and ach.post_victory and \
                         ach.verification_fn(game_state, Statistics()):
                     achievements_to_write.append(ach.name)
+                    new_achievements.append(ach)
 
     factions_to_write = existing_factions
     if faction_to_add:
@@ -134,6 +136,7 @@ def save_stats_achievements(game_state: GameState,
                     ach.verification_fn(game_state, Statistics(playtime_to_write, turns_to_write, victories_to_write,
                                                                defeats_to_write, factions_to_write)):
                 achievements_to_write.append(ach.name)
+                new_achievements.append(ach)
 
     # Write the newly-updated statistics to the file.
     with open(stats_file_name, "w", encoding="utf-8") as stats_file:
@@ -147,6 +150,8 @@ def save_stats_achievements(game_state: GameState,
         }
         stats_file.write(json.dumps(stats))
     stats_file.close()
+
+    return new_achievements
 
 
 def get_stats() -> Statistics:

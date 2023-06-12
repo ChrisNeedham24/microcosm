@@ -1,8 +1,8 @@
 import typing
 
 from source.foundation.models import Settlement, Player, Improvement, Unit, Blessing, CompletedConstruction, UnitPlan, \
-    Heathen, AttackData, SetlAttackData, Victory, InvestigationResult, OverlayType, SettlementAttackType, PauseOption,\
-    Project, ConstructionMenu, HealData
+    Heathen, AttackData, SetlAttackData, Victory, InvestigationResult, OverlayType, SettlementAttackType, PauseOption, \
+    Project, ConstructionMenu, HealData, Achievement
 
 
 class Overlay:
@@ -60,6 +60,7 @@ class Overlay:
         self.show_additional_controls: bool = False
         self.show_unit_passengers: bool = False
         self.unit_passengers_idx: int = 0
+        self.new_achievements: typing.List[Achievement] = []
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
@@ -76,7 +77,8 @@ class Overlay:
             self.showing.remove(OverlayType.STANDARD)
         elif not self.is_tutorial() and not self.is_lvl_notif() and not self.is_constr_notif() and \
                 not self.is_bless_notif() and not self.is_deployment() and not self.is_warning() and \
-                not self.is_pause() and not self.is_controls() and not self.is_victory() and not self.is_constructing():
+                not self.is_pause() and not self.is_controls() and not self.is_victory() and \
+                not self.is_constructing() and not self.is_ach_notif():
             self.showing.append(OverlayType.STANDARD)
             self.current_turn = turn
 
@@ -106,7 +108,8 @@ class Overlay:
             self.showing.remove(OverlayType.CONSTRUCTION)
         elif not self.is_standard() and not self.is_blessing() and not self.is_lvl_notif() and \
                 not self.is_constr_notif() and not self.is_bless_notif() and not self.is_warning() and \
-                not self.is_deployment() and not self.is_pause() and not self.is_controls() and not self.is_victory():
+                not self.is_deployment() and not self.is_pause() and not self.is_controls() and \
+                not self.is_victory() and not self.is_ach_notif():
             self.showing.append(OverlayType.CONSTRUCTION)
             self.available_constructions = available_constructions
             self.available_projects = available_projects
@@ -181,7 +184,7 @@ class Overlay:
             self.showing.remove(OverlayType.BLESSING)
         elif not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_bless_notif() and \
                 not self.is_deployment() and not self.is_warning() and not self.is_pause() and \
-                not self.is_controls() and not self.is_victory():
+                not self.is_controls() and not self.is_victory() and not self.is_ach_notif():
             self.showing.append(OverlayType.BLESSING)
             self.available_blessings = available_blessings
             self.selected_blessing = self.available_blessings[0]
@@ -237,7 +240,8 @@ class Overlay:
         elif not self.is_unit() and not self.is_standard() and not self.is_setl_click() and not self.is_blessing() and \
                 not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_deployment() and \
                 not self.is_warning() and not self.is_bless_notif() and not self.is_pause() and \
-                not self.is_controls() and not self.is_victory() and not self.is_investigation():
+                not self.is_controls() and not self.is_victory() and not self.is_investigation() and \
+                not self.is_ach_notif():
             self.showing.append(OverlayType.SETTLEMENT)
             self.current_settlement = settlement
             self.current_player = player
@@ -265,7 +269,8 @@ class Overlay:
         if OverlayType.DEPLOYMENT in self.showing:
             self.showing.remove(OverlayType.DEPLOYMENT)
         elif not self.is_warning() and not self.is_bless_notif() and not self.is_constr_notif() and \
-                not self.is_lvl_notif() and not self.is_pause() and not self.is_controls() and not self.is_victory():
+                not self.is_lvl_notif() and not self.is_pause() and not self.is_controls() and \
+                not self.is_victory() and not self.is_ach_notif():
             self.showing.append(OverlayType.DEPLOYMENT)
 
     def is_deployment(self):
@@ -285,7 +290,7 @@ class Overlay:
         elif not self.is_setl() and not self.is_standard() and not self.is_setl_click() and not self.is_blessing() and \
                 not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_deployment() and \
                 not self.is_warning() and not self.is_bless_notif() and not self.is_pause() and \
-                not self.is_controls() and not self.is_victory():
+                not self.is_controls() and not self.is_victory() and not self.is_ach_notif():
             self.showing.append(OverlayType.UNIT)
             self.selected_unit = unit
 
@@ -339,7 +344,7 @@ class Overlay:
             not self.is_deployment() and not self.is_warning() and not self.is_bless_notif() and \
             not self.is_constr_notif() and not self.is_lvl_notif() and not self.is_blessing() and \
             not self.is_standard() and not self.is_constructing() and not self.is_setl_click() and \
-            not self.is_investigation()
+            not self.is_investigation() and not self.is_ach_notif()
 
     def can_jump_to_setl(self) -> bool:
         """
@@ -349,7 +354,7 @@ class Overlay:
         return not self.is_victory() and not self.is_controls() and not self.is_pause() and \
             not self.is_deployment() and not self.is_bless_notif() and not self.is_constr_notif() and \
             not self.is_lvl_notif() and not self.is_blessing() and not self.is_constructing() and \
-            not self.is_setl_click() and not self.is_investigation()
+            not self.is_setl_click() and not self.is_investigation() and not self.is_ach_notif()
 
     def is_setl(self):
         """
@@ -554,7 +559,7 @@ class Overlay:
         elif not self.is_standard() and not self.is_constructing() and not self.is_blessing() and \
                 not self.is_deployment() and not self.is_tutorial() and not self.is_warning() and \
                 not self.is_bless_notif() and not self.is_constr_notif() and not self.is_lvl_notif() and \
-                not self.is_pause() and not self.is_controls() and not self.is_victory():
+                not self.is_pause() and not self.is_controls() and not self.is_victory() and not self.is_ach_notif():
             self.showing.append(OverlayType.SETL_CLICK)
             self.setl_attack_opt = SettlementAttackType.ATTACK
             self.attacked_settlement = att_setl
@@ -688,7 +693,7 @@ class Overlay:
         elif not self.is_standard() and not self.is_constructing() and not self.is_blessing() and \
                 not self.is_deployment() and not self.is_tutorial() and not self.is_warning() and \
                 not self.is_bless_notif() and not self.is_constr_notif() and not self.is_lvl_notif() and \
-                not self.is_pause() and not self.is_controls() and not self.is_victory():
+                not self.is_pause() and not self.is_controls() and not self.is_victory() and not self.is_ach_notif():
             self.showing.append(OverlayType.INVESTIGATION)
             self.investigation_result = inv_res
 
@@ -717,13 +722,27 @@ class Overlay:
         """
         return OverlayType.NIGHT in self.showing
 
+    def toggle_ach_notif(self, new_achievements: typing.List[Achievement]):
+        if OverlayType.ACH_NOTIF in self.showing:
+            self.new_achievements.pop()
+            if not self.new_achievements:
+                self.showing.remove(OverlayType.ACH_NOTIF)
+        else:
+            self.showing.append(OverlayType.ACH_NOTIF)
+            self.new_achievements = new_achievements
+
+    def is_ach_notif(self):
+        return OverlayType.ACH_NOTIF in self.showing
+
     def remove_layer(self) -> typing.Optional[OverlayType]:
         """
         Remove a layer of the overlay, where possible.
         :return: An OverlayType, if the given type requires further action. More specifically, when toggling the unit
         and settlement overlays, action is also required to reset the selected unit/settlement.
         """
-        if self.is_night():
+        if self.is_ach_notif():
+            self.toggle_ach_notif([])
+        elif self.is_night():
             self.toggle_night(None)
         elif self.is_close_to_vic():
             self.toggle_close_to_vic([])

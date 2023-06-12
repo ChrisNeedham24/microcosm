@@ -156,6 +156,7 @@ class OverlayType(Enum):
     CLOSE_TO_VIC = "CLOSE_TO_VIC"
     INVESTIGATION = "INVESTIGATION"
     NIGHT = "NIGHT"
+    ACH_NOTIF = "ACH_NOTIF"
 
 
 class SettlementAttackType(Enum):
