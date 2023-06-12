@@ -11,19 +11,6 @@ if typing.TYPE_CHECKING:
     from source.game_management.game_state import GameState
 
 
-def verify_the_golden_quad(game_state: GameState, _: Statistics) -> bool:
-    for setl in game_state.players[0].settlements:
-        setl_yield = 0
-        for quad in setl.quads:
-            setl_yield += quad.wealth
-            setl_yield += quad.harvest
-            setl_yield += quad.zeal
-            setl_yield += quad.fortune
-        if setl_yield >= 19:
-            return True
-    return False
-
-
 def verify_full_house(game_state: GameState, _: Statistics) -> bool:
     setl_siege_counts: typing.Dict[str, int] = {}
     all_setls: typing.List[Settlement] = []

@@ -382,7 +382,9 @@ ACHIEVEMENTS: typing.List[Achievement] = [
     Achievement("Shine In The Dark", "Win with The Nocturne.",
                 lambda gs, _: gs.players[0].faction == Faction.NOCTURNE, post_victory=True),
     Achievement("The Golden Quad", "Found a settlement on a quad with at least 19 total yield.",
-                achievements.verify_the_golden_quad),
+                lambda gs, _: any((setl.quads[0].wealth + setl.quads[0].harvest +
+                                   setl.quads[0].zeal + setl.quads[0].fortune) >= 19
+                                  for setl in gs.players[0].settlements)),
     Achievement("Wholly Blessed", "Undergo all non-victory blessings.",
                 lambda gs, _: len(gs.players[0].blessings) >= len(BLESSINGS) - 4),
     Achievement("Unstoppable Force", "Have 20 units.",
