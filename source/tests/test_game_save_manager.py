@@ -7,13 +7,13 @@ from itertools import chain
 from unittest.mock import patch, MagicMock, mock_open
 
 from source.display.board import Board
-from source.foundation.catalogue import Namer, get_heathen_plan
+from source.foundation.catalogue import Namer, get_heathen_plan, ACHIEVEMENTS
 from source.foundation.models import GameConfig, Faction, Heathen, Project, UnitPlan, Improvement, Unit, Blessing, \
     AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, VictoryType
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
-from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game, save_stats, get_stats, \
-    init_app_data
+from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game, save_stats_achievements, \
+    get_stats, init_app_data
 from source.saving.save_encoder import SaveEncoder
 
 
@@ -105,7 +105,7 @@ class GameSaveManagerTest(unittest.TestCase):
         original_defeats = 2
         added_playtime = 200
         added_victory = VictoryType.ELIMINATION
-        added_faction = Faction.FUNDAMENTALISTS
+        added_faction = Faction.NOCTURNE
 
         sample_stats = f"""
         {{
@@ -113,7 +113,8 @@ class GameSaveManagerTest(unittest.TestCase):
             "turns_played": {original_turns},
             "victories": {{}},
             "defeats": {original_defeats},
-            "factions": {{}}
+            "factions": {{}},
+            "achievements": []
         }}
         """
         expected_new_stats = {
@@ -125,18 +126,27 @@ class GameSaveManagerTest(unittest.TestCase):
             "defeats": original_defeats + 1,
             "factions": {
                 added_faction: 1
-            }
+            },
+            "achievements": [
+                # Shine In The Dark - because we are simulating winning a game with The Nocturne.
+                ACHIEVEMENTS[23].name,
+                # Chicken Dinner - because we are simulating winning a game.
+                ACHIEVEMENTS[0].name,
+                # Last One Standing - because we are simulating winning an elimination game.
+                ACHIEVEMENTS[4].name
+            ]
         }
 
         # We have to use a context manager for this patch so that we can pass the read_data param to mock_open().
         with patch("source.saving.game_save_manager.open", mock_open(read_data=sample_stats)) as open_mock:
             # This method will never be called in this way, with every parameter at once, but it illustrates the same
             # functionality.
-            save_stats(playtime=added_playtime,
-                       increment_turn=True,
-                       victory_to_add=added_victory,
-                       increment_defeats=True,
-                       faction_to_add=added_faction)
+            save_stats_achievements(self.game_state,
+                                    playtime=added_playtime,
+                                    increment_turn=True,
+                                    victory_to_add=added_victory,
+                                    increment_defeats=True,
+                                    faction_to_add=added_faction)
             # We expect open() to be called twice - once for reading in the previous values, and once for saving the new
             # values.
             self.assertEqual(2, open_mock.call_count)
@@ -149,7 +159,7 @@ class GameSaveManagerTest(unittest.TestCase):
         are supplied.
         """
         victory = VictoryType.ELIMINATION
-        faction = Faction.FUNDAMENTALISTS
+        faction = Faction.NOCTURNE
 
         # In this case, the victory the player has achieved and the faction the player is using have already been used
         # before.
@@ -163,7 +173,8 @@ class GameSaveManagerTest(unittest.TestCase):
             "defeats": 0,
             "factions": {{
                 "{faction}": 1
-            }}
+            }},
+            "achievements": []
         }}
         """
         expected_new_stats = {
@@ -175,14 +186,25 @@ class GameSaveManagerTest(unittest.TestCase):
             "defeats": 0,
             "factions": {
                 faction: 2
-            }
+            },
+            "achievements": [
+                # Shine In The Dark - because we are simulating winning a game with The Nocturne.
+                ACHIEVEMENTS[23].name,
+                # Chicken Dinner - because we are simulating winning a game.
+                ACHIEVEMENTS[0].name,
+                # Last One Standing - because we are simulating winning an elimination game.
+                ACHIEVEMENTS[4].name
+            ]
         }
 
         # We have to use a context manager for this patch so that we can pass the read_data param to mock_open().
         with patch("source.saving.game_save_manager.open", mock_open(read_data=sample_stats)) as open_mock:
             # This method will never be called in this way, with every parameter at once, but it illustrates the same
             # functionality.
-            save_stats(increment_turn=False, victory_to_add=victory, faction_to_add=faction)
+            save_stats_achievements(self.game_state,
+                                    increment_turn=False,
+                                    victory_to_add=victory,
+                                    faction_to_add=faction)
             # We expect open() to be called twice - once for reading in the previous values, and once for saving the new
             # values.
             self.assertEqual(2, open_mock.call_count)
