@@ -3,7 +3,7 @@ import unittest
 import pyxel
 
 from source.display.menu import Menu, SetupOption, WikiOption, MainMenuOption, WikiUnitsOption
-from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS
+from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, ACHIEVEMENTS
 from source.foundation.models import VictoryType, GameConfig, DeployerUnitPlan
 
 
@@ -525,6 +525,24 @@ class MenuTest(unittest.TestCase):
         self.menu.main_menu_option = MainMenuOption.WIKI
         self.assertEqual(pyxel.COLOR_RED, self.menu.get_option_colour(MainMenuOption.WIKI))
         self.assertEqual(pyxel.COLOR_WHITE, self.menu.get_option_colour(MainMenuOption.EXIT))
+
+    def test_navigate_achievements(self):
+        self.menu.viewing_achievements = True
+        self.assertTupleEqual((0, 3), self.menu.achievements_boundaries)
+
+        for i in range(4, len(ACHIEVEMENTS)):
+            self.menu.navigate(down=True)
+            self.assertTupleEqual((i - 3, i), self.menu.achievements_boundaries)
+        self.assertTupleEqual((len(ACHIEVEMENTS) - 4, len(ACHIEVEMENTS) - 1), self.menu.achievements_boundaries)
+        self.menu.navigate(down=True)
+        self.assertTupleEqual((len(ACHIEVEMENTS) - 4, len(ACHIEVEMENTS) - 1), self.menu.achievements_boundaries)
+
+        for i in range(len(ACHIEVEMENTS) - 5, -1, -1):
+            self.menu.navigate(up=True)
+            self.assertTupleEqual((i, i + 3), self.menu.achievements_boundaries)
+        self.assertTupleEqual((0, 3), self.menu.achievements_boundaries)
+        self.menu.navigate(up=True)
+        self.assertTupleEqual((0, 3), self.menu.achievements_boundaries)
 
 
 if __name__ == '__main__':

@@ -21,7 +21,7 @@ def verify_full_house(game_state: GameState, _: Statistics) -> bool:
         if unit.besieging:
             for setl in all_setls:
                 for quad in setl.quads:
-                    if abs(unit.location[0] - quad.location[0]) == 1 or abs(unit.location[1] - quad.location[1]) == 1:
+                    if abs(unit.location[0] - quad.location[0]) <= 1 and abs(unit.location[1] - quad.location[1]) <= 1:
                         setl_siege_counts[setl.name] = \
                             setl_siege_counts[setl.name] + 1 if setl.name in setl_siege_counts else 1
 
