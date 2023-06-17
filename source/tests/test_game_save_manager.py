@@ -7,13 +7,13 @@ from itertools import chain
 from unittest.mock import patch, MagicMock, mock_open
 
 from source.display.board import Board
-from source.foundation.catalogue import Namer, get_heathen_plan
+from source.foundation.catalogue import Namer, get_heathen_plan, ACHIEVEMENTS
 from source.foundation.models import GameConfig, Faction, Heathen, Project, UnitPlan, Improvement, Unit, Blessing, \
     AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, VictoryType
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
-from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game, save_stats, get_stats, \
-    init_app_data
+from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game, save_stats_achievements, \
+    get_stats, init_app_data
 from source.saving.save_encoder import SaveEncoder
 
 
@@ -96,16 +96,16 @@ class GameSaveManagerTest(unittest.TestCase):
         open_mock.return_value.close.assert_called()
 
     @patch("os.path.isfile", lambda *args: True)
-    def test_save_stats(self):
+    def test_save_stats_achievements(self):
         """
-        Ensure that the correct statistics are saved when the method is called.
+        Ensure that the correct statistics and achievements are saved when the method is called.
         """
         original_playtime = 100
         original_turns = 4
         original_defeats = 2
         added_playtime = 200
         added_victory = VictoryType.ELIMINATION
-        added_faction = Faction.FUNDAMENTALISTS
+        added_faction = Faction.NOCTURNE
 
         sample_stats = f"""
         {{
@@ -113,7 +113,8 @@ class GameSaveManagerTest(unittest.TestCase):
             "turns_played": {original_turns},
             "victories": {{}},
             "defeats": {original_defeats},
-            "factions": {{}}
+            "factions": {{}},
+            "achievements": []
         }}
         """
         expected_new_stats = {
@@ -125,31 +126,42 @@ class GameSaveManagerTest(unittest.TestCase):
             "defeats": original_defeats + 1,
             "factions": {
                 added_faction: 1
-            }
+            },
+            "achievements": [
+                # Shine In The Dark - because we are simulating winning a game with The Nocturne.
+                ACHIEVEMENTS[23].name,
+                # Chicken Dinner - because we are simulating winning a game.
+                ACHIEVEMENTS[0].name,
+                # Last One Standing - because we are simulating winning an elimination game.
+                ACHIEVEMENTS[4].name
+            ]
         }
 
         # We have to use a context manager for this patch so that we can pass the read_data param to mock_open().
         with patch("source.saving.game_save_manager.open", mock_open(read_data=sample_stats)) as open_mock:
             # This method will never be called in this way, with every parameter at once, but it illustrates the same
             # functionality.
-            save_stats(playtime=added_playtime,
-                       increment_turn=True,
-                       victory_to_add=added_victory,
-                       increment_defeats=True,
-                       faction_to_add=added_faction)
+            new_achs = save_stats_achievements(self.game_state,
+                                               playtime=added_playtime,
+                                               increment_turn=True,
+                                               victory_to_add=added_victory,
+                                               increment_defeats=True,
+                                               faction_to_add=added_faction)
+            # We expect the correct new achievements to be returned.
+            self.assertEqual([ACHIEVEMENTS[23], ACHIEVEMENTS[0], ACHIEVEMENTS[4]], new_achs)
             # We expect open() to be called twice - once for reading in the previous values, and once for saving the new
             # values.
             self.assertEqual(2, open_mock.call_count)
             open_mock.return_value.write.assert_called_with(json.dumps(expected_new_stats))
 
     @patch("os.path.isfile", lambda *args: True)
-    def test_save_stats_existing_victory_faction(self):
+    def test_save_stats_achievements_existing_victory_faction(self):
         """
-        Ensure that the correct statistics are saved when the method is called and pre-existing victories and factions
-        are supplied.
+        Ensure that the correct statistics and achievements are saved when the method is called and pre-existing
+        victories and factions are supplied.
         """
         victory = VictoryType.ELIMINATION
-        faction = Faction.FUNDAMENTALISTS
+        faction = Faction.NOCTURNE
 
         # In this case, the victory the player has achieved and the faction the player is using have already been used
         # before.
@@ -163,7 +175,8 @@ class GameSaveManagerTest(unittest.TestCase):
             "defeats": 0,
             "factions": {{
                 "{faction}": 1
-            }}
+            }},
+            "achievements": []
         }}
         """
         expected_new_stats = {
@@ -175,14 +188,27 @@ class GameSaveManagerTest(unittest.TestCase):
             "defeats": 0,
             "factions": {
                 faction: 2
-            }
+            },
+            "achievements": [
+                # Shine In The Dark - because we are simulating winning a game with The Nocturne.
+                ACHIEVEMENTS[23].name,
+                # Chicken Dinner - because we are simulating winning a game.
+                ACHIEVEMENTS[0].name,
+                # Last One Standing - because we are simulating winning an elimination game.
+                ACHIEVEMENTS[4].name
+            ]
         }
 
         # We have to use a context manager for this patch so that we can pass the read_data param to mock_open().
         with patch("source.saving.game_save_manager.open", mock_open(read_data=sample_stats)) as open_mock:
             # This method will never be called in this way, with every parameter at once, but it illustrates the same
             # functionality.
-            save_stats(increment_turn=False, victory_to_add=victory, faction_to_add=faction)
+            new_achs = save_stats_achievements(self.game_state,
+                                               increment_turn=False,
+                                               victory_to_add=victory,
+                                               faction_to_add=faction)
+            # We expect the correct new achievements to be returned.
+            self.assertEqual([ACHIEVEMENTS[23], ACHIEVEMENTS[0], ACHIEVEMENTS[4]], new_achs)
             # We expect open() to be called twice - once for reading in the previous values, and once for saving the new
             # values.
             self.assertEqual(2, open_mock.call_count)
@@ -238,6 +264,7 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertFalse(retrieved_stats.victories)
         self.assertFalse(retrieved_stats.defeats)
         self.assertFalse(retrieved_stats.factions)
+        self.assertFalse(retrieved_stats.achievements)
 
     @patch("source.saving.game_save_manager.SAVES_DIR", "source/tests/resources")
     @patch("source.game_management.game_controller.MusicPlayer")

@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 import typing
 from dataclasses import dataclass, field
 from enum import Enum
+
+if typing.TYPE_CHECKING:
+    from source.game_management.game_state import GameState
 
 
 class Biome(str, Enum):
@@ -151,6 +156,7 @@ class OverlayType(Enum):
     CLOSE_TO_VIC = "CLOSE_TO_VIC"
     INVESTIGATION = "INVESTIGATION"
     NIGHT = "NIGHT"
+    ACH_NOTIF = "ACH_NOTIF"
 
 
 class SettlementAttackType(Enum):
@@ -471,8 +477,22 @@ class Statistics:
     """
     The statistics loaded from statistics.json.
     """
-    playtime: float
-    turns_played: int
-    victories: typing.Dict[VictoryType, int]
-    defeats: int
-    factions: typing.Dict[Faction, int]
+    playtime: float = 0
+    turns_played: int = 0
+    victories: typing.Dict[VictoryType, int] = field(default_factory=lambda: {})
+    defeats: int = 0
+    factions: typing.Dict[Faction, int] = field(default_factory=lambda: {})
+    achievements: typing.Set[str] = field(default_factory=set)
+
+
+@dataclass
+class Achievement:
+    """
+    An achievement that may be obtained by a player.
+    """
+    name: str
+    description: str
+    # The function to call to verify whether the achievement has been obtained.
+    verification_fn: typing.Callable[[GameState, Statistics], bool]
+    # Whether this achievement can only be verified immediately after the player has won a game.
+    post_victory: bool = False

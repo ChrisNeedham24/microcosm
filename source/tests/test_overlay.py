@@ -2,7 +2,7 @@ import typing
 import unittest
 
 from source.display.overlay import Overlay
-from source.foundation.catalogue import UNIT_PLANS
+from source.foundation.catalogue import UNIT_PLANS, ACHIEVEMENTS
 from source.foundation.models import OverlayType, Settlement, Player, Faction, ConstructionMenu, Project, ProjectType, \
     Improvement, Effect, ImprovementType, UnitPlan, Blessing, Unit, CompletedConstruction, AttackData, HealData, \
     SetlAttackData, Victory, VictoryType, SettlementAttackType, PauseOption, InvestigationResult, DeployerUnitPlan, \
@@ -830,6 +830,28 @@ class OverlayTest(unittest.TestCase):
         self.assertTrue(self.overlay.is_night())
         self.assertEqual(night_beginning, self.overlay.night_beginning)
 
+    def test_toggle_ach_notif(self):
+        """
+        Ensure that the Achievement Notification overlay can be toggled correctly.
+        """
+        self.overlay.showing = []
+
+        # When not displayed, toggling should add the overlay and updated the new achievements.
+        self.overlay.toggle_ach_notif(ACHIEVEMENTS[0:2])
+        self.assertTrue(self.overlay.is_ach_notif())
+        self.assertListEqual(ACHIEVEMENTS[0:2], self.overlay.new_achievements)
+
+        # When toggled off, one achievement should be popped off the list. In this case, since there is still one to
+        # display, the overlay remains displayed.
+        self.overlay.toggle_ach_notif([])
+        self.assertTrue(self.overlay.is_ach_notif())
+        self.assertListEqual([ACHIEVEMENTS[0]], self.overlay.new_achievements)
+
+        # Toggling off again, there are now no longer any achievements to display, removing the overlay.
+        self.overlay.toggle_ach_notif([])
+        self.assertFalse(self.overlay.is_ach_notif())
+        self.assertFalse(self.overlay.new_achievements)
+
     def test_remove_layer(self):
         """
         Ensure that a layer from the overlay can be successfully removed.
@@ -853,7 +875,11 @@ class OverlayTest(unittest.TestCase):
                 test_class.assertEqual(overlay_type, self.overlay.remove_layer())
             test_class.assertFalse(verification_fn())
 
+        # We need to give the overlay a new achievement so that the toggle can pop it off the list.
+        self.overlay.new_achievements = [ACHIEVEMENTS[0]]
+
         # Check that each overlay type can be successfully removed.
+        set_and_remove(self, OverlayType.ACH_NOTIF, self.overlay.is_ach_notif)
         set_and_remove(self, OverlayType.NIGHT, self.overlay.is_night)
         set_and_remove(self, OverlayType.CLOSE_TO_VIC, self.overlay.is_close_to_vic)
         set_and_remove(self, OverlayType.BLESS_NOTIF, self.overlay.is_bless_notif)

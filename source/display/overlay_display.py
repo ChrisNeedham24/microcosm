@@ -3,8 +3,10 @@ import typing
 import math
 import pyxel
 
+from source.display.display_utils import draw_paragraph
 from source.util.calculator import get_setl_totals
-from source.foundation.catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units
+from source.foundation.catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units, \
+    ACHIEVEMENTS
 from source.foundation.models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, \
     OverlayType, SettlementAttackType, PauseOption, Faction, HarvestStatus, ConstructionMenu, ProjectType, Project, \
     DeployerUnitPlan, DeployerUnit
@@ -61,6 +63,17 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(56, 65, "Consigned to folklore", pyxel.COLOR_RED)
             pyxel.text(50, 75, f"{overlay.just_eliminated.name} has been eliminated.", overlay.just_eliminated.colour)
             pyxel.text(70, 85, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+    # The achievement notification overlay displays any achievements that the player has obtained since the last turn.
+    elif OverlayType.ACH_NOTIF in overlay.showing:
+        pyxel.load("resources/achievements.pyxres")
+        pyxel.rectb(12, 50, 176, 58, pyxel.COLOR_YELLOW)
+        pyxel.rect(13, 51, 174, 56, pyxel.COLOR_BLACK)
+        pyxel.text(60, 55, "Achievement unlocked!", pyxel.COLOR_YELLOW)
+        idx = ACHIEVEMENTS.index(overlay.new_achievements[-1])
+        pyxel.blt(35, 70, 0, (idx // 32) * 16, idx * 8 - (idx // 32) * 256, 8, 8)
+        pyxel.text(50, 68, overlay.new_achievements[-1].name, pyxel.COLOR_WHITE)
+        draw_paragraph(50, 76, overlay.new_achievements[-1].description, 30, pyxel.COLOR_WHITE)
+        pyxel.text(70, 95, "SPACE: Dismiss", pyxel.COLOR_WHITE)
     # The night overlay alerts the player that night is either beginning or ending, and the effects of that.
     elif OverlayType.NIGHT in overlay.showing:
         pyxel.rectb(12, 50, 176, 58, pyxel.COLOR_WHITE)

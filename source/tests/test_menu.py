@@ -3,7 +3,7 @@ import unittest
 import pyxel
 
 from source.display.menu import Menu, SetupOption, WikiOption, MainMenuOption, WikiUnitsOption
-from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS
+from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, ACHIEVEMENTS
 from source.foundation.models import VictoryType, GameConfig, DeployerUnitPlan
 
 
@@ -89,6 +89,31 @@ class MenuTest(unittest.TestCase):
         self.menu.navigate(up=True)
         self.assertEqual(0, self.menu.save_idx)
         self.assertTupleEqual((0, 9), self.menu.load_game_boundaries)
+
+    def test_navigate_achievements(self):
+        """
+        Ensure that the player can correctly navigate up and down the achievements page.
+        """
+        self.menu.viewing_achievements = True
+        self.assertTupleEqual((0, 3), self.menu.achievements_boundaries)
+
+        # Iterate through each achievement.
+        for i in range(4, len(ACHIEVEMENTS)):
+            self.menu.navigate(down=True)
+            self.assertTupleEqual((i - 3, i), self.menu.achievements_boundaries)
+        # Once we get down to the bottom, pressing down again shouldn't do anything.
+        self.assertTupleEqual((len(ACHIEVEMENTS) - 4, len(ACHIEVEMENTS) - 1), self.menu.achievements_boundaries)
+        self.menu.navigate(down=True)
+        self.assertTupleEqual((len(ACHIEVEMENTS) - 4, len(ACHIEVEMENTS) - 1), self.menu.achievements_boundaries)
+
+        # Go back up the page.
+        for i in range(len(ACHIEVEMENTS) - 5, -1, -1):
+            self.menu.navigate(up=True)
+            self.assertTupleEqual((i, i + 3), self.menu.achievements_boundaries)
+        # Now at the top, pressing up shouldn't do anything either.
+        self.assertTupleEqual((0, 3), self.menu.achievements_boundaries)
+        self.menu.navigate(up=True)
+        self.assertTupleEqual((0, 3), self.menu.achievements_boundaries)
 
     def test_navigate_wiki_options(self):
         """
@@ -276,6 +301,8 @@ class MenuTest(unittest.TestCase):
         self.menu.navigate(down=True)
         self.assertEqual(MainMenuOption.STATISTICS, self.menu.main_menu_option)
         self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.ACHIEVEMENTS, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
         self.assertEqual(MainMenuOption.WIKI, self.menu.main_menu_option)
         self.menu.navigate(down=True)
         self.assertEqual(MainMenuOption.EXIT, self.menu.main_menu_option)
@@ -288,6 +315,8 @@ class MenuTest(unittest.TestCase):
         self.assertEqual(MainMenuOption.EXIT, self.menu.main_menu_option)
         self.menu.navigate(up=True)
         self.assertEqual(MainMenuOption.WIKI, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.ACHIEVEMENTS, self.menu.main_menu_option)
         self.menu.navigate(up=True)
         self.assertEqual(MainMenuOption.STATISTICS, self.menu.main_menu_option)
         self.menu.navigate(up=True)
