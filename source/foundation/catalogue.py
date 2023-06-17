@@ -335,7 +335,7 @@ ACHIEVEMENTS: typing.List[Achievement] = [
     Achievement("Chicken Dinner", "Win a game.",
                 lambda _, stats: len(stats.victories) > 0),
     Achievement("Fully Improved", "Build every non-victory improvement in one game.",
-                lambda gs, _: sum([len(s.improvements) for s in gs.players[0].settlements]) >= len(IMPROVEMENTS) - 1),
+                lambda gs, _: sum(len(s.improvements) for s in gs.players[0].settlements) >= len(IMPROVEMENTS) - 1),
     Achievement("Harvest Galore", "Have at least 5 settlements with plentiful harvests.",
                 lambda gs, _: len([s for s in gs.players[0].settlements
                                    if s.harvest_status == HarvestStatus.PLENTIFUL]) >= 5),
