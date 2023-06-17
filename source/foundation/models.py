@@ -487,7 +487,12 @@ class Statistics:
 
 @dataclass
 class Achievement:
+    """
+    An achievement that may be obtained by a player.
+    """
     name: str
     description: str
+    # The function to call to verify whether the achievement has been obtained.
     verification_fn: typing.Callable[[GameState, Statistics], bool]
+    # Whether this achievement can only be verified immediately after the player has won a game.
     post_victory: bool = False

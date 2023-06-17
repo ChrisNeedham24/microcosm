@@ -830,6 +830,28 @@ class OverlayTest(unittest.TestCase):
         self.assertTrue(self.overlay.is_night())
         self.assertEqual(night_beginning, self.overlay.night_beginning)
 
+    def test_toggle_ach_notif(self):
+        """
+        Ensure that the Achievement Notification overlay can be toggled correctly.
+        """
+        self.overlay.showing = []
+
+        # When not displayed, toggling should add the overlay and updated the new achievements.
+        self.overlay.toggle_ach_notif(ACHIEVEMENTS[0:2])
+        self.assertTrue(self.overlay.is_ach_notif())
+        self.assertListEqual(ACHIEVEMENTS[0:2], self.overlay.new_achievements)
+
+        # When toggled off, one achievement should be popped off the list. In this case, since there is still one to
+        # display, the overlay remains displayed.
+        self.overlay.toggle_ach_notif([])
+        self.assertTrue(self.overlay.is_ach_notif())
+        self.assertListEqual([ACHIEVEMENTS[0]], self.overlay.new_achievements)
+
+        # Toggling off again, there are now no longer any achievements to display, removing the overlay.
+        self.overlay.toggle_ach_notif([])
+        self.assertFalse(self.overlay.is_ach_notif())
+        self.assertFalse(self.overlay.new_achievements)
+
     def test_remove_layer(self):
         """
         Ensure that a layer from the overlay can be successfully removed.
@@ -853,6 +875,7 @@ class OverlayTest(unittest.TestCase):
                 test_class.assertEqual(overlay_type, self.overlay.remove_layer())
             test_class.assertFalse(verification_fn())
 
+        # We need to give the overlay a new achievement so that the toggle can pop it off the list.
         self.overlay.new_achievements = [ACHIEVEMENTS[0]]
 
         # Check that each overlay type can be successfully removed.
@@ -898,21 +921,6 @@ class OverlayTest(unittest.TestCase):
         # Since the index is at 0, navigating up again should have no effect.
         self.overlay.navigate_unit(down=False)
         self.assertEqual(0, self.overlay.unit_passengers_idx)
-
-    def test_toggle_ach_notif(self):
-        self.overlay.showing = []
-
-        self.overlay.toggle_ach_notif(ACHIEVEMENTS[0:2])
-        self.assertTrue(self.overlay.is_ach_notif())
-        self.assertListEqual(ACHIEVEMENTS[0:2], self.overlay.new_achievements)
-
-        self.overlay.toggle_ach_notif([])
-        self.assertTrue(self.overlay.is_ach_notif())
-        self.assertListEqual([ACHIEVEMENTS[0]], self.overlay.new_achievements)
-
-        self.overlay.toggle_ach_notif([])
-        self.assertFalse(self.overlay.is_ach_notif())
-        self.assertFalse(self.overlay.new_achievements)
 
 
 if __name__ == '__main__':

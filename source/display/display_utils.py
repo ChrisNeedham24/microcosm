@@ -8,6 +8,7 @@ def draw_paragraph(x_start: int, y_start: int, text: str, line_length: int, colo
     :param y_start: y of the text's starting position.
     :param text: The full text to draw.
     :param line_length: The maximum character length of each line.
+    :param colour: The colour of the text to draw.
     """
     text_to_draw = ""
 

@@ -296,7 +296,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             # Autosave every 10 turns, but only if the player is actually still in the game.
             if game_state.turn % 10 == 0 and game_state.players[0].settlements:
                 save_game(game_state, auto=True)
-            # Update the playtime statistic.
+            # Update the playtime statistic and check if any achievements have been obtained.
             time_elapsed = time.time() - game_controller.last_turn_time
             game_controller.last_turn_time = time.time()
             if new_achs := save_stats_achievements(game_state, time_elapsed):

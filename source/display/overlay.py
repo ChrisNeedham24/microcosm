@@ -723,7 +723,14 @@ class Overlay:
         return OverlayType.NIGHT in self.showing
 
     def toggle_ach_notif(self, new_achievements: typing.List[Achievement]):
+        """
+        Toggle the achievement notification overlay.
+        :param new_achievements: Any new achievements to notify the player of.
+        """
         if OverlayType.ACH_NOTIF in self.showing:
+            # If the player obtains multiple achievements in the course of the same turn, we want to display them
+            # individually. As such, when toggling the overlay off, only actually remove the overlay if this is the last
+            # achievement to display.
             self.new_achievements.pop()
             if not self.new_achievements:
                 self.showing.remove(OverlayType.ACH_NOTIF)
@@ -732,6 +739,10 @@ class Overlay:
             self.new_achievements = new_achievements
 
     def is_ach_notif(self):
+        """
+        Returns whether the achievement notification overlay is currently being displayed.
+        :return: Whether the achievement notification overlay is being displayed.
+        """
         return OverlayType.ACH_NOTIF in self.showing
 
     def remove_layer(self) -> typing.Optional[OverlayType]:

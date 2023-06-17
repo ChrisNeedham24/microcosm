@@ -98,7 +98,7 @@ class GameSaveManagerTest(unittest.TestCase):
     @patch("os.path.isfile", lambda *args: True)
     def test_save_stats_achievements(self):
         """
-        Ensure that the correct statistics are saved when the method is called.
+        Ensure that the correct statistics and achievements are saved when the method is called.
         """
         original_playtime = 100
         original_turns = 4
@@ -147,6 +147,7 @@ class GameSaveManagerTest(unittest.TestCase):
                                                victory_to_add=added_victory,
                                                increment_defeats=True,
                                                faction_to_add=added_faction)
+            # We expect the correct new achievements to be returned.
             self.assertEqual([ACHIEVEMENTS[23], ACHIEVEMENTS[0], ACHIEVEMENTS[4]], new_achs)
             # We expect open() to be called twice - once for reading in the previous values, and once for saving the new
             # values.
@@ -156,8 +157,8 @@ class GameSaveManagerTest(unittest.TestCase):
     @patch("os.path.isfile", lambda *args: True)
     def test_save_stats_achievements_existing_victory_faction(self):
         """
-        Ensure that the correct statistics are saved when the method is called and pre-existing victories and factions
-        are supplied.
+        Ensure that the correct statistics and achievements are saved when the method is called and pre-existing
+        victories and factions are supplied.
         """
         victory = VictoryType.ELIMINATION
         faction = Faction.NOCTURNE
@@ -206,6 +207,7 @@ class GameSaveManagerTest(unittest.TestCase):
                                                increment_turn=False,
                                                victory_to_add=victory,
                                                faction_to_add=faction)
+            # We expect the correct new achievements to be returned.
             self.assertEqual([ACHIEVEMENTS[23], ACHIEVEMENTS[0], ACHIEVEMENTS[4]], new_achs)
             # We expect open() to be called twice - once for reading in the previous values, and once for saving the new
             # values.

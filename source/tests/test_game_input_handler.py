@@ -400,7 +400,7 @@ class GameInputHandlerTest(unittest.TestCase):
         game preparation state modification occurs.
         :param mouse_mock: The mock representation of pyxel.mouse().
         :param random_mock: The mock representation of random.seed().
-        :param save_stats_achievements_mock: The mock implementation of the save_stats() function.
+        :param save_stats_achievements_mock: The mock implementation of the save_stats_achievements() function.
         """
         self.game_state.on_menu = True
         self.game_controller.menu.in_game_setup = True
@@ -816,7 +816,7 @@ class GameInputHandlerTest(unittest.TestCase):
         """
         Ensure that the correct state updates occur when pressing the return key to end a turn.
         :param save_mock: The mock implementation of the save_game() function.
-        :param save_stats_achievements_mock: The mock implementation of the save_stats() function.
+        :param save_stats_achievements_mock: The mock implementation of the save_stats_achievements() function.
         """
         self.game_state.game_started = True
         self.game_state.turn = 10

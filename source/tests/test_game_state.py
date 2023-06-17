@@ -507,7 +507,7 @@ class GameStateTest(unittest.TestCase):
         """
         Ensure that when a turn is ended and a player has achieved a victory, the method returns False and the turn is
         not ended.
-        :param save_stats_achievements_mock: The mock implementation of the save_stats() function.
+        :param save_stats_achievements_mock: The mock implementation of the save_stats_achievements() function.
         """
         self.game_state.board.overlay.toggle_victory = MagicMock()
         save_stats_achievements_mock.return_value = ACHIEVEMENTS[0:2]
@@ -526,6 +526,8 @@ class GameStateTest(unittest.TestCase):
         )
         # The victory statistic should also have been updated.
         save_stats_achievements_mock.assert_called_with(self.game_state, victory_to_add=VictoryType.ELIMINATION)
+        # Additionally, the achievement notification overlay should have been toggled with the newly-obtained
+        # achievements.
         self.game_state.board.overlay.toggle_ach_notif.assert_called_with(ACHIEVEMENTS[0:2])
 
     @patch("source.game_management.game_state.save_stats_achievements")
@@ -533,7 +535,7 @@ class GameStateTest(unittest.TestCase):
         """
         Ensure that when a turn is ended and an AI player has achieved a victory, the method returns False and the turn
         is not ended.
-        :param save_stats_achievements_mock: The mock implementation of the save_stats() function.
+        :param save_stats_achievements_mock: The mock implementation of the save_stats_achievements() function.
         """
         self.game_state.board.overlay.toggle_victory = MagicMock()
         save_stats_achievements_mock.return_value = ACHIEVEMENTS[0:2]
@@ -557,6 +559,8 @@ class GameStateTest(unittest.TestCase):
         # The defeat statistic should also have been updated.
         self.assertEqual(1, save_stats_achievements_mock.call_count)
         save_stats_achievements_mock.assert_called_with(self.game_state, increment_defeats=True)
+        # Additionally, the achievement notification overlay should have been toggled with the newly-obtained
+        # achievements.
         self.game_state.board.overlay.toggle_ach_notif.assert_called_with(ACHIEVEMENTS[0:2])
 
     def test_end_turn(self):
@@ -724,7 +728,7 @@ class GameStateTest(unittest.TestCase):
     def test_check_for_victory_elimination(self, save_stats_achievements_mock: MagicMock):
         """
         Ensure that when the conditions are met for an Elimination victory, it is detected.
-        :param save_stats_achievements_mock: The mock implementation of the save_stats() function.
+        :param save_stats_achievements_mock: The mock implementation of the save_stats_achievements() function.
         """
         # Let us imagine that the second player has just taken the first settlement from the first player. Now, there
         # is only one player with one or more settlements, which is the requirement for this victory.

@@ -317,7 +317,7 @@ class GameState:
         if possible_victory is not None:
             self.board.overlay.toggle_victory(possible_victory)
             # Update the victory/defeat statistics, depending on whether the player achieved a victory, or an AI player
-            # did.
+            # did. Also check for any newly-obtained achievements.
             if possible_victory.player is self.players[0]:
                 if new_achs := save_stats_achievements(self, victory_to_add=possible_victory.type):
                     self.board.overlay.toggle_ach_notif(new_achs)

@@ -63,6 +63,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(56, 65, "Consigned to folklore", pyxel.COLOR_RED)
             pyxel.text(50, 75, f"{overlay.just_eliminated.name} has been eliminated.", overlay.just_eliminated.colour)
             pyxel.text(70, 85, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+    # The achievement notification overlay displays any achievements that the player has obtained since the last turn.
     elif OverlayType.ACH_NOTIF in overlay.showing:
         pyxel.load("resources/achievements.pyxres")
         pyxel.rectb(12, 50, 176, 58, pyxel.COLOR_YELLOW)

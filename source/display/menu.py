@@ -250,8 +250,7 @@ class Menu:
                                                 into a generous meal prepared by your servants. But as a benevolent
                                                 leader, you question why you alone can enjoy such luxuries. You resolve
                                                 to make it your mission to feed the masses, grow your empire and spread
-                                                around the plains!""",
-                                                38)
+                                                around the plains!""", 38)
                             pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                             pyxel.blt(35, 150, 0, 8, 28, 8, 8)
                             pyxel.blt(158, 150, 0, 0, 44, 8, 8)
@@ -564,8 +563,8 @@ class Menu:
                     pyxel.blt(35, 40 + 30 * adj_idx, 0, x_coord, idx * 8 - (idx // 32) * 256, 8, 8)
                     pyxel.text(50, 38 + 30 * adj_idx, ach.name, pyxel.COLOR_WHITE)
                     draw_paragraph(50, 46 + 30 * adj_idx, ach.description, 30,
-                                        pyxel.COLOR_WHITE if ach.name in self.player_stats.achievements
-                                        else pyxel.COLOR_GRAY)
+                                   pyxel.COLOR_WHITE if ach.name in self.player_stats.achievements
+                                   else pyxel.COLOR_GRAY)
 
             if self.achievements_boundaries[1] < len(ACHIEVEMENTS) - 1:
                 pyxel.load("resources/sprites.pyxres")

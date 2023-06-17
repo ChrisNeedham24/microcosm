@@ -77,11 +77,13 @@ def save_stats_achievements(game_state: GameState,
     """
     Saves the supplied statistics to the statistics JSON file. Additionally, check if any achievements have been
     obtained. All parameters have default values so that they may be supplied at different times.
+    :param game_state: The current game state object.
     :param playtime: The elapsed time since the last turn was ended.
     :param increment_turn: Whether a turn was just ended.
     :param victory_to_add: A victory to log, if one was achieved.
     :param increment_defeats: Whether the player just lost a game.
     :param faction_to_add: A chosen faction to log, if the player is starting a new game.
+    :return: Any new achievements that have been obtained by the player.
     """
     playtime_to_write: float = playtime
     existing_turns: int = 0
@@ -115,12 +117,14 @@ def save_stats_achievements(game_state: GameState,
         else:
             existing_victories[victory_to_add] = 1
 
-        if game_state.players:
-            for ach in ACHIEVEMENTS:
-                if ach.name not in achievements_to_write and ach.post_victory and \
-                        ach.verification_fn(game_state, Statistics()):
-                    achievements_to_write.append(ach.name)
-                    new_achievements.append(ach)
+        # Check if any achievements have been obtained that can only be verified immediately after a player victory.
+        # Note that we don't need to supply a real Statistics object for this, since all post-victory achievements only
+        # require the game state to be verified.
+        for ach in ACHIEVEMENTS:
+            if ach.name not in achievements_to_write and ach.post_victory and \
+                    ach.verification_fn(game_state, Statistics()):
+                achievements_to_write.append(ach.name)
+                new_achievements.append(ach)
 
     factions_to_write = existing_factions
     if faction_to_add:
@@ -130,6 +134,9 @@ def save_stats_achievements(game_state: GameState,
         else:
             existing_factions[faction_to_add] = 1
 
+    # All other achievements can be checked on every save, with the real Statistics. Note that we need to ensure that
+    # the player objects for the game have been initialised. This is because player statistics are updated with faction
+    # usage when starting a new game, and this occurs prior to the players being initialised.
     if game_state.players:
         for ach in ACHIEVEMENTS:
             if ach.name not in achievements_to_write and not ach.post_victory and \
@@ -165,7 +172,7 @@ def get_stats() -> Statistics:
             stats_json = json.loads(stats_file.read())
             return Statistics(**stats_json)
     else:
-        return Statistics(0, 0, {}, 0, {}, [])
+        return Statistics(0, 0, {}, 0, {}, set())
 
 
 def load_game(game_state, game_controller: GameController):
