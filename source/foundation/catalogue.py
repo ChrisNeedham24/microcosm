@@ -387,7 +387,7 @@ ACHIEVEMENTS: typing.List[Achievement] = [
                                   for setl in gs.players[0].settlements)),
     Achievement("Wholly Blessed", "Undergo all non-victory blessings.",
                 lambda gs, _: len(gs.players[0].blessings) >= len(BLESSINGS) - 4),
-    Achievement("Unstoppable Force", "Have 20 units.",
+    Achievement("Unstoppable Force", "Have 20 deployed units.",
                 lambda gs, _: len(gs.players[0].units) >= 20),
     Achievement("Full House", "Besiege a settlement with 8 units at once.",
                 achievements.verify_full_house),

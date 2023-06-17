@@ -396,8 +396,11 @@ class GameState:
                 self.board.overlay.toggle_elimination(p)
                 # Update the defeats stat if the eliminated player is the human player.
                 if p == self.players[0]:
-                    if new_achs := save_stats_achievements(self, increment_defeats=True):
-                        self.board.overlay.toggle_ach_notif(new_achs)
+                    # We ignore any returned achievements here for a couple of reasons - mainly because once eliminated,
+                    # the player can't actually view them anyway, because they're taken back to the menu, but also
+                    # because it is exceedingly unlikely that the player will have achieved one in the same turn that
+                    # they have been defeated.
+                    save_stats_achievements(self, increment_defeats=True)
             # If the player has accumulated at least 100k wealth over the game, they have achieved an AFFLUENCE victory.
             if p.accumulated_wealth >= 100000:
                 return Victory(p, VictoryType.AFFLUENCE)

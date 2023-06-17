@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from source.display.board import Board
 from source.display.menu import SetupOption, WikiOption, MainMenuOption
 from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS, get_available_improvements, \
-    get_available_unit_plans, PROJECTS, IMPROVEMENTS
+    get_available_unit_plans, PROJECTS, IMPROVEMENTS, ACHIEVEMENTS
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
     Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit, Construction, CompletedConstruction, \
     SettlementAttackType, PauseOption, Quad, Biome, DeployerUnitPlan, DeployerUnit
@@ -532,6 +532,19 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertTrue(self.game_controller.menu.viewing_stats)
         self.assertIsNotNone(self.game_controller.menu.player_stats)
 
+    def test_return_select_main_menu_option_achievements(self):
+        """
+        Ensure that the achievements page is presented to the player after pressing the return key on the main menu with
+        the Achievements option selected.
+        """
+        self.game_state.on_menu = True
+        self.assertFalse(self.game_controller.menu.viewing_achievements)
+        self.assertIsNone(self.game_controller.menu.player_stats)
+        self.game_controller.menu.main_menu_option = MainMenuOption.ACHIEVEMENTS
+        on_key_return(self.game_controller, self.game_state)
+        self.assertTrue(self.game_controller.menu.viewing_achievements)
+        self.assertIsNotNone(self.game_controller.menu.player_stats)
+
     def test_return_select_main_menu_option_wiki(self):
         """
         Ensure that the wiki menu is presented to the player after pressing the return key on the main menu with the
@@ -809,15 +822,18 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.turn = 10
         # We mock out our complex game state functions here to avoid any potential issues.
         self.game_state.end_turn = MagicMock(return_value=True)
+        self.game_state.board.overlay.toggle_ach_notif = MagicMock()
         self.game_state.board.overlay.update_turn = MagicMock()
         self.game_state.process_heathens = MagicMock()
         self.game_state.process_ais = MagicMock()
         self.game_controller.last_turn_time = 0
+        save_stats_achievements_mock.return_value = ACHIEVEMENTS[0:2]
 
         on_key_return(self.game_controller, self.game_state)
         save_mock.assert_called_with(self.game_state, auto=True)
         self.assertTrue(self.game_controller.last_turn_time)
         save_stats_achievements_mock.assert_called()
+        self.game_state.board.overlay.toggle_ach_notif.assert_called_with(ACHIEVEMENTS[0:2])
         self.game_state.board.overlay.update_turn.assert_called_with(10)
         self.game_state.process_heathens.assert_called()
         self.game_state.process_ais.assert_called_with(self.game_controller.move_maker)
@@ -1028,6 +1044,15 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_space(self.game_controller, self.game_state)
         self.assertFalse(self.game_controller.menu.viewing_stats)
 
+    def test_space_menu_achievements(self):
+        """
+        Ensure that the player is returned to the menu when pressing the space key while viewing their achievements.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.viewing_achievements = True
+        on_key_space(self.game_controller, self.game_state)
+        self.assertFalse(self.game_controller.menu.viewing_achievements)
+
     def test_space_overlay(self):
         """
         Ensure that the space key correctly toggles in-game intrusive overlays.
@@ -1059,6 +1084,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.game_started = True
 
         test_overlay(self, OverlayType.ELIMINATION, "toggle_elimination", [None])
+        test_overlay(self, OverlayType.ACH_NOTIF, "toggle_ach_notif", [[]])
         test_overlay(self, OverlayType.NIGHT, "toggle_night", [None])
         test_overlay(self, OverlayType.CLOSE_TO_VIC, "toggle_close_to_vic", [[]])
         test_overlay(self, OverlayType.BLESS_NOTIF, "toggle_blessing_notification", [None])
