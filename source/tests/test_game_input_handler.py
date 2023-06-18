@@ -819,7 +819,6 @@ class GameInputHandlerTest(unittest.TestCase):
         :param save_stats_achievements_mock: The mock implementation of the save_stats_achievements() function.
         """
         self.game_state.game_started = True
-        self.game_state.turn = 10
         # We mock out our complex game state functions here to avoid any potential issues.
         self.game_state.end_turn = MagicMock(return_value=True)
         self.game_state.board.overlay.toggle_ach_notif = MagicMock()
@@ -834,7 +833,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertTrue(self.game_controller.last_turn_time)
         save_stats_achievements_mock.assert_called()
         self.game_state.board.overlay.toggle_ach_notif.assert_called_with(ACHIEVEMENTS[0:2])
-        self.game_state.board.overlay.update_turn.assert_called_with(10)
+        self.game_state.board.overlay.update_turn.assert_called_with(1)
         self.game_state.process_heathens.assert_called()
         self.game_state.process_ais.assert_called_with(self.game_controller.move_maker)
 
