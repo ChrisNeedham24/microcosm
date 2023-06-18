@@ -293,8 +293,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.overlay.is_ach_notif()):
         # If we are not in any of the above situations, end the turn.
         if game_state.end_turn():
-            # Autosave every 10 turns, but only if the player is actually still in the game.
-            if game_state.turn % 10 == 0 and game_state.players[0].settlements:
+            # Autosave every turn, but only if the player is actually still in the game.
+            if game_state.players[0].settlements:
                 save_game(game_state, auto=True)
             # Update the playtime statistic and check if any achievements have been obtained.
             time_elapsed = time.time() - game_controller.last_turn_time
