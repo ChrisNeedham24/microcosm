@@ -103,7 +103,8 @@ def save_stats_achievements(game_state: GameState,
             existing_victories = stats_json["victories"]
             existing_defeats = stats_json["defeats"]
             existing_factions = stats_json["factions"]
-            existing_achievements = stats_json["achievements"]
+            # Achievements were introduced after the initial statistics, so we have to make sure they are present.
+            existing_achievements = stats_json["achievements"] if "achievements" in stats_json else []
 
     turns_to_write = existing_turns + 1 if increment_turn else existing_turns
     defeats_to_write = existing_defeats + 1 if increment_defeats else existing_defeats

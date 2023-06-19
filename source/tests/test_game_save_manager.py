@@ -175,8 +175,7 @@ class GameSaveManagerTest(unittest.TestCase):
             "defeats": 0,
             "factions": {{
                 "{faction}": 1
-            }},
-            "achievements": []
+            }}
         }}
         """
         expected_new_stats = {
