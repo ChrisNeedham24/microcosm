@@ -1,3 +1,4 @@
+import operator
 import random
 import typing
 
@@ -6,7 +7,7 @@ from source.util.calculator import get_player_totals, get_setl_totals, attack, c
 from source.foundation.catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
 from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
-    UnitPlan, Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction
+    UnitPlan, Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction, VictoryType
 
 
 def set_blessing(player: Player, player_totals: (float, float, float, float)):
@@ -576,6 +577,28 @@ class MoveMaker:
         # found, move next to it and heal it. Otherwise, just look for relics or move randomly.
         elif unit.plan.heals:
             move_healer_unit(player, unit, other_units, all_setls, quads, cfg)
+        elif player_vics := list((p, len(p.imminent_victories)) for p in all_players if p.imminent_victories and p is not player):
+            player_with_most_vics = max(player_vics, key=operator.itemgetter(1))[0]
+            weakest_settlement: (Settlement, int) = \
+                player_with_most_vics.settlements[0], player_with_most_vics.settlements[0].strength
+            for setl in player_with_most_vics.settlements:
+                if setl.strength < weakest_settlement[1]:
+                    weakest_settlement = setl, setl.strength
+            distance = pow(pow(x_diff := (weakest_settlement[0].location[0] - unit.location[0]), 2) +
+                           pow(y_diff := (weakest_settlement[0].location[1] - unit.location[1]), 2), 0.5)
+            dir_vec = (x_diff / distance, y_diff / distance)
+            print(weakest_settlement[0].location)
+            print(unit.location)
+            print(unit.remaining_stamina)
+            unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
+                             int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+            print(unit.location)
+            unit.remaining_stamina = 0
+            # TODO How to attack once they've moved
+            # TODO Depending on playstyle and unit index, move unit - units should move into deployer unit if nearby
+            # TODO Construct deployer units if someone else has an imminent victory
+            # TODO Deploy all deployer units if someone else has an imminent victory
+            # TODO Deployer units should not move until full
         else:
             attack_over_siege = True  # If False, the unit will siege the settlement.
             within_range: typing.Optional[Unit | Settlement] = None
@@ -584,15 +607,19 @@ class MoveMaker:
             # AI is neutral but with a health advantage over another unit, or lastly, if the other unit is an Infidel.
             for other_u in other_units:
                 is_infidel = False
+                is_close_to_elimination_vic = False
                 for pl in all_players:
                     if pl.faction is Faction.INFIDELS and other_u in pl.units:
                         is_infidel = True
+                        break
+                    if VictoryType.ELIMINATION in pl.imminent_victories:
+                        is_close_to_elimination_vic = True
                         break
                 could_attack: bool = any(setl.besieged or setl.strength < setl.max_strength / 2
                                          for setl in player.settlements) or \
                     player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
                     (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
-                     unit.health >= other_u.health * 2) or is_infidel
+                     unit.health >= other_u.health * 2) or is_infidel or is_close_to_elimination_vic
                 # Of course, the attacked unit has to be close enough.
                 if max(abs(unit.location[0] - other_u.location[0]),
                        abs(unit.location[1] - other_u.location[1])) <= unit.remaining_stamina and could_attack and \
@@ -603,7 +630,11 @@ class MoveMaker:
                 # If there are no other units within range and attackable, then we check if there are any enemy
                 # settlements we can attack or place under siege.
                 for other_setl in all_setls:
-                    if other_setl not in player.settlements:
+                    setl_owner = None
+                    for pl in all_players:
+                        if other_setl in pl.settlements:
+                            setl_owner = pl
+                    if setl_owner is not player:
                         # Settlements are only attacked by AI players under strict conditions. Even aggressive AIs need
                         # to double the strength of the settlement in their health.
                         could_attack: bool = (player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE and
@@ -611,7 +642,7 @@ class MoveMaker:
                                              (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
                                               unit.health >= other_setl.strength * 10) or \
                                              (player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE and
-                                              other_setl.strength == 0)
+                                              other_setl.strength == 0) or setl_owner.imminent_victories
                         if could_attack:
                             if any(max(abs(unit.location[0] - setl_quad.location[0]),
                                        abs(unit.location[1] - setl_quad.location[1])) <= unit.remaining_stamina
