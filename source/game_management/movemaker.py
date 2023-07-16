@@ -7,7 +7,8 @@ from source.util.calculator import get_player_totals, get_setl_totals, attack, c
 from source.foundation.catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
 from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
-    UnitPlan, Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction, VictoryType
+    UnitPlan, Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction, VictoryType, DeployerUnitPlan, \
+    DeployerUnit
 
 
 def set_blessing(player: Player, player_totals: (float, float, float, float)):
@@ -174,7 +175,8 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
             setl.current_work = Construction(ideal)
 
 
-def set_ai_construction(player: Player, setl: Settlement, is_night: bool):
+def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
+                        other_player_vics: typing.List[typing.Tuple[Player, int]]):
     """
     Choose and begin a construction for the given AI player's settlement.
     :param player: The AI owner of the given settlement.
@@ -197,6 +199,7 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool):
     avail_units = get_available_unit_plans(player, setl.level)
     settler_units = [settler for settler in avail_units if settler.can_settle]
     healer_units = [healer for healer in avail_units if healer.heals]
+    deployer_units = [deployer for deployer in avail_units if isinstance(deployer, DeployerUnitPlan)]
     # Note that if there are no available improvements for the given settlement, the 'ideal' construction will default
     # to the first available unit. Additionally, the first improvement is only selected if it won't reduce satisfaction.
     ideal: Improvement | UnitPlan = avail_imps[0] \
@@ -457,13 +460,15 @@ class MoveMaker:
         all_setls = []
         for pl in all_players:
             all_setls.extend(pl.settlements)
+        other_player_vics = list((p, len(p.imminent_victories)) for p in all_players
+                                 if p.imminent_victories and p is not player)
         player_totals = get_player_totals(player, is_night)
         overall_wealth = player_totals[0]
         if player.ongoing_blessing is None:
             set_blessing(player, player_totals)
         for setl in player.settlements:
             if setl.current_work is None:
-                set_ai_construction(player, setl, is_night)
+                set_ai_construction(player, setl, is_night, other_player_vics)
             elif player.faction is not Faction.FUNDAMENTALISTS:
                 constr = setl.current_work.construction
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out. In
@@ -476,15 +481,14 @@ class MoveMaker:
                     player.wealth -= constr.cost - setl.current_work.zeal_consumed
                     complete_construction(setl, player)
             # If the settlement has a settler, deploy them.
-            if len([unit for unit in setl.garrison if unit.plan.can_settle]) > 0:
-                for unit in setl.garrison:
-                    if unit.plan.can_settle:
-                        unit.garrisoned = False
-                        unit.location = next(loc for loc in gen_spiral_indices(setl.location)
-                                             if not any(setl_quad.location == loc for setl_quad in setl.quads) and
-                                             0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
-                        player.units.append(unit)
-                        setl.garrison.remove(unit)
+            if len(settlers := [unit for unit in setl.garrison if unit.plan.can_settle]) > 0:
+                for settler in settlers:
+                    settler.garrisoned = False
+                    settler.location = next(loc for loc in gen_spiral_indices(setl.location)
+                                            if not any(setl_quad.location == loc for setl_quad in setl.quads) and
+                                            0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
+                    player.units.append(settler)
+                    setl.garrison.remove(settler)
             # Deploy a unit from the garrison if the AI is not defensive, or the settlement is under siege or attack, or
             # there are too many units garrisoned.
             if (len(setl.garrison) > 0 and
@@ -496,6 +500,15 @@ class MoveMaker:
                                          if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                          0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                 player.units.append(deployed)
+            if other_player_vics and \
+                    len(deployers := [unit for unit in setl.garrison if isinstance(unit, DeployerUnit)]) > 0:
+                for deployer in deployers:
+                    deployer.garrisoned = False
+                    deployer.location = next(loc for loc in gen_spiral_indices(setl.location)
+                                             if not any(setl_quad.location == loc for setl_quad in setl.quads) and
+                                             0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
+                    player.units.append(deployer)
+                    setl.garrison.remove(deployer)
         all_units = []
         for p in all_players:
             if p is not player:
@@ -507,8 +520,10 @@ class MoveMaker:
         for unit in player.units:
             if pow_health := (unit.health + unit.plan.power) < min_pow_health[0]:
                 min_pow_health = pow_health, unit
-            self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg)
             overall_wealth -= unit.plan.cost / 10
+            if isinstance(unit, DeployerUnit) and len(unit.passengers) != unit.plan.max_capacity:
+                continue
+            self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg, other_player_vics)
         if (player.wealth + overall_wealth < 0) and min_pow_health[1] in player.units:
             player.wealth += min_pow_health[1].plan.cost
             player.units.remove(min_pow_health[1])
@@ -557,7 +572,8 @@ class MoveMaker:
             player.units.remove(unit)
 
     def move_unit(self, player: Player, unit: Unit, other_units: typing.List[Unit], all_players: typing.List[Player],
-                  all_setls: typing.List[Settlement], quads: typing.List[typing.List[Quad]], cfg: GameConfig):
+                  all_setls: typing.List[Settlement], quads: typing.List[typing.List[Quad]], cfg: GameConfig,
+                  other_player_vics: typing.List[typing.Tuple[Player, int]]):
         """
         Move the given unit, attacking if the right conditions are met.
         :param player: The AI owner of the unit being moved.
@@ -577,28 +593,6 @@ class MoveMaker:
         # found, move next to it and heal it. Otherwise, just look for relics or move randomly.
         elif unit.plan.heals:
             move_healer_unit(player, unit, other_units, all_setls, quads, cfg)
-        elif player_vics := list((p, len(p.imminent_victories)) for p in all_players if p.imminent_victories and p is not player):
-            player_with_most_vics = max(player_vics, key=operator.itemgetter(1))[0]
-            weakest_settlement: (Settlement, int) = \
-                player_with_most_vics.settlements[0], player_with_most_vics.settlements[0].strength
-            for setl in player_with_most_vics.settlements:
-                if setl.strength < weakest_settlement[1]:
-                    weakest_settlement = setl, setl.strength
-            distance = pow(pow(x_diff := (weakest_settlement[0].location[0] - unit.location[0]), 2) +
-                           pow(y_diff := (weakest_settlement[0].location[1] - unit.location[1]), 2), 0.5)
-            dir_vec = (x_diff / distance, y_diff / distance)
-            print(weakest_settlement[0].location)
-            print(unit.location)
-            print(unit.remaining_stamina)
-            unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
-                             int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
-            print(unit.location)
-            unit.remaining_stamina = 0
-            # TODO How to attack once they've moved
-            # TODO Depending on playstyle and unit index, move unit - units should move into deployer unit if nearby
-            # TODO Construct deployer units if someone else has an imminent victory
-            # TODO Deploy all deployer units if someone else has an imminent victory
-            # TODO Deployer units should not move until full
         else:
             attack_over_siege = True  # If False, the unit will siege the settlement.
             within_range: typing.Optional[Unit | Settlement] = None
@@ -738,6 +732,21 @@ class MoveMaker:
                             # Show the siege notification if we have placed one of the player's settlements under siege.
                             if within_range in all_players[0].settlements:
                                 self.board_ref.overlay.toggle_siege_notif(within_range, player)
+            elif other_player_vics:
+                player_with_most_vics = max(other_player_vics, key=operator.itemgetter(1))[0]
+                weakest_settlement: (Settlement, int) = \
+                    player_with_most_vics.settlements[0], player_with_most_vics.settlements[0].strength
+                for setl in player_with_most_vics.settlements:
+                    if setl.strength < weakest_settlement[1]:
+                        weakest_settlement = setl, setl.strength
+                distance = pow(pow(x_diff := (weakest_settlement[0].location[0] - unit.location[0]), 2) +
+                               pow(y_diff := (weakest_settlement[0].location[1] - unit.location[1]), 2), 0.5)
+                dir_vec = (x_diff / distance, y_diff / distance)
+                unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
+                                 int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                unit.remaining_stamina = 0
+                # TODO Depending on playstyle and unit index, move unit - units should move into deployer unit if nearby
+                # TODO Construct deployer units if someone else has an imminent victory
             # If there's nothing within range, look for relics or just move randomly.
             else:
                 search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)

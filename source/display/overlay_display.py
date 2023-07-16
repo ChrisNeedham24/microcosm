@@ -261,8 +261,10 @@ def display_overlay(overlay: Overlay, is_night: bool):
             att_dmg = round(overlay.setl_attack_data.damage_to_attacker)
             setl_name = overlay.setl_attack_data.settlement.name
             setl_dmg = round(overlay.setl_attack_data.damage_to_setl)
-            if overlay.setl_attack_data.attacker_was_killed:
+            if overlay.setl_attack_data.attacker_was_killed and overlay.setl_attack_data.player_attack:
                 pyxel.text(35, 15, f"Your {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
+            elif overlay.setl_attack_data.attacker_was_killed:
+                pyxel.text(38, 15, f"A {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
             elif overlay.setl_attack_data.setl_was_taken and overlay.setl_attack_data.player_attack:
                 pyxel.text(50, 15, f"Your {att_name} (-{att_dmg}) sacked", pyxel.COLOR_WHITE)
             elif overlay.setl_attack_data.setl_was_taken:
