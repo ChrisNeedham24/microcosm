@@ -441,6 +441,12 @@ def move_healer_unit(player: Player, unit: Unit, other_units: typing.List[Unit],
         search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)
 
 
+def get_unit_setl_distance(u: Unit, s: Settlement) -> (float, int, int):
+    dist = pow(pow(x_d := (s.location[0] - u.location[0]), 2) +
+               pow(y_d := (s.location[1] - u.location[1]), 2), 0.5)
+    return dist, x_d, y_d
+
+
 class MoveMaker:
     """
     The MoveMaker class handles AI moves for each turn.
@@ -527,8 +533,8 @@ class MoveMaker:
         for unit in player.units:
             if pow_health := (unit.health + unit.plan.power) < min_pow_health[0]:
                 min_pow_health = pow_health, unit
-            overall_wealth -= unit.plan.cost / 10
             self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg, other_player_vics)
+            overall_wealth -= unit.plan.cost / 10
         if (player.wealth + overall_wealth < 0) and min_pow_health[1] in player.units:
             player.wealth += min_pow_health[1].plan.cost
             player.units.remove(min_pow_health[1])
@@ -600,16 +606,11 @@ class MoveMaker:
             move_healer_unit(player, unit, other_units, all_setls, quads, cfg)
         elif isinstance(unit, DeployerUnit):
             if other_player_vics:
-                def get_distance(u: Unit, s: Settlement) -> (float, int, int):
-                    dist = pow(pow(x_d := (s.location[0] - u.location[0]), 2) +
-                               pow(y_d := (s.location[1] - u.location[1]), 2), 0.5)
-                    return dist, x_d, y_d
-
                 if not unit.passengers:
                     nearest_settlement: (Settlement, float, int, int) = \
-                        player.settlements[0], *get_distance(unit, player.settlements[0])
+                        player.settlements[0], *get_unit_setl_distance(unit, player.settlements[0])
                     for setl in player.settlements:
-                        distance = get_distance(unit, setl)[0]
+                        distance = get_unit_setl_distance(unit, setl)[0]
                         if distance < nearest_settlement[1]:
                             nearest_settlement = setl, distance
                     if int(nearest_settlement[1]) > unit.remaining_stamina / 2:
@@ -625,7 +626,7 @@ class MoveMaker:
                     for setl in player_with_most_vics.settlements:
                         if setl.strength < weakest_settlement[1]:
                             weakest_settlement = setl, setl.strength
-                    distance, x_diff, y_diff = get_distance(unit, weakest_settlement[0])
+                    distance, x_diff, y_diff = get_unit_setl_distance(unit, weakest_settlement[0])
                     if distance < unit.remaining_stamina:
                         if unit.passengers:
                             deployed = unit.passengers.pop()
@@ -806,8 +807,7 @@ class MoveMaker:
                     for setl in player_with_most_vics.settlements:
                         if setl.strength < weakest_settlement[1]:
                             weakest_settlement = setl, setl.strength
-                    distance = pow(pow(x_diff := (weakest_settlement[0].location[0] - unit.location[0]), 2) +
-                                   pow(y_diff := (weakest_settlement[0].location[1] - unit.location[1]), 2), 0.5)
+                    distance, x_diff, y_diff = get_unit_setl_distance(unit, weakest_settlement[0])
                     dir_vec = (x_diff / distance, y_diff / distance)
                     unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                      int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
