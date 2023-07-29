@@ -282,6 +282,13 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
                 if i.effect.harvest > most_harvest[0] and i.cost <= most_harvest[1]:
                     most_harvest = i.effect.harvest, i.cost, i
             setl.current_work = Construction(most_harvest[2])
+        elif other_player_vics and not \
+                [u for u in player.units if isinstance(u, DeployerUnit) and len(u.passengers) < u.plan.max_capacity]:
+            most_capacity: (int, UnitPlan) = deployer_units[0].max_capacity, deployer_units[0]
+            for dep in deployer_units:
+                if dep.max_capacity >= most_capacity[0]:
+                    most_capacity = dep.max_capacity, dep
+            setl.current_work = Construction(most_capacity[1])
         else:
             # Aggressive AIs will, in most cases, pick the available unit with the most power, if the settlement level
             # is high enough. However, if they do not have an acceptable number of healer units (20% of total), one of
@@ -733,20 +740,30 @@ class MoveMaker:
                             if within_range in all_players[0].settlements:
                                 self.board_ref.overlay.toggle_siege_notif(within_range, player)
             elif other_player_vics:
-                player_with_most_vics = max(other_player_vics, key=operator.itemgetter(1))[0]
-                weakest_settlement: (Settlement, int) = \
-                    player_with_most_vics.settlements[0], player_with_most_vics.settlements[0].strength
-                for setl in player_with_most_vics.settlements:
-                    if setl.strength < weakest_settlement[1]:
-                        weakest_settlement = setl, setl.strength
-                distance = pow(pow(x_diff := (weakest_settlement[0].location[0] - unit.location[0]), 2) +
-                               pow(y_diff := (weakest_settlement[0].location[1] - unit.location[1]), 2), 0.5)
-                dir_vec = (x_diff / distance, y_diff / distance)
-                unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
-                                 int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
-                unit.remaining_stamina = 0
-                # TODO Depending on playstyle and unit index, move unit - units should move into deployer unit if nearby
-                # TODO Construct deployer units if someone else has an imminent victory
+                if not isinstance(unit, DeployerUnit):
+                    # Attempt to move into a nearby deployer unit to begin with.
+                    for player_u in player.units:
+                        if max(abs(unit.location[0] - player_u.location[0]),
+                               abs(unit.location[1] - player_u.location[1])) <= unit.remaining_stamina and \
+                                isinstance(player_u, DeployerUnit) and \
+                                len(player_u.passengers) < player_u.plan.max_capacity:
+                            unit.remaining_stamina = 0
+                            player_u.passengers.append(unit)
+                            player.units.remove(unit)
+                # I.e. either the unit is a deployer unit, or a regular unit that did not find a deployer to board.
+                if unit.remaining_stamina:
+                    player_with_most_vics = max(other_player_vics, key=operator.itemgetter(1))[0]
+                    weakest_settlement: (Settlement, int) = \
+                        player_with_most_vics.settlements[0], player_with_most_vics.settlements[0].strength
+                    for setl in player_with_most_vics.settlements:
+                        if setl.strength < weakest_settlement[1]:
+                            weakest_settlement = setl, setl.strength
+                    distance = pow(pow(x_diff := (weakest_settlement[0].location[0] - unit.location[0]), 2) +
+                                   pow(y_diff := (weakest_settlement[0].location[1] - unit.location[1]), 2), 0.5)
+                    dir_vec = (x_diff / distance, y_diff / distance)
+                    unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
+                                     int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                    unit.remaining_stamina = 0
             # If there's nothing within range, look for relics or just move randomly.
             else:
                 search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)
