@@ -282,7 +282,7 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
                 if i.effect.harvest > most_harvest[0] and i.cost <= most_harvest[1]:
                     most_harvest = i.effect.harvest, i.cost, i
             setl.current_work = Construction(most_harvest[2])
-        elif other_player_vics and not \
+        elif other_player_vics and deployer_units and not \
                 [u for u in player.units if isinstance(u, DeployerUnit) and len(u.passengers) < u.plan.max_capacity]:
             most_capacity: (int, UnitPlan) = deployer_units[0].max_capacity, deployer_units[0]
             for dep in deployer_units:
@@ -528,8 +528,6 @@ class MoveMaker:
             if pow_health := (unit.health + unit.plan.power) < min_pow_health[0]:
                 min_pow_health = pow_health, unit
             overall_wealth -= unit.plan.cost / 10
-            if isinstance(unit, DeployerUnit) and len(unit.passengers) != unit.plan.max_capacity:
-                continue
             self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg, other_player_vics)
         if (player.wealth + overall_wealth < 0) and min_pow_health[1] in player.units:
             player.wealth += min_pow_health[1].plan.cost
@@ -600,6 +598,51 @@ class MoveMaker:
         # found, move next to it and heal it. Otherwise, just look for relics or move randomly.
         elif unit.plan.heals:
             move_healer_unit(player, unit, other_units, all_setls, quads, cfg)
+        elif isinstance(unit, DeployerUnit):
+            if other_player_vics:
+                def get_distance(u: Unit, s: Settlement) -> (float, int, int):
+                    dist = pow(pow(x_d := (s.location[0] - u.location[0]), 2) +
+                               pow(y_d := (s.location[1] - u.location[1]), 2), 0.5)
+                    return dist, x_d, y_d
+
+                if not unit.passengers:
+                    nearest_settlement: (Settlement, float, int, int) = \
+                        player.settlements[0], *get_distance(unit, player.settlements[0])
+                    for setl in player.settlements:
+                        distance = get_distance(unit, setl)[0]
+                        if distance < nearest_settlement[1]:
+                            nearest_settlement = setl, distance
+                    if int(nearest_settlement[1]) > unit.remaining_stamina / 2:
+                        dir_vec = (nearest_settlement[2] / nearest_settlement[1],
+                                   nearest_settlement[3] / nearest_settlement[1])
+                        unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
+                                         int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                        unit.remaining_stamina = 0
+                else:
+                    player_with_most_vics = max(other_player_vics, key=operator.itemgetter(1))[0]
+                    weakest_settlement: (Settlement, int) = \
+                        player_with_most_vics.settlements[0], player_with_most_vics.settlements[0].strength
+                    for setl in player_with_most_vics.settlements:
+                        if setl.strength < weakest_settlement[1]:
+                            weakest_settlement = setl, setl.strength
+                    distance, x_diff, y_diff = get_distance(unit, weakest_settlement[0])
+                    if distance < unit.remaining_stamina:
+                        if unit.passengers:
+                            deployed = unit.passengers.pop()
+                            deployed.location = next(loc for loc in gen_spiral_indices(unit.location) if
+                                                     not any(unit.location == loc for unit in player.units) and
+                                                     not any(unit.location == loc for unit in other_units) and
+                                                     not any(any(setl_quad.location == loc for setl_quad in setl.quads)
+                                                             for setl in all_setls) and
+                                                     0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
+                            player.units.append(deployed)
+                    elif len(unit.passengers) == unit.plan.max_capacity:
+                        dir_vec = (x_diff / distance, y_diff / distance)
+                        unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
+                                         int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                        unit.remaining_stamina = 0
+            else:
+                search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)
         else:
             attack_over_siege = True  # If False, the unit will siege the settlement.
             within_range: typing.Optional[Unit | Settlement] = None
@@ -666,24 +709,29 @@ class MoveMaker:
                                     break
             if within_range is not None:
                 # Now that we have determined that there is some entity (unit or settlement) that our unit will attack,
-                # we need to work out where we will move our unit to. There are three options for this, directly to the
-                # sides of the entity, below the entity, or above the entity.
-                first_resort: (int, int)
-                second_resort = within_range.location[0], within_range.location[1] + 1
-                third_resort = within_range.location[0], within_range.location[1] - 1
-                if within_range.location[0] - unit.location[0] < 0:
-                    first_resort = within_range.location[0] + 1, within_range.location[1]
-                else:
-                    first_resort = within_range.location[0] - 1, within_range.location[1]
+                # we need to work out where we will move our unit to, if at all. There are three options for this,
+                # directly to the sides of the entity, below the entity, or above the entity. Alternatively, if our unit
+                # is already adjacent to the entity to be attacked, don't bother moving at all.
                 found_valid_loc = False
-                # We have to ensure that no other units or settlements are in the location we intend to move to.
-                for loc in [first_resort, second_resort, third_resort]:
-                    if not any(u.location == loc for u in player.units) and \
-                            not any(other_u.location == loc for other_u in other_units) and \
-                            not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
-                        unit.location = loc
-                        found_valid_loc = True
-                        break
+                if abs(unit.location[0] - within_range.location[0]) > 1 or \
+                   abs(unit.location[1] - within_range.location[1]) > 1:
+                    first_resort: (int, int)
+                    second_resort = within_range.location[0], within_range.location[1] + 1
+                    third_resort = within_range.location[0], within_range.location[1] - 1
+                    if within_range.location[0] - unit.location[0] < 0:
+                        first_resort = within_range.location[0] + 1, within_range.location[1]
+                    else:
+                        first_resort = within_range.location[0] - 1, within_range.location[1]
+                    # We have to ensure that no other units or settlements are in the location we intend to move to.
+                    for loc in [first_resort, second_resort, third_resort]:
+                        if not any(u.location == loc for u in player.units) and \
+                                not any(other_u.location == loc for other_u in other_units) and \
+                                not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
+                            unit.location = loc
+                            found_valid_loc = True
+                            break
+                else:
+                    found_valid_loc = True
                 unit.remaining_stamina = 0
                 # If there is no location we can move to that allows us to attack, don't move or attack.
                 if found_valid_loc:
@@ -740,17 +788,17 @@ class MoveMaker:
                             if within_range in all_players[0].settlements:
                                 self.board_ref.overlay.toggle_siege_notif(within_range, player)
             elif other_player_vics:
-                if not isinstance(unit, DeployerUnit):
-                    # Attempt to move into a nearby deployer unit to begin with.
-                    for player_u in player.units:
-                        if max(abs(unit.location[0] - player_u.location[0]),
-                               abs(unit.location[1] - player_u.location[1])) <= unit.remaining_stamina and \
-                                isinstance(player_u, DeployerUnit) and \
-                                len(player_u.passengers) < player_u.plan.max_capacity:
-                            unit.remaining_stamina = 0
-                            player_u.passengers.append(unit)
-                            player.units.remove(unit)
-                # I.e. either the unit is a deployer unit, or a regular unit that did not find a deployer to board.
+                # Attempt to move into a nearby deployer unit to begin with.
+                for player_u in player.units:
+                    if max(abs(unit.location[0] - player_u.location[0]),
+                           abs(unit.location[1] - player_u.location[1])) <= unit.remaining_stamina and \
+                            isinstance(player_u, DeployerUnit) and \
+                            len(player_u.passengers) < player_u.plan.max_capacity:
+                        unit.remaining_stamina = 0
+                        player_u.passengers.append(unit)
+                        player.units.remove(unit)
+                        break
+                # I.e. the unit did not find a deployer to board.
                 if unit.remaining_stamina:
                     player_with_most_vics = max(other_player_vics, key=operator.itemgetter(1))[0]
                     weakest_settlement: (Settlement, int) = \

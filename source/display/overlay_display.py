@@ -405,11 +405,16 @@ def display_overlay(overlay: Overlay, is_night: bool):
             else:
                 power_u = 0
             pyxel.blt(20, 130 + y_offset, 0, power_u, 36, 8, 8)
-            pyxel.text(30, 132 + y_offset,
-                       f"{len(overlay.selected_unit.passengers)}/{overlay.selected_unit.plan.max_capacity} (D)"
-                       if isinstance(overlay.selected_unit.plan, DeployerUnitPlan)
-                       else str(round(overlay.selected_unit.plan.power)),
-                       pyxel.COLOR_WHITE)
+            power_text: str
+            if isinstance(overlay.selected_unit.plan, DeployerUnitPlan):
+                if overlay.selected_unit in overlay.current_player.units:
+                    power_text = \
+                        f"{len(overlay.selected_unit.passengers)}/{overlay.selected_unit.plan.max_capacity} (D)"
+                else:
+                    power_text = f"{len(overlay.selected_unit.passengers)}/{overlay.selected_unit.plan.max_capacity}"
+            else:
+                power_text = str(round(overlay.selected_unit.plan.power))
+            pyxel.text(30, 132 + y_offset, power_text, pyxel.COLOR_WHITE)
             pyxel.blt(20, 140 + y_offset, 0, 16, 36, 8, 8)
             pyxel.text(30, 142 + y_offset,
                        f"{overlay.selected_unit.remaining_stamina}/{overlay.selected_unit.plan.total_stamina}",
