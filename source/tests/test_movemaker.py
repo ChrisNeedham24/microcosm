@@ -5,7 +5,8 @@ from source.display.board import Board
 from source.foundation.catalogue import Namer, UNIT_PLANS, BLESSINGS, get_unlockable_improvements, get_improvement, \
     get_available_improvements, get_unit_plan, IMPROVEMENTS
 from source.foundation.models import GameConfig, Faction, Unit, Player, Settlement, AIPlaystyle, AttackPlaystyle, \
-    ExpansionPlaystyle, Blessing, Quad, Biome, UnitPlan, SetlAttackData, Construction
+    ExpansionPlaystyle, Blessing, Quad, Biome, UnitPlan, SetlAttackData, Construction, DeployerUnitPlan, DeployerUnit, \
+    VictoryType
 from source.game_management.movemaker import search_for_relics_or_move, set_blessing, set_player_construction, \
     set_ai_construction, MoveMaker, move_healer_unit
 
@@ -31,6 +32,8 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_HEALER_UNIT = Unit(16, 3, (17, 18), False, self.TEST_HEALER_PLAN)
         self.TEST_UNIT_4 = Unit(19, 20, (21, 22), False, self.TEST_UNIT_PLAN)
         self.TEST_UNIT_5 = Unit(23, 24, (25, 26), False, self.TEST_UNIT_PLAN)
+        self.TEST_DEPLOYER_UNIT_PLAN = DeployerUnitPlan(0, 20, 10, "Big Cube", None, 25, max_capacity=5)
+        self.TEST_DEPLOYER_UNIT = DeployerUnit(20, 10, (30, 31), False, self.TEST_DEPLOYER_UNIT_PLAN)
 
         self.movemaker = MoveMaker(Namer())
         self.movemaker.board_ref = self.TEST_BOARD
@@ -517,7 +520,13 @@ class MovemakerTest(unittest.TestCase):
         # the first 'tier' of improvements.
         self.assertEqual(get_improvement("Collectivised Farms"), self.TEST_SETTLEMENT.current_work.construction)
 
-    # TODO test for construction of deployer unit
+    def test_set_ai_construction_other_player_vic_deployer(self):
+        self.TEST_PLAYER.blessings = BLESSINGS.values()
+        # Harvest needs to be higher so that we are above the harvest boundary.
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
+
+        set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False, [(self.TEST_PLAYER_2, 1)])
+        self.assertEqual(get_unit_plan("Golden Van"), self.TEST_SETTLEMENT.current_work.construction)
 
     def test_set_ai_construction_aggressive_healer(self):
         """
@@ -908,7 +917,18 @@ class MovemakerTest(unittest.TestCase):
         # The remaining three units should still be in the garrison.
         self.assertEqual(3, len(self.TEST_SETTLEMENT.garrison))
 
-    # TODO test that deployer units are deployed from garrison when other player has imminent victory
+    def test_make_move_deploy_deployer_unit_other_player_vic(self):
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
+        self.TEST_PLAYER.units = []
+        self.TEST_DEPLOYER_UNIT.garrisoned = True
+        self.TEST_SETTLEMENT.garrison = [self.TEST_DEPLOYER_UNIT]
+        self.TEST_PLAYER_2.imminent_victories = [VictoryType.AFFLUENCE]
+
+        self.movemaker.make_move(self.TEST_PLAYER, [self.TEST_PLAYER_2], self.QUADS, self.TEST_CONFIG, False)
+
+        self.assertFalse(self.TEST_DEPLOYER_UNIT.garrisoned)
+        self.assertIn(self.TEST_DEPLOYER_UNIT, self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_SETTLEMENT.garrison)
 
     def test_make_move_unit_is_moved(self):
         """
@@ -1055,10 +1075,47 @@ class MovemakerTest(unittest.TestCase):
                                             self.QUADS, self.TEST_CONFIG)
 
     # TODO test deployer unit returns to nearest settlement once empty, and then stops moving once close enough
-    # TODO test deployer unit under capacity does not move
     # TODO test deployer unit at capacity moves toward weakest settlement
-    # TODO test deployer unit close to weakest settlement deploys unit
-    # TODO test deployer unit with no imminent victories just randomly moves
+
+    def test_deployer_unit_under_capacity_does_not_move_other_player_vic(self):
+        self.TEST_DEPLOYER_UNIT.passengers = [self.TEST_UNIT]
+        self.TEST_DEPLOYER_UNIT.location = (80, 90)
+        self.TEST_PLAYER.units = [self.TEST_DEPLOYER_UNIT]
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER_2],
+                                 [], self.QUADS, self.TEST_CONFIG, [(self.TEST_PLAYER_2, 1)])
+
+        self.assertTupleEqual((80, 90), self.TEST_DEPLOYER_UNIT.location)
+        self.assertTrue(self.TEST_DEPLOYER_UNIT.remaining_stamina)
+        self.assertListEqual([self.TEST_UNIT], self.TEST_DEPLOYER_UNIT.passengers)
+        self.assertListEqual([self.TEST_DEPLOYER_UNIT], self.TEST_PLAYER.units)
+
+    def test_deployer_unit_deploys_unit_once_arrived_other_player_vic(self):
+        self.TEST_DEPLOYER_UNIT.passengers = [self.TEST_UNIT]
+        self.TEST_DEPLOYER_UNIT.location = \
+            self.TEST_SETTLEMENT_2.location[0] - 2, self.TEST_SETTLEMENT_2.location[1] - 2
+        self.TEST_PLAYER.units = [self.TEST_DEPLOYER_UNIT]
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER_2],
+                                 [], self.QUADS, self.TEST_CONFIG, [(self.TEST_PLAYER_2, 1)])
+
+        self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] - 2, self.TEST_SETTLEMENT_2.location[1] - 2),
+                              self.TEST_DEPLOYER_UNIT.location)
+        self.assertTrue(self.TEST_DEPLOYER_UNIT.remaining_stamina)
+        self.assertFalse(self.TEST_DEPLOYER_UNIT.passengers)
+        self.assertTupleEqual((self.TEST_DEPLOYER_UNIT.location[0] + 1, self.TEST_DEPLOYER_UNIT.location[1]),
+                              self.TEST_UNIT.location)
+        self.assertIn(self.TEST_UNIT, self.TEST_PLAYER.units)
+
+    @patch("source.game_management.movemaker.search_for_relics_or_move")
+    def test_deployer_unit_no_other_player_vic(self, search_or_move_mock: MagicMock):
+        self.TEST_PLAYER.units = [self.TEST_DEPLOYER_UNIT]
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT,
+                                 [], [], [], self.QUADS, self.TEST_CONFIG, [])
+
+        search_or_move_mock.assert_called_with(self.TEST_DEPLOYER_UNIT, self.QUADS,
+                                               self.TEST_PLAYER, [], [], self.TEST_CONFIG)
 
     def test_move_unit_attack_infidel(self):
         """
