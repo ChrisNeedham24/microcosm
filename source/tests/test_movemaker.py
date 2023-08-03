@@ -56,10 +56,14 @@ class MovemakerTest(unittest.TestCase):
 
         self.TEST_SETTLEMENT = Settlement("Obstructionville", (0, 0), [], [self.QUADS[0][0]], [])
         self.TEST_SETTLEMENT_2 = Settlement("EnemyTown", (40, 40), [], [self.QUADS[40][40]], [])
+        self.TEST_SETTLEMENT_3 = Settlement("AlsoEnemyTown", (45, 45), [], [self.QUADS[45][45]], [])
+        self.TEST_SETTLEMENT_4 = Settlement("FarAwayVillage", (80, 80), [], [self.QUADS[80][80]], [])
         self.TEST_PLAYER = Player("TesterMan", Faction.NOCTURNE, 0,
                                   settlements=[self.TEST_SETTLEMENT], units=[self.TEST_UNIT],
                                   ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
         self.TEST_PLAYER_2 = Player("TesterMan2", Faction.AGRICULTURISTS, 0, settlements=[self.TEST_SETTLEMENT_2],
+                                    ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
+        self.TEST_PLAYER_3 = Player("TesterMan3", Faction.FUNDAMENTALISTS, 0,
                                     ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
 
         # Position the other two units and settlement to be surrounding the relic, obstructing its access.
@@ -920,6 +924,8 @@ class MovemakerTest(unittest.TestCase):
     def test_make_move_deploy_deployer_unit_other_player_vic(self):
         self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
         self.TEST_PLAYER.units = []
+        # Give the player enough wealth so the deployed unit is not auto-sold.
+        self.TEST_PLAYER.wealth = 999
         self.TEST_DEPLOYER_UNIT.garrisoned = True
         self.TEST_SETTLEMENT.garrison = [self.TEST_DEPLOYER_UNIT]
         self.TEST_PLAYER_2.imminent_victories = [VictoryType.AFFLUENCE]
@@ -1074,8 +1080,51 @@ class MovemakerTest(unittest.TestCase):
         move_healer_mock.assert_called_with(self.TEST_PLAYER, self.TEST_HEALER_UNIT, [], [],
                                             self.QUADS, self.TEST_CONFIG)
 
-    # TODO test deployer unit returns to nearest settlement once empty, and then stops moving once close enough
-    # TODO test deployer unit at capacity moves toward weakest settlement
+    def test_deployer_unit_returns_once_empty(self):
+        self.TEST_PLAYER.settlements = [self.TEST_SETTLEMENT_4, self.TEST_SETTLEMENT_2]
+        self.TEST_DEPLOYER_UNIT.location = 49, 49  # Closer to TEST_SETTLEMENT_2.
+        self.TEST_DEPLOYER_UNIT.passengers = []
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
+                                 [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_4], self.QUADS, self.TEST_CONFIG,
+                                 [(self.TEST_PLAYER_2, 2)])
+        self.assertTupleEqual((44, 44), self.TEST_DEPLOYER_UNIT.location)
+        self.assertFalse(self.TEST_DEPLOYER_UNIT.remaining_stamina)
+
+        self.TEST_DEPLOYER_UNIT.remaining_stamina = 10
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
+                                 [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_4], self.QUADS, self.TEST_CONFIG,
+                                 [(self.TEST_PLAYER_2, 2)])
+        self.assertTupleEqual((39, 39), self.TEST_DEPLOYER_UNIT.location)
+        self.assertFalse(self.TEST_DEPLOYER_UNIT.remaining_stamina)
+
+        self.TEST_DEPLOYER_UNIT.remaining_stamina = 10
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
+                                 [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_4], self.QUADS, self.TEST_CONFIG,
+                                 [(self.TEST_PLAYER_2, 2)])
+        self.assertTupleEqual((39, 39), self.TEST_DEPLOYER_UNIT.location)
+        self.assertTrue(self.TEST_DEPLOYER_UNIT.remaining_stamina)
+
+    def test_deployer_unit_at_capacity_moves_toward_weakest_settlement_imminent_victory(self):
+        self.TEST_PLAYER_2.settlements = [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_3]
+        self.TEST_PLAYER_3.settlements = [self.TEST_SETTLEMENT_4]
+        self.TEST_SETTLEMENT_3.strength = 90
+        self.TEST_SETTLEMENT_4.strength = 80
+        self.TEST_SETTLEMENT_2.location = 70, 50
+        self.TEST_SETTLEMENT_3.location = 40, 80
+        self.TEST_PLAYER.units = [self.TEST_DEPLOYER_UNIT]
+        self.TEST_DEPLOYER_UNIT.plan.max_capacity = 1
+        self.TEST_DEPLOYER_UNIT.passengers = [self.TEST_UNIT]
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [],
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2, self.TEST_PLAYER_3],
+                                 [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_3, self.TEST_SETTLEMENT_4],
+                                 self.QUADS, self.TEST_CONFIG, [(self.TEST_PLAYER_2, 2), (self.TEST_PLAYER_3, 1)])
+
+        self.assertTupleEqual((31, 39), self.TEST_DEPLOYER_UNIT.location)
+        self.assertFalse(self.TEST_DEPLOYER_UNIT.remaining_stamina)
 
     def test_deployer_unit_under_capacity_does_not_move_other_player_vic(self):
         self.TEST_DEPLOYER_UNIT.passengers = [self.TEST_UNIT]
@@ -1138,7 +1187,24 @@ class MovemakerTest(unittest.TestCase):
         self.assertFalse(infidel_player.units)
         self.assertNotIn(self.TEST_UNIT_4, self.TEST_PLAYER.units)
 
-    # TODO test attack because close to elimination victory
+    def test_move_unit_attack_close_to_elimination_victory(self):
+        # By making the test player defensive, we guarantee that the reason for attack is the AI player's imminent
+        # victory.
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
+        self.TEST_PLAYER.units = [self.TEST_UNIT_4]
+        self.TEST_PLAYER_2.imminent_victories = [VictoryType.ELIMINATION]
+        self.TEST_PLAYER_2.units = [self.TEST_UNIT_5]
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_4, [self.TEST_UNIT_5],
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [])
+
+        # We expect the unit to have moved next to the AI player's unit, and for an attack to have been made, killing
+        # both units.
+        self.assertTupleEqual((self.TEST_UNIT_5.location[0] - 1, self.TEST_UNIT_5.location[1]),
+                              self.TEST_UNIT_4.location)
+        self.assertFalse(self.TEST_UNIT_4.remaining_stamina)
+        self.assertFalse(self.TEST_PLAYER_2.units)
+        self.assertFalse(self.TEST_PLAYER.units)
 
     def test_move_unit_attack_unit_because_besieged(self):
         """
@@ -1229,7 +1295,23 @@ class MovemakerTest(unittest.TestCase):
         self.assertFalse(self.TEST_PLAYER_2.units)
         self.assertFalse(self.TEST_PLAYER.units)
 
-    # TODO test unit does not move to attack unit it is already next to
+    def test_move_unit_attack_unit_without_moving(self):
+        # For the sake of the test, the AI has an aggressive attack playstyle to guarantee that an attack will occur.
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.AGGRESSIVE
+        self.TEST_PLAYER.units = [self.TEST_UNIT_5]
+        self.TEST_PLAYER_2.units = [self.TEST_UNIT_4]
+        self.TEST_UNIT_5.location = self.TEST_UNIT_4.location[0] - 1, self.TEST_UNIT_4.location[1]
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_5, [self.TEST_UNIT_4],
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [])
+
+        # We expect the unit to have remained next to the other unit, and for an attack to have been made, killing both
+        # units. However, since the unit did not move, we expect it to still retain stamina.
+        self.assertTupleEqual((self.TEST_UNIT_4.location[0] - 1, self.TEST_UNIT_4.location[1]),
+                              self.TEST_UNIT_5.location)
+        self.assertTrue(self.TEST_UNIT_5.remaining_stamina)
+        self.assertFalse(self.TEST_PLAYER_2.units)
+        self.assertFalse(self.TEST_PLAYER.units)
 
     def test_move_unit_attack_settlement_aggressive_ai(self):
         """
@@ -1337,7 +1419,25 @@ class MovemakerTest(unittest.TestCase):
         self.assertIn(self.TEST_SETTLEMENT_2, self.TEST_PLAYER.settlements)
         self.assertFalse(self.TEST_PLAYER_2.settlements)
 
-    # TODO test attack settlement if imminent victory of any kind
+    def test_move_unit_attack_settlement_imminent_victory(self):
+        self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
+        self.TEST_UNIT.location = self.TEST_SETTLEMENT_2.location[0] - 2, self.TEST_SETTLEMENT_2.location[1]
+        self.TEST_UNIT.health = 100
+        # Note that the settlement's strength is above what even an aggressive AI player would attack, and this test
+        # player is defensive.
+        self.TEST_SETTLEMENT_2.strength = 55
+        self.TEST_PLAYER_2.imminent_victories = [VictoryType.SERENDIPITY]
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [])
+
+        # We expect the unit to have moved next to the settlement, and for an attack to have been made, harming both
+        # the unit and the settlement.
+        self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] - 1, self.TEST_SETTLEMENT_2.location[1]),
+                              self.TEST_UNIT.location)
+        self.assertFalse(self.TEST_UNIT.remaining_stamina)
+        self.assertLess(self.TEST_UNIT.health, 100)
+        self.assertLess(self.TEST_SETTLEMENT_2.strength, 50)
 
     def test_move_unit_besiege_settlement_aggressive_ai(self):
         """
@@ -1390,8 +1490,35 @@ class MovemakerTest(unittest.TestCase):
         self.assertTrue(self.TEST_UNIT.besieging)
         self.assertTrue(self.TEST_SETTLEMENT_2.besieged)
 
-    # TODO test move into deployer unit if imminent victories
-    # TODO test move toward weakest settlement
+    def test_move_into_deployer_unit_imminent_victory(self):
+        self.TEST_PLAYER.units = [self.TEST_UNIT_4, self.TEST_DEPLOYER_UNIT]
+        self.TEST_UNIT_4.location = self.TEST_DEPLOYER_UNIT.location[0] - 2, self.TEST_DEPLOYER_UNIT.location[1]
+        self.TEST_DEPLOYER_UNIT.passengers = []
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_4, [self.TEST_DEPLOYER_UNIT],
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG,
+                                 [(self.TEST_PLAYER_2, 1)])
+
+        self.assertFalse(self.TEST_UNIT_4.remaining_stamina)
+        self.assertIn(self.TEST_UNIT_4, self.TEST_DEPLOYER_UNIT.passengers)
+        self.assertNotIn(self.TEST_UNIT_4, self.TEST_PLAYER.units)
+
+    def test_move_towards_weakest_settlement_imminent_victory(self):
+        self.TEST_PLAYER_2.settlements = [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_3]
+        self.TEST_PLAYER_3.settlements = [self.TEST_SETTLEMENT_4]
+        self.TEST_SETTLEMENT_3.strength = 90
+        self.TEST_SETTLEMENT_4.strength = 80
+        self.TEST_SETTLEMENT_2.location = 70, 50
+        self.TEST_SETTLEMENT_3.location = 40, 80
+        self.TEST_PLAYER.units = [self.TEST_UNIT_4]
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_4, [],
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2, self.TEST_PLAYER_3],
+                                 [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_3, self.TEST_SETTLEMENT_4],
+                                 self.QUADS, self.TEST_CONFIG, [(self.TEST_PLAYER_2, 2), (self.TEST_PLAYER_3, 1)])
+
+        self.assertTupleEqual((25, 37), self.TEST_UNIT_4.location)
+        self.assertFalse(self.TEST_UNIT_4.remaining_stamina)
 
     @patch("source.game_management.movemaker.search_for_relics_or_move")
     def test_move_unit_nothing_within_range(self, search_or_move_mock: MagicMock):
