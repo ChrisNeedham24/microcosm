@@ -261,8 +261,10 @@ def display_overlay(overlay: Overlay, is_night: bool):
             att_dmg = round(overlay.setl_attack_data.damage_to_attacker)
             setl_name = overlay.setl_attack_data.settlement.name
             setl_dmg = round(overlay.setl_attack_data.damage_to_setl)
-            if overlay.setl_attack_data.attacker_was_killed:
+            if overlay.setl_attack_data.attacker_was_killed and overlay.setl_attack_data.player_attack:
                 pyxel.text(35, 15, f"Your {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
+            elif overlay.setl_attack_data.attacker_was_killed:
+                pyxel.text(38, 15, f"A {att_name} (-{att_dmg}) was killed by", pyxel.COLOR_WHITE)
             elif overlay.setl_attack_data.setl_was_taken and overlay.setl_attack_data.player_attack:
                 pyxel.text(50, 15, f"Your {att_name} (-{att_dmg}) sacked", pyxel.COLOR_WHITE)
             elif overlay.setl_attack_data.setl_was_taken:
@@ -403,11 +405,14 @@ def display_overlay(overlay: Overlay, is_night: bool):
             else:
                 power_u = 0
             pyxel.blt(20, 130 + y_offset, 0, power_u, 36, 8, 8)
-            pyxel.text(30, 132 + y_offset,
-                       f"{len(overlay.selected_unit.passengers)}/{overlay.selected_unit.plan.max_capacity} (D)"
-                       if isinstance(overlay.selected_unit.plan, DeployerUnitPlan)
-                       else str(round(overlay.selected_unit.plan.power)),
-                       pyxel.COLOR_WHITE)
+            power_text: str
+            if isinstance(overlay.selected_unit.plan, DeployerUnitPlan):
+                power_text = f"{len(overlay.selected_unit.passengers)}/{overlay.selected_unit.plan.max_capacity}"
+                if overlay.selected_unit in overlay.current_player.units:
+                    power_text += " (D)"
+            else:
+                power_text = str(round(overlay.selected_unit.plan.power))
+            pyxel.text(30, 132 + y_offset, power_text, pyxel.COLOR_WHITE)
             pyxel.blt(20, 140 + y_offset, 0, 16, 36, 8, 8)
             pyxel.text(30, 142 + y_offset,
                        f"{overlay.selected_unit.remaining_stamina}/{overlay.selected_unit.plan.total_stamina}",
