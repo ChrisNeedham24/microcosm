@@ -1083,28 +1083,29 @@ class MovemakerTest(unittest.TestCase):
     def test_deployer_unit_returns_once_empty(self):
         self.TEST_PLAYER.settlements = [self.TEST_SETTLEMENT_4, self.TEST_SETTLEMENT_2]
         self.TEST_DEPLOYER_UNIT.location = 49, 49  # Closer to TEST_SETTLEMENT_2.
+        self.TEST_DEPLOYER_UNIT.remaining_stamina = 5
         self.TEST_DEPLOYER_UNIT.passengers = []
 
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
                                  [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_4], self.QUADS, self.TEST_CONFIG,
                                  [(self.TEST_PLAYER_2, 2)])
-        self.assertTupleEqual((44, 44), self.TEST_DEPLOYER_UNIT.location)
+        self.assertTupleEqual((45, 45), self.TEST_DEPLOYER_UNIT.location)
         self.assertFalse(self.TEST_DEPLOYER_UNIT.remaining_stamina)
 
-        self.TEST_DEPLOYER_UNIT.remaining_stamina = 10
+        self.TEST_DEPLOYER_UNIT.remaining_stamina = 5
 
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
                                  [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_4], self.QUADS, self.TEST_CONFIG,
                                  [(self.TEST_PLAYER_2, 2)])
-        self.assertTupleEqual((39, 39), self.TEST_DEPLOYER_UNIT.location)
+        self.assertTupleEqual((41, 41), self.TEST_DEPLOYER_UNIT.location)
         self.assertFalse(self.TEST_DEPLOYER_UNIT.remaining_stamina)
 
-        self.TEST_DEPLOYER_UNIT.remaining_stamina = 10
+        self.TEST_DEPLOYER_UNIT.remaining_stamina = 5
 
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
                                  [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_4], self.QUADS, self.TEST_CONFIG,
                                  [(self.TEST_PLAYER_2, 2)])
-        self.assertTupleEqual((39, 39), self.TEST_DEPLOYER_UNIT.location)
+        self.assertTupleEqual((41, 41), self.TEST_DEPLOYER_UNIT.location)
         self.assertTrue(self.TEST_DEPLOYER_UNIT.remaining_stamina)
 
     def test_deployer_unit_at_capacity_moves_toward_weakest_settlement_imminent_victory(self):
@@ -1123,7 +1124,7 @@ class MovemakerTest(unittest.TestCase):
                                  [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_3, self.TEST_SETTLEMENT_4],
                                  self.QUADS, self.TEST_CONFIG, [(self.TEST_PLAYER_2, 2), (self.TEST_PLAYER_3, 1)])
 
-        self.assertTupleEqual((31, 39), self.TEST_DEPLOYER_UNIT.location)
+        self.assertTupleEqual((31, 40), self.TEST_DEPLOYER_UNIT.location)
         self.assertFalse(self.TEST_DEPLOYER_UNIT.remaining_stamina)
 
     def test_deployer_unit_under_capacity_does_not_move_other_player_vic(self):
@@ -1517,7 +1518,7 @@ class MovemakerTest(unittest.TestCase):
                                  [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_3, self.TEST_SETTLEMENT_4],
                                  self.QUADS, self.TEST_CONFIG, [(self.TEST_PLAYER_2, 2), (self.TEST_PLAYER_3, 1)])
 
-        self.assertTupleEqual((25, 37), self.TEST_UNIT_4.location)
+        self.assertTupleEqual((27, 41), self.TEST_UNIT_4.location)
         self.assertFalse(self.TEST_UNIT_4.remaining_stamina)
 
     @patch("source.game_management.movemaker.search_for_relics_or_move")

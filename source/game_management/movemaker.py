@@ -616,11 +616,8 @@ class MoveMaker:
                     if nearest_settlement[1] > unit.remaining_stamina / 2:
                         dir_vec = (nearest_settlement[2] / nearest_settlement[1],
                                    nearest_settlement[3] / nearest_settlement[1])
-                        x_to_move = dir_vec[0] * unit.remaining_stamina
-                        y_to_move = dir_vec[1] * unit.remaining_stamina
-                        vec_magnitude = abs(unit.remaining_stamina * (unit.remaining_stamina / (x_to_move + y_to_move)))
-                        unit.location = (int(unit.location[0] + dir_vec[0] * vec_magnitude),
-                                         int(unit.location[1] + dir_vec[1] * vec_magnitude))
+                        unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
+                                         int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
                         unit.remaining_stamina = 0
                 else:
                     player_with_most_vics = max(other_player_vics, key=operator.itemgetter(1))[0]
@@ -630,7 +627,7 @@ class MoveMaker:
                         if setl.strength < weakest_settlement[1]:
                             weakest_settlement = setl, setl.strength
                     distance, x_diff, y_diff = get_unit_setl_distance(unit, weakest_settlement[0])
-                    if abs(x_diff + y_diff) < unit.remaining_stamina:
+                    if distance < unit.remaining_stamina:
                         if unit.passengers:
                             deployed = unit.passengers.pop()
                             deployed.location = next(loc for loc in gen_spiral_indices(unit.location) if
@@ -642,11 +639,8 @@ class MoveMaker:
                             player.units.append(deployed)
                     elif len(unit.passengers) == unit.plan.max_capacity:
                         dir_vec = (x_diff / distance, y_diff / distance)
-                        x_to_move = dir_vec[0] * unit.remaining_stamina
-                        y_to_move = dir_vec[1] * unit.remaining_stamina
-                        vec_magnitude = abs(unit.remaining_stamina * (unit.remaining_stamina / (x_to_move + y_to_move)))
-                        unit.location = (int(unit.location[0] + dir_vec[0] * vec_magnitude),
-                                         int(unit.location[1] + dir_vec[1] * vec_magnitude))
+                        unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
+                                         int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
                         unit.remaining_stamina = 0
             else:
                 search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)
@@ -815,11 +809,8 @@ class MoveMaker:
                             weakest_settlement = setl, setl.strength
                     distance, x_diff, y_diff = get_unit_setl_distance(unit, weakest_settlement[0])
                     dir_vec = (x_diff / distance, y_diff / distance)
-                    x_to_move = dir_vec[0] * unit.remaining_stamina
-                    y_to_move = dir_vec[1] * unit.remaining_stamina
-                    vec_magnitude = abs(unit.remaining_stamina * (unit.remaining_stamina / (x_to_move + y_to_move)))
-                    unit.location = (int(unit.location[0] + dir_vec[0] * vec_magnitude),
-                                     int(unit.location[1] + dir_vec[1] * vec_magnitude))
+                    unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
+                                     int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
                     unit.remaining_stamina = 0
             # If there's nothing within range, look for relics or just move randomly.
             else:
