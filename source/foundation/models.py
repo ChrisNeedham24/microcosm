@@ -197,6 +197,7 @@ class Quad:
     zeal: float
     fortune: float
     location: (int, int)
+    resource: ResourceCollection  # Even though a quad will only ever have one resource, it's easier to use this.
     selected: bool = False
     is_relic: bool = False
 
@@ -257,6 +258,20 @@ class Project:
     type: ProjectType
     name: str
     description: str
+
+
+@dataclass
+class ResourceCollection:
+    # Core resources
+    ore: int = 0
+    timber: int = 0
+    magma: int = 0
+    # Rare resources
+    aurora: int = 0
+    bloodstone: int = 0
+    obsidian: int = 0
+    sunstone: int = 0
+    aquamarine: int = 0
 
 
 @dataclass
@@ -401,6 +416,7 @@ class Player:
     settlements: typing.List[Settlement] = field(default_factory=lambda: [])
     units: typing.List[Unit] = field(default_factory=lambda: [])
     blessings: typing.List[Blessing] = field(default_factory=lambda: [])
+    resources: ResourceCollection = field(default_factory=ResourceCollection)
     quads_seen: typing.Set[typing.Tuple[int, int]] = field(default_factory=set)
     imminent_victories: typing.Set[VictoryType] = field(default_factory=set)
     ongoing_blessing: typing.Optional[OngoingBlessing] = None
