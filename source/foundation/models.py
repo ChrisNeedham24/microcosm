@@ -197,7 +197,8 @@ class Quad:
     zeal: float
     fortune: float
     location: (int, int)
-    resource: ResourceCollection  # Even though a quad will only ever have one resource, it's easier to use this.
+    # Even though a quad will only ever have one resource, it's easier to use this.
+    resource: typing.Optional[ResourceCollection] = None
     selected: bool = False
     is_relic: bool = False
 

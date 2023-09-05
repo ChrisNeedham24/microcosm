@@ -8,7 +8,7 @@ import pyxel
 from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal
 from source.foundation.catalogue import get_default_unit, Namer
 from source.foundation.models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, \
-    Faction, DeployerUnit
+    Faction, DeployerUnit, ResourceCollection
 from source.display.overlay import Overlay
 from source.display.overlay_display import display_overlay
 
@@ -52,7 +52,7 @@ class Board:
         else:
             self.quads: typing.List[typing.List[typing.Optional[Quad]]] = [[None] * 100 for _ in range(90)]
             random.seed()
-            self.generate_quads(cfg.biome_clustering)
+            self.generate_quads(cfg.biome_clustering, cfg.climatic_effects)
 
         self.quad_selected: typing.Optional[Quad] = None
 
@@ -119,7 +119,29 @@ class Board:
                                 quad_x = 16
                             case _:
                                 quad_x = 24
-                        quad_y = 20 if quad.is_relic else 4
+                        match quad.resource:
+                            case ResourceCollection(ore=1):
+                                quad_y = 28
+                            case ResourceCollection(timber=1):
+                                quad_y = 36
+                            case ResourceCollection(magma=1):
+                                quad_y = 44
+                            case ResourceCollection(aurora=1):
+                                quad_y = 52
+                            case ResourceCollection(bloodstone=1):
+                                quad_y = 60
+                            case ResourceCollection(obsidian=1):
+                                quad_y = 68
+                            case ResourceCollection(sunstone=1):
+                                quad_y = 76
+                            case ResourceCollection(aquamarine=1):
+                                quad_y = 84
+                            case _:
+                                quad_y = 4
+
+                        if quad.is_relic:
+                            quad_y = 20
+
                         if is_night:
                             quad_x += 32
                         pyxel.blt((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 0, quad_x, quad_y, 8, 8)
@@ -259,12 +281,36 @@ class Board:
             y_offset = -34 if selected_quad_coords[1] - map_pos[1] >= 36 else 0
             base_x_pos = (selected_quad_coords[0] - map_pos[0]) * 8 + x_offset
             base_y_pos = (selected_quad_coords[1] - map_pos[1]) * 8 + y_offset
-            pyxel.rectb(base_x_pos - 22, base_y_pos + 8, 30, 12, pyxel.COLOR_WHITE)
-            pyxel.rect(base_x_pos - 21, base_y_pos + 9, 28, 10, pyxel.COLOR_BLACK)
-            pyxel.text(base_x_pos - 18, base_y_pos + 12, f"{round(self.quad_selected.wealth)}", pyxel.COLOR_YELLOW)
-            pyxel.text(base_x_pos - 12, base_y_pos + 12, f"{round(self.quad_selected.harvest)}", pyxel.COLOR_GREEN)
-            pyxel.text(base_x_pos - 6, base_y_pos + 12, f"{round(self.quad_selected.zeal)}", pyxel.COLOR_RED)
-            pyxel.text(base_x_pos, base_y_pos + 12, f"{round(self.quad_selected.fortune)}", pyxel.COLOR_PURPLE)
+            if self.quad_selected.resource:
+                pyxel.rectb(base_x_pos - 22, base_y_pos + 8, 50, 22, pyxel.COLOR_WHITE)
+                pyxel.rect(base_x_pos - 21, base_y_pos + 9, 48, 20, pyxel.COLOR_BLACK)
+                pyxel.text(base_x_pos - 18, base_y_pos + 12, f"{round(self.quad_selected.wealth)}", pyxel.COLOR_YELLOW)
+                pyxel.text(base_x_pos - 12, base_y_pos + 12, f"{round(self.quad_selected.harvest)}", pyxel.COLOR_GREEN)
+                pyxel.text(base_x_pos - 6, base_y_pos + 12, f"{round(self.quad_selected.zeal)}", pyxel.COLOR_RED)
+                pyxel.text(base_x_pos, base_y_pos + 12, f"{round(self.quad_selected.fortune)}", pyxel.COLOR_PURPLE)
+                if self.quad_selected.resource.ore:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Ore", pyxel.COLOR_GRAY)
+                elif self.quad_selected.resource.timber:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Timber", pyxel.COLOR_BROWN)
+                elif self.quad_selected.resource.magma:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Magma", pyxel.COLOR_RED)
+                elif self.quad_selected.resource.aurora:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Aurora", pyxel.COLOR_YELLOW)
+                elif self.quad_selected.resource.bloodstone:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Bloodstone", pyxel.COLOR_RED)
+                elif self.quad_selected.resource.obsidian:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Obsidian", pyxel.COLOR_GRAY)
+                elif self.quad_selected.resource.sunstone:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Sunstone", pyxel.COLOR_ORANGE)
+                elif self.quad_selected.resource.aquamarine:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Aquamarine", pyxel.COLOR_LIGHT_BLUE)
+            else:
+                pyxel.rectb(base_x_pos - 22, base_y_pos + 8, 30, 12, pyxel.COLOR_WHITE)
+                pyxel.rect(base_x_pos - 21, base_y_pos + 9, 28, 10, pyxel.COLOR_BLACK)
+                pyxel.text(base_x_pos - 18, base_y_pos + 12, f"{round(self.quad_selected.wealth)}", pyxel.COLOR_YELLOW)
+                pyxel.text(base_x_pos - 12, base_y_pos + 12, f"{round(self.quad_selected.harvest)}", pyxel.COLOR_GREEN)
+                pyxel.text(base_x_pos - 6, base_y_pos + 12, f"{round(self.quad_selected.zeal)}", pyxel.COLOR_RED)
+                pyxel.text(base_x_pos, base_y_pos + 12, f"{round(self.quad_selected.fortune)}", pyxel.COLOR_PURPLE)
 
         if self.deploying_army:
             for setl_quad in self.selected_settlement.quads:
@@ -372,7 +418,7 @@ class Board:
                 self.overlay.toggle_heal(None)
                 self.heal_time_bank = 0
 
-    def generate_quads(self, biome_clustering: bool):
+    def generate_quads(self, biome_clustering: bool, climatic_effects: bool):
         """
         Generate the quads to be used for this game.
         :param biome_clustering: Whether biome clustering is enabled or not.
@@ -409,12 +455,48 @@ class Board:
                     biome = random.choice(list(Biome))
                 quad_yield: (float, float, float, float) = calculate_yield_for_quad(biome)
 
+                resource: typing.Optional[ResourceCollection] = None
+                # Each quad has a 1 in 10 chance of having a core resource, and a 1 in 50 chance of having a rare
+                # resource. We combine these by saying that each quad has a 12% chance of having any resource at all.
+                resource_chance = random.randint(0, 100)
+                if resource_chance < 12:
+                    if resource_chance < 2:
+                        random_chance = random.randint(0, 100)
+                        if climatic_effects:
+                            if random_chance < 20:
+                                resource = ResourceCollection(aurora=1)
+                            elif random_chance < 40:
+                                resource = ResourceCollection(bloodstone=1)
+                            elif random_chance < 60:
+                                resource = ResourceCollection(obsidian=1)
+                            elif random_chance < 80:
+                                resource = ResourceCollection(sunstone=1)
+                            else:
+                                resource = ResourceCollection(aquamarine=1)
+                        else:
+                            if random_chance < 25:
+                                resource = ResourceCollection(aurora=1)
+                            elif random_chance < 50:
+                                resource = ResourceCollection(bloodstone=1)
+                            elif random_chance < 75:
+                                resource = ResourceCollection(obsidian=1)
+                            else:
+                                resource = ResourceCollection(aquamarine=1)
+                    else:
+                        random_chance = random.randint(0, 99)
+                        if random_chance < 33:
+                            resource = ResourceCollection(ore=1)
+                        elif random_chance < 66:
+                            resource = ResourceCollection(timber=1)
+                        else:
+                            resource = ResourceCollection(magma=1)
+
                 is_relic = False
                 relic_chance = random.randint(0, 100)
                 if relic_chance < 1:
                     is_relic = True
 
-                self.quads[i][j] = Quad(biome, *quad_yield, location=(j, i), is_relic=is_relic)
+                self.quads[i][j] = Quad(biome, *quad_yield, location=(j, i), is_relic=is_relic, resource=resource)
 
     def process_right_click(self, mouse_x: int, mouse_y: int, map_pos: (int, int)):
         """
