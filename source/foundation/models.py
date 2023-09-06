@@ -186,6 +186,13 @@ class ConstructionMenu(Enum):
     UNITS = "UNITS"
 
 
+class StandardOverlayView(Enum):
+    BLESSINGS = "BLESSINGS"
+    VAULT = "VAULT"
+    SETTLEMENTS = "SETTLEMENTS"
+    VICTORIES = "VICTORIES"
+
+
 @dataclass
 class Quad:
     """

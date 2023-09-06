@@ -215,6 +215,13 @@ class GameState:
                 player.resources.timber += setl.resources.timber
                 player.resources.magma += setl.resources.magma
 
+        # Just reset rare resources each turn - it's easier that way.
+        player.resources.aurora = sum(1 for setl in player.settlements if setl.resources.aurora)
+        player.resources.bloodstone = sum(1 for setl in player.settlements if setl.resources.bloodstone)
+        player.resources.obsidian = sum(1 for setl in player.settlements if setl.resources.obsidian)
+        player.resources.sunstone = sum(1 for setl in player.settlements if setl.resources.sunstone)
+        player.resources.aquamarine = sum(1 for setl in player.settlements if setl.resources.aquamarine)
+
         # Show notifications if the player's constructions have completed or one of their settlements has levelled
         # up.
         if player.ai_playstyle is None and len(completed_constructions) > 0:

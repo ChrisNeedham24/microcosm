@@ -12,7 +12,7 @@ from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
 from source.foundation.models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, \
-    OverlayType, Faction, ConstructionMenu, Project, DeployerUnit
+    OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
 from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats_achievements, get_stats
@@ -73,7 +73,7 @@ def on_key_arrow_up(game_controller: GameController, game_state: GameState, is_c
         elif game_state.board.overlay.is_pause():
             game_state.board.overlay.navigate_pause(down=False)
         elif game_state.board.overlay.is_standard():
-            game_state.board.overlay.navigate_standard(down=False)
+            game_state.board.overlay.navigate_standard(up=True)
         elif game_state.board.overlay.is_unit() and game_state.board.overlay.show_unit_passengers:
             game_state.board.overlay.navigate_unit(down=False)
         else:
@@ -95,16 +95,18 @@ def on_key_arrow_left(game_controller: GameController, game_state: GameState, is
     """
     if game_state.on_menu:
         game_controller.menu.navigate(left=True)
-    if game_state.game_started and game_state.board.overlay.is_constructing():
-        if game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS and \
-                len(game_state.board.overlay.available_constructions) > 0:
-            game_state.board.overlay.current_construction_menu = ConstructionMenu.IMPROVEMENTS
-            game_state.board.overlay.selected_construction = game_state.board.overlay.available_constructions[0]
-        elif game_state.board.overlay.current_construction_menu is ConstructionMenu.UNITS:
-            game_state.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
-            game_state.board.overlay.selected_construction = game_state.board.overlay.available_projects[0]
     elif game_state.game_started:
-        if game_state.board.overlay.is_setl_click():
+        if game_state.board.overlay.is_constructing():
+            if game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS and \
+                    len(game_state.board.overlay.available_constructions) > 0:
+                game_state.board.overlay.current_construction_menu = ConstructionMenu.IMPROVEMENTS
+                game_state.board.overlay.selected_construction = game_state.board.overlay.available_constructions[0]
+            elif game_state.board.overlay.current_construction_menu is ConstructionMenu.UNITS:
+                game_state.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
+                game_state.board.overlay.selected_construction = game_state.board.overlay.available_projects[0]
+        elif game_state.board.overlay.is_standard() and not game_state.board.overlay.is_blessing():
+            game_state.board.overlay.navigate_standard(left=True)
+        elif game_state.board.overlay.is_setl_click():
             game_state.board.overlay.navigate_setl_click(left=True)
         else:
             game_state.board.overlay.remove_warning_if_possible()
@@ -125,16 +127,18 @@ def on_key_arrow_right(game_controller: GameController, game_state: GameState, i
     """
     if game_state.on_menu:
         game_controller.menu.navigate(right=True)
-    if game_state.game_started and game_state.board.overlay.is_constructing():
-        if game_state.board.overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
-            game_state.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
-            game_state.board.overlay.selected_construction = game_state.board.overlay.available_projects[0]
-        elif game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS:
-            game_state.board.overlay.current_construction_menu = ConstructionMenu.UNITS
-            game_state.board.overlay.selected_construction = game_state.board.overlay.available_unit_plans[0]
-            game_state.board.overlay.unit_plan_boundaries = 0, 5
     elif game_state.game_started:
-        if game_state.board.overlay.is_setl_click():
+        if game_state.board.overlay.is_constructing():
+            if game_state.board.overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
+                game_state.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
+                game_state.board.overlay.selected_construction = game_state.board.overlay.available_projects[0]
+            elif game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS:
+                game_state.board.overlay.current_construction_menu = ConstructionMenu.UNITS
+                game_state.board.overlay.selected_construction = game_state.board.overlay.available_unit_plans[0]
+                game_state.board.overlay.unit_plan_boundaries = 0, 5
+        elif game_state.board.overlay.is_standard() and not game_state.board.overlay.is_blessing():
+            game_state.board.overlay.navigate_standard(right=True)
+        elif game_state.board.overlay.is_setl_click():
             game_state.board.overlay.navigate_setl_click(right=True)
         else:
             game_state.board.overlay.remove_warning_if_possible()
@@ -342,7 +346,8 @@ def on_key_f(game_controller: GameController, game_state: GameState):
     if game_state.on_menu and game_controller.menu.in_game_setup \
             and game_controller.menu.setup_option is SetupOption.PLAYER_FACTION:
         game_controller.menu.showing_faction_details = not game_controller.menu.showing_faction_details
-    elif game_state.game_started and game_state.board.overlay.is_standard():
+    elif game_state.game_started and game_state.board.overlay.is_standard() \
+            and game_state.board.overlay.current_standard_overlay_view is StandardOverlayView.BLESSINGS:
         # Pick a blessing.
         game_state.board.overlay.toggle_blessing(get_available_blessings(game_state.players[0]))
 

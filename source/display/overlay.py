@@ -2,7 +2,7 @@ import typing
 
 from source.foundation.models import Settlement, Player, Improvement, Unit, Blessing, CompletedConstruction, UnitPlan, \
     Heathen, AttackData, SetlAttackData, Victory, InvestigationResult, OverlayType, SettlementAttackType, PauseOption, \
-    Project, ConstructionMenu, HealData, Achievement
+    Project, ConstructionMenu, HealData, Achievement, StandardOverlayView, GameConfig
 
 
 class Overlay:
@@ -10,7 +10,7 @@ class Overlay:
     The class responsible for keeping track of the overlay menus in-game.
     """
 
-    def __init__(self):
+    def __init__(self, cfg: GameConfig):
         """
         Initialise the many variables used by the overlay to keep track of game state.
         """
@@ -55,12 +55,14 @@ class Overlay:
         self.close_to_vics: typing.List[Victory] = []
         self.investigation_result: typing.Optional[InvestigationResult] = None
         self.night_beginning: bool = False
-        self.settlement_status_boundaries: typing.Tuple[int, int] = 0, 7
+        self.settlement_status_boundaries: typing.Tuple[int, int] = 0, 9
         self.show_auto_construction_prompt: bool = False
         self.show_additional_controls: bool = False
         self.show_unit_passengers: bool = False
         self.unit_passengers_idx: int = 0
         self.new_achievements: typing.List[Achievement] = []
+        self.current_standard_overlay_view: StandardOverlayView = StandardOverlayView.BLESSINGS
+        self.current_game_config: GameConfig = cfg
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
@@ -82,17 +84,33 @@ class Overlay:
             self.showing.append(OverlayType.STANDARD)
             self.current_turn = turn
 
-    def navigate_standard(self, down: bool):
+    def navigate_standard(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
         """
         Navigate the standard overlay.
         :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
         """
+        if left:
+            match self.current_standard_overlay_view:
+                case StandardOverlayView.VAULT:
+                    self.current_standard_overlay_view = StandardOverlayView.BLESSINGS
+                case StandardOverlayView.SETTLEMENTS:
+                    self.current_standard_overlay_view = StandardOverlayView.VAULT
+                case StandardOverlayView.VICTORIES:
+                    self.current_standard_overlay_view = StandardOverlayView.SETTLEMENTS
+        elif right:
+            match self.current_standard_overlay_view:
+                case StandardOverlayView.BLESSINGS:
+                    self.current_standard_overlay_view = StandardOverlayView.VAULT
+                case StandardOverlayView.VAULT:
+                    self.current_standard_overlay_view = StandardOverlayView.SETTLEMENTS
+                case StandardOverlayView.SETTLEMENTS:
+                    self.current_standard_overlay_view = StandardOverlayView.VICTORIES
         # Only allow navigation if the player has enough settlements to warrant scrolling.
-        if len(self.current_player.settlements) > 7:
+        elif len(self.current_player.settlements) > 9:
             if down and self.settlement_status_boundaries[1] != len(self.current_player.settlements):
                 self.settlement_status_boundaries = \
                     self.settlement_status_boundaries[0] + 1, self.settlement_status_boundaries[1] + 1
-            elif not down and self.settlement_status_boundaries[0] != 0:
+            elif up and self.settlement_status_boundaries[0] != 0:
                 self.settlement_status_boundaries = \
                     self.settlement_status_boundaries[0] - 1, self.settlement_status_boundaries[1] - 1
 

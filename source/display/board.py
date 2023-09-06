@@ -57,7 +57,7 @@ class Board:
 
         self.quad_selected: typing.Optional[Quad] = None
 
-        self.overlay = Overlay()
+        self.overlay = Overlay(self.game_config)
         self.selected_settlement: typing.Optional[Settlement] = None
         self.deploying_army = False
         self.deploying_army_from_unit = False

@@ -157,6 +157,12 @@ def migrate_settlement(settlement):
         delattr(settlement, "under_siege_by")
     for i in range(len(settlement.quads)):
         settlement.quads[i] = migrate_quad(settlement.quads[i], (settlement.location[0], settlement.location[1]))
+    if res := settlement.resources:
+        # We need to convert it back to a ResourceCollection object in order to take advantage of our custom truth value
+        # testing operator.
+        settlement.resources = \
+            ResourceCollection(res.ore, res.timber, res.magma,
+                               res.aurora, res.bloodstone, res.obsidian, res.sunstone, res.aquamarine)
 
 
 def migrate_game_config(config) -> GameConfig:
