@@ -285,8 +285,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
         # The settlement overlay displays the currently-selected settlements name, statistics, current construction,
         # and garrison.
         if OverlayType.SETTLEMENT in overlay.showing:
-            pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
-            pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
+            pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
             pyxel.text(20, 14, f"{overlay.current_settlement.name} ({overlay.current_settlement.level})",
                        overlay.current_player.colour)
             pyxel.blt(80, 12, 0, 24 if overlay.current_settlement.besieged else 0, 28, 8, 8)
@@ -305,6 +305,36 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(150, 14, str(round(total_harvest)), pyxel.COLOR_GREEN)
             pyxel.text(162, 14, str(round(total_zeal)), pyxel.COLOR_RED)
             pyxel.text(174, 14, str(round(total_fortune)), pyxel.COLOR_PURPLE)
+
+            pyxel.text(20, 24, "Resources:", pyxel.COLOR_WHITE)
+            if res := overlay.current_settlement.resources:
+                x_offset = 0
+                for i in range(res.ore):
+                    pyxel.text(62 + x_offset, 24, "Ore", pyxel.COLOR_GRAY)
+                    x_offset += 15
+                for i in range(res.timber):
+                    pyxel.text(62 + x_offset, 24, "Timber", pyxel.COLOR_BROWN)
+                    x_offset += 27
+                for i in range(res.magma):
+                    pyxel.text(62 + x_offset, 24, "Magma", pyxel.COLOR_RED)
+                    x_offset += 23
+                for i in range(res.aurora):
+                    pyxel.text(62 + x_offset, 24, "Aurora", pyxel.COLOR_YELLOW)
+                    x_offset += 27
+                for i in range(res.bloodstone):
+                    pyxel.text(62 + x_offset, 24, "Bloodstone", pyxel.COLOR_RED)
+                    x_offset += 44
+                for i in range(res.obsidian):
+                    pyxel.text(62 + x_offset, 24, "Obsidian", pyxel.COLOR_GRAY)
+                    x_offset += 36
+                for i in range(res.sunstone):
+                    pyxel.text(62 + x_offset, 24, "Sunstone", pyxel.COLOR_ORANGE)
+                    x_offset += 36
+                for i in range(res.aquamarine):
+                    pyxel.text(62 + x_offset, 24, "Aquamarine", pyxel.COLOR_LIGHT_BLUE)
+                    x_offset += 50
+            else:
+                pyxel.text(62, 24, "None", pyxel.COLOR_GRAY)
 
             y_offset = 0
             curr_work = overlay.current_settlement.current_work
@@ -536,6 +566,11 @@ def display_overlay(overlay: Overlay, is_night: bool):
         # The standard overlay displays the current turn, ongoing blessing, player wealth, and player settlement
         # statistics.
         if OverlayType.STANDARD in overlay.showing:
+            # TODO I'm actually thinking we might want to do a total overhaul here
+            #  could split this up into three pages:
+            #  show current blessing plus completed ones in order
+            #  show wealth (and accumulated, with percentage to victory) and resources
+            #  show settlements
             pyxel.load("resources/sprites.pyxres")
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)

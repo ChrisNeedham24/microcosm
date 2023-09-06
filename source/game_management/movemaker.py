@@ -3,7 +3,7 @@ import random
 import typing
 
 from source.util.calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, \
-    attack_setl, investigate_relic, heal, gen_spiral_indices
+    attack_setl, investigate_relic, heal, gen_spiral_indices, get_resources_for_settlement
 from source.foundation.catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
 from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
@@ -585,8 +585,9 @@ class MoveMaker:
         if far_enough:
             quad_biome = self.board_ref.quads[unit.location[1]][unit.location[0]].biome
             setl_name = self.namer.get_settlement_name(quad_biome)
+            setl_resources = get_resources_for_settlement(unit.location, self.board_ref.quads)
             new_settl = Settlement(setl_name, unit.location, [],
-                                   [self.board_ref.quads[unit.location[1]][unit.location[0]]], [])
+                                   [self.board_ref.quads[unit.location[1]][unit.location[0]]], setl_resources, [])
             if player.faction is Faction.FRONTIERSMEN:
                 new_settl.satisfaction = 75
             elif player.faction is Faction.IMPERIALS:

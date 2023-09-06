@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from source.foundation.models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, \
     Settlement, Improvement, UnitPlan, SetlAttackData, GameConfig, InvestigationResult, Faction, Project, ProjectType, \
-    HealData, DeployerUnitPlan, DeployerUnit
+    HealData, DeployerUnitPlan, DeployerUnit, ResourceCollection, Quad
 
 
 def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
@@ -324,3 +324,20 @@ def gen_spiral_indices(initial_loc: (int, int)) -> typing.List[typing.Tuple[int,
         m += 1
 
     return indices
+
+
+def get_resources_for_settlement(setl_loc: (int, int), quads: typing.List[typing.List[Quad]]) -> ResourceCollection:
+    setl_resources: ResourceCollection = ResourceCollection()
+    for i in range(setl_loc[0] - 1, setl_loc[0] + 2):
+        for j in range(setl_loc[1] - 1, setl_loc[1] + 2):
+            if 0 <= i <= 99 and 0 <= j <= 89:
+                if quads[j][i].resource:
+                    setl_resources.ore += quads[j][i].resource.ore
+                    setl_resources.timber += quads[j][i].resource.timber
+                    setl_resources.magma += quads[j][i].resource.magma
+                    setl_resources.aurora += quads[j][i].resource.aurora
+                    setl_resources.bloodstone += quads[j][i].resource.bloodstone
+                    setl_resources.obsidian += quads[j][i].resource.obsidian
+                    setl_resources.sunstone += quads[j][i].resource.sunstone
+                    setl_resources.aquamarine += quads[j][i].resource.aquamarine
+    return setl_resources

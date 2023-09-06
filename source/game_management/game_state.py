@@ -3,7 +3,7 @@ import typing
 
 from source.display.board import Board
 from source.saving.game_save_manager import save_stats_achievements
-from source.util.calculator import clamp, attack, get_setl_totals, complete_construction
+from source.util.calculator import clamp, attack, get_setl_totals, complete_construction, get_resources_for_settlement
 from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
 from source.foundation.models import Heathen, Quad
 from source.foundation.models import Player, Settlement, CompletedConstruction, Unit, HarvestStatus, EconomicStatus, \
@@ -208,6 +208,12 @@ class GameState:
                             for j in range(best_quad_with_yield[0].location[0] - 5,
                                            best_quad_with_yield[0].location[0] + 6):
                                 self.players[0].quads_seen.add((j, i))
+
+            if setl.resources:
+                # Only core resources accumulate.
+                player.resources.ore += setl.resources.ore
+                player.resources.timber += setl.resources.timber
+                player.resources.magma += setl.resources.magma
 
         # Show notifications if the player's constructions have completed or one of their settlements has levelled
         # up.
@@ -496,8 +502,9 @@ class GameState:
                 setl_coords = random.randint(0, 99), random.randint(0, 89)
                 quad_biome = self.board.quads[setl_coords[1]][setl_coords[0]].biome
                 setl_name = namer.get_settlement_name(quad_biome)
+                setl_resources = get_resources_for_settlement(setl_coords, self.board.quads)
                 new_settl = Settlement(setl_name, setl_coords, [],
-                                       [self.board.quads[setl_coords[1]][setl_coords[0]]],
+                                       [self.board.quads[setl_coords[1]][setl_coords[0]]], setl_resources,
                                        [get_default_unit(setl_coords)])
                 match player.faction:
                     case Faction.CONCENTRATED:

@@ -5,7 +5,8 @@ from enum import Enum
 
 import pyxel
 
-from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal
+from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal, \
+    get_resources_for_settlement
 from source.foundation.catalogue import get_default_unit, Namer
 from source.foundation.models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, \
     Faction, DeployerUnit, ResourceCollection
@@ -456,11 +457,11 @@ class Board:
                 quad_yield: (float, float, float, float) = calculate_yield_for_quad(biome)
 
                 resource: typing.Optional[ResourceCollection] = None
-                # Each quad has a 1 in 10 chance of having a core resource, and a 1 in 50 chance of having a rare
-                # resource. We combine these by saying that each quad has a 12% chance of having any resource at all.
+                # Each quad has a 1 in 20 chance of having a core resource, and a 1 in 100 chance of having a rare
+                # resource. We combine these by saying that each quad has a 6% chance of having any resource at all.
                 resource_chance = random.randint(0, 100)
-                if resource_chance < 12:
-                    if resource_chance < 2:
+                if resource_chance < 6:
+                    if resource_chance < 1:
                         random_chance = random.randint(0, 100)
                         if climatic_effects:
                             if random_chance < 20:
@@ -566,7 +567,8 @@ class Board:
                     # settlement will be.
                     quad_biome = self.quads[adj_y][adj_x].biome
                     setl_name = self.namer.get_settlement_name(quad_biome)
-                    new_settl = Settlement(setl_name, (adj_x, adj_y), [], [self.quads[adj_y][adj_x]],
+                    setl_resources = get_resources_for_settlement((adj_x, adj_y), self.quads)
+                    new_settl = Settlement(setl_name, (adj_x, adj_y), [], [self.quads[adj_y][adj_x]], setl_resources,
                                            [get_default_unit((adj_x, adj_y))])
                     match player.faction:
                         case Faction.CONCENTRATED:
@@ -825,8 +827,10 @@ class Board:
         if can_settle:
             quad_biome = self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]].biome
             setl_name = self.namer.get_settlement_name(quad_biome)
+            setl_resources = get_resources_for_settlement(self.selected_unit.location, self.quads)
             new_settl = Settlement(setl_name, self.selected_unit.location, [],
-                                   [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]], [])
+                                   [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]],
+                                   setl_resources, [])
             if player.faction is Faction.FRONTIERSMEN:
                 new_settl.satisfaction = 75
             elif player.faction is Faction.IMPERIALS:

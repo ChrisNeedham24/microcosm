@@ -274,6 +274,10 @@ class ResourceCollection:
     sunstone: int = 0
     aquamarine: int = 0
 
+    def __bool__(self):
+        return bool(self.ore or self.timber or self.magma or
+                    self.aurora or self.bloodstone or self.obsidian or self.sunstone or self.aquamarine)
+
 
 @dataclass
 class UnitPlan:
@@ -361,6 +365,8 @@ class Settlement:
     location: (int, int)
     improvements: typing.List[Improvement]
     quads: typing.List[Quad]  # Only players of The Concentrated faction can have more than one quad in a settlement.
+    # Resources can be exploited by a settlement if they are within 1 quad.
+    resources: ResourceCollection
     garrison: typing.List[Unit]
     strength: float = 100
     max_strength: float = 100

@@ -1,6 +1,6 @@
 from source.foundation.catalogue import get_blessing, FACTION_COLOURS
 from source.foundation.models import UnitPlan, Unit, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, Quad, \
-    Biome, GameConfig, DeployerUnitPlan, DeployerUnit
+    Biome, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection
 
 """
 The following migrations have occurred during Microcosm's development:
@@ -106,6 +106,11 @@ def migrate_player(player):
     player.faction = Faction(player.faction) if hasattr(player, "faction") else get_faction_for_colour(player.colour)
     if not hasattr(player, "eliminated"):
         player.eliminated = len(player.settlements) == 0
+    if res := player.resources:
+        # We need to convert it back to a ResourceCollection object in order to take advantage of our custom truth value
+        # testing operator.
+        player.resources = ResourceCollection(res.ore, res.timber, res.magma,
+                                              res.aurora, res.bloodstone, res.obsidian, res.sunstone, res.aquamarine)
 
 
 def migrate_climatic_effects(game_state, save):
@@ -130,6 +135,11 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
     new_quad.biome = Biome[new_quad.biome]
     new_quad.is_relic = new_quad.is_relic if hasattr(new_quad, "is_relic") else False
     new_quad.location = (new_quad.location[0], new_quad.location[1]) if hasattr(new_quad, "location") else location
+    if res := new_quad.resource:
+        # We need to convert it back to a ResourceCollection object in order to take advantage of our custom truth value
+        # testing operator.
+        new_quad.resource = ResourceCollection(res.ore, res.timber, res.magma,
+                                               res.aurora, res.bloodstone, res.obsidian, res.sunstone, res.aquamarine)
     return new_quad
 
 
