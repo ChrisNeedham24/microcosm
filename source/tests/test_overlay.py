@@ -39,24 +39,23 @@ class OverlayTest(unittest.TestCase):
         """
         # When the Standard and Blessing overlays are being displayed, toggling should not remove the Standard overlay.
         self.overlay.showing = [OverlayType.STANDARD, OverlayType.BLESSING]
-        self.overlay.toggle_standard(0)
+        self.overlay.toggle_standard()
         self.assertTrue(self.overlay.is_standard())
 
         # Now with only the Standard overlay, toggling should remove it.
         self.overlay.showing = [OverlayType.STANDARD]
-        self.overlay.toggle_standard(0)
+        self.overlay.toggle_standard()
         self.assertFalse(self.overlay.is_standard())
 
         # When displaying the Pause overlay (or a number of others), toggling should not add the Standard overlay.
         self.overlay.showing = [OverlayType.PAUSE]
-        self.overlay.toggle_standard(5)
+        self.overlay.toggle_standard()
         self.assertFalse(self.overlay.is_standard())
 
-        # When no overlay is being displayed, toggling should add the Standard overlay and set the current turn.
+        # When no overlay is being displayed, toggling should add the Standard overlay.
         self.overlay.showing = []
-        self.overlay.toggle_standard(5)
+        self.overlay.toggle_standard()
         self.assertTrue(self.overlay.is_standard())
-        self.assertEqual(5, self.overlay.current_turn)
 
     def test_navigate_standard(self):
         """
@@ -401,15 +400,6 @@ class OverlayTest(unittest.TestCase):
         self.overlay.showing = []
         self.overlay.toggle_tutorial()
         self.assertTrue(self.overlay.is_tutorial())
-
-    def test_update_turn(self):
-        """
-        Ensure that the turn can be successfully updated.
-        """
-        test_turn = 999
-        self.overlay.current_turn = 1
-        self.overlay.update_turn(test_turn)
-        self.assertEqual(test_turn, self.overlay.current_turn)
 
     def test_setl_unit_iteration(self):
         """

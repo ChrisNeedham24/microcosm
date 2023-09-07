@@ -15,7 +15,6 @@ class Overlay:
         Initialise the many variables used by the overlay to keep track of game state.
         """
         self.showing: typing.List[OverlayType] = []  # What the overlay is currently displaying.
-        self.current_turn: int = 0
         self.current_settlement: typing.Optional[Settlement] = None
         self.current_player: typing.Optional[Player] = None  # Will always be the non-AI player.
         self.available_constructions: typing.List[Improvement] = []
@@ -63,16 +62,16 @@ class Overlay:
         self.new_achievements: typing.List[Achievement] = []
         self.current_standard_overlay_view: StandardOverlayView = StandardOverlayView.BLESSINGS
         self.current_game_config: GameConfig = cfg
+        self.total_settlement_count: int = 0
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
     displayed along with which other overlays.
     """
 
-    def toggle_standard(self, turn: int):
+    def toggle_standard(self):
         """
         Toggle the standard overlay.
-        :param turn: The current turn.
         """
         # Ensure that we can only remove the standard overlay if the player is not choosing a blessing.
         if OverlayType.STANDARD in self.showing and not self.is_blessing():
@@ -82,7 +81,6 @@ class Overlay:
                 not self.is_pause() and not self.is_controls() and not self.is_victory() and \
                 not self.is_constructing() and not self.is_ach_notif():
             self.showing.append(OverlayType.STANDARD)
-            self.current_turn = turn
 
     def navigate_standard(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
         """
@@ -327,14 +325,6 @@ class Overlay:
         :return: Whether the tutorial overlay is being displayed.
         """
         return OverlayType.TUTORIAL in self.showing
-
-    def update_turn(self, turn: int):
-        """
-        Updates the turn to be displayed in the standard overlay. Necessary for cases in which the player ends their
-        turn while viewing the standard overlay.
-        :param turn: The new turn to display.
-        """
-        self.current_turn = turn
 
     def is_unit(self):
         """
@@ -794,7 +784,7 @@ class Overlay:
         elif self.is_setl_click():
             self.toggle_setl_click(None, None)
         elif self.is_standard():
-            self.toggle_standard(self.current_turn)
+            self.toggle_standard()
         elif self.is_constructing():
             self.toggle_construction([], [], [])
         elif self.is_unit():

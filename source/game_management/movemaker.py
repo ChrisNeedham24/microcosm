@@ -585,7 +585,7 @@ class MoveMaker:
         if far_enough:
             quad_biome = self.board_ref.quads[unit.location[1]][unit.location[0]].biome
             setl_name = self.namer.get_settlement_name(quad_biome)
-            setl_resources = get_resources_for_settlement(unit.location, self.board_ref.quads)
+            setl_resources = get_resources_for_settlement([unit.location], self.board_ref.quads)
             new_settl = Settlement(setl_name, unit.location, [],
                                    [self.board_ref.quads[unit.location[1]][unit.location[0]]], setl_resources, [])
             if player.faction is Faction.FRONTIERSMEN:

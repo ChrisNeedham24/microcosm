@@ -200,6 +200,8 @@ class GameState:
                                     if quad_to_test not in setl.quads and quad_yield > best_quad_with_yield[1]:
                                         best_quad_with_yield = quad_to_test, quad_yield
                     setl.quads.append(best_quad_with_yield[0])
+                    setl.resources = \
+                        get_resources_for_settlement([quad.location for quad in setl.quads], self.board.quads)
                     # If the player playing as The Concentrated faction is the human player, updated the quads seen
                     # list.
                     if player == self.players[0]:
@@ -362,9 +364,12 @@ class GameState:
                 constructed_sanctum = False
 
                 # If a player controls all settlements bar one, they are close to an ELIMINATION victory.
-                if len(p.settlements) + 1 == len(all_setls) and VictoryType.ELIMINATION not in p.imminent_victories:
-                    close_to_vics.append(Victory(p, VictoryType.ELIMINATION))
-                    p.imminent_victories.add(VictoryType.ELIMINATION)
+                if len(p.settlements) + 1 == len(all_setls):
+                    if VictoryType.ELIMINATION not in p.imminent_victories:
+                        close_to_vics.append(Victory(p, VictoryType.ELIMINATION))
+                        p.imminent_victories.add(VictoryType.ELIMINATION)
+                elif VictoryType.ELIMINATION in p.imminent_victories:
+                    p.imminent_victories.remove(VictoryType.ELIMINATION)
 
                 players_with_setls += 1
                 for s in p.settlements:
@@ -375,10 +380,12 @@ class GameState:
                     if any(imp.name == "Holy Sanctum" for imp in s.improvements):
                         constructed_sanctum = True
                     # If a player is currently constructing the Holy Sanctum, they are close to a VIGOUR victory.
-                    elif s.current_work is not None and s.current_work.construction.name == "Holy Sanctum" and \
-                            VictoryType.VIGOUR not in p.imminent_victories:
-                        close_to_vics.append(Victory(p, VictoryType.VIGOUR))
-                        p.imminent_victories.add(VictoryType.VIGOUR)
+                    elif s.current_work is not None and s.current_work.construction.name == "Holy Sanctum":
+                        if VictoryType.VIGOUR not in p.imminent_victories:
+                            close_to_vics.append(Victory(p, VictoryType.VIGOUR))
+                            p.imminent_victories.add(VictoryType.VIGOUR)
+                    elif VictoryType.VIGOUR in p.imminent_victories:
+                        p.imminent_victories.remove(VictoryType.VIGOUR)
                 if jubilated_setls >= 5:
                     p.jubilation_ctr += 1
                     # If a player has achieved 100% satisfaction in 5 settlements, they are close to (25 turns away)
@@ -388,6 +395,8 @@ class GameState:
                         p.imminent_victories.add(VictoryType.JUBILATION)
                 else:
                     p.jubilation_ctr = 0
+                    if VictoryType.JUBILATION in p.imminent_victories:
+                        p.imminent_victories.remove(VictoryType.JUBILATION)
                 # If the player has maintained 5 settlements at 100% satisfaction for 25 turns, they have achieved a
                 # JUBILATION victory.
                 if p.jubilation_ctr == 25:
@@ -396,9 +405,12 @@ class GameState:
                 if lvl_ten_setls >= 10:
                     return Victory(p, VictoryType.GLUTTONY)
                 # If a player has 8 level 10 settlements, they are close to a GLUTTONY victory.
-                if lvl_ten_setls >= 8 and VictoryType.GLUTTONY not in p.imminent_victories:
-                    close_to_vics.append(Victory(p, VictoryType.GLUTTONY))
-                    p.imminent_victories.add(VictoryType.GLUTTONY)
+                if lvl_ten_setls >= 8:
+                    if VictoryType.GLUTTONY not in p.imminent_victories:
+                        close_to_vics.append(Victory(p, VictoryType.GLUTTONY))
+                        p.imminent_victories.add(VictoryType.GLUTTONY)
+                elif VictoryType.GLUTTONY in p.imminent_victories:
+                    p.imminent_victories.remove(VictoryType.GLUTTONY)
                 # If the player has constructed the Holy Sanctum, they have achieved a VIGOUR victory.
                 if constructed_sanctum:
                     return Victory(p, VictoryType.VIGOUR)
@@ -418,9 +430,12 @@ class GameState:
             if p.accumulated_wealth >= 100000:
                 return Victory(p, VictoryType.AFFLUENCE)
             # If a player has accumulated at least 75k wealth over the game, they are close to an AFFLUENCE victory.
-            if p.accumulated_wealth >= 75000 and VictoryType.AFFLUENCE not in p.imminent_victories:
-                close_to_vics.append(Victory(p, VictoryType.AFFLUENCE))
-                p.imminent_victories.add(VictoryType.AFFLUENCE)
+            if p.accumulated_wealth >= 75000:
+                if VictoryType.AFFLUENCE not in p.imminent_victories:
+                    close_to_vics.append(Victory(p, VictoryType.AFFLUENCE))
+                    p.imminent_victories.add(VictoryType.AFFLUENCE)
+            elif VictoryType.AFFLUENCE in p.imminent_victories:
+                p.imminent_victories.remove(VictoryType.AFFLUENCE)
             # If the player has undergone the blessings for all three pieces of ardour, they have achieved a
             # SERENDIPITY victory.
             ardour_pieces = len([bls for bls in p.blessings if "Piece of" in bls.name])
@@ -428,9 +443,12 @@ class GameState:
                 return Victory(p, VictoryType.SERENDIPITY)
             # If a player has undergone two of the required three blessings for the pieces of ardour, they are close to
             # a SERENDIPITY victory.
-            if ardour_pieces == 2 and VictoryType.SERENDIPITY not in p.imminent_victories:
-                close_to_vics.append(Victory(p, VictoryType.SERENDIPITY))
-                p.imminent_victories.add(VictoryType.SERENDIPITY)
+            if ardour_pieces == 2:
+                if VictoryType.SERENDIPITY not in p.imminent_victories:
+                    close_to_vics.append(Victory(p, VictoryType.SERENDIPITY))
+                    p.imminent_victories.add(VictoryType.SERENDIPITY)
+            elif VictoryType.SERENDIPITY in p.imminent_victories:
+                p.imminent_victories.remove(VictoryType.SERENDIPITY)
 
         if players_with_setls == 1 and \
                 not (not self.players[0].settlements and any(unit.plan.can_settle for unit in self.players[0].units)):
@@ -509,7 +527,7 @@ class GameState:
                 setl_coords = random.randint(0, 99), random.randint(0, 89)
                 quad_biome = self.board.quads[setl_coords[1]][setl_coords[0]].biome
                 setl_name = namer.get_settlement_name(quad_biome)
-                setl_resources = get_resources_for_settlement(setl_coords, self.board.quads)
+                setl_resources = get_resources_for_settlement([setl_coords], self.board.quads)
                 new_settl = Settlement(setl_name, setl_coords, [],
                                        [self.board.quads[setl_coords[1]][setl_coords[0]]], setl_resources,
                                        [get_default_unit(setl_coords)])

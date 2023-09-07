@@ -272,6 +272,7 @@ def load_game(game_state, game_controller: GameController):
         game_state.map_pos = (clamp(game_state.players[0].settlements[0].location[0] - 12, -1, 77),
                               clamp(game_state.players[0].settlements[0].location[1] - 11, -1, 69))
         game_state.board.overlay.current_player = game_state.players[0]
+        game_state.board.overlay.total_settlement_count = sum(len(p.settlements) for p in game_state.players)
         game_controller.music_player.stop_menu_music()
         game_controller.music_player.play_game_music()
     except (JSONDecodeError, AttributeError, KeyError, StopIteration, ValueError):

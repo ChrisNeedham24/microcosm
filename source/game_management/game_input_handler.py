@@ -177,6 +177,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.overlay.toggle_tutorial()
             game_controller.namer.reset()
             game_state.initialise_ais(game_controller.namer)
+            game_state.board.overlay.total_settlement_count = sum(len(p.settlements) for p in game_state.players) + 1
             game_controller.music_player.stop_menu_music()
             game_controller.music_player.play_game_music()
         elif game_controller.menu.loading_game:
@@ -306,7 +307,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             if new_achs := save_stats_achievements(game_state, time_elapsed):
                 game_state.board.overlay.toggle_ach_notif(new_achs)
 
-            game_state.board.overlay.update_turn(game_state.turn)
+            game_state.board.overlay.total_settlement_count = sum(len(p.settlements) for p in game_state.players)
             game_state.process_heathens()
             game_state.process_ais(game_controller.move_maker)
 
@@ -319,7 +320,7 @@ def on_key_shift(game_state: GameState):
     if game_state.game_started:
         game_state.board.overlay.remove_warning_if_possible()
         # Display the standard overlay.
-        game_state.board.overlay.toggle_standard(game_state.turn)
+        game_state.board.overlay.toggle_standard()
 
 
 def on_key_c(game_state: GameState):

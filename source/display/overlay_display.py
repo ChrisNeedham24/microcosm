@@ -6,7 +6,7 @@ import pyxel
 from source.display.display_utils import draw_paragraph
 from source.util.calculator import get_setl_totals
 from source.foundation.catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units, \
-    ACHIEVEMENTS
+    ACHIEVEMENTS, BLESSINGS
 from source.foundation.models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, \
     OverlayType, SettlementAttackType, PauseOption, Faction, HarvestStatus, ConstructionMenu, ProjectType, Project, \
     DeployerUnitPlan, DeployerUnit, StandardOverlayView
@@ -566,15 +566,10 @@ def display_overlay(overlay: Overlay, is_night: bool):
         # The standard overlay displays the current turn, ongoing blessing, player wealth, and player settlement
         # statistics.
         if OverlayType.STANDARD in overlay.showing:
-            # TODO I'm actually thinking we might want to do a total overhaul here
-            #  could split this up into three pages:
-            #  show current blessing plus completed ones in order
-            #  show wealth (and accumulated, with percentage to victory) and resources
-            #  show settlements
             pyxel.load("resources/sprites.pyxres")
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
-            pyxel.text(90, 30, f"Turn {overlay.current_turn}", pyxel.COLOR_WHITE)
+            pyxel.text(80, 30, f"Game status", pyxel.COLOR_WHITE)
             match overlay.current_standard_overlay_view:
                 case StandardOverlayView.BLESSINGS:
                     pyxel.text(84, 40, "Blessings", pyxel.COLOR_PURPLE)
@@ -608,7 +603,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                         pyxel.text(30, 100, "None", pyxel.COLOR_GRAY)
                     pyxel.text(144, 150, "Vault ->", pyxel.COLOR_YELLOW)
                 case StandardOverlayView.VAULT:
-                    pyxel.text(92, 40, "Vault", pyxel.COLOR_YELLOW)
+                    pyxel.text(91, 40, "Vault", pyxel.COLOR_YELLOW)
                     pyxel.text(30, 55, "Wealth", pyxel.COLOR_YELLOW)
                     wealth_per_turn = 0
                     for setl in overlay.current_player.settlements:
@@ -705,6 +700,51 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     pyxel.text(25, 150, "<- Vault", pyxel.COLOR_YELLOW)
                     pyxel.text(128, 150, "Victories ->", pyxel.COLOR_GREEN)
                 case StandardOverlayView.VICTORIES:
+                    pyxel.text(83, 40, "Victories", pyxel.COLOR_GREEN)
+                    pyxel.text(30, 55, "Elimination", pyxel.COLOR_RED)
+                    if VictoryType.ELIMINATION in overlay.current_player.imminent_victories:
+                        pyxel.blt(76, 53, 0, 16, 124, 8, 8)
+                    pyxel.text(140, 55,
+                               f"{len(overlay.current_player.settlements)}/{overlay.total_settlement_count}",
+                               pyxel.COLOR_WHITE)
+                    if overlay.current_player.faction is not Faction.CONCENTRATED:
+                        pyxel.text(30, 70, "Jubilation", pyxel.COLOR_GREEN)
+                        if VictoryType.JUBILATION in overlay.current_player.imminent_victories:
+                            pyxel.blt(72, 68, 0, 16, 124, 8, 8)
+                        pyxel.text(130, 70,
+                                   f"{len([s for s in overlay.current_player.settlements if s.satisfaction == 100])}/5,"
+                                   f" {overlay.current_player.jubilation_ctr}/25",
+                                   pyxel.COLOR_WHITE)
+                        pyxel.text(30, 85, "Gluttony", pyxel.COLOR_GREEN)
+                        if VictoryType.GLUTTONY in overlay.current_player.imminent_victories:
+                            pyxel.blt(64, 83, 0, 16, 124, 8, 8)
+                        pyxel.text(140, 85,
+                                   f"{len([s for s in overlay.current_player.settlements if s.level == 10])}/10",
+                                   pyxel.COLOR_WHITE)
+                    else:
+                        pyxel.text(30, 70, "Jubilation", pyxel.COLOR_GRAY)
+                        pyxel.text(115, 70, "N/A for faction", pyxel.COLOR_GRAY)
+                        pyxel.text(30, 85, "Gluttony", pyxel.COLOR_GRAY)
+                        pyxel.text(115, 85, "N/A for faction", pyxel.COLOR_GRAY)
+                    pyxel.text(30, 100, "Affluence", pyxel.COLOR_YELLOW)
+                    if VictoryType.AFFLUENCE in overlay.current_player.imminent_victories:
+                        pyxel.blt(68, 98, 0, 16, 124, 8, 8)
+                    pyxel.text(128, 100, f"{round(overlay.current_player.accumulated_wealth)}/100000",
+                               pyxel.COLOR_WHITE)
+                    pyxel.text(30, 115, "Vigour", pyxel.COLOR_ORANGE)
+                    if VictoryType.VIGOUR in overlay.current_player.imminent_victories:
+                        pyxel.blt(56, 113, 0, 16, 124, 8, 8)
+                    pyxel.text(132, 115,
+                               # We can hard-code the second part of this to be 0/1, since once the player builds the
+                               # Holy Sanctum, the game ends.
+                               f"{1 if BLESSINGS['anc_his'] in overlay.current_player.blessings else 0}/1, 0/1",
+                               pyxel.COLOR_WHITE)
+                    pyxel.text(30, 130, "Serendipity", pyxel.COLOR_PURPLE)
+                    if VictoryType.SERENDIPITY in overlay.current_player.imminent_victories:
+                        pyxel.blt(76, 128, 0, 16, 124, 8, 8)
+                    pyxel.text(142, 130,
+                               f"{len([b for b in overlay.current_player.blessings if 'Piece of' in b.name])}/3",
+                               pyxel.COLOR_WHITE)
                     pyxel.text(25, 150, "<- Settlements", pyxel.COLOR_LIME)
         # The settlement click overlay displays the two options available to the player when interacting with an
         # enemy settlement: attack or besiege.

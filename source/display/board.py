@@ -567,7 +567,7 @@ class Board:
                     # settlement will be.
                     quad_biome = self.quads[adj_y][adj_x].biome
                     setl_name = self.namer.get_settlement_name(quad_biome)
-                    setl_resources = get_resources_for_settlement((adj_x, adj_y), self.quads)
+                    setl_resources = get_resources_for_settlement([(adj_x, adj_y)], self.quads)
                     new_settl = Settlement(setl_name, (adj_x, adj_y), [], [self.quads[adj_y][adj_x]], setl_resources,
                                            [get_default_unit((adj_x, adj_y))])
                     match player.faction:
@@ -827,7 +827,7 @@ class Board:
         if can_settle:
             quad_biome = self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]].biome
             setl_name = self.namer.get_settlement_name(quad_biome)
-            setl_resources = get_resources_for_settlement(self.selected_unit.location, self.quads)
+            setl_resources = get_resources_for_settlement([self.selected_unit.location], self.quads)
             new_settl = Settlement(setl_name, self.selected_unit.location, [],
                                    [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]],
                                    setl_resources, [])

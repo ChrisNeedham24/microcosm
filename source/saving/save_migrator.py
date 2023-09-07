@@ -106,11 +106,13 @@ def migrate_player(player):
     player.faction = Faction(player.faction) if hasattr(player, "faction") else get_faction_for_colour(player.colour)
     if not hasattr(player, "eliminated"):
         player.eliminated = len(player.settlements) == 0
-    if res := player.resources:
+    if hasattr(player, "resources") and (res := player.resources):
         # We need to convert it back to a ResourceCollection object in order to take advantage of our custom truth value
         # testing operator.
         player.resources = ResourceCollection(res.ore, res.timber, res.magma,
                                               res.aurora, res.bloodstone, res.obsidian, res.sunstone, res.aquamarine)
+    else:
+        player.resources = ResourceCollection()
 
 
 def migrate_climatic_effects(game_state, save):
@@ -135,11 +137,13 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
     new_quad.biome = Biome[new_quad.biome]
     new_quad.is_relic = new_quad.is_relic if hasattr(new_quad, "is_relic") else False
     new_quad.location = (new_quad.location[0], new_quad.location[1]) if hasattr(new_quad, "location") else location
-    if res := new_quad.resource:
+    if hasattr(new_quad, "resource") and (res := new_quad.resource):
         # We need to convert it back to a ResourceCollection object in order to take advantage of our custom truth value
         # testing operator.
         new_quad.resource = ResourceCollection(res.ore, res.timber, res.magma,
                                                res.aurora, res.bloodstone, res.obsidian, res.sunstone, res.aquamarine)
+    else:
+        new_quad.resource = None
     return new_quad
 
 
@@ -157,12 +161,14 @@ def migrate_settlement(settlement):
         delattr(settlement, "under_siege_by")
     for i in range(len(settlement.quads)):
         settlement.quads[i] = migrate_quad(settlement.quads[i], (settlement.location[0], settlement.location[1]))
-    if res := settlement.resources:
+    if hasattr(settlement, "resources") and (res := settlement.resources):
         # We need to convert it back to a ResourceCollection object in order to take advantage of our custom truth value
         # testing operator.
         settlement.resources = \
             ResourceCollection(res.ore, res.timber, res.magma,
                                res.aurora, res.bloodstone, res.obsidian, res.sunstone, res.aquamarine)
+    else:
+        settlement.resources = ResourceCollection()
 
 
 def migrate_game_config(config) -> GameConfig:
