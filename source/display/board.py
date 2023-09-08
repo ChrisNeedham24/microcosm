@@ -85,9 +85,10 @@ class Board:
         # Nocturne faction have no vision impacts at nighttime.
         if is_night and players[0].faction is not Faction.NOCTURNE:
             for setl in players[0].settlements:
+                vision_range = 3 * (1 + setl.resources.sunstone)
                 for setl_quad in setl.quads:
-                    for i in range(setl_quad.location[0] - 3, setl_quad.location[0] + 4):
-                        for j in range(setl_quad.location[1] - 3, setl_quad.location[1] + 4):
+                    for i in range(setl_quad.location[0] - vision_range, setl_quad.location[0] + vision_range + 1):
+                        for j in range(setl_quad.location[1] - vision_range, setl_quad.location[1] + vision_range + 1):
                             quads_to_show.add((i, j))
             for unit in players[0].units:
                 for i in range(unit.location[0] - 3, unit.location[0] + 4):
@@ -579,6 +580,9 @@ class Board:
                         case Faction.IMPERIALS:
                             new_settl.strength /= 2
                             new_settl.max_strength /= 2
+                    if new_settl.resources.obsidian:
+                        new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
+                        new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
                     player.settlements.append(new_settl)
                     # Automatically add 5 quads in either direction to the player's seen.
                     for i in range(adj_y - 5, adj_y + 6):
@@ -836,6 +840,9 @@ class Board:
             elif player.faction is Faction.IMPERIALS:
                 new_settl.strength /= 2
                 new_settl.max_strength /= 2
+            if new_settl.resources.obsidian:
+                new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
+                new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
             player.settlements.append(new_settl)
             # Destroy the settler unit and select the new settlement.
             player.units.remove(self.selected_unit)

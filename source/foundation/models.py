@@ -126,6 +126,9 @@ class InvestigationResult(Enum):
     POWER = "POWER"
     STAMINA = "STAMINA"
     UPKEEP = "UPKEEP"
+    ORE = "ORE"
+    TIMBER = "TIMBER"
+    MAGMA = "MAGMA"
     NONE = "NONE"
 
 

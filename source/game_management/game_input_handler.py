@@ -334,8 +334,7 @@ def on_key_c(game_state: GameState):
             get_available_improvements(game_state.players[0],
                                        game_state.board.selected_settlement),
             PROJECTS,
-            get_available_unit_plans(game_state.players[0],
-                                     game_state.board.selected_settlement.level))
+            get_available_unit_plans(game_state.players[0], game_state.board.selected_settlement))
 
 
 def on_key_f(game_controller: GameController, game_state: GameState):

@@ -173,6 +173,8 @@ def get_setl_totals(player: Player,
         total_wealth *= 1.25
     elif player.faction is Faction.ORTHODOX:
         total_wealth *= 0.75
+    if setl.resources.aurora:
+        total_wealth *= (1 + 0.5 * setl.resources.aurora)
     total_harvest = max(sum(quad.harvest for quad in setl.quads) +
                         sum(imp.effect.harvest for imp in setl.improvements), 0)
     total_harvest += (setl.level - 1) * 0.25 * total_harvest
@@ -185,7 +187,7 @@ def get_setl_totals(player: Player,
         total_harvest *= 1.5
     if player.faction is Faction.RAVENOUS:
         total_harvest *= 1.25
-    if is_night and player.faction is not Faction.NOCTURNE:
+    if is_night and player.faction is not Faction.NOCTURNE and not setl.resources.sunstone:
         total_harvest /= 2
     total_fortune = max(sum(quad.fortune for quad in setl.quads) +
                         sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 0.5)
@@ -199,6 +201,8 @@ def get_setl_totals(player: Player,
         total_fortune *= 0.75
     elif player.faction is Faction.ORTHODOX:
         total_fortune *= 1.25
+    if setl.resources.aquamarine:
+        total_fortune *= (1 + 0.5 * setl.resources.aquamarine)
 
     return total_wealth, total_harvest, total_zeal, total_fortune
 
@@ -248,6 +252,7 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
     - Permanent +5 power
     - Permanent +1 stamina
     - Unit upkeep reduced to 0 permanently
+    - 10 ore, timber, or magma
     :param player: The owner of the unit investigating the relic.
     :param unit: The unit investigating the relic.
     :param relic_loc: The location of the relic.
@@ -255,10 +260,12 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
     war is disabled.
     :return: The type of investigation result, i.e. the bonus granted, if there is one.
     """
-    random_chance = random.randint(0, 100)
+    random_chance = random.randint(0, 140)
     # Scrutineers always succeed when investigating.
-    was_successful = True if player.faction is Faction.SCRUTINEERS else random_chance < 70
+    was_successful = True if player.faction is Faction.SCRUTINEERS else random_chance < 100
     if was_successful:
+        if player.faction is Faction.SCRUTINEERS:
+            random_chance *= (100 / 140)
         if random_chance < 10 and player.ongoing_blessing is not None:
             player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.blessing.cost / 5
             return InvestigationResult.FORTUNE
@@ -281,8 +288,17 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
             unit.plan.total_stamina += 1
             unit.remaining_stamina = unit.plan.total_stamina
             return InvestigationResult.STAMINA
-        unit.plan.cost = 0
-        return InvestigationResult.UPKEEP
+        if random_chance < 70:
+            unit.plan.cost = 0
+            return InvestigationResult.UPKEEP
+        if random_chance < 80:
+            player.resources.ore += 10
+            return InvestigationResult.ORE
+        if random_chance < 90:
+            player.resources.timber += 10
+            return InvestigationResult.TIMBER
+        player.resources.magma += 10
+        return InvestigationResult.MAGMA
     return InvestigationResult.NONE
 
 

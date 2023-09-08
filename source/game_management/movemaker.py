@@ -95,7 +95,7 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
     """
 
     avail_imps = get_available_improvements(player, setl)
-    avail_units = get_available_unit_plans(player, setl.level)
+    avail_units = get_available_unit_plans(player, setl)
     # Note that if there are no available improvements for the given settlement, the 'ideal' construction will default
     # to the first available unit. Additionally, the first improvement is only selected if it won't reduce satisfaction.
     ideal: Improvement | UnitPlan = avail_imps[0] \
@@ -198,7 +198,7 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
         return 10
 
     avail_imps = get_available_improvements(player, setl)
-    avail_units = get_available_unit_plans(player, setl.level)
+    avail_units = get_available_unit_plans(player, setl)
     settler_units = [settler for settler in avail_units if settler.can_settle]
     healer_units = [healer for healer in avail_units if healer.heals]
     deployer_units = [deployer for deployer in avail_units if isinstance(deployer, DeployerUnitPlan)]
@@ -593,6 +593,9 @@ class MoveMaker:
             elif player.faction is Faction.IMPERIALS:
                 new_settl.strength /= 2
                 new_settl.max_strength /= 2
+            if new_settl.resources.obsidian:
+                new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
+                new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
             player.settlements.append(new_settl)
             player.units.remove(unit)
 

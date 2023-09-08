@@ -467,12 +467,22 @@ class GameState:
         """
         Process the turns for each of the heathens.
         """
-        all_units = []
+        all_units: typing.List[Unit] = []
+        banned_quads: typing.Set[typing.Tuple[int, int]] = set()
         for player in self.players:
             # Heathens will not attack Infidel units.
             if player.faction is not Faction.INFIDELS:
                 for unit in player.units:
                     all_units.append(unit)
+            for setl in player.settlements:
+                if self.nighttime_left > 0 and setl.resources.sunstone:
+                    exclusion_range = 3 * (1 + setl.resources.sunstone)
+                    for setl_quad in setl.quads:
+                        for i in range(setl_quad.location[0] - exclusion_range,
+                                       setl_quad.location[0] + exclusion_range + 1):
+                            for j in range(setl_quad.location[1] - exclusion_range,
+                                           setl_quad.location[1] + exclusion_range + 1):
+                                banned_quads.add((i, j))
         for heathen in self.heathens:
             within_range: typing.Optional[Unit] = None
             # Check if any player unit is within range of the heathen.
@@ -504,13 +514,23 @@ class GameState:
                 if heathen.health <= 0:
                     self.heathens.remove(heathen)
             else:
-                # If there are no units within range, just move randomly.
-                x_movement = random.randint(-heathen.remaining_stamina, heathen.remaining_stamina)
-                rem_movement = heathen.remaining_stamina - abs(x_movement)
-                y_movement = random.choice([-rem_movement, rem_movement])
-                heathen.location = (clamp(heathen.location[0] + x_movement, 0, 99),
-                                    clamp(heathen.location[1] + y_movement, 0, 89))
-                heathen.remaining_stamina -= abs(x_movement) + abs(y_movement)
+                # If there are no units within range, just move randomly. Attempt this five times, and if a valid
+                # location (i.e. one away from the influence of a settlement with one or more sunstones) is not found,
+                # the heathen dies.
+                found_valid_loc = False
+                for i in range(5):
+                    x_movement = random.randint(-heathen.remaining_stamina, heathen.remaining_stamina)
+                    rem_movement = heathen.remaining_stamina - abs(x_movement)
+                    y_movement = random.choice([-rem_movement, rem_movement])
+                    new_loc = (clamp(heathen.location[0] + x_movement, 0, 99),
+                               clamp(heathen.location[1] + y_movement, 0, 89))
+                    if new_loc not in banned_quads:
+                        heathen.location = new_loc
+                        heathen.remaining_stamina -= abs(x_movement) + abs(y_movement)
+                        found_valid_loc = True
+                        break
+                if not found_valid_loc:
+                    self.heathens.remove(heathen)
 
             # Players of the Infidels faction share vision with Heathen units.
             if self.players[0].faction is Faction.INFIDELS:
@@ -540,6 +560,11 @@ class GameState:
                     case Faction.IMPERIALS:
                         new_settl.strength /= 2
                         new_settl.max_strength /= 2
+
+                if new_settl.resources.obsidian:
+                    new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
+                    new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
+
                 player.settlements.append(new_settl)
 
     def process_ais(self, move_maker: MoveMaker):

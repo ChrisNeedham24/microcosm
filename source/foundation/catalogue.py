@@ -494,11 +494,11 @@ def get_available_improvements(player: Player, settlement: Settlement) -> typing
     return imps
 
 
-def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitPlan]:
+def get_available_unit_plans(player: Player, setl: Settlement) -> typing.List[UnitPlan]:
     """
     Retrieves the available unit plans for the given player and settlement level.
     :param player: The player viewing the available units.
-    :param setl_lvl: The level of the settlement the player is viewing units in.
+    :param setl: The settlement the player is viewing units in.
     :return: A list of available units.
     """
     unit_plans = []
@@ -508,10 +508,10 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
         if unit_plan.prereq is None or unit_plan.prereq.name in completed_blessing_names:
             # Note that settlers can only be recruited in settlements of at least level 2. Additionally, users of The
             # Concentrated cannot construct settlers at all.
-            if unit_plan.can_settle and setl_lvl > 1 and player.faction is not Faction.CONCENTRATED:
+            if unit_plan.can_settle and setl.level > 1 and player.faction is not Faction.CONCENTRATED:
                 unit_plans.append(unit_plan)
             # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
-            elif not unit_plan.can_settle and not (player.faction is Faction.FRONTIERSMEN and setl_lvl >= 5):
+            elif not unit_plan.can_settle and not (player.faction is Faction.FRONTIERSMEN and setl.level >= 5):
                 unit_plans.append(unit_plan)
 
     match player.faction:
@@ -526,6 +526,11 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
             for unit_plan in unit_plans:
                 unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
                 unit_plan.max_health *= 0.75
+
+    if setl.resources.bloodstone:
+        for unit_plan in unit_plans:
+            unit_plan.power *= (1 + 0.5 * setl.resources.bloodstone)
+            unit_plan.max_health *= (1 + 0.5 * setl.resources.bloodstone)
 
     # Sort unit plans by cost.
     unit_plans.sort(key=lambda up: up.cost)

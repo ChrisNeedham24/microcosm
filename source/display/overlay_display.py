@@ -214,6 +214,15 @@ def display_overlay(overlay: Overlay, is_night: bool):
             case InvestigationResult.UPKEEP:
                 pyxel.text(20, 75, "Returning their coin, the unit walks on.", pyxel.COLOR_WHITE)
                 pyxel.text(45, 85, "Permanent 0 upkeep for unit", pyxel.COLOR_YELLOW)
+            case InvestigationResult.ORE:
+                pyxel.text(28, 75, "Your unit found an ancient minesite.", pyxel.COLOR_WHITE)
+                pyxel.text(85, 85, "+10 ore", pyxel.COLOR_GRAY)
+            case InvestigationResult.TIMBER:
+                pyxel.text(28, 75, "Freshly cut logs encircle the relic.", pyxel.COLOR_WHITE)
+                pyxel.text(79, 85, "+10 timber", pyxel.COLOR_BROWN)
+            case InvestigationResult.MAGMA:
+                pyxel.text(34, 75, "Pools of lava surround the relic.", pyxel.COLOR_WHITE)
+                pyxel.text(80, 85, "+10 magma", pyxel.COLOR_RED)
             case InvestigationResult.NONE:
                 pyxel.text(40, 80, "Nothing of interest was found.", pyxel.COLOR_GRAY)
         pyxel.text(70, 95, "SPACE: Dismiss", pyxel.COLOR_WHITE)
