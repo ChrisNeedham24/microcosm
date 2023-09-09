@@ -361,3 +361,9 @@ def get_resources_for_settlement(setl_locs: typing.List[typing.Tuple[int, int]],
                         setl_resources.aquamarine += quads[j][i].resource.aquamarine
                         found_locs.add((j, i))
     return setl_resources
+
+
+def player_has_resources_for_improvement(player: Player, improvement: Improvement) -> bool:
+    return not improvement.req_resources or (player.resources.ore >= improvement.req_resources.ore and
+                                             player.resources.timber >= improvement.req_resources.timber and
+                                             player.resources.magma >= improvement.req_resources.magma)

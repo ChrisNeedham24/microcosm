@@ -259,6 +259,7 @@ class Improvement:
     description: str
     effect: Effect
     prereq: typing.Optional[Blessing]
+    req_resources: typing.Optional[ResourceCollection] = None
 
 
 @dataclass

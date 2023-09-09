@@ -5,14 +5,14 @@ import typing
 import pyxel
 
 from source.display.board import Board
-from source.util.calculator import clamp, complete_construction, attack_setl
+from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
     PROJECTS
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
 from source.foundation.models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, \
-    OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView
+    OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView, Improvement
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
 from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats_achievements, get_stats
@@ -101,6 +101,7 @@ def on_key_arrow_left(game_controller: GameController, game_state: GameState, is
                     len(game_state.board.overlay.available_constructions) > 0:
                 game_state.board.overlay.current_construction_menu = ConstructionMenu.IMPROVEMENTS
                 game_state.board.overlay.selected_construction = game_state.board.overlay.available_constructions[0]
+                game_state.board.overlay.construction_boundaries = 0, 5
             elif game_state.board.overlay.current_construction_menu is ConstructionMenu.UNITS:
                 game_state.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
                 game_state.board.overlay.selected_construction = game_state.board.overlay.available_projects[0]
@@ -218,12 +219,15 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
         game_controller.music_player.stop_game_music()
         game_controller.music_player.play_menu_music()
-        # If the player is choosing a blessing or construction, enter will select it.
+    # If the player is choosing a blessing or construction, enter will select it.
     elif game_state.game_started and game_state.board.overlay.is_constructing():
-        if game_state.board.overlay.selected_construction is not None:
-            game_state.board.selected_settlement.current_work = Construction(
-                game_state.board.overlay.selected_construction)
-        game_state.board.overlay.toggle_construction([], [], [])
+        cons = game_state.board.overlay.selected_construction
+        if cons is not None and not (isinstance(cons, Improvement) and
+                                     not player_has_resources_for_improvement(game_state.players[0], cons)):
+            # TODO actually subtract resources in here too
+            game_state.board.selected_settlement.current_work = \
+                Construction(game_state.board.overlay.selected_construction)
+            game_state.board.overlay.toggle_construction([], [], [])
     elif game_state.game_started and game_state.board.overlay.is_blessing():
         if game_state.board.overlay.selected_blessing is not None:
             game_state.players[0].ongoing_blessing = OngoingBlessing(game_state.board.overlay.selected_blessing)

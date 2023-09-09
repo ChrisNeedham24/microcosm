@@ -84,7 +84,8 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
             case _:
                 player.ongoing_blessing = OngoingBlessing(ideal)
 
-
+# TODO will need to fix everything in this file to only construct if they have the resources
+# TODO naturally also subtract the resources
 def set_player_construction(player: Player, setl: Settlement, is_night: bool):
     """
     Choose and begin a construction for the player's settlement. Note that this function is adapted from the below

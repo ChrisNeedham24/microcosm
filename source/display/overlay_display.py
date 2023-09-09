@@ -4,7 +4,7 @@ import math
 import pyxel
 
 from source.display.display_utils import draw_paragraph
-from source.util.calculator import get_setl_totals
+from source.util.calculator import get_setl_totals, player_has_resources_for_improvement
 from source.foundation.catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units, \
     ACHIEVEMENTS, BLESSINGS
 from source.foundation.models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, \
@@ -484,9 +484,15 @@ def display_overlay(overlay: Overlay, is_night: bool):
                         pyxel.text(30, 35 + adj_idx * 18,
                                    f"{construction.name} ({math.ceil(construction.cost / total_zeal)})",
                                    pyxel.COLOR_WHITE)
-                        pyxel.text(150, 35 + adj_idx * 18, "Build",
-                                   pyxel.COLOR_RED if overlay.selected_construction is construction
-                                   else pyxel.COLOR_WHITE)
+                        if construction.req_resources and \
+                                not player_has_resources_for_improvement(overlay.current_player, construction):
+                            pyxel.text(146, 35 + adj_idx * 18, "Blocked",
+                                       pyxel.COLOR_RED if overlay.selected_construction is construction
+                                       else pyxel.COLOR_GRAY)
+                        else:
+                            pyxel.text(150, 35 + adj_idx * 18, "Build",
+                                       pyxel.COLOR_RED if overlay.selected_construction is construction
+                                       else pyxel.COLOR_WHITE)
                         effects = 0
                         if construction.effect.wealth != 0:
                             sign = "+" if construction.effect.wealth > 0 else "-"
@@ -520,6 +526,31 @@ def display_overlay(overlay: Overlay, is_night: bool):
                             pyxel.blt(30 + effects * 25, 42 + adj_idx * 18, 0, satisfaction_u, 28, 8, 8)
                             pyxel.text(40 + effects * 25, 42 + adj_idx * 18,
                                        f"{sign}{abs(construction.effect.satisfaction)}", pyxel.COLOR_WHITE)
+                if overlay.selected_construction is not None and overlay.selected_construction.req_resources:
+                    idx = overlay.available_constructions.index(overlay.selected_construction)
+                    adj_idx = idx - overlay.construction_boundaries[0]
+                    res = overlay.selected_construction.req_resources
+                    if res.ore:
+                        pyxel.rectb(130, 45 + adj_idx * 18, 60, 12, pyxel.COLOR_WHITE)
+                        pyxel.rect(131, 46 + adj_idx * 18, 58, 10, pyxel.COLOR_BLACK)
+                        if res.ore < 10:
+                            pyxel.text(139, 48 + adj_idx * 18, f"Needs {res.ore} ore", pyxel.COLOR_GRAY)
+                        else:
+                            pyxel.text(136, 48 + adj_idx * 18, f"Needs {res.ore} ore", pyxel.COLOR_GRAY)
+                    if res.timber:
+                        pyxel.rectb(125, 45 + adj_idx * 18, 70, 12, pyxel.COLOR_WHITE)
+                        pyxel.rect(126, 46 + adj_idx * 18, 68, 10, pyxel.COLOR_BLACK)
+                        if res.timber < 10:
+                            pyxel.text(134, 48 + adj_idx * 18, f"Needs {res.timber} timber", pyxel.COLOR_BROWN)
+                        else:
+                            pyxel.text(131, 48 + adj_idx * 18, f"Needs {res.timber} timber", pyxel.COLOR_BROWN)
+                    if res.magma:
+                        pyxel.rectb(127, 45 + adj_idx * 18, 66, 12, pyxel.COLOR_WHITE)
+                        pyxel.rect(128, 46 + adj_idx * 18, 64, 10, pyxel.COLOR_BLACK)
+                        if res.magma < 10:
+                            pyxel.text(135, 48 + adj_idx * 18, f"Needs {res.magma} magma", pyxel.COLOR_RED)
+                        else:
+                            pyxel.text(133, 48 + adj_idx * 18, f"Needs {res.magma} magma", pyxel.COLOR_RED)
             elif overlay.current_construction_menu is ConstructionMenu.PROJECTS:
                 for idx, project in enumerate(overlay.available_projects):
                     pyxel.text(30, 35 + idx * 18, project.name, pyxel.COLOR_WHITE)
