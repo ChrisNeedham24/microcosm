@@ -3,7 +3,8 @@ import random
 import typing
 
 from source.util.calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, \
-    attack_setl, investigate_relic, heal, gen_spiral_indices, get_resources_for_settlement
+    attack_setl, investigate_relic, heal, gen_spiral_indices, get_resources_for_settlement, \
+    subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
 from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
@@ -84,8 +85,7 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
             case _:
                 player.ongoing_blessing = OngoingBlessing(ideal)
 
-# TODO will need to fix everything in this file to only construct if they have the resources
-# TODO naturally also subtract the resources
+
 def set_player_construction(player: Player, setl: Settlement, is_night: bool):
     """
     Choose and begin a construction for the player's settlement. Note that this function is adapted from the below
@@ -95,7 +95,7 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
     :param is_night: Whether it is night.
     """
 
-    avail_imps = get_available_improvements(player, setl)
+    avail_imps = get_available_improvements(player, setl, strict=True)
     avail_units = get_available_unit_plans(player, setl)
     # Note that if there are no available improvements for the given settlement, the 'ideal' construction will default
     # to the first available unit. Additionally, the first improvement is only selected if it won't reduce satisfaction.
@@ -174,6 +174,8 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
         # In all other circumstances, i.e. most of the time, just construct the ideal improvement.
         else:
             setl.current_work = Construction(ideal)
+    if isinstance(cons := setl.current_work.construction, Improvement) and cons.req_resources:
+        subtract_player_resources_for_improvement(player, cons)
 
 
 def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
@@ -198,7 +200,7 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
             return 5
         return 10
 
-    avail_imps = get_available_improvements(player, setl)
+    avail_imps = get_available_improvements(player, setl, strict=True)
     avail_units = get_available_unit_plans(player, setl)
     settler_units = [settler for settler in avail_units if settler.can_settle]
     healer_units = [healer for healer in avail_units if healer.heals]
@@ -339,6 +341,8 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
                 # Neutral AIs will always choose the 'ideal' construction.
                 case _:
                     setl.current_work = Construction(ideal)
+    if isinstance(cons := setl.current_work.construction, Improvement) and cons.req_resources:
+        subtract_player_resources_for_improvement(player, cons)
 
 
 def search_for_relics_or_move(unit: Unit,

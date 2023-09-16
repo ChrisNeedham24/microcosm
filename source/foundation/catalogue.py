@@ -8,6 +8,7 @@ from source.foundation import achievements
 from source.foundation.models import FactionDetail, Player, Improvement, ImprovementType, Effect, Blessing, \
     Settlement, UnitPlan, Unit, Biome, Heathen, Faction, Project, ProjectType, VictoryType, DeployerUnitPlan, \
     Achievement, HarvestStatus, EconomicStatus, ResourceCollection
+from source.util.calculator import player_has_resources_for_improvement
 
 # The list of settlement names, for each biome.
 SETL_NAMES = {
@@ -482,7 +483,9 @@ def get_default_unit(location: (int, int)) -> Unit:
     return Unit(UNIT_PLANS[0].max_health, UNIT_PLANS[0].total_stamina, location, True, deepcopy(UNIT_PLANS[0]))
 
 
-def get_available_improvements(player: Player, settlement: Settlement) -> typing.List[Improvement]:
+def get_available_improvements(player: Player,
+                               settlement: Settlement,
+                               strict: bool = False) -> typing.List[Improvement]:
     """
     Retrieves the available improvements for the given player's settlement.
     :param player: The owner of the given settlement.
@@ -496,7 +499,8 @@ def get_available_improvements(player: Player, settlement: Settlement) -> typing
     # An improvement is available if the improvement has not been built in this settlement yet and either the player has
     # satisfied the improvement's pre-requisite or the improvement does not have one.
     imps = [imp for imp in IMPROVEMENTS if (imp.prereq is None or imp.prereq.name in completed_blessing_names)
-            and imp not in settlement.improvements]
+            and imp not in settlement.improvements
+            and (not strict or (not imp.req_resources or player_has_resources_for_improvement(player, imp)))]
 
     # Sort improvements by cost.
     imps.sort(key=lambda i: i.cost)

@@ -5,7 +5,8 @@ import typing
 import pyxel
 
 from source.display.board import Board
-from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement
+from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
+    subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
     PROJECTS
 from source.game_management.game_controller import GameController
@@ -224,7 +225,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         cons = game_state.board.overlay.selected_construction
         if cons is not None and not (isinstance(cons, Improvement) and
                                      not player_has_resources_for_improvement(game_state.players[0], cons)):
-            # TODO actually subtract resources in here too
+            if isinstance(cons, Improvement) and cons.req_resources:
+                subtract_player_resources_for_improvement(game_state.players[0], cons)
             game_state.board.selected_settlement.current_work = \
                 Construction(game_state.board.overlay.selected_construction)
             game_state.board.overlay.toggle_construction([], [], [])

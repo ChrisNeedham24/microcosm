@@ -367,3 +367,9 @@ def player_has_resources_for_improvement(player: Player, improvement: Improvemen
     return not improvement.req_resources or (player.resources.ore >= improvement.req_resources.ore and
                                              player.resources.timber >= improvement.req_resources.timber and
                                              player.resources.magma >= improvement.req_resources.magma)
+
+
+def subtract_player_resources_for_improvement(player: Player, improvement: Improvement):
+    player.resources.ore -= improvement.req_resources.ore
+    player.resources.timber -= improvement.req_resources.timber
+    player.resources.magma -= improvement.req_resources.magma
