@@ -449,7 +449,18 @@ ACHIEVEMENTS: typing.List[Achievement] = [
                                   setl.location[1] == 0 or setl.location[1] == 89
                                   for setl in gs.players[0].settlements)),
     Achievement("Speed Run", "Win a 2 player game in 25 turns or less.",
-                lambda gs, _: len(gs.players) == 2 and gs.turn <= 25, post_victory=True)
+                lambda gs, _: len(gs.players) == 2 and gs.turn <= 25, post_victory=True),
+    Achievement("Mighty Miner", "Have 100 ore.",
+                lambda gs, _: gs.players[0].resources.ore >= 100),
+    Achievement("Lofty Lumberjack", "Have 100 timber.",
+                lambda gs, _: gs.players[0].resources.timber >= 100),
+    Achievement("Molten Multitude", "Have 100 magma.",
+                lambda gs, _: gs.players[0].resources.magma >= 100),
+    Achievement("The Third X", "Have a settlement with 4 or more resources.",
+                achievements.verify_the_third_x),
+    Achievement("Luxuries Abound", "Have one of each rare resource.",
+                lambda gs, _: ((res := gs.players[0].resources).aurora and
+                               res.bloodstone and res.obsidian and res.sunstone and res.aquamarine))
 ]
 
 

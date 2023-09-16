@@ -52,3 +52,11 @@ def verify_its_worth_it(game_state: GameState, _: Statistics) -> bool:
             if imp.effect.satisfaction < 0:
                 return True
     return False
+
+
+def verify_the_third_x(game_state: GameState, _: Statistics) -> bool:
+    for setl in game_state.players[0].settlements:
+        rs = setl.resources
+        if rs.ore + rs.timber + rs.magma + rs.aurora + rs.bloodstone + rs.obsidian + rs.sunstone + rs.aquamarine >= 4:
+            return True
+    return False
