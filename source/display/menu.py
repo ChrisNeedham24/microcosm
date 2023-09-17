@@ -357,6 +357,27 @@ class Menu:
                                        "Rare resources apply special effects to settlements within one quad.",
                                        36)
                         pyxel.line(24, 40, 175, 40, pyxel.COLOR_GRAY)
+                        pyxel.text(28, 45, "Aurora", pyxel.COLOR_YELLOW)
+                        draw_paragraph(28, 51, "Adds a wealth bonus of 50% per exploitation.", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 46 + (i // 4) * 9, 0, i * 8, 52, 8, 8)
+                        pyxel.text(28, 65, "Bloodstone", pyxel.COLOR_RED)
+                        draw_paragraph(28, 71, "Produced units gain 50% health/power per exploitation.", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 70 + (i // 4) * 9, 0, i * 8, 60, 8, 8)
+                        pyxel.text(28, 91, "Obsidian", pyxel.COLOR_GRAY)
+                        draw_paragraph(28, 97, "Adds a strength bonus of 50% per exploitation.", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 93 + (i // 4) * 9, 0, i * 8, 68, 8, 8)
+                        pyxel.text(28, 111, "Sunstone", pyxel.COLOR_ORANGE)
+                        draw_paragraph(28, 117, """At nighttime, adds a vision bonus per exploitation, removes harvest
+                        effect, and protects from heathens.""", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 120 + (i // 4) * 9, 0, i * 8, 76, 8, 8)
+                        pyxel.text(28, 149, "Aquamarine", pyxel.COLOR_LIGHT_BLUE)
+                        draw_paragraph(28, 155, "Adds a fortune bonus of 50% per exploitation.", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 150 + (i // 4) * 9, 0, i * 8, 84, 8, 8)
                         pyxel.text(25, 180, "<- Core", pyxel.COLOR_GRAY)
 
                     pyxel.text(58, 180, "Press SPACE to go back", pyxel.COLOR_WHITE)
@@ -433,13 +454,22 @@ class Menu:
                     pyxel.rect(11, 21, 178, 152, pyxel.COLOR_BLACK)
                     pyxel.text(78, 30, "Improvements", pyxel.COLOR_ORANGE)
                     pyxel.text(20, 40, "Name", pyxel.COLOR_WHITE)
-                    pyxel.text(155, 40, "Cost", pyxel.COLOR_WHITE)
-                    pyxel.blt(173, 39, 0, 16, 44, 8, 8)
+                    pyxel.text(125, 40, "Cost", pyxel.COLOR_WHITE)
+                    pyxel.blt(143, 39, 0, 16, 44, 8, 8)
+                    pyxel.blt(152, 39, 0, 0, 132, 8, 8)
                     for idx, imp in enumerate(IMPROVEMENTS):
                         if self.improvement_boundaries[0] <= idx <= self.improvement_boundaries[1]:
                             adj_offset = (idx - self.improvement_boundaries[0]) * 25
                             pyxel.text(20, 50 + adj_offset, str(imp.name), pyxel.COLOR_WHITE)
-                            pyxel.text(160, 50 + adj_offset, str(imp.cost), pyxel.COLOR_WHITE)
+                            cost_str: str = str(imp.cost)
+                            if res := imp.req_resources:
+                                if res.ore:
+                                    cost_str += f", {res.ore} ore"
+                                if res.timber:
+                                    cost_str += f", {res.timber} timber"
+                                if res.magma:
+                                    cost_str += f", {res.magma} magma"
+                            pyxel.text(125, 50 + adj_offset, cost_str, pyxel.COLOR_WHITE)
                             pyxel.text(20, 57 + adj_offset, str(imp.description), pyxel.COLOR_WHITE)
                             effects = 0
                             if (wealth := imp.effect.wealth) != 0:
