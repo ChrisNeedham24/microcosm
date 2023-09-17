@@ -553,6 +553,7 @@ class Menu:
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
             pyxel.text(77, 25, "Achievements", pyxel.COLOR_WHITE)
+            pyxel.text(155, 25, f"{len(self.player_stats.achievements)}/{len(ACHIEVEMENTS)}", pyxel.COLOR_WHITE)
 
             for idx, ach in enumerate(ACHIEVEMENTS):
                 if self.achievements_boundaries[0] <= idx <= self.achievements_boundaries[1]:
