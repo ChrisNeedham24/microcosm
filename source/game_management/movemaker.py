@@ -9,7 +9,7 @@ from source.foundation.catalogue import get_available_blessings, get_unlockable_
     get_available_improvements, get_available_unit_plans, Namer
 from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
     UnitPlan, Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction, VictoryType, DeployerUnitPlan, \
-    DeployerUnit
+    DeployerUnit, Project
 
 
 def set_blessing(player: Player, player_totals: (float, float, float, float)):
@@ -505,9 +505,10 @@ class MoveMaker:
                 # circumstances where the settlement's satisfaction is less than 50 and the construction would yield
                 # harvest or satisfaction, buy it out as soon as the AI is able to afford it. Fundamentalist AIs are
                 # exempt from this, as they cannot buy out constructions.
-                if (constr.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or \
-                        (setl.satisfaction < 50 and player.wealth >= constr.cost and isinstance(constr, Improvement) and
-                         (constr.effect.satisfaction > 0 or constr.effect.harvest > 0)):
+                if not isinstance(constr, Project) and \
+                        ((constr.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or \
+                         (setl.satisfaction < 50 and player.wealth >= constr.cost and isinstance(constr, Improvement) and
+                          (constr.effect.satisfaction > 0 or constr.effect.harvest > 0))):
                     player.wealth -= constr.cost - setl.current_work.zeal_consumed
                     complete_construction(setl, player)
             # If the settlement has a settler, deploy them.

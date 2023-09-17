@@ -361,6 +361,7 @@ class GameState:
             if len(p.settlements) > 0:
                 jubilated_setls = 0
                 lvl_ten_setls = 0
+                constructing_sanctum = False
                 constructed_sanctum = False
 
                 # If a player controls all settlements bar one, they are close to an ELIMINATION victory.
@@ -381,11 +382,13 @@ class GameState:
                         constructed_sanctum = True
                     # If a player is currently constructing the Holy Sanctum, they are close to a VIGOUR victory.
                     elif s.current_work is not None and s.current_work.construction.name == "Holy Sanctum":
-                        if VictoryType.VIGOUR not in p.imminent_victories:
-                            close_to_vics.append(Victory(p, VictoryType.VIGOUR))
-                            p.imminent_victories.add(VictoryType.VIGOUR)
-                    elif VictoryType.VIGOUR in p.imminent_victories:
-                        p.imminent_victories.remove(VictoryType.VIGOUR)
+                        constructing_sanctum = True
+                if constructing_sanctum:
+                    if VictoryType.VIGOUR not in p.imminent_victories:
+                        close_to_vics.append(Victory(p, VictoryType.VIGOUR))
+                        p.imminent_victories.add(VictoryType.VIGOUR)
+                elif VictoryType.VIGOUR in p.imminent_victories:
+                    p.imminent_victories.remove(VictoryType.VIGOUR)
                 if jubilated_setls >= 5:
                     p.jubilation_ctr += 1
                     # If a player has achieved 100% satisfaction in 5 settlements, they are close to (25 turns away)
