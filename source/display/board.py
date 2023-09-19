@@ -174,7 +174,7 @@ class Board:
                 pyxel.blt((heathen.location[0] - map_pos[0]) * 8 + 4,
                           (heathen.location[1] - map_pos[1]) * 8 + 4, 0, heathen_x, 60, 8, 8)
                 # Outline a heathen if the player can attack it.
-                if self.selected_unit is not None and self.selected_unit is not heathen and \
+                if self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
                         not self.selected_unit.has_acted and \
                         abs(self.selected_unit.location[0] - heathen.location[0]) <= 1 and \
                         abs(self.selected_unit.location[1] - heathen.location[1]) <= 1:

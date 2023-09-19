@@ -9,7 +9,7 @@ from source.foundation.catalogue import get_available_blessings, get_unlockable_
     get_available_improvements, get_available_unit_plans, Namer
 from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
     UnitPlan, Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction, VictoryType, DeployerUnitPlan, \
-    DeployerUnit, Project
+    DeployerUnit, Project, ResourceCollection
 
 
 def set_blessing(player: Player, player_totals: (float, float, float, float)):
@@ -583,17 +583,21 @@ class MoveMaker:
                 found_valid_loc = True
                 unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
-        far_enough = True
+        should_settle = True
         for setl in player.settlements:
             dist = max(abs(unit.location[0] - setl.location[0]), abs(unit.location[1] - setl.location[1]))
             if dist < 10:
-                far_enough = False
-        if far_enough:
-            quad_biome = self.board_ref.quads[unit.location[1]][unit.location[0]].biome
+                should_settle = False
+        prospective_quad: Quad = self.board_ref.quads[unit.location[1]][unit.location[0]]
+        prospective_resources: ResourceCollection = \
+            get_resources_for_settlement([prospective_quad.location], self.board_ref.quads)
+        if not prospective_resources.ore and not prospective_resources.timber and not prospective_resources.magma:
+            should_settle = False
+        if should_settle:
+            quad_biome = prospective_quad.biome
             setl_name = self.namer.get_settlement_name(quad_biome)
             setl_resources = get_resources_for_settlement([unit.location], self.board_ref.quads)
-            new_settl = Settlement(setl_name, unit.location, [],
-                                   [self.board_ref.quads[unit.location[1]][unit.location[0]]], setl_resources, [])
+            new_settl = Settlement(setl_name, unit.location, [], [prospective_quad], setl_resources, [])
             if player.faction is Faction.FRONTIERSMEN:
                 new_settl.satisfaction = 75
             elif player.faction is Faction.IMPERIALS:
