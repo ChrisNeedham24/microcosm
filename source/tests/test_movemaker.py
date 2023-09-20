@@ -6,7 +6,7 @@ from source.foundation.catalogue import Namer, UNIT_PLANS, BLESSINGS, get_unlock
     get_available_improvements, get_unit_plan, IMPROVEMENTS
 from source.foundation.models import GameConfig, Faction, Unit, Player, Settlement, AIPlaystyle, AttackPlaystyle, \
     ExpansionPlaystyle, Blessing, Quad, Biome, UnitPlan, SetlAttackData, Construction, DeployerUnitPlan, DeployerUnit, \
-    VictoryType
+    VictoryType, ResourceCollection
 from source.game_management.movemaker import search_for_relics_or_move, set_blessing, set_player_construction, \
     set_ai_construction, MoveMaker, move_healer_unit
 
@@ -37,7 +37,7 @@ class MovemakerTest(unittest.TestCase):
 
         self.movemaker = MoveMaker(Namer())
         self.movemaker.board_ref = self.TEST_BOARD
-        self.TEST_BOARD.generate_quads(self.TEST_CONFIG.biome_clustering)
+        self.TEST_BOARD.generate_quads(self.TEST_CONFIG.biome_clustering, self.TEST_CONFIG.climatic_effects)
         self.QUADS = self.TEST_BOARD.quads
         # We need to find a relic quad before each test, because the quads are re-generated each time.
         self.relic_coords: (int, int) = -1, -1
@@ -54,10 +54,12 @@ class MovemakerTest(unittest.TestCase):
                 if self.QUADS[i][j].is_relic and self.relic_coords != (i, j):
                     self.QUADS[i][j].is_relic = False
 
-        self.TEST_SETTLEMENT = Settlement("Obstructionville", (0, 0), [], [self.QUADS[0][0]], [])
-        self.TEST_SETTLEMENT_2 = Settlement("EnemyTown", (40, 40), [], [self.QUADS[40][40]], [])
-        self.TEST_SETTLEMENT_3 = Settlement("AlsoEnemyTown", (45, 45), [], [self.QUADS[45][45]], [])
-        self.TEST_SETTLEMENT_4 = Settlement("FarAwayVillage", (80, 80), [], [self.QUADS[80][80]], [])
+        self.TEST_SETTLEMENT = Settlement("Obstructionville", (0, 0), [], [self.QUADS[0][0]], ResourceCollection(), [])
+        self.TEST_SETTLEMENT_2 = Settlement("EnemyTown", (40, 40), [], [self.QUADS[40][40]], ResourceCollection(), [])
+        self.TEST_SETTLEMENT_3 = Settlement("AlsoEnemyTown", (45, 45), [],
+                                            [self.QUADS[45][45]], ResourceCollection(), [])
+        self.TEST_SETTLEMENT_4 = Settlement("FarAwayVillage", (80, 80), [],
+                                            [self.QUADS[80][80]], ResourceCollection(), [])
         self.TEST_PLAYER = Player("TesterMan", Faction.NOCTURNE, 0,
                                   settlements=[self.TEST_SETTLEMENT], units=[self.TEST_UNIT],
                                   ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
@@ -218,6 +220,9 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
         # Remove a blessing to create a suitable test environment.
         self.TEST_PLAYER.blessings.remove(BLESSINGS["art_pht"])
+        # We need to give the player sufficient resources in order to demonstrate that a lack of resources is not
+        # preventing any improvement from being constructed.
+        self.TEST_PLAYER.resources = ResourceCollection(ore=20, timber=20, magma=20)
 
         set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
         # Technically, Impenetrable Stores, which grants 25 harvest is the ideal improvement for this situation.
@@ -232,6 +237,8 @@ class MovemakerTest(unittest.TestCase):
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
         self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
+        # We need to make sure the player has sufficient resources to construct the intended improvement.
+        self.TEST_PLAYER.resources = ResourceCollection(timber=20)
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
 
         set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
@@ -280,6 +287,8 @@ class MovemakerTest(unittest.TestCase):
             get_improvement("Melting Pot"),
             get_improvement("Insurmountable Walls")
         ]
+        # We need to make sure the player has sufficient resources to construct the intended improvement.
+        self.TEST_PLAYER.resources = ResourceCollection(ore=5)
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
 
         set_player_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False)
@@ -424,6 +433,9 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
         # Remove a blessing to create a suitable test environment.
         self.TEST_PLAYER.blessings.remove(BLESSINGS["art_pht"])
+        # We need to give the player sufficient resources in order to demonstrate that a lack of resources is not
+        # preventing any improvement from being constructed.
+        self.TEST_PLAYER.resources = ResourceCollection(ore=20, timber=20, magma=20)
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False, [])
         # Technically, Impenetrable Stores, which grants 25 harvest is the ideal improvement for this situation.
@@ -439,6 +451,8 @@ class MovemakerTest(unittest.TestCase):
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
         self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
+        # We need to make sure the player has sufficient resources to construct the intended improvement.
+        self.TEST_PLAYER.resources = ResourceCollection(timber=20)
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False, [])
@@ -488,6 +502,8 @@ class MovemakerTest(unittest.TestCase):
             get_improvement("Melting Pot"),
             get_improvement("Insurmountable Walls")
         ]
+        # We need to make sure that the player has sufficient resources to construct the intended improvement.
+        self.TEST_PLAYER.resources = ResourceCollection(ore=5)
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False, [])
@@ -583,8 +599,8 @@ class MovemakerTest(unittest.TestCase):
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False, [])
         # Normally, an aggressive AI would select a healer or a unit, but since they already have enough, their ideal
-        # improvement is selected instead. In this case, it is Endless Mine.
-        self.assertEqual(get_improvement("Endless Mine"), self.TEST_SETTLEMENT.current_work.construction)
+        # improvement is selected instead. In this case, it is Genetic Clinics.
+        self.assertEqual(get_improvement("Genetic Clinics"), self.TEST_SETTLEMENT.current_work.construction)
 
     def test_set_ai_construction_defensive_healer(self):
         """
@@ -649,8 +665,8 @@ class MovemakerTest(unittest.TestCase):
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False, [])
         # Normally, a defensive AI would select a healer, a unit, or an improvement that yields strength, but since they
         # already have enough units and there aren't any improvements of that kind available, their ideal improvement is
-        # selected instead. In this case, it is Endless Mine.
-        self.assertEqual(get_improvement("Endless Mine"), self.TEST_SETTLEMENT.current_work.construction)
+        # selected instead. In this case, it is Genetic Clinics.
+        self.assertEqual(get_improvement("Genetic Clinics"), self.TEST_SETTLEMENT.current_work.construction)
 
     @patch("source.game_management.movemaker.investigate_relic", lambda *args: None)
     def test_search_for_relics_success_left(self):
@@ -1028,6 +1044,10 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLER_UNIT.location = self.TEST_SETTLEMENT.location
         self.TEST_PLAYER.units.append(self.TEST_SETTLER_UNIT)
         self.TEST_PLAYER.faction = Faction.FRONTIERSMEN
+        # Give every quad a resource, so settler units will settle.
+        for i in range(90):
+            for j in range(100):
+                self.QUADS[i][j].resource = ResourceCollection(magma=1)
 
         self.assertEqual(1, len(self.TEST_PLAYER.settlements))
         self.assertEqual(2, len(self.TEST_PLAYER.units))
@@ -1056,6 +1076,10 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLER_UNIT.location = self.TEST_SETTLEMENT.location
         self.TEST_PLAYER.units.append(self.TEST_SETTLER_UNIT)
         self.TEST_PLAYER.faction = Faction.IMPERIALS
+        # Give every quad a resource, so settler units will settle.
+        for i in range(90):
+            for j in range(100):
+                self.QUADS[i][j].resource = ResourceCollection(magma=1)
 
         self.assertEqual(1, len(self.TEST_PLAYER.settlements))
         self.assertEqual(2, len(self.TEST_PLAYER.units))

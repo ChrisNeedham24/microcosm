@@ -7,7 +7,7 @@ from source.foundation.achievements import verify_full_house, verify_its_worth_i
 from source.foundation.catalogue import ACHIEVEMENTS, IMPROVEMENTS, BLESSINGS, Namer
 from source.foundation.models import Player, Faction, Settlement, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
     Statistics, UnitPlan, Unit, Quad, Biome, Improvement, ImprovementType, Effect, VictoryType, HarvestStatus, \
-    EconomicStatus, GameConfig
+    EconomicStatus, GameConfig, ResourceCollection
 from source.game_management.game_state import GameState
 
 
@@ -29,12 +29,13 @@ class AchievementsTest(unittest.TestCase):
         self.TEST_UNIT_7 = Unit(25, 26, (27, 28), False, self.TEST_UNIT_PLAN)
         self.TEST_UNIT_8 = Unit(29, 30, (31, 32), False, self.TEST_UNIT_PLAN)
         self.TEST_QUAD = Quad(Biome.SEA, 0, 0, 0, 0, (0, 0))
-        self.TEST_SETTLEMENT = Settlement("Numero Uno", (0, 0), [], [self.TEST_QUAD], [])
-        self.TEST_SETTLEMENT_2 = Settlement("Numero Dos", (2, 2), [], [Quad(Biome.SEA, 0, 0, 0, 0, (2, 2))], [])
-        self.TEST_SETTLEMENT_3 = Settlement("Numero Tres", (4, 4), [], [], [])
-        self.TEST_SETTLEMENT_4 = Settlement("Numero Quattro", (6, 6), [], [], [])
-        self.TEST_SETTLEMENT_5 = Settlement("Numero Cinco", (8, 8), [], [], [])
-        self.TEST_SETTLEMENT_6 = Settlement("Numero Seis", (10, 10), [], [], [])
+        self.TEST_SETTLEMENT = Settlement("Numero Uno", (0, 0), [], [self.TEST_QUAD], ResourceCollection(), [])
+        self.TEST_SETTLEMENT_2 = Settlement("Numero Dos", (2, 2), [],
+                                            [Quad(Biome.SEA, 0, 0, 0, 0, (2, 2))], ResourceCollection(), [])
+        self.TEST_SETTLEMENT_3 = Settlement("Numero Tres", (4, 4), [], [], ResourceCollection(), [])
+        self.TEST_SETTLEMENT_4 = Settlement("Numero Quattro", (6, 6), [], [], ResourceCollection(), [])
+        self.TEST_SETTLEMENT_5 = Settlement("Numero Cinco", (8, 8), [], [], ResourceCollection(), [])
+        self.TEST_SETTLEMENT_6 = Settlement("Numero Seis", (10, 10), [], [], ResourceCollection(), [])
 
         self.game_state = GameState()
         self.game_state.players = [

@@ -6,7 +6,7 @@ from source.foundation.catalogue import UNIT_PLANS, ACHIEVEMENTS
 from source.foundation.models import OverlayType, Settlement, Player, Faction, ConstructionMenu, Project, ProjectType, \
     Improvement, Effect, ImprovementType, UnitPlan, Blessing, Unit, CompletedConstruction, AttackData, HealData, \
     SetlAttackData, Victory, VictoryType, SettlementAttackType, PauseOption, InvestigationResult, DeployerUnitPlan, \
-    DeployerUnit
+    DeployerUnit, GameConfig, ResourceCollection
 
 
 class OverlayTest(unittest.TestCase):
@@ -18,8 +18,9 @@ class OverlayTest(unittest.TestCase):
         """
         Instantiate a standard Overlay object before each test and initialise test models.
         """
-        self.overlay = Overlay()
-        self.TEST_SETTLEMENT = Settlement("Testville", (0, 0), [], [], [])
+        self.TEST_CONFIG = GameConfig(14, Faction.INFIDELS, True, True, True)
+        self.overlay = Overlay(self.TEST_CONFIG)
+        self.TEST_SETTLEMENT = Settlement("Testville", (0, 0), [], [], ResourceCollection(), [])
         self.TEST_UNIT = Unit(1, 2, (3, 4), False, UNIT_PLANS[0])
         self.TEST_UNIT_2 = Unit(5, 6, (7, 8), False, UNIT_PLANS[0])
         self.TEST_BLESSING = Blessing("Cool", "Magic", 0)
@@ -65,24 +66,24 @@ class OverlayTest(unittest.TestCase):
 
         # To begin with, the current player has no settlements at all. As such, navigating downwards shouldn't do
         # anything.
-        self.assertTupleEqual((0, 7), self.overlay.settlement_status_boundaries)
+        self.assertTupleEqual((0, 9), self.overlay.settlement_status_boundaries)
         self.overlay.navigate_standard(down=True)
-        self.assertTupleEqual((0, 7), self.overlay.settlement_status_boundaries)
+        self.assertTupleEqual((0, 9), self.overlay.settlement_status_boundaries)
 
         # Now if we give the player some settlements, they should be able to navigate down.
-        self.overlay.current_player.settlements = [Settlement("Test", (0, 0), [], [], [])] * 8
+        self.overlay.current_player.settlements = [Settlement("Test", (0, 0), [], [], ResourceCollection(), [])] * 10
         self.overlay.navigate_standard(down=True)
-        self.assertTupleEqual((1, 8), self.overlay.settlement_status_boundaries)
+        self.assertTupleEqual((1, 10), self.overlay.settlement_status_boundaries)
         # However, since they only have one more than the threshold, they should only be able to navigate down once.
         self.overlay.navigate_standard(down=True)
-        self.assertTupleEqual((1, 8), self.overlay.settlement_status_boundaries)
+        self.assertTupleEqual((1, 10), self.overlay.settlement_status_boundaries)
 
         # Navigating upwards should work initially, but once the player has reached the top again, should then do
         # nothing.
-        self.overlay.navigate_standard(down=False)
-        self.assertTupleEqual((0, 7), self.overlay.settlement_status_boundaries)
-        self.overlay.navigate_standard(down=False)
-        self.assertTupleEqual((0, 7), self.overlay.settlement_status_boundaries)
+        self.overlay.navigate_standard(up=True)
+        self.assertTupleEqual((0, 9), self.overlay.settlement_status_boundaries)
+        self.overlay.navigate_standard(up=True)
+        self.assertTupleEqual((0, 9), self.overlay.settlement_status_boundaries)
 
     def test_toggle_construction(self):
         """
@@ -336,7 +337,7 @@ class OverlayTest(unittest.TestCase):
         """
         Ensure that the overlay's current settlement can be updated.
         """
-        extra_settlement = Settlement("Extra", (1, 1), [], [], [])
+        extra_settlement = Settlement("Extra", (1, 1), [], [], ResourceCollection(), [])
 
         self.overlay.current_settlement = self.TEST_SETTLEMENT
         self.overlay.update_settlement(extra_settlement)

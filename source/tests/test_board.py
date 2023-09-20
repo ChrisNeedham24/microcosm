@@ -4,8 +4,7 @@ from unittest.mock import MagicMock
 from source.display.board import Board, HelpOption
 from source.foundation.catalogue import Namer, get_heathen_plan
 from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement, Unit, UnitPlan, Heathen, \
-    DeployerUnit, DeployerUnitPlan
-
+    DeployerUnit, DeployerUnitPlan, ResourceCollection
 
 class BoardTest(unittest.TestCase):
     """
@@ -32,8 +31,8 @@ class BoardTest(unittest.TestCase):
         self.TEST_HEATHEN = Heathen(100, 2, (10, 10), get_heathen_plan(1))
         self.TEST_QUAD = Quad(Biome.MOUNTAIN, 0, 0, 0, 0, (7, 7))
         self.TEST_QUAD_2 = Quad(Biome.SEA, 0, 0, 0, 0, (6, 6))
-        self.TEST_SETTLEMENT = Settlement("Test Town", (7, 7), [], [self.TEST_QUAD], [])
-        self.TEST_ENEMY_SETTLEMENT = Settlement("Bad Town", (6, 6), [], [self.TEST_QUAD_2], [])
+        self.TEST_SETTLEMENT = Settlement("Test Town", (7, 7), [], [self.TEST_QUAD], ResourceCollection(), [])
+        self.TEST_ENEMY_SETTLEMENT = Settlement("Bad Town", (6, 6), [], [self.TEST_QUAD_2], ResourceCollection(), [])
         self.TEST_PLAYER = Player("Mr. Tester", Faction.FUNDAMENTALISTS, 0,
                                   settlements=[self.TEST_SETTLEMENT], units=[self.TEST_UNIT])
         self.TEST_ENEMY_PLAYER = Player("Dr. Evil", Faction.INFIDELS, 0,
@@ -432,7 +431,7 @@ class BoardTest(unittest.TestCase):
         self.board.overlay.toggle_settlement = MagicMock()
 
         test_quad = Quad(Biome.FOREST, 0, 0, 0, 0, (22, 22))
-        test_settlement = Settlement("Tester", (22, 22), [], [test_quad], [])
+        test_settlement = Settlement("Tester", (22, 22), [], [test_quad], ResourceCollection(), [])
         self.board.selected_settlement = test_settlement
 
         # Since the coordinates of (100, 100) and the map position (10, 10) come out to the quad at (22, 22), our

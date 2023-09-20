@@ -5,10 +5,10 @@ from unittest.mock import MagicMock, patch
 from source.display.board import Board
 from source.display.menu import SetupOption, WikiOption, MainMenuOption
 from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS, get_available_improvements, \
-    get_available_unit_plans, PROJECTS, IMPROVEMENTS, ACHIEVEMENTS
+    get_available_unit_plans, PROJECTS, IMPROVEMENTS, ACHIEVEMENTS, get_improvement
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
     Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit, Construction, CompletedConstruction, \
-    SettlementAttackType, PauseOption, Quad, Biome, DeployerUnitPlan, DeployerUnit
+    SettlementAttackType, PauseOption, Quad, Biome, DeployerUnitPlan, DeployerUnit, ResourceCollection
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
     on_key_arrow_right, on_key_shift, on_key_f, on_key_d, on_key_s, on_key_n, on_key_a, on_key_c, on_key_tab, \
@@ -36,9 +36,9 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.on_menu = False
 
         self.TEST_QUAD = Quad(Biome.FOREST, 0, 0, 0, 0, (40, 40))
-        self.TEST_SETTLEMENT = Settlement("TestTown", (40, 40), [], [self.TEST_QUAD], [])
-        self.TEST_SETTLEMENT_2 = Settlement("TestCity", (50, 50), [], [], [])
-        self.TEST_SETTLEMENT_WITH_WORK = Settlement("Busyville", (60, 60), [], [], [],
+        self.TEST_SETTLEMENT = Settlement("TestTown", (40, 40), [], [self.TEST_QUAD], ResourceCollection(), [])
+        self.TEST_SETTLEMENT_2 = Settlement("TestCity", (50, 50), [], [], ResourceCollection(), [])
+        self.TEST_SETTLEMENT_WITH_WORK = Settlement("Busyville", (60, 60), [], [], ResourceCollection(), [],
                                                     current_work=Construction(UNIT_PLANS[0]))
         self.TEST_UNIT = Unit(1, 1, (40, 40), True, UNIT_PLANS[0])
         self.TEST_UNIT_2 = Unit(2, 2, (50, 50), False, UNIT_PLANS[0])
@@ -225,7 +225,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board.overlay.showing = [OverlayType.STANDARD]
         self.game_state.board.overlay.navigate_standard = MagicMock()
         on_key_arrow_up(self.game_controller, self.game_state, False)
-        self.game_state.board.overlay.navigate_standard.assert_called_with(down=False)
+        self.game_state.board.overlay.navigate_standard.assert_called_with(up=True)
 
     def test_arrow_up_unit(self):
         """
@@ -617,12 +617,13 @@ class GameInputHandlerTest(unittest.TestCase):
         """
         self.game_state.game_started = True
         self.game_state.board.overlay.showing = [OverlayType.CONSTRUCTION]
-        self.game_state.board.overlay.selected_construction = IMPROVEMENTS[0]
+        # We choose City Market here because it's a basic improvement that does not require resources to construct.
+        self.game_state.board.overlay.selected_construction = get_improvement("City Market")
         self.game_state.board.overlay.toggle_construction = MagicMock()
         self.game_state.board.selected_settlement = self.TEST_SETTLEMENT
 
         on_key_return(self.game_controller, self.game_state)
-        self.assertEqual(IMPROVEMENTS[0], self.TEST_SETTLEMENT.current_work.construction)
+        self.assertEqual(get_improvement("City Market"), self.TEST_SETTLEMENT.current_work.construction)
         self.game_state.board.overlay.toggle_construction.assert_called_with([], [], [])
 
     def test_return_select_blessing(self):
@@ -840,13 +841,12 @@ class GameInputHandlerTest(unittest.TestCase):
         Ensure that the correct overlay toggle occurs when the shift key is pressed.
         """
         self.game_state.game_started = True
-        test_turn = self.game_state.turn = 99
         self.game_state.board.overlay.remove_warning_if_possible = MagicMock()
         self.game_state.board.overlay.toggle_standard = MagicMock()
 
         on_key_shift(self.game_state)
         self.game_state.board.overlay.remove_warning_if_possible.assert_called()
-        self.game_state.board.overlay.toggle_standard.assert_called_with(test_turn)
+        self.game_state.board.overlay.toggle_standard.assert_called()
 
     def test_c(self):
         """
@@ -858,7 +858,7 @@ class GameInputHandlerTest(unittest.TestCase):
 
         # We need to retrieve the improvements and unit plans ourselves first to compare them to the actual call.
         expected_improvements = get_available_improvements(self.TEST_PLAYER, self.TEST_SETTLEMENT)
-        expected_unit_plans = get_available_unit_plans(self.TEST_PLAYER, self.TEST_SETTLEMENT.level)
+        expected_unit_plans = get_available_unit_plans(self.TEST_PLAYER, self.TEST_SETTLEMENT)
 
         on_key_c(self.game_state)
         self.game_state.board.overlay.toggle_construction.assert_called_with(expected_improvements,
@@ -1246,7 +1246,8 @@ class GameInputHandlerTest(unittest.TestCase):
         """
         Ensure that the B key has no effect when pressed for a settlement currently working on a Project.
         """
-        test_settlement = Settlement("Projecton", (60, 60), [], [], [], current_work=Construction(PROJECTS[0]))
+        test_settlement = Settlement("Projecton", (60, 60), [], [], ResourceCollection(), [],
+                                     current_work=Construction(PROJECTS[0]))
         self.game_state.game_started = True
         self.game_state.board.selected_settlement = test_settlement
         self.game_state.board.overlay.toggle_construction_notification = MagicMock()

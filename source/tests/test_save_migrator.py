@@ -4,7 +4,7 @@ import pyxel
 
 from source.foundation.catalogue import UNIT_PLANS
 from source.foundation.models import UnitPlan, Unit, AttackPlaystyle, ExpansionPlaystyle, VictoryType, Faction, \
-    Settlement, Biome, Quad, GameConfig, DeployerUnitPlan, DeployerUnit
+    Settlement, Biome, Quad, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection
 from source.game_management.game_state import GameState
 from source.saving.save_encoder import ObjectConverter
 from source.saving.save_migrator import migrate_unit_plan, migrate_unit, migrate_player, migrate_climatic_effects, \
@@ -214,7 +214,7 @@ class SaveMigratorTest(unittest.TestCase):
             "faction": test_faction,
             "colour": pyxel.COLOR_ORANGE,
             "eliminated": False,
-            "settlements": [Settlement("A", (1, 2), [], [], [])]
+            "settlements": [Settlement("A", (1, 2), [], [], ResourceCollection(), [])]
         })
 
         migrate_player(test_loaded_player)

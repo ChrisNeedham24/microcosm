@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 from source.foundation.catalogue import UNIT_PLANS, BLESSINGS, PROJECTS
 from source.foundation.models import Biome, Unit, AttackData, HealData, Settlement, SetlAttackData, Player, Faction, \
     Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing, \
-    Quad, EconomicStatus, HarvestStatus, DeployerUnitPlan, DeployerUnit
+    Quad, EconomicStatus, HarvestStatus, DeployerUnitPlan, DeployerUnit, ResourceCollection
 from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction, \
     investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices
 
@@ -122,7 +122,7 @@ class CalculatorTest(unittest.TestCase):
         attacker_health = 50
         settlement_strength = 20
         attacker = Unit(attacker_health, 1, (0, 0), False, UNIT_PLANS[-2])
-        setl = Settlement("Test", (1, 0), [], [], [], strength=settlement_strength)
+        setl = Settlement("Test", (1, 0), [], [], ResourceCollection(), [], strength=settlement_strength)
         player = Player("Tester", Faction.NOCTURNE, 0, settlements=[setl])
         ai_attack = False
 
@@ -148,7 +148,7 @@ class CalculatorTest(unittest.TestCase):
         quad_imp_zeal = 4
         imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement", Effect(zeal=quad_imp_zeal), None)
         quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, 0, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [])
         player = Player("Tester", Faction.AGRICULTURISTS, 0, settlements=[setl])
 
         _, _, zeal, _ = get_player_totals(player, False)
@@ -162,7 +162,7 @@ class CalculatorTest(unittest.TestCase):
         quad_imp_zeal = 4
         imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement", Effect(zeal=quad_imp_zeal), None)
         quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, 0, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [])
         player = Player("Tester", Faction.FUNDAMENTALISTS, 0, settlements=[setl])
 
         _, _, zeal, _ = get_player_totals(player, False)
@@ -179,7 +179,8 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement",
                           Effect(zeal=quad_imp_zeal, wealth=quad_imp_wealth), None)
         quad = Quad(Biome.FOREST, quad_imp_wealth, 0, quad_imp_zeal, 0, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [], current_work=Construction(PROJECTS[1]))
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [],
+                          current_work=Construction(PROJECTS[1]))
         player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         wealth, _, _, _ = get_player_totals(player, False)
@@ -193,7 +194,8 @@ class CalculatorTest(unittest.TestCase):
         quad_imp_wealth = 4
         imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
         quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, economic_status=EconomicStatus.RECESSION)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [],
+                          level=10, economic_status=EconomicStatus.RECESSION)
         player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         wealth, _, _, _ = get_player_totals(player, False)
@@ -207,7 +209,8 @@ class CalculatorTest(unittest.TestCase):
         quad_imp_wealth = 4
         imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
         quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, economic_status=EconomicStatus.BOOM)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [],
+                          level=10, economic_status=EconomicStatus.BOOM)
         player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         wealth, _, _, _ = get_player_totals(player, False)
@@ -226,7 +229,7 @@ class CalculatorTest(unittest.TestCase):
         quad_imp_wealth = 4
         imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
         quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [])
         player = Player("Tester", Faction.GODLESS, 0, settlements=[setl])
 
         wealth, _, _, _ = get_player_totals(player, False)
@@ -242,7 +245,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement",
                           Effect(wealth=quad_imp_wealth, fortune=quad_imp_fortune), None)
         quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, quad_imp_fortune, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [])
         player = Player("Tester", Faction.ORTHODOX, 0, settlements=[setl])
 
         wealth, _, _, fortune = get_player_totals(player, False)
@@ -260,7 +263,8 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement",
                           Effect(zeal=quad_imp_zeal, harvest=quad_imp_harvest), None)
         quad = Quad(Biome.FOREST, 0, quad_imp_harvest, quad_imp_zeal, 0, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [], current_work=Construction(PROJECTS[0]))
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [],
+                          current_work=Construction(PROJECTS[0]))
         player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         _, harvest, _, _ = get_player_totals(player, False)
@@ -274,7 +278,8 @@ class CalculatorTest(unittest.TestCase):
         quad_imp_harvest = 4
         imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
         quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, harvest_status=HarvestStatus.POOR)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [],
+                          level=10, harvest_status=HarvestStatus.POOR)
         player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         _, harvest, _, _ = get_player_totals(player, False)
@@ -288,7 +293,7 @@ class CalculatorTest(unittest.TestCase):
         quad_imp_harvest = 4
         imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
         quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, besieged=True)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [], level=10, besieged=True)
         player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         _, harvest, _, _ = get_player_totals(player, False)
@@ -302,7 +307,8 @@ class CalculatorTest(unittest.TestCase):
         quad_imp_harvest = 4
         imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
         quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [], level=10, harvest_status=HarvestStatus.PLENTIFUL)
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [],
+                          level=10, harvest_status=HarvestStatus.PLENTIFUL)
         player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         _, harvest, _, _ = get_player_totals(player, False)
@@ -321,7 +327,7 @@ class CalculatorTest(unittest.TestCase):
         quad_imp_harvest = 4
         imp = Improvement(ImprovementType.BOUNTIFUL, 0, "Test", "Improvement", Effect(harvest=quad_imp_harvest), None)
         quad = Quad(Biome.FOREST, 0, quad_imp_harvest, 0, 0, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [])
         player = Player("Tester", Faction.RAVENOUS, 0, settlements=[setl])
 
         _, harvest, _, _ = get_player_totals(player, False)
@@ -338,7 +344,8 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.INDUSTRIAL, 0, "Test", "Improvement",
                           Effect(zeal=quad_imp_zeal, fortune=quad_imp_fortune), None)
         quad = Quad(Biome.FOREST, 0, 0, quad_imp_zeal, quad_imp_fortune, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [], current_work=Construction(PROJECTS[2]))
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [],
+                          current_work=Construction(PROJECTS[2]))
         player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         _, _, _, fortune = get_player_totals(player, False)
@@ -352,7 +359,7 @@ class CalculatorTest(unittest.TestCase):
         quad_imp_fortune = 4
         imp = Improvement(ImprovementType.MAGICAL, 0, "Test", "Improvement", Effect(fortune=quad_imp_fortune), None)
         quad = Quad(Biome.SEA, 0, 0, 0, quad_imp_fortune, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [])
         player = Player("Tester", Faction.SCRUTINEERS, 0, settlements=[setl])
 
         _, _, _, fortune = get_player_totals(player, False)
@@ -368,7 +375,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.MAGICAL, 0, "Test", "Improvement",
                           Effect(harvest=quad_imp_harvest, fortune=quad_imp_fortune), None)
         quad = Quad(Biome.SEA, 0, quad_imp_harvest, 0, quad_imp_fortune, (0, 0))
-        setl = Settlement("Testville", (0, 0), [imp], [quad], [])
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(), [])
         player = Player("Tester", Faction.INFIDELS, 0, settlements=[setl])
 
         _, harvest, _, fortune = get_player_totals(player, True)
@@ -394,7 +401,7 @@ class CalculatorTest(unittest.TestCase):
         imp = Improvement(ImprovementType.MAGICAL, 0, "Standard", "Improvement",
                           Effect(harvest=imp_harvest, fortune=imp_fortune), None)
         quad = Quad(Biome.MOUNTAIN, quad_wealth, 0, quad_zeal, 0, (0, 0))
-        setl = Settlement("Pleasantville", (0, 0), [imp], [quad], [], level=10)
+        setl = Settlement("Pleasantville", (0, 0), [imp], [quad], ResourceCollection(), [], level=10)
         player = Player("Johnny Appleseed", Faction.INFIDELS, 0, settlements=[setl])
 
         wealth, harvest, zeal, fortune = get_player_totals(player, False)
@@ -408,7 +415,7 @@ class CalculatorTest(unittest.TestCase):
         """
         Ensure that the strict parameter functions correctly when retrieving settlement totals.
         """
-        setl = Settlement("Test Town", (0, 0), [], [], [])
+        setl = Settlement("Test Town", (0, 0), [], [], ResourceCollection(), [])
         player = Player("Testerman", Faction.INFIDELS, 0, settlements=[setl])
 
         _, _, zeal, fortune = get_setl_totals(player, setl, False)
@@ -430,7 +437,7 @@ class CalculatorTest(unittest.TestCase):
         test_improvement = Improvement(ImprovementType.ECONOMICAL, 1, "Money", "Time",
                                        Effect(wealth=1, strength=added_strength, satisfaction=5), None)
         # Note that we set the settlement's satisfaction to 99.
-        test_setl = Settlement("Working", (50, 50), [], [], [],
+        test_setl = Settlement("Working", (50, 50), [], [], ResourceCollection(), [],
                                current_work=Construction(test_improvement), satisfaction=99)
         test_player = Player("Tester", Faction.NOCTURNE, 0, settlements=[test_setl])
 
@@ -453,7 +460,7 @@ class CalculatorTest(unittest.TestCase):
         test_improvement = Improvement(ImprovementType.ECONOMICAL, 1, "Money", "Time",
                                        Effect(wealth=1, strength=added_strength, satisfaction=-5), None)
         # Note that we set the settlement's satisfaction to 1.
-        test_setl = Settlement("Working", (50, 50), [], [], [],
+        test_setl = Settlement("Working", (50, 50), [], [], ResourceCollection(), [],
                                current_work=Construction(test_improvement), satisfaction=1)
         test_player = Player("Tester", Faction.CONCENTRATED, 0, settlements=[test_setl])
 
@@ -474,8 +481,9 @@ class CalculatorTest(unittest.TestCase):
         initial_level = 5
         initial_harvest_reserves = 400
         test_unit_plan = UnitPlan(20, 20, 10, "Settler", None, 1, can_settle=True)
-        test_setl = Settlement("Working", (50, 50), [], [], [], current_work=Construction(test_unit_plan),
-                               level=initial_level, harvest_reserves=initial_harvest_reserves)
+        test_setl = Settlement("Working", (50, 50), [], [], ResourceCollection(), [],
+                               current_work=Construction(test_unit_plan), level=initial_level,
+                               harvest_reserves=initial_harvest_reserves)
         test_player = Player("Tester", Faction.FRONTIERSMEN, 0, settlements=[test_setl])
 
         complete_construction(test_setl, test_player)
@@ -493,7 +501,8 @@ class CalculatorTest(unittest.TestCase):
         updated.
         """
         test_deployer_unit_plan = DeployerUnitPlan(20, 20, 10, "DeployerMan", None, 1)
-        test_setl = Settlement("Working", (50, 50), [], [], [], current_work=Construction(test_deployer_unit_plan))
+        test_setl = Settlement("Working", (50, 50), [], [], ResourceCollection(), [],
+                               current_work=Construction(test_deployer_unit_plan))
         test_player = Player("Tester", Faction.FRONTIERSMEN, 0, settlements=[test_setl])
 
         complete_construction(test_setl, test_player)
@@ -636,7 +645,7 @@ class CalculatorTest(unittest.TestCase):
         Ensure that investigations that fail yield the correct result.
         :param random_mock: The mock representation of random.randint().
         """
-        random_mock.return_value = 90
+        random_mock.return_value = 120
 
         self.assertEqual(InvestigationResult.NONE,
                          investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG))

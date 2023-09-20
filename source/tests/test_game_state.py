@@ -6,7 +6,7 @@ from source.display.board import Board
 from source.foundation.catalogue import Namer, UNIT_PLANS, get_heathen_plan, IMPROVEMENTS, BLESSINGS, ACHIEVEMENTS
 from source.foundation.models import GameConfig, Faction, Player, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
     Unit, Heathen, Settlement, Victory, VictoryType, Construction, OngoingBlessing, EconomicStatus, UnitPlan, \
-    HarvestStatus, Quad, Biome, CompletedConstruction
+    HarvestStatus, Quad, Biome, CompletedConstruction, ResourceCollection
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
 
@@ -28,8 +28,8 @@ class GameStateTest(unittest.TestCase):
         self.TEST_UNIT = Unit(1, 2, (3, 4), False, self.TEST_UNIT_PLAN)
         self.TEST_UNIT_2 = Unit(5, 6, (7, 8), True, self.TEST_UNIT_PLAN_2)
         self.TEST_HEATHEN = Heathen(40, 6, (3, 3), get_heathen_plan(1))
-        self.TEST_SETTLEMENT = Settlement("Numero Uno", (0, 0), [], [], [self.TEST_UNIT_2])
-        self.TEST_SETTLEMENT_2 = Settlement("Numero Duo", (1, 1), [], [], [])
+        self.TEST_SETTLEMENT = Settlement("Numero Uno", (0, 0), [], [], ResourceCollection(), [self.TEST_UNIT_2])
+        self.TEST_SETTLEMENT_2 = Settlement("Numero Duo", (1, 1), [], [], ResourceCollection(), [])
 
         self.game_state = GameState()
         self.game_state.players = [
@@ -122,11 +122,11 @@ class GameStateTest(unittest.TestCase):
         Ensure that the harvest and economic statuses of settlements with varying levels of satisfaction are updated
         correctly at the end of a turn.
         """
-        test_setl_real_bad = Settlement("Real Bad", (60, 60), [], [], [], satisfaction=19)
-        test_setl_bad = Settlement("Bad", (61, 61), [], [], [], satisfaction=39)
-        test_setl_okay = Settlement("Okay", (62, 62), [], [], [], satisfaction=59)
-        test_setl_good = Settlement("Good", (63, 63), [], [], [], satisfaction=79)
-        test_setl_real_good = Settlement("Real Good", (64, 64), [], [], [], satisfaction=99)
+        test_setl_real_bad = Settlement("Real Bad", (60, 60), [], [], ResourceCollection(), [], satisfaction=19)
+        test_setl_bad = Settlement("Bad", (61, 61), [], [], ResourceCollection(), [], satisfaction=39)
+        test_setl_okay = Settlement("Okay", (62, 62), [], [], ResourceCollection(), [], satisfaction=59)
+        test_setl_good = Settlement("Good", (63, 63), [], [], ResourceCollection(), [], satisfaction=79)
+        test_setl_real_good = Settlement("Real Good", (64, 64), [], [], ResourceCollection(), [], satisfaction=99)
         self.game_state.players[0].settlements = \
             [test_setl_real_bad, test_setl_bad, test_setl_okay, test_setl_good, test_setl_real_good]
 
@@ -183,17 +183,17 @@ class GameStateTest(unittest.TestCase):
         at the end of a turn.
         """
         # The first settlement is currently under active siege.
-        besieged_settlement = Settlement("Under Siege", (10, 20), [], [Quad(Biome.FOREST, 0, 0, 0, 0, (10, 20))], [],
-                                         besieged=True)
+        besieged_settlement = Settlement("Under Siege", (10, 20), [], [Quad(Biome.FOREST, 0, 0, 0, 0, (10, 20))],
+                                         ResourceCollection(), [], besieged=True)
         # The second settlement was under siege, but now there are no units surrounding it.
-        previously_besieged_settlement = Settlement("Previously", (30, 40), [],
-                                                    [Quad(Biome.SEA, 0, 0, 0, 0, (30, 40))], [], besieged=True)
+        previously_besieged_settlement = Settlement("Previously", (30, 40), [], [Quad(Biome.SEA, 0, 0, 0, 0, (30, 40))],
+                                                    ResourceCollection(), [], besieged=True)
         # The third settlement was under siege some time ago, and is now recovering its strength.
-        recovering_settlement = Settlement("Recovering", (50, 60), [], [Quad(Biome.MOUNTAIN, 0, 0, 0, 0, (50, 60))], [],
-                                           besieged=False, strength=50)
+        recovering_settlement = Settlement("Recovering", (50, 60), [], [Quad(Biome.MOUNTAIN, 0, 0, 0, 0, (50, 60))],
+                                           ResourceCollection(), [], besieged=False, strength=50)
         # The last settlement is under siege, but it has just killed the last unit surrounding it.
-        killed_all_settlement = Settlement("Killed All", (70, 80), [], [Quad(Biome.DESERT, 0, 0, 0, 0, (70, 80))], [],
-                                           besieged=True)
+        killed_all_settlement = Settlement("Killed All", (70, 80), [], [Quad(Biome.DESERT, 0, 0, 0, 0, (70, 80))],
+                                           ResourceCollection(), [], besieged=True)
         self.game_state.players[0].units = []
         # Place TEST_UNIT next to the first settlement.
         self.TEST_UNIT.location = 11, 20
