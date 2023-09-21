@@ -497,9 +497,28 @@ class MenuTest(unittest.TestCase):
         self.menu.navigate(left=True)
         self.assertEqual(0, self.menu.faction_wiki_idx)
 
+    def test_navigate_wiki_resources(self):
+        """
+        Ensure that the player can toggle between the two types of resources in the wiki.
+        """
+        self.menu.in_wiki = True
+        self.menu.wiki_showing = WikiOption.RESOURCES
+
+        self.assertFalse(self.menu.showing_rare_resources)
+        # Pressing left when already on core resources should have no effect.
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.showing_rare_resources)
+        self.menu.navigate(right=True)
+        self.assertTrue(self.menu.showing_rare_resources)
+        # Similarly, pressing right when already on rare resources should have no effect.
+        self.menu.navigate(right=True)
+        self.assertTrue(self.menu.showing_rare_resources)
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.showing_rare_resources)
+
     def test_navigate_wiki_climate(self):
         """
-        Ensure that the player can toggle between the two climate types in the wiki.]
+        Ensure that the player can toggle between the two climate types in the wiki.
         """
         self.menu.in_wiki = True
         self.menu.wiki_showing = WikiOption.CLIMATE

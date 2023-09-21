@@ -6,7 +6,7 @@ from source.foundation.catalogue import UNIT_PLANS, ACHIEVEMENTS
 from source.foundation.models import OverlayType, Settlement, Player, Faction, ConstructionMenu, Project, ProjectType, \
     Improvement, Effect, ImprovementType, UnitPlan, Blessing, Unit, CompletedConstruction, AttackData, HealData, \
     SetlAttackData, Victory, VictoryType, SettlementAttackType, PauseOption, InvestigationResult, DeployerUnitPlan, \
-    DeployerUnit, GameConfig, ResourceCollection
+    DeployerUnit, GameConfig, ResourceCollection, StandardOverlayView
 
 
 class OverlayTest(unittest.TestCase):
@@ -64,14 +64,43 @@ class OverlayTest(unittest.TestCase):
         """
         self.overlay.current_player = Player("Tester", Faction.NOCTURNE, 0)
 
+        # Begin by testing that the various standard overlay views can be toggled between.
+        self.assertEqual(StandardOverlayView.BLESSINGS, self.overlay.current_standard_overlay_view)
+
+        self.overlay.navigate_standard(right=True)
+        self.assertEqual(StandardOverlayView.VAULT, self.overlay.current_standard_overlay_view)
+        self.overlay.navigate_standard(right=True)
+        self.assertEqual(StandardOverlayView.SETTLEMENTS, self.overlay.current_standard_overlay_view)
+        self.overlay.navigate_standard(right=True)
+        self.assertEqual(StandardOverlayView.VICTORIES, self.overlay.current_standard_overlay_view)
+        # Pressing right when already on the last view should have no effect.
+        self.overlay.navigate_standard(right=True)
+        self.assertEqual(StandardOverlayView.VICTORIES, self.overlay.current_standard_overlay_view)
+
+        self.overlay.navigate_standard(left=True)
+        self.assertEqual(StandardOverlayView.SETTLEMENTS, self.overlay.current_standard_overlay_view)
+        self.overlay.navigate_standard(left=True)
+        self.assertEqual(StandardOverlayView.VAULT, self.overlay.current_standard_overlay_view)
+        self.overlay.navigate_standard(left=True)
+        self.assertEqual(StandardOverlayView.BLESSINGS, self.overlay.current_standard_overlay_view)
+        # Pressing left when already on the first view should have no effect.
+        self.overlay.navigate_standard(left=True)
+        self.assertEqual(StandardOverlayView.BLESSINGS, self.overlay.current_standard_overlay_view)
+
         # To begin with, the current player has no settlements at all. As such, navigating downwards shouldn't do
         # anything.
         self.assertTupleEqual((0, 9), self.overlay.settlement_status_boundaries)
         self.overlay.navigate_standard(down=True)
         self.assertTupleEqual((0, 9), self.overlay.settlement_status_boundaries)
 
-        # Now if we give the player some settlements, they should be able to navigate down.
+        # Now give the player some settlements.
         self.overlay.current_player.settlements = [Settlement("Test", (0, 0), [], [], ResourceCollection(), [])] * 10
+        self.overlay.navigate_standard(down=True)
+        # However! We still expect no change because the player is not on the settlements view.
+        self.assertTupleEqual((0, 9), self.overlay.settlement_status_boundaries)
+
+        self.overlay.current_standard_overlay_view = StandardOverlayView.SETTLEMENTS
+        # Now on the settlements view, the player should be able to navigate now.
         self.overlay.navigate_standard(down=True)
         self.assertTupleEqual((1, 10), self.overlay.settlement_status_boundaries)
         # However, since they only have one more than the threshold, they should only be able to navigate down once.

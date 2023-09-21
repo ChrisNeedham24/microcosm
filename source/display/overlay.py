@@ -104,7 +104,8 @@ class Overlay:
                 case StandardOverlayView.SETTLEMENTS:
                     self.current_standard_overlay_view = StandardOverlayView.VICTORIES
         # Only allow navigation if the player has enough settlements to warrant scrolling.
-        elif len(self.current_player.settlements) > 9:
+        elif self.current_standard_overlay_view is StandardOverlayView.SETTLEMENTS and \
+                len(self.current_player.settlements) > 9:
             if down and self.settlement_status_boundaries[1] != len(self.current_player.settlements):
                 self.settlement_status_boundaries = \
                     self.settlement_status_boundaries[0] + 1, self.settlement_status_boundaries[1] + 1

@@ -6,6 +6,7 @@ from source.foundation.catalogue import Namer, get_heathen_plan
 from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement, Unit, UnitPlan, Heathen, \
     DeployerUnit, DeployerUnitPlan, ResourceCollection
 
+
 class BoardTest(unittest.TestCase):
     """
     The test class for board.py.
@@ -269,6 +270,19 @@ class BoardTest(unittest.TestCase):
         self.board.overlay.toggle_heal.assert_called_with(None)
         self.assertFalse(self.board.siege_time_bank)
 
+    def test_resource_quad_generation_climatic_effects(self):
+        """
+        Ensure that when climatic effects are disabled, no sunstone resources are generated on the board.
+        """
+        no_climatic_effects_cfg = GameConfig(2, Faction.INFIDELS, True, True, False)
+        self.board = Board(no_climatic_effects_cfg, self.TEST_NAMER)
+        found_sunstone = False
+        for i in range(90):
+            for j in range(100):
+                if (res := self.board.quads[i][j].resource) and res.sunstone:
+                    found_sunstone = True
+        self.assertFalse(found_sunstone)
+
     def test_right_click(self):
         """
         Ensure that right-clicking quads behaves as expected.
@@ -422,6 +436,46 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(50, new_setl.strength)
         self.assertEqual(50, new_setl.max_strength)
         self.assertEqual(50, new_setl.satisfaction)
+
+    def test_left_click_new_settlement_with_resources(self):
+        """
+        Ensure that a new settlement is correctly created when a player with no settlements left-clicks on the board on
+        a quad with adjacent resources.
+        """
+        self.board.overlay.toggle_tutorial = MagicMock()
+        self.board.overlay.toggle_settlement = MagicMock()
+
+        test_player = Player("Mr. Agriculture", Faction.AGRICULTURISTS, 0)
+
+        # To make things consistent, remove resources from all quads to begin with.
+        for i in range(90):
+            for j in range(100):
+                self.board.quads[i][j].resource = None
+        # Given the location on the screen that we will click, the new settlement will end up being located at (22, 22).
+        # Since we want to verify the effects of obsidian and another resource, we will modify some adjacent quads to
+        # contain those resources. Note that the settlement will actually be located on a quad with magma.
+        self.board.quads[21][21].resource = ResourceCollection(obsidian=1)
+        self.board.quads[22][22].resource = ResourceCollection(magma=1)
+        self.board.quads[23][23].resource = ResourceCollection(obsidian=1)
+
+        self.board.process_left_click(100, 100, False, test_player, (10, 10), [], [], [], [])
+        # The player should now have a settlement, seen quads, and should no longer be seeing the tutorial overlay.
+        self.assertTrue(test_player.settlements)
+        self.assertTrue(test_player.quads_seen)
+        self.board.overlay.toggle_tutorial.assert_called()
+        new_setl = test_player.settlements[0]
+        # The new settlement should also be selected, and in view in the settlement overlay.
+        self.assertEqual(new_setl, self.board.selected_settlement)
+        self.board.overlay.toggle_settlement.assert_called_with(new_setl, test_player)
+
+        # The new settlement should have had its strength doubled due to the fact that it has two obsidian resources, as
+        # each provide a 50% bonus. The settlement's satisfaction should remain standard.
+        self.assertEqual(200, new_setl.strength)
+        self.assertEqual(200, new_setl.max_strength)
+        self.assertEqual(50, new_setl.satisfaction)
+
+        # The settlement should also have the resources we expect.
+        self.assertEqual(ResourceCollection(obsidian=2, magma=1), new_setl.resources)
 
     def test_left_click_deselect_settlement(self):
         """
@@ -1130,6 +1184,45 @@ class BoardTest(unittest.TestCase):
         # The fundamental difference here is that we expect the strength to be reduced.
         self.assertEqual(50, new_setl.strength)
         self.assertEqual(50, new_setl.max_strength)
+        self.assertFalse(self.TEST_PLAYER.units)
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_called_with(None)
+        self.assertEqual(new_setl, self.board.selected_settlement)
+        self.board.overlay.toggle_settlement.assert_called_with(new_setl, self.TEST_PLAYER)
+
+    def test_handle_new_settlement_with_resources(self):
+        """
+        Ensure that a new settlement with adjacent resources is successfully created and selected, and the corresponding
+        settler unit is destroyed when handling a new settlement.
+        """
+        self.board.overlay.toggle_unit = MagicMock()
+        self.board.overlay.toggle_settlement = MagicMock()
+
+        self.board.selected_unit = self.TEST_UNIT
+
+        # To make things consistent, remove resources from all quads to begin with.
+        for i in range(90):
+            for j in range(100):
+                self.board.quads[i][j].resource = None
+        # The new settlement will end up occupying the same quad as the settler unit. Since we want to verify the
+        # effects of obsidian and another resource, we will modify some adjacent quads to contain those resources. Note
+        # that the settlement will actually be located on a quad with magma.
+        unit_loc = self.board.selected_unit.location
+        self.board.quads[unit_loc[0] - 1][unit_loc[1] - 1].resource = ResourceCollection(obsidian=1)
+        self.board.quads[unit_loc[0]][unit_loc[1]].resource = ResourceCollection(magma=1)
+        self.board.quads[unit_loc[0] + 1][unit_loc[1] + 1].resource = ResourceCollection(obsidian=1)
+
+        self.assertEqual(1, len(self.TEST_PLAYER.units))
+        self.board.handle_new_settlement(self.TEST_PLAYER)
+        self.assertEqual(2, len(self.TEST_PLAYER.settlements))
+        new_setl = self.TEST_PLAYER.settlements[1]
+        self.assertEqual(50, new_setl.satisfaction)
+        # The fundamental difference here is that we expect the strength to be doubled, due to the two obsidian
+        # resources.
+        self.assertEqual(200, new_setl.strength)
+        self.assertEqual(200, new_setl.max_strength)
+        # We also verify that the settlement has the expected resources.
+        self.assertEqual(ResourceCollection(obsidian=2, magma=1), new_setl.resources)
         self.assertFalse(self.TEST_PLAYER.units)
         self.assertIsNone(self.board.selected_unit)
         self.board.overlay.toggle_unit.assert_called_with(None)

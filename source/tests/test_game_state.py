@@ -905,6 +905,11 @@ class GameStateTest(unittest.TestCase):
         self.game_state.initialise_ais(self.TEST_NAMER)
         self.assertTrue(all(player.settlements for player in self.game_state.players))
 
+        # To make things consistent, remove resources from all quads to begin with.
+        for i in range(90):
+            for j in range(100):
+                self.game_state.board.quads[i][j].resource = None
+
         # The first player is of the Infidels faction, so their settlement should have no modifiers applied.
         self.assertEqual(100, self.game_state.players[0].settlements[0].strength)
         self.assertEqual(100, self.game_state.players[0].settlements[0].max_strength)
