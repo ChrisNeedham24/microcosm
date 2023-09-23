@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 
 from source.display.board import Board
 from source.foundation.catalogue import Namer, UNIT_PLANS, BLESSINGS, get_unlockable_improvements, get_improvement, \
-    get_available_improvements, get_unit_plan, IMPROVEMENTS
+    get_available_improvements, get_unit_plan, IMPROVEMENTS, SETL_NAMES
 from source.foundation.models import GameConfig, Faction, Unit, Player, Settlement, AIPlaystyle, AttackPlaystyle, \
     ExpansionPlaystyle, Blessing, Quad, Biome, UnitPlan, SetlAttackData, Construction, DeployerUnitPlan, DeployerUnit, \
     VictoryType, ResourceCollection
@@ -247,6 +247,8 @@ class MovemakerTest(unittest.TestCase):
         # be lowered to 40, which is not ideal. As such, Endless Mine is selected instead, as it has the next most
         # zeal and does not negatively impact satisfaction.
         self.assertEqual(get_improvement("Endless Mine"), self.TEST_SETTLEMENT.current_work.construction)
+        # We also expect the player's resources to have been exhausted.
+        self.assertFalse(self.TEST_PLAYER.resources)
 
     @patch("source.game_management.movemaker.get_available_improvements")
     def test_set_player_construction_fortune(self, imps_mock: MagicMock):
@@ -295,6 +297,8 @@ class MovemakerTest(unittest.TestCase):
         # Since any of the improvements in the second 'tier' take too many turns, we expect the ideal improvement to be
         # selected instead. In this case, the ideal improvement is Local Forge, since zeal is the lowest of the four.
         self.assertEqual(get_improvement("Local Forge"), self.TEST_SETTLEMENT.current_work.construction)
+        # We also expect the player's resources to have been exhausted.
+        self.assertFalse(self.TEST_PLAYER.resources)
 
     def test_set_player_construction_unsatisfied(self):
         """
@@ -461,6 +465,8 @@ class MovemakerTest(unittest.TestCase):
         # be lowered to 40, which is not ideal. As such, Endless Mine is selected instead, as it has the next most
         # zeal and does not negatively impact satisfaction.
         self.assertEqual(get_improvement("Endless Mine"), self.TEST_SETTLEMENT.current_work.construction)
+        # We also expect the player's resources to have been exhausted.
+        self.assertFalse(self.TEST_PLAYER.resources)
 
     @patch("source.game_management.movemaker.get_available_improvements")
     def test_set_ai_construction_fortune(self, imps_mock: MagicMock):
@@ -510,6 +516,8 @@ class MovemakerTest(unittest.TestCase):
         # Since any of the improvements in the second 'tier' take too many turns, we expect the ideal improvement to be
         # selected instead. In this case, the ideal improvement is Local Forge, since zeal is the lowest of the four.
         self.assertEqual(get_improvement("Local Forge"), self.TEST_SETTLEMENT.current_work.construction)
+        # We also expect the player's resources to have been exhausted.
+        self.assertFalse(self.TEST_PLAYER.resources)
 
     def test_set_ai_construction_unsatisfied(self):
         """
@@ -1030,6 +1038,30 @@ class MovemakerTest(unittest.TestCase):
         self.assertEqual(1, len(self.TEST_PLAYER.settlements))
         self.assertEqual(2, len(self.TEST_PLAYER.units))
 
+    def test_move_settler_unit_far_enough_but_no_resources(self):
+        """
+        Ensure that when a settler unit has moved far enough away from its original settlement, but to a quad that would
+        not be able to exploit any resources, it does not found a new settlement.
+        """
+        # To make things consistent, remove resources from all quads to begin with.
+        for i in range(90):
+            for j in range(100):
+                self.QUADS[i][j].resource = None
+
+        # We place the settler unit sufficiently far from its original settlement.
+        self.TEST_SETTLER_UNIT.location = self.TEST_SETTLEMENT.location[0] + 20, self.TEST_SETTLEMENT.location[1]
+        self.TEST_PLAYER.units.append(self.TEST_SETTLER_UNIT)
+
+        self.assertEqual(1, len(self.TEST_PLAYER.settlements))
+        self.assertEqual(2, len(self.TEST_PLAYER.units))
+        self.movemaker.move_settler_unit(self.TEST_SETTLER_UNIT, self.TEST_PLAYER, [], [self.TEST_SETTLEMENT])
+        # The unit should have moved and used its stamina, but should not have founded a settlement due to the fact that
+        # no quads have resources on the board.
+        self.assertNotEqual(self.TEST_SETTLEMENT.location, self.TEST_SETTLER_UNIT.location)
+        self.assertFalse(self.TEST_SETTLER_UNIT.remaining_stamina)
+        self.assertEqual(1, len(self.TEST_PLAYER.settlements))
+        self.assertEqual(2, len(self.TEST_PLAYER.units))
+
     def test_move_settler_unit_far_enough_frontiersmen(self):
         """
         Ensure that when a settler unit has moved far enough away from its original Frontiersmen settlement, it founds
@@ -1094,6 +1126,55 @@ class MovemakerTest(unittest.TestCase):
         # Since the player is of the Imperials faction, we expect the strength to be permanently decreased as well.
         self.assertEqual(50, self.TEST_PLAYER.settlements[1].strength)
         self.assertEqual(50, self.TEST_PLAYER.settlements[1].max_strength)
+
+    @patch("random.choice")
+    @patch("random.randint")
+    def test_move_settler_unit_far_enough_obsidian(self, random_mock: MagicMock, choice_mock: MagicMock):
+        """
+        Ensure that when a settler unit has moved far enough away from its original settlement and is located next to an
+        obsidian resource, the new settlement founded has the correct strength.
+        """
+        # By mocking out the random values, we guarantee that the settler unit will move ten quads down and ten quads
+        # right. Note that we need a second value for the random.choice() mock as it is subsequently called when naming
+        # the new settlement.
+        random_mock.return_value = 10
+        choice_mock.side_effect = [10, SETL_NAMES[self.QUADS[60][60].biome][0]]
+
+        # Put the test settlement smack bang in the middle of the board so that we can't be caught out by the unit
+        # being too close to the edge of the board to move far enough away. In combination with our above random mocks,
+        # this guarantees that the new settlement will be placed at (60, 60).
+        self.TEST_SETTLEMENT.location = 50, 50
+        # Give the test unit stamina so that we can see it being reduced. Note that we don't really need to artificially
+        # increase this like the other tests anyway because we are mocking out the random calls that normally use the
+        # stamina for movement.
+        self.TEST_SETTLER_PLAN.total_stamina = 20
+        self.TEST_SETTLER_UNIT.remaining_stamina = 20
+        self.TEST_SETTLER_UNIT.location = self.TEST_SETTLEMENT.location
+        self.TEST_PLAYER.units.append(self.TEST_SETTLER_UNIT)
+        # To make things consistent, remove resources from all quads to begin with.
+        for i in range(90):
+            for j in range(100):
+                self.QUADS[i][j].resource = None
+        # Put a magma resource and an obsidian resource either side of the location that the new settlement will be
+        # founded.
+        self.QUADS[59][60].resource = ResourceCollection(magma=1)
+        self.QUADS[61][60].resource = ResourceCollection(obsidian=1)
+
+        self.assertEqual(1, len(self.TEST_PLAYER.settlements))
+        self.assertEqual(2, len(self.TEST_PLAYER.units))
+        self.movemaker.move_settler_unit(self.TEST_SETTLER_UNIT, self.TEST_PLAYER, [], [self.TEST_SETTLEMENT])
+        # The settler should have moved away from the settlement and used all of its stamina.
+        self.assertNotEqual(self.TEST_SETTLEMENT.location, self.TEST_SETTLER_UNIT.location)
+        self.assertFalse(self.TEST_SETTLER_UNIT.remaining_stamina)
+        # However, since it's also now far enough away, a new settlement should have been founded and the unit should
+        # have been disassociated with the player.
+        self.assertEqual(2, len(self.TEST_PLAYER.settlements))
+        self.assertEqual(1, len(self.TEST_PLAYER.units))
+        # We expect the settlement to have the appropriate resources, and have had the expected obsidian strength
+        # effect applied.
+        self.assertEqual(ResourceCollection(magma=1, obsidian=1), self.TEST_PLAYER.settlements[1].resources)
+        self.assertEqual(150, self.TEST_PLAYER.settlements[1].strength)
+        self.assertEqual(150, self.TEST_PLAYER.settlements[1].max_strength)
 
     def test_move_unit_settler(self):
         """

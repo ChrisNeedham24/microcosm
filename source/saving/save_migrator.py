@@ -93,7 +93,7 @@ def migrate_unit(unit) -> Unit:
 
 def migrate_player(player):
     """
-    Apply the ai_playstyle, imminent_victories, faction, and eliminated migrations for Players, if required.
+    Apply the ai_playstyle, imminent_victories, faction, eliminated, and resources migrations for Players, if required.
     :param player: The loaded player object.
     """
     if player.ai_playstyle is not None:
@@ -127,7 +127,7 @@ def migrate_climatic_effects(game_state, save):
 
 def migrate_quad(quad, location: (int, int)) -> Quad:
     """
-    Apply the is_relic migration for Quads, if required.
+    Apply the is_relic, location, and resource migrations for Quads, if required.
     :param quad: The loaded quad object.
     :param location: The backup location to use for the quad if it is from an outdated save.
     :return: An optionally-migrated Quad representation.
@@ -149,7 +149,7 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
 
 def migrate_settlement(settlement):
     """
-    Apply the besieged migration for Settlements, if required.
+    Apply the besieged and resource migrations for Settlements, if required.
     :param settlement: The loaded settlement object.
     """
     if not hasattr(settlement, "besieged"):

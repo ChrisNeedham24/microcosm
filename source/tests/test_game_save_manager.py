@@ -388,6 +388,7 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertTupleEqual((self.game_state.players[0].settlements[0].location[0] - 12,
                                self.game_state.players[0].settlements[0].location[1] - 11), self.game_state.map_pos)
         self.assertEqual(self.game_state.players[0], self.game_state.board.overlay.current_player)
+        self.assertEqual(3, self.game_state.board.overlay.total_settlement_count)
         self.game_controller.music_player.stop_menu_music.assert_called()
         self.game_controller.music_player.play_game_music.assert_called()
 

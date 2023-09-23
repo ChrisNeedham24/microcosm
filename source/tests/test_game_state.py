@@ -794,13 +794,16 @@ class GameStateTest(unittest.TestCase):
         self.game_state.players[0].settlements = [self.TEST_SETTLEMENT] * 5
         # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
         # victory.
-        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2]
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2] * 2
         # If the settlement's satisfaction was at 100, this 24 would be incremented to 25 and the victory triggered.
         self.game_state.players[0].jubilation_ctr = 24
+        self.game_state.players[0].imminent_victories = {VictoryType.JUBILATION}
 
-        # As such, no victory should have been achieved, and the counter should have been reset for the relevant player.
+        # As such, no victory should have been achieved, and the counter and imminent victory should have been reset for
+        # the relevant player.
         self.assertIsNone(self.game_state.check_for_victory())
         self.assertFalse(self.game_state.players[0].jubilation_ctr)
+        self.assertFalse(self.game_state.players[0].imminent_victories)
 
     def test_check_for_victory_settler_preventing_elimination(self):
         """
@@ -827,6 +830,22 @@ class GameStateTest(unittest.TestCase):
         self.assertTrue(self.game_state.players[2].eliminated)
         self.assertTrue(self.game_state.players[3].eliminated)
         self.assertEqual(2, self.game_state.board.overlay.toggle_elimination.call_count)
+
+    def test_check_for_victory_removal(self):
+        """
+        Ensure that players who were once close to a victory, but are now no longer, have the imminent victory removed.
+        """
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
+        # victory.
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2] * 2
+        # Simulate a situation in which the player had all four of the imminent victories that can become no longer
+        # imminent.
+        self.game_state.players[0].imminent_victories = \
+            {VictoryType.ELIMINATION, VictoryType.VIGOUR, VictoryType.JUBILATION, VictoryType.GLUTTONY}
+        # No victory should have been achieved, and all four imminent victories should have been removed.
+        self.assertIsNone(self.game_state.check_for_victory())
+        self.assertFalse(self.game_state.players[0].imminent_victories)
 
     def test_process_heathens_infidel(self):
         """
@@ -927,29 +946,56 @@ class GameStateTest(unittest.TestCase):
         # Because the heathen was killed, the game state should no longer have any heathens.
         self.assertFalse(self.game_state.heathens)
 
-    def test_initialise_ais(self):
+    def test_process_heathens_sunstone(self):
+        """
+        Ensure that when a settlement has sunstone at nighttime, any heathens that cannot escape the effect perish.
+        """
+        self.game_state.nighttime_left = 1
+        self.TEST_SETTLEMENT.location = 40, 40
+        self.TEST_SETTLEMENT.quads = [self.game_state.board.quads[40][40]]
+        # By giving the settlement two sunstone, six quads in all four directions are inhospitable for heathens.
+        self.TEST_SETTLEMENT.resources = ResourceCollection(sunstone=2)
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        # By placing the heathen directly to the left of the settlement, and reducing its stamina to one, we guarantee
+        # that the heathen will not be able to escape.
+        self.TEST_HEATHEN.location = self.TEST_SETTLEMENT.location[0] - 1, self.TEST_SETTLEMENT.location[1]
+        self.TEST_HEATHEN.remaining_stamina = 1
+        self.game_state.process_heathens()
+        # We expect the heathen to have been removed.
+        self.assertFalse(self.game_state.heathens)
+
+    @patch("random.randint")
+    def test_initialise_ais(self, random_mock: MagicMock):
         """
         Ensure that AI players have their settlements correctly initialised.
         """
-        # To begin with, make sure that the settlements are created at all.
-        self.assertFalse(any(player.settlements for player in self.game_state.players))
-        self.game_state.initialise_ais(self.TEST_NAMER)
-        self.assertTrue(all(player.settlements for player in self.game_state.players))
+        # By mocking out the random positions of the initialised AI settlements, we guarantee that the settlements will
+        # be positioned at (10, 20), (30, 40), (50, 60), and (70, 80).
+        random_mock.side_effect = [10, 20, 30, 40, 50, 60, 70, 80]
 
         # To make things consistent, remove resources from all quads to begin with.
         for i in range(90):
             for j in range(100):
                 self.game_state.board.quads[i][j].resource = None
+        # However, we place one obsidian directly to the left of the first settlement, which belongs to a player
+        # belonging to a faction with no strength or satisfaction modifiers for settlements.
+        self.game_state.board.quads[20][9].resource = ResourceCollection(obsidian=1)
 
-        # The first player is of the Infidels faction, so their settlement should have no modifiers applied.
-        self.assertEqual(100, self.game_state.players[0].settlements[0].strength)
-        self.assertEqual(100, self.game_state.players[0].settlements[0].max_strength)
+        # Initially, make sure that the settlements are created at all.
+        self.assertFalse(any(player.settlements for player in self.game_state.players))
+        self.game_state.initialise_ais(self.TEST_NAMER)
+        self.assertTrue(all(player.settlements for player in self.game_state.players))
+
+        # The first player is of the Infidels faction, so normally their settlement would have no modifiers applied.
+        # However, since their settlement has obsidian in range, we expect strength to be increased.
+        self.assertEqual(150, self.game_state.players[0].settlements[0].strength)
+        self.assertEqual(150, self.game_state.players[0].settlements[0].max_strength)
         self.assertEqual(50, self.game_state.players[0].settlements[0].satisfaction)
 
         # The second player is of the Concentrated faction, so their settlement should have double the strength.
         self.assertEqual(200, self.game_state.players[1].settlements[0].strength)
         self.assertEqual(200, self.game_state.players[1].settlements[0].max_strength)
-        self.assertEqual(50, self.game_state.players[0].settlements[0].satisfaction)
+        self.assertEqual(50, self.game_state.players[1].settlements[0].satisfaction)
 
         # The third player is of the Frontiersmen faction, so their settlement should have increased satisfaction.
         self.assertEqual(100, self.game_state.players[2].settlements[0].strength)
@@ -959,7 +1005,7 @@ class GameStateTest(unittest.TestCase):
         # The final player is of the Imperials faction, so their settlement should have half the strength.
         self.assertEqual(50, self.game_state.players[3].settlements[0].strength)
         self.assertEqual(50, self.game_state.players[3].settlements[0].max_strength)
-        self.assertEqual(50, self.game_state.players[0].settlements[0].satisfaction)
+        self.assertEqual(50, self.game_state.players[3].settlements[0].satisfaction)
 
     def test_process_ais(self):
         """

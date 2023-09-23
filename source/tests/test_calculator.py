@@ -253,6 +253,20 @@ class CalculatorTest(unittest.TestCase):
         self.assertEqual(2 * quad_imp_wealth * 0.75, wealth)
         self.assertEqual(2 * quad_imp_fortune * 1.25, fortune)
 
+    def test_get_player_totals_aurora(self):
+        """
+        Ensure that the wealth yield is calculated correctly for players with settlements with aurora resources.
+        """
+        quad_imp_wealth = 4
+        imp = Improvement(ImprovementType.ECONOMICAL, 0, "Test", "Improvement", Effect(wealth=quad_imp_wealth), None)
+        quad = Quad(Biome.FOREST, quad_imp_wealth, 0, 0, 0, (0, 0))
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(aurora=2), [])
+        player = Player("Tester", Faction.AGRICULTURISTS, 0, settlements=[setl])
+
+        wealth, _, _, _ = get_player_totals(player, False)
+        # Since the player's settlement has two aurora resources, we expect wealth to be doubled.
+        self.assertEqual(2 * quad_imp_wealth * 2, wealth)
+
     def test_get_player_totals_bountiful_project(self):
         """
         Ensure that the harvest yield is calculated correctly when a settlement is working on the bountiful project.
@@ -366,6 +380,20 @@ class CalculatorTest(unittest.TestCase):
         # Scrutineers receive 75% of the fortune that players of other factions do.
         self.assertEqual(2 * quad_imp_fortune * 0.75, fortune)
 
+    def test_get_player_totals_aquamarine(self):
+        """
+        Ensure that the fortune yield is calculated correctly for players with settlements with aquamarine resources.
+        """
+        quad_imp_fortune = 4
+        imp = Improvement(ImprovementType.MAGICAL, 0, "Test", "Improvement", Effect(fortune=quad_imp_fortune), None)
+        quad = Quad(Biome.SEA, 0, 0, 0, quad_imp_fortune, (0, 0))
+        setl = Settlement("Testville", (0, 0), [imp], [quad], ResourceCollection(aquamarine=2), [])
+        player = Player("Tester", Faction.AGRICULTURISTS, 0, settlements=[setl])
+
+        _, _, _, fortune = get_player_totals(player, False)
+        # Since the player's settlement has two aquamarine resources, we expect fortune to be doubled.
+        self.assertEqual(2 * quad_imp_fortune * 2, fortune)
+
     def test_get_player_totals_night(self):
         """
         Ensure that harvest and fortune yields are calculated correctly when it is nighttime.
@@ -384,9 +412,16 @@ class CalculatorTest(unittest.TestCase):
         self.assertEqual(2 * quad_imp_harvest / 2, harvest)
         self.assertEqual(2 * quad_imp_fortune * 1.1, fortune)
 
+        setl.resources = ResourceCollection(sunstone=1)
+        _, harvest, _, fortune = get_player_totals(player, True)
+        # However, settlements with sunstone do not suffer the harvest penalty, and still receive the fortune bonus.
+        self.assertEqual(2 * quad_imp_harvest, harvest)
+        self.assertEqual(2 * quad_imp_fortune * 1.1, fortune)
+
         player.faction = Faction.NOCTURNE
         _, harvest, _, fortune = get_player_totals(player, True)
-        # However, players of the Nocturne do not suffer the harvest penalty, and still receive the fortune bonus.
+        # In the same way, players of the Nocturne do not suffer the harvest penalty, and still receive the fortune
+        # bonus.
         self.assertEqual(2 * quad_imp_harvest, harvest)
         self.assertEqual(2 * quad_imp_fortune * 1.1, fortune)
 
@@ -517,8 +552,8 @@ class CalculatorTest(unittest.TestCase):
         Ensure that players of the Scrutineers faction always succeed in their investigations.
         :param random_mock: The mock representation of random.randint().
         """
-        # Normally, investigations only succeed when the returned value is under 70.
-        random_mock.return_value = 100
+        # Normally, investigations only succeed when the returned value is under 100.
+        random_mock.return_value = 140
         test_player = Player("Tester", Faction.SCRUTINEERS, 0)
 
         # We don't really care what the result is, just make sure it succeeded.
@@ -638,6 +673,45 @@ class CalculatorTest(unittest.TestCase):
         result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG)
         self.assertEqual(InvestigationResult.UPKEEP, result)
         self.assertFalse(self.TEST_UNIT.plan.cost)
+
+    @patch("random.randint")
+    def test_investigate_relic_ore(self, random_mock: MagicMock):
+        """
+        Ensure that investigations that 'roll' ore add 10 ore resources to the player.
+        :param random_mock: The mock representation of random.randint().
+        """
+        random_mock.return_value = 75
+
+        self.assertFalse(self.TEST_PLAYER.resources)
+        result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG)
+        self.assertEqual(InvestigationResult.ORE, result)
+        self.assertEqual(10, self.TEST_PLAYER.resources.ore)
+
+    @patch("random.randint")
+    def test_investigate_relic_timber(self, random_mock: MagicMock):
+        """
+        Ensure that investigations that 'roll' timber add 10 timber resources to the player.
+        :param random_mock: The mock representation of random.randint().
+        """
+        random_mock.return_value = 85
+
+        self.assertFalse(self.TEST_PLAYER.resources)
+        result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG)
+        self.assertEqual(InvestigationResult.TIMBER, result)
+        self.assertEqual(10, self.TEST_PLAYER.resources.timber)
+
+    @patch("random.randint")
+    def test_investigate_relic_magma(self, random_mock: MagicMock):
+        """
+        Ensure that investigations that 'roll' magma add 10 magma resources to the player.
+        :param random_mock: The mock representation of random.randint().
+        """
+        random_mock.return_value = 95
+
+        self.assertFalse(self.TEST_PLAYER.resources)
+        result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9), self.TEST_CONFIG)
+        self.assertEqual(InvestigationResult.MAGMA, result)
+        self.assertEqual(10, self.TEST_PLAYER.resources.magma)
 
     @patch("random.randint")
     def test_investigate_relic_failure(self, random_mock: MagicMock):

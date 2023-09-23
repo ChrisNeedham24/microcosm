@@ -433,25 +433,23 @@ class GameState:
             if p.accumulated_wealth >= 100000:
                 return Victory(p, VictoryType.AFFLUENCE)
             # If a player has accumulated at least 75k wealth over the game, they are close to an AFFLUENCE victory.
-            if p.accumulated_wealth >= 75000:
-                if VictoryType.AFFLUENCE not in p.imminent_victories:
-                    close_to_vics.append(Victory(p, VictoryType.AFFLUENCE))
-                    p.imminent_victories.add(VictoryType.AFFLUENCE)
-            elif VictoryType.AFFLUENCE in p.imminent_victories:
-                p.imminent_victories.remove(VictoryType.AFFLUENCE)
+            # Note that we don't need to worry about removing this victory type from the player's imminent victories due
+            # to the fact that accumulated wealth is never subtracted from; it can never reach 75000 and then go below
+            # it again.
+            if p.accumulated_wealth >= 75000 and VictoryType.AFFLUENCE not in p.imminent_victories:
+                close_to_vics.append(Victory(p, VictoryType.AFFLUENCE))
+                p.imminent_victories.add(VictoryType.AFFLUENCE)
             # If the player has undergone the blessings for all three pieces of ardour, they have achieved a
             # SERENDIPITY victory.
             ardour_pieces = len([bls for bls in p.blessings if "Piece of" in bls.name])
             if ardour_pieces == 3:
                 return Victory(p, VictoryType.SERENDIPITY)
             # If a player has undergone two of the required three blessings for the pieces of ardour, they are close to
-            # a SERENDIPITY victory.
-            if ardour_pieces == 2:
-                if VictoryType.SERENDIPITY not in p.imminent_victories:
-                    close_to_vics.append(Victory(p, VictoryType.SERENDIPITY))
-                    p.imminent_victories.add(VictoryType.SERENDIPITY)
-            elif VictoryType.SERENDIPITY in p.imminent_victories:
-                p.imminent_victories.remove(VictoryType.SERENDIPITY)
+            # a SERENDIPITY victory. Note that we don't need to worry about removing this victory type from the player's
+            # imminent victories due to the fact that once a blessing is completed, it cannot be uncompleted.
+            if ardour_pieces == 2 and VictoryType.SERENDIPITY not in p.imminent_victories:
+                close_to_vics.append(Victory(p, VictoryType.SERENDIPITY))
+                p.imminent_victories.add(VictoryType.SERENDIPITY)
 
         if players_with_setls == 1 and \
                 not (not self.players[0].settlements and any(unit.plan.can_settle for unit in self.players[0].units)):
