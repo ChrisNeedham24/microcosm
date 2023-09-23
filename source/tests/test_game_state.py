@@ -313,12 +313,19 @@ class GameStateTest(unittest.TestCase):
         """
         self.game_state.board.overlay.toggle_level_up_notification = MagicMock()
         harvest_amount = 30
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=harvest_amount, wealth=0, zeal=0, fortune=0,
-                                           location=self.TEST_SETTLEMENT.location)]
+        self.TEST_SETTLEMENT.quads = \
+            [self.game_state.board.quads[self.TEST_SETTLEMENT.location[1]][self.TEST_SETTLEMENT.location[0]]]
+        self.TEST_SETTLEMENT.quads[0].harvest = harvest_amount
+        # Rather than somehow guaranteeing that the new quad that the settlement gets has a resource, we can instead
+        # verify that the settlement's resources are updated by giving the quad that the settlement occupies a resource,
+        # but not updating the settlement's resources themselves. Of course, this is an impossible scenario, but it
+        # serves a purpose for this test.
+        self.TEST_SETTLEMENT.quads[0].resource = ResourceCollection(ore=1)
         self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
         self.game_state.players[0].ai_playstyle = None
         self.game_state.players[0].faction = Faction.CONCENTRATED
 
+        self.assertFalse(self.TEST_SETTLEMENT.resources)
         self.assertFalse(self.game_state.players[0].quads_seen)
 
         self.game_state.process_player(self.game_state.players[0])
@@ -328,6 +335,9 @@ class GameStateTest(unittest.TestCase):
         self.assertEqual(2, self.TEST_SETTLEMENT.level)
         # Since the player is of The Concentrated faction, the level up should also grant the settlement a new quad.
         self.assertEqual(2, len(self.TEST_SETTLEMENT.quads))
+        # We expect the test settlement to now have at least one resource. Note that we test for 'at least one' because
+        # technically the random quad expanded to could also result in an ore resource being added.
+        self.assertTrue(self.TEST_SETTLEMENT.resources.ore)
         # Additionally, the seen quads list for the player should be updated to include the new quad in the radius.
         # Vision is granted five steps vertically and horizontally from the new quad's location, making for an 11x11
         # square.
@@ -402,6 +412,27 @@ class GameStateTest(unittest.TestCase):
         self.assertEqual(0.9 * self.TEST_UNIT.plan.cost, self.game_state.players[0].wealth)
         # However, we do not include auto-sold units in accumulated wealth.
         self.assertEqual(-0.1 * self.TEST_UNIT.plan.cost, self.game_state.players[0].accumulated_wealth)
+
+    def test_process_player_resources(self):
+        """
+        Ensure that the player's core resources accumulate and their rare resources reset on processing.
+        """
+        test_settlement = Settlement("Resourceful", (60, 70), [], [],
+                                     ResourceCollection(ore=1, timber=2, magma=3,
+                                                        aurora=1, bloodstone=1, obsidian=1, sunstone=1, aquamarine=1),
+                                     [])
+        self.game_state.players[0].settlements = [test_settlement]
+        # In order to verify that the player's rare resources are reset on processing, we simulate that they had another
+        # magical settlement with one of each rare resource last turn, which has now been sacked.
+        self.game_state.players[0].resources =\
+            ResourceCollection(ore=0, timber=0, magma=0, aurora=2, bloodstone=2, obsidian=2, sunstone=2, aquamarine=2)
+
+        self.game_state.process_player(self.game_state.players[0])
+
+        # The player's core resources should have accumulated, and their rare resources should have reset.
+        self.assertEqual(ResourceCollection(ore=1, timber=2, magma=3,
+                                            aurora=1, bloodstone=1, obsidian=1, sunstone=1, aquamarine=1),
+                         self.game_state.players[0].resources)
 
     def test_process_climatic_effects_daytime_continue(self):
         """

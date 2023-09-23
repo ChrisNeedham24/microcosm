@@ -131,6 +131,30 @@ class CatalogueTest(unittest.TestCase):
         self.assertLess(len(new_improvements), len(improvements))
         self.assertTrue(all(improvements[i].cost <= improvements[i + 1].cost for i in range(len(improvements) - 1)))
 
+    def test_get_available_improvements_strict(self):
+        """
+        Ensure that the available improvements for a player's settlement are correctly determined when the strict
+        parameter is True.
+        """
+        test_settlement = Settlement("Low", (0, 0), [], [], ResourceCollection(), [])
+
+        # We initially expect all returned improvements to have no pre-requisite for their construction, and for the
+        # returned list to be sorted by construction cost. Since the strict parameter is False by default, we also
+        # expect there to be two improvements with required resources.
+        improvements: typing.List[Improvement] = get_available_improvements(self.TEST_PLAYER, test_settlement)
+        self.assertTrue(all(imp.prereq is None for imp in improvements))
+        self.assertTrue(all(improvements[i].cost <= improvements[i + 1].cost for i in range(len(improvements) - 1)))
+        self.assertEqual(6, len(improvements))
+        self.assertEqual(2, len([imp for imp in improvements if imp.req_resources]))
+
+        # However, when the strict parameter is True, we expect the two improvements with required resources to be
+        # filtered out, while still not having pre-requisites and being correctly sorted.
+        improvements = get_available_improvements(self.TEST_PLAYER, test_settlement, strict=True)
+        self.assertTrue(all(imp.prereq is None for imp in improvements))
+        self.assertTrue(all(improvements[i].cost <= improvements[i + 1].cost for i in range(len(improvements) - 1)))
+        self.assertEqual(4, len(improvements))
+        self.assertFalse(any(imp.req_resources for imp in improvements))
+
     def test_get_available_unit_plans_concentrated(self):
         """
         Ensure that players of the Concentrated faction do not have settler units available even if the settlement is
@@ -216,6 +240,28 @@ class CatalogueTest(unittest.TestCase):
             self.assertEqual(explorer_plan.power, standard_plan.power)
             self.assertEqual(explorer_plan.max_health, 0.75 * standard_plan.max_health)
             self.assertEqual(explorer_plan.total_stamina, round(1.5 * standard_plan.total_stamina))
+
+    def test_get_available_unit_plans_bloodstone(self):
+        """
+        Ensure that settlements with one or more bloodstone resources have units with increased power and health
+        available.
+        """
+        # We compare two settlements owned by the same player and of the same level - one with bloodstone and one
+        # without. The player is of the Agriculturists faction, which has no bonuses or penalties applied from their
+        # faction.
+        bloodstone_settlement = \
+            Settlement("With Bloodstone", (9, 10), [], [], ResourceCollection(bloodstone=2), [], level=10)
+        standard_plans: typing.List[UnitPlan] = \
+            get_available_unit_plans(self.TEST_PLAYER_2, gen_test_settlement_of_level(10))
+        bloodstone_plans: typing.List[UnitPlan] = get_available_unit_plans(self.TEST_PLAYER_2, bloodstone_settlement)
+
+        # The unit plans should be identical bar the power and health differences. We expect the power and health to be
+        # doubled because there are 2 bloodstone resources for the settlement.
+        self.assertEqual(len(standard_plans), len(bloodstone_plans))
+        for standard_plan, bloodstone_plan in zip(standard_plans, bloodstone_plans):
+            self.assertEqual(bloodstone_plan.power, 2 * standard_plan.power)
+            self.assertEqual(bloodstone_plan.max_health, 2 * standard_plan.max_health)
+            self.assertEqual(bloodstone_plan.total_stamina, standard_plan.total_stamina)
 
     def test_get_available_unit_plans(self):
         """

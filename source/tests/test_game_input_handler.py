@@ -8,7 +8,8 @@ from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS, get_availa
     get_available_unit_plans, PROJECTS, IMPROVEMENTS, ACHIEVEMENTS, get_improvement
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
     Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit, Construction, CompletedConstruction, \
-    SettlementAttackType, PauseOption, Quad, Biome, DeployerUnitPlan, DeployerUnit, ResourceCollection
+    SettlementAttackType, PauseOption, Quad, Biome, DeployerUnitPlan, DeployerUnit, ResourceCollection, \
+    StandardOverlayView
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
     on_key_arrow_right, on_key_shift, on_key_f, on_key_d, on_key_s, on_key_n, on_key_a, on_key_c, on_key_tab, \
@@ -288,11 +289,15 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertIsNone(self.game_state.board.overlay.selected_construction)
 
         self.game_state.board.overlay.available_constructions = [test_improvement]
+        # Technically the construction boundaries could never be this with only one available improvement, but we set
+        # them to this in order to verify that they are reset when returning to the improvements menu.
+        self.game_state.board.overlay.construction_boundaries = 1, 6
 
         # Now that an available construction has been assigned, the improvements menu should be viewable.
         on_key_arrow_left(self.game_controller, self.game_state, False)
         self.assertEqual(ConstructionMenu.IMPROVEMENTS, self.game_state.board.overlay.current_construction_menu)
         self.assertEqual(test_improvement, self.game_state.board.overlay.selected_construction)
+        self.assertTupleEqual((0, 5), self.game_state.board.overlay.construction_boundaries)
 
         self.game_state.board.overlay.current_construction_menu = ConstructionMenu.UNITS
         self.game_state.board.overlay.available_projects = [test_project]
@@ -301,6 +306,27 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_left(self.game_controller, self.game_state, False)
         self.assertEqual(ConstructionMenu.PROJECTS, self.game_state.board.overlay.current_construction_menu)
         self.assertEqual(test_project, self.game_state.board.overlay.selected_construction)
+
+    def test_arrow_left_standard(self):
+        """
+        Ensure that the correct method is called when pressing the left arrow key while viewing the standard overlay.
+        """
+        self.game_state.game_started = True
+
+        # To begin with, we simulate that the player is selecting a blessing to undergo. As such, pressing left should
+        # have no effect despite the user currently technically viewing the standard overlay (beneath the blessing
+        # overlay).
+        self.game_state.board.overlay.showing = [OverlayType.STANDARD, OverlayType.BLESSING]
+        self.game_state.board.overlay.navigate_standard = MagicMock()
+        on_key_arrow_left(self.game_controller, self.game_state, False)
+        self.game_state.board.overlay.navigate_standard.assert_not_called()
+
+        # Now with the user only viewing the standard overlay, we expect the navigation method to be called with the
+        # correct argument.
+        self.game_state.board.overlay.showing = [OverlayType.STANDARD]
+        self.game_state.board.overlay.navigate_standard = MagicMock()
+        on_key_arrow_left(self.game_controller, self.game_state, False)
+        self.game_state.board.overlay.navigate_standard.assert_called_with(left=True)
 
     def test_arrow_left_settlement_click(self):
         """
@@ -363,6 +389,27 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertEqual(ConstructionMenu.UNITS, self.game_state.board.overlay.current_construction_menu)
         self.assertEqual(test_unit_plan, self.game_state.board.overlay.selected_construction)
         self.assertTupleEqual((0, 5), self.game_state.board.overlay.unit_plan_boundaries)
+
+    def test_arrow_right_standard(self):
+        """
+        Ensure that the correct method is called when pressing the right arrow key while viewing the standard overlay.
+        """
+        self.game_state.game_started = True
+
+        # To begin with, we simulate that the player is selecting a blessing to undergo. As such, pressing right should
+        # have no effect despite the user currently technically viewing the standard overlay (beneath the blessing
+        # overlay).
+        self.game_state.board.overlay.showing = [OverlayType.STANDARD, OverlayType.BLESSING]
+        self.game_state.board.overlay.navigate_standard = MagicMock()
+        on_key_arrow_right(self.game_controller, self.game_state, False)
+        self.game_state.board.overlay.navigate_standard.assert_not_called()
+
+        # Now with the user only viewing the standard overlay, we expect the navigation method to be called with the
+        # correct argument.
+        self.game_state.board.overlay.showing = [OverlayType.STANDARD]
+        self.game_state.board.overlay.navigate_standard = MagicMock()
+        on_key_arrow_right(self.game_controller, self.game_state, False)
+        self.game_state.board.overlay.navigate_standard.assert_called_with(right=True)
 
     def test_arrow_right_settlement_click(self):
         """
@@ -442,6 +489,9 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.namer.reset.assert_called()
         # The AI players should now each have a settlement.
         self.assertTrue(all(player.settlements for player in self.game_state.players if player.ai_playstyle))
+        # The total settlement count should also have been set in the overlay - incremented by 1 because the player will
+        # not have founded their settlement yet.
+        self.assertEqual(2, self.game_state.board.overlay.total_settlement_count)
         self.game_controller.music_player.stop_menu_music.assert_called()
         self.game_controller.music_player.play_game_music.assert_called()
 
@@ -613,15 +663,32 @@ class GameInputHandlerTest(unittest.TestCase):
 
     def test_return_select_construction(self):
         """
-        Ensure that pressing the return key when selecting a construction for a settlement confirms the selection.
+        Ensure that pressing the return key when selecting a construction for a settlement has the expected effect,
+        based on whether the player has the required resources for the construction.
         """
+        self.game_state.board.overlay.toggle_construction = MagicMock()
         self.game_state.game_started = True
         self.game_state.board.overlay.showing = [OverlayType.CONSTRUCTION]
-        # We choose City Market here because it's a basic improvement that does not require resources to construct.
-        self.game_state.board.overlay.selected_construction = get_improvement("City Market")
-        self.game_state.board.overlay.toggle_construction = MagicMock()
         self.game_state.board.selected_settlement = self.TEST_SETTLEMENT
 
+        # To begin with, we attempt to select a construction that requires resources that the player does not have.
+        # Melting Pot suits for this purpose, as it requires 5 magma, and the player has no resources to start with.
+        self.game_state.board.overlay.selected_construction = get_improvement("Melting Pot")
+        on_key_return(self.game_controller, self.game_state)
+        # The construction should not have been begun, and the overlay should still be displayed.
+        self.assertIsNone(self.TEST_SETTLEMENT.current_work)
+        self.game_state.board.overlay.toggle_construction.assert_not_called()
+
+        # However, if we give the player the required resources, they should be able to select the same construction.
+        self.game_state.players[0].resources = ResourceCollection(magma=5)
+        on_key_return(self.game_controller, self.game_state)
+        # The player should also have had their resources deducted.
+        self.assertFalse(self.game_state.players[0].resources.magma)
+        self.assertEqual(get_improvement("Melting Pot"), self.TEST_SETTLEMENT.current_work.construction)
+        self.game_state.board.overlay.toggle_construction.assert_called_with([], [], [])
+
+        # Lastly, we choose City Market because it's a basic improvement that does not require resources to construct.
+        self.game_state.board.overlay.selected_construction = get_improvement("City Market")
         on_key_return(self.game_controller, self.game_state)
         self.assertEqual(get_improvement("City Market"), self.TEST_SETTLEMENT.current_work.construction)
         self.game_state.board.overlay.toggle_construction.assert_called_with([], [], [])
@@ -827,12 +894,16 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.process_ais = MagicMock()
         self.game_controller.last_turn_time = 0
         save_stats_achievements_mock.return_value = ACHIEVEMENTS[0:2]
+        # The below is an incorrect value, but we set it to this in order to verify that the value is updated at the end
+        # of each turn.
+        self.game_state.board.overlay.total_settlement_count = 2
 
         on_key_return(self.game_controller, self.game_state)
         save_mock.assert_called_with(self.game_state, auto=True)
         self.assertTrue(self.game_controller.last_turn_time)
         save_stats_achievements_mock.assert_called()
         self.game_state.board.overlay.toggle_ach_notif.assert_called_with(ACHIEVEMENTS[0:2])
+        self.assertEqual(3, self.game_state.board.overlay.total_settlement_count)
         self.game_state.process_heathens.assert_called()
         self.game_state.process_ais.assert_called_with(self.game_controller.move_maker)
 
@@ -893,7 +964,15 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board.overlay.toggle_blessing = MagicMock()
         self.game_state.players.append(self.TEST_PLAYER)
 
-        # Since the test player hasn't completed any blessings, every blessing is displayed.
+        self.game_state.board.overlay.current_standard_overlay_view = StandardOverlayView.VAULT
+        # To begin with, the test player is on the vault view of the standard overlay, so pressing the F key should have
+        # no effect.
+        on_key_f(self.game_controller, self.game_state)
+        self.game_state.board.overlay.toggle_blessing.assert_not_called()
+
+        self.game_state.board.overlay.current_standard_overlay_view = StandardOverlayView.BLESSINGS
+        # Now since the test player is on the blessings view and hasn't completed any blessings, every blessing is
+        # displayed.
         expected_blessings = list(BLESSINGS.values())
         expected_blessings.sort(key=lambda b: b.cost)
         on_key_f(self.game_controller, self.game_state)
