@@ -223,6 +223,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
     # If the player is choosing a blessing or construction, enter will select it.
     elif game_state.game_started and game_state.board.overlay.is_constructing():
         cons = game_state.board.overlay.selected_construction
+        # If the selected construction is an improvement with required resources that the player does not have, pressing
+        # the enter key will do nothing.
         if cons is not None and not (isinstance(cons, Improvement) and
                                      not player_has_resources_for_improvement(game_state.players[0], cons)):
             if isinstance(cons, Improvement) and cons.req_resources:

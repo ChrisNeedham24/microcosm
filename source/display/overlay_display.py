@@ -4,7 +4,7 @@ import math
 import pyxel
 
 from source.display.display_utils import draw_paragraph
-from source.util.calculator import get_setl_totals, player_has_resources_for_improvement
+from source.util.calculator import get_setl_totals, player_has_resources_for_improvement, get_player_totals
 from source.foundation.catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units, \
     ACHIEVEMENTS, BLESSINGS
 from source.foundation.models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, \
@@ -292,7 +292,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             setl_name = overlay.sieged_settlement.name
             pyxel.text(22, 15, f"{setl_name} was placed under siege by {att_name}", pyxel.COLOR_RED)
         # The settlement overlay displays the currently-selected settlements name, statistics, current construction,
-        # and garrison.
+        # garrison, and resources.
         if OverlayType.SETTLEMENT in overlay.showing:
             pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
             pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
@@ -603,8 +603,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     pyxel.text(140, 150, "Units ->", pyxel.COLOR_WHITE)
                 case _:
                     pyxel.text(25, 150, "<- Projects", pyxel.COLOR_WHITE)
-        # The standard overlay displays the current turn, ongoing blessing, player wealth, and player settlement
-        # statistics.
+        # The standard overlay contains four separate views: blessings, vault (wealth and resources), settlements, and
+        # victories.
         if OverlayType.STANDARD in overlay.showing:
             pyxel.load("resources/sprites.pyxres")
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
@@ -617,18 +617,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     if overlay.current_player.ongoing_blessing is not None:
                         ong_blessing = overlay.current_player.ongoing_blessing
                         remaining_work = ong_blessing.blessing.cost - ong_blessing.fortune_consumed
-                        total_fortune = 0
-                        for setl in overlay.current_player.settlements:
-                            _, _, _, fortune_to_add = \
-                                get_setl_totals(overlay.current_player, setl, is_night, strict=True)
-                            total_fortune += fortune_to_add
-                        total_fortune = max(0.5, total_fortune)
-                        if is_night:
-                            total_fortune *= 1.1
-                        if overlay.current_player.faction is Faction.SCRUTINEERS:
-                            total_fortune *= 0.75
-                        elif overlay.current_player.faction is Faction.ORTHODOX:
-                            total_fortune *= 1.25
+                        _, _, _, total_fortune = get_player_totals(overlay.current_player, is_night)
                         remaining_turns = math.ceil(remaining_work / total_fortune)
                         pyxel.text(30, 65, ong_blessing.blessing.name, pyxel.COLOR_WHITE)
                         pyxel.text(30, 75, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
@@ -810,17 +799,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
             pyxel.text(65, 25, "Available blessings", pyxel.COLOR_PURPLE)
-            total_fortune = 0
-            for setl in overlay.current_player.settlements:
-                _, _, _, fortune_to_add = get_setl_totals(overlay.current_player, setl, is_night, strict=True)
-                total_fortune += fortune_to_add
-            total_fortune = max(0.5, total_fortune)
-            if overlay.current_player.faction is Faction.SCRUTINEERS:
-                total_fortune *= 0.75
-            elif overlay.current_player.faction is Faction.ORTHODOX:
-                total_fortune *= 1.25
-            if is_night:
-                total_fortune *= 1.1
+            _, _, _, total_fortune = get_player_totals(overlay.current_player, is_night)
             for idx, blessing in enumerate(overlay.available_blessings):
                 if overlay.blessing_boundaries[0] <= idx <= overlay.blessing_boundaries[1]:
                     adj_idx = idx - overlay.blessing_boundaries[0]

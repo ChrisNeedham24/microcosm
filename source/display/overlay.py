@@ -13,6 +13,7 @@ class Overlay:
     def __init__(self, cfg: GameConfig):
         """
         Initialise the many variables used by the overlay to keep track of game state.
+        :param cfg: The configuration for the current game.
         """
         self.showing: typing.List[OverlayType] = []  # What the overlay is currently displaying.
         self.current_settlement: typing.Optional[Settlement] = None
@@ -85,7 +86,10 @@ class Overlay:
     def navigate_standard(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
         """
         Navigate the standard overlay.
-        :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
+        :param up: Whether the up arrow key was pressed.
+        :param down: Whether the down arrow key was pressed.
+        :param left: Whether the left arrow key was pressed.
+        :param right: Whether the right arrow key was pressed.
         """
         if left:
             match self.current_standard_overlay_view:

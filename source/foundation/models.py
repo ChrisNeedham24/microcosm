@@ -190,6 +190,9 @@ class ConstructionMenu(Enum):
 
 
 class StandardOverlayView(Enum):
+    """
+    The four different views the player is presented with when viewing the standard overlay.
+    """
     BLESSINGS = "BLESSINGS"
     VAULT = "VAULT"
     SETTLEMENTS = "SETTLEMENTS"
@@ -259,6 +262,7 @@ class Improvement:
     description: str
     effect: Effect
     prereq: typing.Optional[Blessing]
+    # The construction of some improvements requires core resources to be used.
     req_resources: typing.Optional[ResourceCollection] = None
 
 
@@ -274,6 +278,9 @@ class Project:
 
 @dataclass
 class ResourceCollection:
+    """
+    A utility class representing a collection of resources. This is used for Quad, Settlement, and Player objects.
+    """
     # Core resources
     ore: int = 0
     timber: int = 0
@@ -285,7 +292,12 @@ class ResourceCollection:
     sunstone: int = 0
     aquamarine: int = 0
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
+        """
+        A custom truth value testing method - this exists so that we can do checks like `if quad.resource` without
+        having to check each individual resource in the quad's collection.
+        :return: Whether the collection has one or more resources of any type.
+        """
         return bool(self.ore or self.timber or self.magma or
                     self.aurora or self.bloodstone or self.obsidian or self.sunstone or self.aquamarine)
 

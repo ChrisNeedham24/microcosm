@@ -202,8 +202,7 @@ class GameState:
                     setl.quads.append(best_quad_with_yield[0])
                     setl.resources = \
                         get_resources_for_settlement([quad.location for quad in setl.quads], self.board.quads)
-                    # If the player playing as The Concentrated faction is the human player, updated the quads seen
-                    # list.
+                    # If the player playing as The Concentrated faction is the human player, update the quads seen list.
                     if player == self.players[0]:
                         for i in range(best_quad_with_yield[0].location[1] - 5,
                                        best_quad_with_yield[0].location[1] + 6):
@@ -369,6 +368,8 @@ class GameState:
                     if VictoryType.ELIMINATION not in p.imminent_victories:
                         close_to_vics.append(Victory(p, VictoryType.ELIMINATION))
                         p.imminent_victories.add(VictoryType.ELIMINATION)
+                # However, if a new settlement has been founded in the last turn, or the player has lost one of their
+                # settlements, remove the imminent victory.
                 elif VictoryType.ELIMINATION in p.imminent_victories:
                     p.imminent_victories.remove(VictoryType.ELIMINATION)
 
@@ -387,6 +388,8 @@ class GameState:
                     if VictoryType.VIGOUR not in p.imminent_victories:
                         close_to_vics.append(Victory(p, VictoryType.VIGOUR))
                         p.imminent_victories.add(VictoryType.VIGOUR)
+                # If the player is no longer constructing the Holy Sanctum in any of their settlements, remove the
+                # imminent victory.
                 elif VictoryType.VIGOUR in p.imminent_victories:
                     p.imminent_victories.remove(VictoryType.VIGOUR)
                 if jubilated_setls >= 5:
@@ -412,6 +415,7 @@ class GameState:
                     if VictoryType.GLUTTONY not in p.imminent_victories:
                         close_to_vics.append(Victory(p, VictoryType.GLUTTONY))
                         p.imminent_victories.add(VictoryType.GLUTTONY)
+                # If a player has lost one of their level 10 settlements since last turn, remove the imminent victory.
                 elif VictoryType.GLUTTONY in p.imminent_victories:
                     p.imminent_victories.remove(VictoryType.GLUTTONY)
                 # If the player has constructed the Holy Sanctum, they have achieved a VIGOUR victory.
@@ -475,6 +479,9 @@ class GameState:
             if player.faction is not Faction.INFIDELS:
                 for unit in player.units:
                     all_units.append(unit)
+            # During nighttime, heathens cannot be within a certain number of quads of settlements with sunstone
+            # resources. For example, heathens cannot be within 6 quads of a settlement with 1 sunstone resource, and
+            # they cannot be within 9 quads of a settlement with 2 sunstone resources.
             for setl in player.settlements:
                 if self.nighttime_left > 0 and setl.resources.sunstone:
                     exclusion_range = 3 * (1 + setl.resources.sunstone)

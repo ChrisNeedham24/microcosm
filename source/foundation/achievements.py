@@ -55,6 +55,14 @@ def verify_its_worth_it(game_state: GameState, _: Statistics) -> bool:
 
 
 def verify_the_third_x(game_state: GameState, _: Statistics) -> bool:
+    """
+    The verification method for the 'The Third X' achievement.
+    :param game_state: The current game state object.
+    :param _: The current statistics, which are unused.
+    :return: Whether the achievement's criteria have been met.
+    """
+    # If the player has a settlement with at least four resources of any kind, they have met the criterion for this
+    # achievement.
     for setl in game_state.players[0].settlements:
         rs = setl.resources
         if rs.ore + rs.timber + rs.magma + rs.aurora + rs.bloodstone + rs.obsidian + rs.sunstone + rs.aquamarine >= 4:

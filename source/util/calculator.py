@@ -264,6 +264,8 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
     # Scrutineers always succeed when investigating.
     was_successful = True if player.faction is Faction.SCRUTINEERS else random_chance < 100
     if was_successful:
+        # For players of the Scrutineers faction, we need to scale down their random value, as if it was 100 or more,
+        # then the result would always be the last investigation result.
         if player.faction is Faction.SCRUTINEERS:
             random_chance *= (100 / 140)
         if random_chance < 10 and player.ongoing_blessing is not None:
@@ -344,7 +346,15 @@ def gen_spiral_indices(initial_loc: (int, int)) -> typing.List[typing.Tuple[int,
 
 def get_resources_for_settlement(setl_locs: typing.List[typing.Tuple[int, int]],
                                  quads: typing.List[typing.List[Quad]]) -> ResourceCollection:
+    """
+    Determine and return the resources that a settlement with the given locations would be able to exploit.
+    :param setl_locs: The locations of the quads belonging to the settlement.
+    :param quads: The quads on the board.
+    :return: A ResourceCollection representation of the settlement's resources.
+    """
     setl_resources: ResourceCollection = ResourceCollection()
+    # We need to keep track of the quads that we've already seen so that settlements with multiple quads don't double up
+    # resources from the same quad.
     found_locs: typing.Set[typing.Tuple[int, int]] = set()
     for setl_loc in setl_locs:
         for i in range(setl_loc[0] - 1, setl_loc[0] + 2):
@@ -364,12 +374,23 @@ def get_resources_for_settlement(setl_locs: typing.List[typing.Tuple[int, int]],
 
 
 def player_has_resources_for_improvement(player: Player, improvement: Improvement) -> bool:
+    """
+    Return whether the given player has the resources (if required) to construct the given improvement.
+    :param player: The player checking whether they can construct the given improvement.
+    :param improvement: The improvement being validated against the given player.
+    :return: Whether the player can construct the improvement.
+    """
     return not improvement.req_resources or (player.resources.ore >= improvement.req_resources.ore and
                                              player.resources.timber >= improvement.req_resources.timber and
                                              player.resources.magma >= improvement.req_resources.magma)
 
 
 def subtract_player_resources_for_improvement(player: Player, improvement: Improvement):
+    """
+    Deduct the required resources for the given improvement from the given player's resources.
+    :param player: The player having their resources deducted.
+    :param improvement: The improvement being constructed.
+    """
     player.resources.ore -= improvement.req_resources.ore
     player.resources.timber -= improvement.req_resources.timber
     player.resources.magma -= improvement.req_resources.magma

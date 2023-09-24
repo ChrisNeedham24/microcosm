@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from source.display.board import Board
 from source.display.menu import SetupOption, WikiOption, MainMenuOption
 from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS, get_available_improvements, \
-    get_available_unit_plans, PROJECTS, IMPROVEMENTS, ACHIEVEMENTS, get_improvement
+    get_available_unit_plans, PROJECTS, ACHIEVEMENTS, get_improvement
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
     Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit, Construction, CompletedConstruction, \
     SettlementAttackType, PauseOption, Quad, Biome, DeployerUnitPlan, DeployerUnit, ResourceCollection, \

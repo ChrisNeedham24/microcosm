@@ -40,6 +40,11 @@ v2.3
 v2.4
 - Deploying units and their plans were added. Since they had their own unique properties, no migration for existing
   units is required, and the new deploying units can be identified by these properties.
+
+v3.0
+- Resources were added, adding the resource attribute to Quads, the req_resources attribute to Improvements, and the 
+  resources attribute to Players. These are all migrated by setting all objects without the attributes to have empty
+  ResourceCollections.
 """
 
 

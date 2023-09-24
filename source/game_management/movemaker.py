@@ -174,6 +174,8 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
         # In all other circumstances, i.e. most of the time, just construct the ideal improvement.
         else:
             setl.current_work = Construction(ideal)
+    # If the selected construction ended up being an improvement that requires resources, subtract those from the
+    # player's total.
     if isinstance(cons := setl.current_work.construction, Improvement) and cons.req_resources:
         subtract_player_resources_for_improvement(player, cons)
 
@@ -341,6 +343,8 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
                 # Neutral AIs will always choose the 'ideal' construction.
                 case _:
                     setl.current_work = Construction(ideal)
+    # If the selected construction ended up being an improvement that requires resources, subtract those from the AI
+    # player's total.
     if isinstance(cons := setl.current_work.construction, Improvement) and cons.req_resources:
         subtract_player_resources_for_improvement(player, cons)
 
@@ -500,16 +504,16 @@ class MoveMaker:
             if setl.current_work is None:
                 set_ai_construction(player, setl, is_night, other_player_vics)
             elif player.faction is not Faction.FUNDAMENTALISTS:
-                constr = setl.current_work.construction
+                cons = setl.current_work.construction
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out. In
                 # circumstances where the settlement's satisfaction is less than 50 and the construction would yield
                 # harvest or satisfaction, buy it out as soon as the AI is able to afford it. Fundamentalist AIs are
                 # exempt from this, as they cannot buy out constructions.
-                if not isinstance(constr, Project) and \
-                        ((constr.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or \
-                         (setl.satisfaction < 50 and player.wealth >= constr.cost and isinstance(constr, Improvement) and
-                          (constr.effect.satisfaction > 0 or constr.effect.harvest > 0))):
-                    player.wealth -= constr.cost - setl.current_work.zeal_consumed
+                if not isinstance(cons, Project) and \
+                        ((cons.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or
+                         (setl.satisfaction < 50 and player.wealth >= cons.cost and isinstance(cons, Improvement) and
+                          (cons.effect.satisfaction > 0 or cons.effect.harvest > 0))):
+                    player.wealth -= cons.cost - setl.current_work.zeal_consumed
                     complete_construction(setl, player)
             # If the settlement has a settler, deploy them.
             if len(settlers := [unit for unit in setl.garrison if unit.plan.can_settle]) > 0:
@@ -561,9 +565,9 @@ class MoveMaker:
     def move_settler_unit(self, unit: Unit, player: Player, other_units: typing.List[Unit],
                           all_setls: typing.List[Settlement]):
         """
-        Randomly move the given settler until it is far enough away from any of the player's other settlements, ensuring
-        that it does not collide with any other units or settlements. Once this has been achieved, found a new
-        settlement and destroy the unit.
+        Randomly move the given settler until it is both far enough away from any of the player's other settlements and
+        next to one or more core resources, ensuring that it does not collide with any other units or settlements. Once
+        this has been achieved, found a new settlement and destroy the unit.
         :param unit: The settler unit.
         :param player: The player owner of the settler unit.
         :param other_units: The other units in the game. Used to make sure no unit collisions occur.
@@ -591,6 +595,9 @@ class MoveMaker:
         prospective_quad: Quad = self.board_ref.quads[unit.location[1]][unit.location[0]]
         prospective_resources: ResourceCollection = \
             get_resources_for_settlement([prospective_quad.location], self.board_ref.quads)
+        # We make sure that AI settler units only settle next to core resources so that they don't end up in a situation
+        # where they are missing the necessary core resources to construct improvements, and as a result, are unable to
+        # effectively compete with the human player to win the game.
         if not prospective_resources.ore and not prospective_resources.timber and not prospective_resources.magma:
             should_settle = False
         if should_settle:

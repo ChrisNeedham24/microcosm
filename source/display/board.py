@@ -82,7 +82,8 @@ class Board:
         selected_quad_coords: (int, int) = None
         quads_to_show: typing.Set[typing.Tuple[int, int]] = set()
         # At nighttime, the player can only see a few quads around their settlements and units. However, players of the
-        # Nocturne faction have no vision impacts at nighttime.
+        # Nocturne faction have no vision impacts at nighttime. In addition to this, settlements with one or more
+        # sunstone resources have extended vision proportionate to the number of sunstone resources they have.
         if is_night and players[0].faction is not Faction.NOCTURNE:
             for setl in players[0].settlements:
                 vision_range = 3 * (1 + setl.resources.sunstone)
@@ -424,6 +425,7 @@ class Board:
         """
         Generate the quads to be used for this game.
         :param biome_clustering: Whether biome clustering is enabled or not.
+        :param climatic_effects: Whether climatic effects are enabled or not.
         """
         for i in range(90):
             for j in range(100):
@@ -464,6 +466,8 @@ class Board:
                 if resource_chance < 6:
                     if resource_chance < 1:
                         random_chance = random.randint(0, 100)
+                        # If climatic effects are disabled, then sunstone would have no effect. As such, sunstone is not
+                        # included in games with disabled climatic effects.
                         if climatic_effects:
                             if random_chance < 20:
                                 resource = ResourceCollection(aurora=1)

@@ -9,6 +9,11 @@ from source.foundation.models import Biome, UnitPlan, Heathen, Unit, Player, Fac
 
 
 def gen_test_settlement_of_level(level: int) -> Settlement:
+    """
+    Generate a Settlement with the given level.
+    :param level: The level to make the settlement.
+    :return: A generated Settlement with the supplied level.
+    """
     return Settlement("Leveller", (40, 50), [], [], ResourceCollection(), [], level=level)
 
 

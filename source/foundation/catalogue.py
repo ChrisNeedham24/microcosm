@@ -501,14 +501,16 @@ def get_available_improvements(player: Player,
     Retrieves the available improvements for the given player's settlement.
     :param player: The owner of the given settlement.
     :param settlement: The settlement to retrieve improvements for.
+    :param strict: Whether to only include improvements that the player has the required resources for.
     :return: A list of available improvements.
     """
     # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
     if player.faction is Faction.FRONTIERSMEN and settlement.level >= 5:
         return []
     completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
-    # An improvement is available if the improvement has not been built in this settlement yet and either the player has
-    # satisfied the improvement's pre-requisite or the improvement does not have one.
+    # An improvement is available if the improvement has not been built in this settlement yet, either the player has
+    # satisfied the improvement's pre-requisite or the improvement does not have one, and either we don't care about
+    # resources for this call or the player has the required resources (if any) for the improvement.
     imps = [imp for imp in IMPROVEMENTS if (imp.prereq is None or imp.prereq.name in completed_blessing_names)
             and imp not in settlement.improvements
             and (not strict or (not imp.req_resources or player_has_resources_for_improvement(player, imp)))]
