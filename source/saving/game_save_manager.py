@@ -20,7 +20,7 @@ if typing.TYPE_CHECKING:
     from source.game_management.game_state import GameState
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
 from source.saving.save_migrator import migrate_unit, migrate_player, migrate_climatic_effects, \
-    migrate_quad, migrate_settlement, migrate_game_config
+    migrate_quad, migrate_settlement, migrate_game_config, migrate_game_version
 from source.util.calculator import clamp
 
 # The prefix attached to save files created by the autosave feature.
@@ -61,7 +61,8 @@ def save_game(game_state, auto: bool = False):
             "heathens": game_state.heathens,
             "turn": game_state.turn,
             "cfg": game_state.board.game_config,
-            "night_status": {"until": game_state.until_night, "remaining": game_state.nighttime_left}
+            "night_status": {"until": game_state.until_night, "remaining": game_state.nighttime_left},
+            "game_version": game_state.game_version
         }
         # Note that we use the SaveEncoder here for custom encoding for some classes.
         save_file.write(json.dumps(save, cls=SaveEncoder))
@@ -206,6 +207,7 @@ def load_game(game_state, game_controller: GameController):
             for i in range(90):
                 for j in range(100):
                     quads[i][j] = migrate_quad(save.quads[i * 100 + j], (j, i))
+            migrate_game_version(game_state, save)
             game_state.players = save.players
             # The list of tuples that is quads_seen needs special loading, as do a few other of the same type,
             # because tuples do not exist in JSON, so they are represented as arrays, which will clearly not work.

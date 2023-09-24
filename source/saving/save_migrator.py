@@ -1,4 +1,4 @@
-from source.foundation.catalogue import get_blessing, FACTION_COLOURS
+from source.foundation.catalogue import get_blessing, FACTION_COLOURS, IMPROVEMENTS
 from source.foundation.models import UnitPlan, Unit, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, Quad, \
     Biome, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection
 
@@ -42,9 +42,11 @@ v2.4
   units is required, and the new deploying units can be identified by these properties.
 
 v3.0
-- Resources were added, adding the resource attribute to Quads, the req_resources attribute to Improvements, and the 
-  resources attribute to Players. These are all migrated by setting all objects without the attributes to have empty
-  ResourceCollections.
+- Resources were added, adding the resource attribute to Quads, and the resources attribute to Settlements and Players.
+  These are migrated by setting Quads without the attribute to have None and Settlements and Players without the
+  attribute to have empty ResourceCollections. In addition to these, the req_resources attribute was added to
+  Improvements, which is migrated and removed for old saves in game_save_manager.py, as they would have no way of
+  obtaining the necessary resources.
 """
 
 
@@ -122,7 +124,7 @@ def migrate_player(player):
 
 def migrate_climatic_effects(game_state, save):
     """
-    Apply the night_status migrations for the game state, if required.
+    Apply the night_status migrations for climatic effects, if required.
     :param game_state: The state of the game being loaded in.
     :param save: The loaded save data.
     """
@@ -189,6 +191,24 @@ def migrate_game_config(config) -> GameConfig:
         # We now delete the old attribute so that it does not pollute future saves.
         delattr(config, "player_colour")
     return config
+
+
+def migrate_game_version(game_state, save):
+    """
+    Apply the night_status migrations for the game version, if required.
+    :param game_state: The state of the game being loaded in.
+    :param save: The loaded save data.
+    """
+    # If the save file is from a version of the game prior to 3.0 in which resources were introduced, remove the
+    # resource requirements for the construction of all improvements.
+    if not hasattr(save, "game_version") or save.game_version == 0.0:
+        for i in range(len(IMPROVEMENTS)):
+            IMPROVEMENTS[i].req_resources = None
+        # We need to set the game version here regardless so that if this loaded save is saved again after some
+        # turns, we can still tell that it was originally from before resources were introduced.
+        game_state.game_version = 0.0
+    else:
+        game_state.game_version = save.game_version
 
 
 def get_faction_for_colour(colour: int) -> Faction:

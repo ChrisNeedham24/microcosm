@@ -37,6 +37,10 @@ class GameState:
         # Also keep track of how many turns of night are left. If this is 0, it is daytime.
         self.nighttime_left = 0
 
+        # We can hard-code the version here and update it when required. This was introduced so that saves with
+        # resources can be distinguished from those without.
+        self.game_version: float = 3.0
+
     def gen_players(self, cfg: GameConfig):
         """
         Generates the players for the game based on the supplied config.

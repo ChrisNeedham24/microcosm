@@ -2,13 +2,13 @@ import unittest
 
 import pyxel
 
-from source.foundation.catalogue import UNIT_PLANS
+from source.foundation.catalogue import UNIT_PLANS, IMPROVEMENTS
 from source.foundation.models import UnitPlan, Unit, AttackPlaystyle, ExpansionPlaystyle, VictoryType, Faction, \
     Settlement, Biome, Quad, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection
 from source.game_management.game_state import GameState
 from source.saving.save_encoder import ObjectConverter
 from source.saving.save_migrator import migrate_unit_plan, migrate_unit, migrate_player, migrate_climatic_effects, \
-    migrate_quad, migrate_settlement, migrate_game_config
+    migrate_quad, migrate_settlement, migrate_game_config, migrate_game_version
 
 
 class SaveMigratorTest(unittest.TestCase):
@@ -264,7 +264,7 @@ class SaveMigratorTest(unittest.TestCase):
 
     def test_climatic_effects(self):
         """
-        Ensure that migrations occur correctly for game state.
+        Ensure that migrations occur correctly for climatic effects.
         """
         test_until_night = 3
         test_nighttime_left = 0
@@ -433,6 +433,47 @@ class SaveMigratorTest(unittest.TestCase):
         self.assertEqual(test_player_count, outdated_config.player_count)
         self.assertTrue(outdated_config.biome_clustering)
         self.assertTrue(outdated_config.fog_of_war)
+
+    def test_game_version(self):
+        """
+        Ensure that migrations occur correctly for the game version.
+        """
+        test_game_version = 3.0
+        test_old_version = 0.0
+
+        # Simulate an up-to-date loaded save.
+        test_loaded_save: ObjectConverter = ObjectConverter({
+            "game_version": test_game_version
+        })
+        test_game_state = GameState()
+
+        migrate_game_version(test_game_state, test_loaded_save)
+
+        # For up-to-date saves, the attribute should be mapped directly.
+        self.assertEqual(test_game_state.game_version, test_game_version)
+
+        # Now simulate an older save that has since been loaded in, a few turns have been played, and then saved again.
+        test_loaded_save: ObjectConverter = ObjectConverter({
+            "game_version": test_old_version
+        })
+        test_game_state = GameState()
+
+        migrate_game_version(test_game_state, test_loaded_save)
+
+        # For older saves, all improvements should have their required resources removed, and the attribute should have
+        # been set to 0.0, despite already being that value.
+        self.assertTrue(all(imp.req_resources is None for imp in IMPROVEMENTS))
+        self.assertEqual(test_game_state.game_version, test_old_version)
+
+        # Now delete the game_version attribute, to simulate an outdated save from before the introduction of resources.
+        delattr(test_loaded_save, "game_version")
+
+        migrate_game_version(test_game_state, test_loaded_save)
+
+        # For saves without a version altogether, we still expect the same changes to improvements, and for the version
+        # to be set to 0.0.
+        self.assertTrue(all(imp.req_resources is None for imp in IMPROVEMENTS))
+        self.assertEqual(test_game_state.game_version, test_old_version)
 
 
 if __name__ == '__main__':

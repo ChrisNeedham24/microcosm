@@ -626,6 +626,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                         pyxel.text(30, 75, "Press F to add one!", pyxel.COLOR_WHITE)
                     pyxel.text(30, 90, "Recently completed", pyxel.COLOR_PURPLE)
                     if overlay.current_player.blessings:
+                        # This for loop will give us the five most recently completed blessings.
                         for idx, bls in enumerate(overlay.current_player.blessings[-1:-6:-1]):
                             pyxel.text(30, 100 + idx * 10, bls.name, pyxel.COLOR_WHITE)
                     else:
