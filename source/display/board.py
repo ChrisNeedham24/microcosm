@@ -5,10 +5,11 @@ from enum import Enum
 
 import pyxel
 
-from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal
+from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal, \
+    get_resources_for_settlement
 from source.foundation.catalogue import get_default_unit, Namer
 from source.foundation.models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, \
-    Faction, DeployerUnit
+    Faction, DeployerUnit, ResourceCollection
 from source.display.overlay import Overlay
 from source.display.overlay_display import display_overlay
 
@@ -52,11 +53,11 @@ class Board:
         else:
             self.quads: typing.List[typing.List[typing.Optional[Quad]]] = [[None] * 100 for _ in range(90)]
             random.seed()
-            self.generate_quads(cfg.biome_clustering)
+            self.generate_quads(cfg.biome_clustering, cfg.climatic_effects)
 
         self.quad_selected: typing.Optional[Quad] = None
 
-        self.overlay = Overlay()
+        self.overlay = Overlay(self.game_config)
         self.selected_settlement: typing.Optional[Settlement] = None
         self.deploying_army = False
         self.deploying_army_from_unit = False
@@ -81,12 +82,14 @@ class Board:
         selected_quad_coords: (int, int) = None
         quads_to_show: typing.Set[typing.Tuple[int, int]] = set()
         # At nighttime, the player can only see a few quads around their settlements and units. However, players of the
-        # Nocturne faction have no vision impacts at nighttime.
+        # Nocturne faction have no vision impacts at nighttime. In addition to this, settlements with one or more
+        # sunstone resources have extended vision proportionate to the number of sunstone resources they have.
         if is_night and players[0].faction is not Faction.NOCTURNE:
             for setl in players[0].settlements:
+                vision_range = 3 * (1 + setl.resources.sunstone)
                 for setl_quad in setl.quads:
-                    for i in range(setl_quad.location[0] - 3, setl_quad.location[0] + 4):
-                        for j in range(setl_quad.location[1] - 3, setl_quad.location[1] + 4):
+                    for i in range(setl_quad.location[0] - vision_range, setl_quad.location[0] + vision_range + 1):
+                        for j in range(setl_quad.location[1] - vision_range, setl_quad.location[1] + vision_range + 1):
                             quads_to_show.add((i, j))
             for unit in players[0].units:
                 for i in range(unit.location[0] - 3, unit.location[0] + 4):
@@ -119,7 +122,29 @@ class Board:
                                 quad_x = 16
                             case _:
                                 quad_x = 24
-                        quad_y = 20 if quad.is_relic else 4
+                        match quad.resource:
+                            case ResourceCollection(ore=1):
+                                quad_y = 28
+                            case ResourceCollection(timber=1):
+                                quad_y = 36
+                            case ResourceCollection(magma=1):
+                                quad_y = 44
+                            case ResourceCollection(aurora=1):
+                                quad_y = 52
+                            case ResourceCollection(bloodstone=1):
+                                quad_y = 60
+                            case ResourceCollection(obsidian=1):
+                                quad_y = 68
+                            case ResourceCollection(sunstone=1):
+                                quad_y = 76
+                            case ResourceCollection(aquamarine=1):
+                                quad_y = 84
+                            case _:
+                                quad_y = 4
+
+                        if quad.is_relic:
+                            quad_y = 20
+
                         if is_night:
                             quad_x += 32
                         pyxel.blt((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 0, quad_x, quad_y, 8, 8)
@@ -150,7 +175,7 @@ class Board:
                 pyxel.blt((heathen.location[0] - map_pos[0]) * 8 + 4,
                           (heathen.location[1] - map_pos[1]) * 8 + 4, 0, heathen_x, 60, 8, 8)
                 # Outline a heathen if the player can attack it.
-                if self.selected_unit is not None and self.selected_unit is not heathen and \
+                if self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
                         not self.selected_unit.has_acted and \
                         abs(self.selected_unit.location[0] - heathen.location[0]) <= 1 and \
                         abs(self.selected_unit.location[1] - heathen.location[1]) <= 1:
@@ -259,12 +284,36 @@ class Board:
             y_offset = -34 if selected_quad_coords[1] - map_pos[1] >= 36 else 0
             base_x_pos = (selected_quad_coords[0] - map_pos[0]) * 8 + x_offset
             base_y_pos = (selected_quad_coords[1] - map_pos[1]) * 8 + y_offset
-            pyxel.rectb(base_x_pos - 22, base_y_pos + 8, 30, 12, pyxel.COLOR_WHITE)
-            pyxel.rect(base_x_pos - 21, base_y_pos + 9, 28, 10, pyxel.COLOR_BLACK)
-            pyxel.text(base_x_pos - 18, base_y_pos + 12, f"{round(self.quad_selected.wealth)}", pyxel.COLOR_YELLOW)
-            pyxel.text(base_x_pos - 12, base_y_pos + 12, f"{round(self.quad_selected.harvest)}", pyxel.COLOR_GREEN)
-            pyxel.text(base_x_pos - 6, base_y_pos + 12, f"{round(self.quad_selected.zeal)}", pyxel.COLOR_RED)
-            pyxel.text(base_x_pos, base_y_pos + 12, f"{round(self.quad_selected.fortune)}", pyxel.COLOR_PURPLE)
+            if self.quad_selected.resource:
+                pyxel.rectb(base_x_pos - 22, base_y_pos + 8, 50, 22, pyxel.COLOR_WHITE)
+                pyxel.rect(base_x_pos - 21, base_y_pos + 9, 48, 20, pyxel.COLOR_BLACK)
+                pyxel.text(base_x_pos - 18, base_y_pos + 12, f"{round(self.quad_selected.wealth)}", pyxel.COLOR_YELLOW)
+                pyxel.text(base_x_pos - 12, base_y_pos + 12, f"{round(self.quad_selected.harvest)}", pyxel.COLOR_GREEN)
+                pyxel.text(base_x_pos - 6, base_y_pos + 12, f"{round(self.quad_selected.zeal)}", pyxel.COLOR_RED)
+                pyxel.text(base_x_pos, base_y_pos + 12, f"{round(self.quad_selected.fortune)}", pyxel.COLOR_PURPLE)
+                if self.quad_selected.resource.ore:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Ore", pyxel.COLOR_GRAY)
+                elif self.quad_selected.resource.timber:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Timber", pyxel.COLOR_BROWN)
+                elif self.quad_selected.resource.magma:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Magma", pyxel.COLOR_RED)
+                elif self.quad_selected.resource.aurora:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Aurora", pyxel.COLOR_YELLOW)
+                elif self.quad_selected.resource.bloodstone:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Bloodstone", pyxel.COLOR_RED)
+                elif self.quad_selected.resource.obsidian:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Obsidian", pyxel.COLOR_GRAY)
+                elif self.quad_selected.resource.sunstone:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Sunstone", pyxel.COLOR_ORANGE)
+                elif self.quad_selected.resource.aquamarine:
+                    pyxel.text(base_x_pos - 18, base_y_pos + 20, "Aquamarine", pyxel.COLOR_LIGHT_BLUE)
+            else:
+                pyxel.rectb(base_x_pos - 22, base_y_pos + 8, 30, 12, pyxel.COLOR_WHITE)
+                pyxel.rect(base_x_pos - 21, base_y_pos + 9, 28, 10, pyxel.COLOR_BLACK)
+                pyxel.text(base_x_pos - 18, base_y_pos + 12, f"{round(self.quad_selected.wealth)}", pyxel.COLOR_YELLOW)
+                pyxel.text(base_x_pos - 12, base_y_pos + 12, f"{round(self.quad_selected.harvest)}", pyxel.COLOR_GREEN)
+                pyxel.text(base_x_pos - 6, base_y_pos + 12, f"{round(self.quad_selected.zeal)}", pyxel.COLOR_RED)
+                pyxel.text(base_x_pos, base_y_pos + 12, f"{round(self.quad_selected.fortune)}", pyxel.COLOR_PURPLE)
 
         if self.deploying_army:
             for setl_quad in self.selected_settlement.quads:
@@ -372,10 +421,11 @@ class Board:
                 self.overlay.toggle_heal(None)
                 self.heal_time_bank = 0
 
-    def generate_quads(self, biome_clustering: bool):
+    def generate_quads(self, biome_clustering: bool, climatic_effects: bool):
         """
         Generate the quads to be used for this game.
         :param biome_clustering: Whether biome clustering is enabled or not.
+        :param climatic_effects: Whether climatic effects are enabled or not.
         """
         for i in range(90):
             for j in range(100):
@@ -409,12 +459,50 @@ class Board:
                     biome = random.choice(list(Biome))
                 quad_yield: (float, float, float, float) = calculate_yield_for_quad(biome)
 
+                resource: typing.Optional[ResourceCollection] = None
+                # Each quad has a 1 in 20 chance of having a core resource, and a 1 in 100 chance of having a rare
+                # resource. We combine these by saying that each quad has a 6% chance of having any resource at all.
+                resource_chance = random.randint(0, 100)
+                if resource_chance < 6:
+                    if resource_chance < 1:
+                        random_chance = random.randint(0, 100)
+                        # If climatic effects are disabled, then sunstone would have no effect. As such, sunstone is not
+                        # included in games with disabled climatic effects.
+                        if climatic_effects:
+                            if random_chance < 20:
+                                resource = ResourceCollection(aurora=1)
+                            elif random_chance < 40:
+                                resource = ResourceCollection(bloodstone=1)
+                            elif random_chance < 60:
+                                resource = ResourceCollection(obsidian=1)
+                            elif random_chance < 80:
+                                resource = ResourceCollection(sunstone=1)
+                            else:
+                                resource = ResourceCollection(aquamarine=1)
+                        else:
+                            if random_chance < 25:
+                                resource = ResourceCollection(aurora=1)
+                            elif random_chance < 50:
+                                resource = ResourceCollection(bloodstone=1)
+                            elif random_chance < 75:
+                                resource = ResourceCollection(obsidian=1)
+                            else:
+                                resource = ResourceCollection(aquamarine=1)
+                    else:
+                        random_chance = random.randint(0, 99)
+                        if random_chance < 33:
+                            resource = ResourceCollection(ore=1)
+                        elif random_chance < 66:
+                            resource = ResourceCollection(timber=1)
+                        else:
+                            resource = ResourceCollection(magma=1)
+
                 is_relic = False
                 relic_chance = random.randint(0, 100)
                 if relic_chance < 1:
                     is_relic = True
 
-                self.quads[i][j] = Quad(biome, *quad_yield, location=(j, i), is_relic=is_relic)
+                self.quads[i][j] = Quad(biome, *quad_yield, location=(j, i), is_relic=is_relic, resource=resource)
 
     def process_right_click(self, mouse_x: int, mouse_y: int, map_pos: (int, int)):
         """
@@ -484,7 +572,8 @@ class Board:
                     # settlement will be.
                     quad_biome = self.quads[adj_y][adj_x].biome
                     setl_name = self.namer.get_settlement_name(quad_biome)
-                    new_settl = Settlement(setl_name, (adj_x, adj_y), [], [self.quads[adj_y][adj_x]],
+                    setl_resources = get_resources_for_settlement([(adj_x, adj_y)], self.quads)
+                    new_settl = Settlement(setl_name, (adj_x, adj_y), [], [self.quads[adj_y][adj_x]], setl_resources,
                                            [get_default_unit((adj_x, adj_y))])
                     match player.faction:
                         case Faction.CONCENTRATED:
@@ -495,6 +584,9 @@ class Board:
                         case Faction.IMPERIALS:
                             new_settl.strength /= 2
                             new_settl.max_strength /= 2
+                    if new_settl.resources.obsidian:
+                        new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
+                        new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
                     player.settlements.append(new_settl)
                     # Automatically add 5 quads in either direction to the player's seen.
                     for i in range(adj_y - 5, adj_y + 6):
@@ -743,13 +835,18 @@ class Board:
         if can_settle:
             quad_biome = self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]].biome
             setl_name = self.namer.get_settlement_name(quad_biome)
+            setl_resources = get_resources_for_settlement([self.selected_unit.location], self.quads)
             new_settl = Settlement(setl_name, self.selected_unit.location, [],
-                                   [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]], [])
+                                   [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]],
+                                   setl_resources, [])
             if player.faction is Faction.FRONTIERSMEN:
                 new_settl.satisfaction = 75
             elif player.faction is Faction.IMPERIALS:
                 new_settl.strength /= 2
                 new_settl.max_strength /= 2
+            if new_settl.resources.obsidian:
+                new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
+                new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
             player.settlements.append(new_settl)
             # Destroy the settler unit and select the new settlement.
             player.units.remove(self.selected_unit)

@@ -1,6 +1,6 @@
-from source.foundation.catalogue import get_blessing, FACTION_COLOURS
+from source.foundation.catalogue import get_blessing, FACTION_COLOURS, IMPROVEMENTS
 from source.foundation.models import UnitPlan, Unit, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, Quad, \
-    Biome, GameConfig, DeployerUnitPlan, DeployerUnit
+    Biome, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection
 
 """
 The following migrations have occurred during Microcosm's development:
@@ -40,6 +40,13 @@ v2.3
 v2.4
 - Deploying units and their plans were added. Since they had their own unique properties, no migration for existing
   units is required, and the new deploying units can be identified by these properties.
+
+v3.0
+- Resources were added, adding the resource attribute to Quads, and the resources attribute to Settlements and Players.
+  These are migrated by setting Quads without the attribute to have None and Settlements and Players without the
+  attribute to have empty ResourceCollections. In addition to these, the req_resources attribute was added to
+  Improvements, which is migrated and removed for old saves, as they would have no way of obtaining the necessary
+  resources.
 """
 
 
@@ -93,7 +100,7 @@ def migrate_unit(unit) -> Unit:
 
 def migrate_player(player):
     """
-    Apply the ai_playstyle, imminent_victories, faction, and eliminated migrations for Players, if required.
+    Apply the ai_playstyle, imminent_victories, faction, eliminated, and resources migrations for Players, if required.
     :param player: The loaded player object.
     """
     if player.ai_playstyle is not None:
@@ -106,11 +113,18 @@ def migrate_player(player):
     player.faction = Faction(player.faction) if hasattr(player, "faction") else get_faction_for_colour(player.colour)
     if not hasattr(player, "eliminated"):
         player.eliminated = len(player.settlements) == 0
+    if hasattr(player, "resources") and (res := player.resources):
+        # We need to convert it back to a ResourceCollection object in order to take advantage of our custom truth value
+        # testing operator.
+        player.resources = ResourceCollection(res.ore, res.timber, res.magma,
+                                              res.aurora, res.bloodstone, res.obsidian, res.sunstone, res.aquamarine)
+    else:
+        player.resources = ResourceCollection()
 
 
 def migrate_climatic_effects(game_state, save):
     """
-    Apply the night_status migrations for the game state, if required.
+    Apply the night_status migration for the game state, if required.
     :param game_state: The state of the game being loaded in.
     :param save: The loaded save data.
     """
@@ -120,7 +134,7 @@ def migrate_climatic_effects(game_state, save):
 
 def migrate_quad(quad, location: (int, int)) -> Quad:
     """
-    Apply the is_relic migration for Quads, if required.
+    Apply the is_relic, location, and resource migrations for Quads, if required.
     :param quad: The loaded quad object.
     :param location: The backup location to use for the quad if it is from an outdated save.
     :return: An optionally-migrated Quad representation.
@@ -130,12 +144,19 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
     new_quad.biome = Biome[new_quad.biome]
     new_quad.is_relic = new_quad.is_relic if hasattr(new_quad, "is_relic") else False
     new_quad.location = (new_quad.location[0], new_quad.location[1]) if hasattr(new_quad, "location") else location
+    if hasattr(new_quad, "resource") and (res := new_quad.resource):
+        # We need to convert it back to a ResourceCollection object in order to take advantage of our custom truth value
+        # testing operator.
+        new_quad.resource = ResourceCollection(res.ore, res.timber, res.magma,
+                                               res.aurora, res.bloodstone, res.obsidian, res.sunstone, res.aquamarine)
+    else:
+        new_quad.resource = None
     return new_quad
 
 
 def migrate_settlement(settlement):
     """
-    Apply the besieged migration for Settlements, if required.
+    Apply the besieged and resources migrations for Settlements, if required.
     :param settlement: The loaded settlement object.
     """
     if not hasattr(settlement, "besieged"):
@@ -147,6 +168,14 @@ def migrate_settlement(settlement):
         delattr(settlement, "under_siege_by")
     for i in range(len(settlement.quads)):
         settlement.quads[i] = migrate_quad(settlement.quads[i], (settlement.location[0], settlement.location[1]))
+    if hasattr(settlement, "resources") and (res := settlement.resources):
+        # We need to convert it back to a ResourceCollection object in order to take advantage of our custom truth value
+        # testing operator.
+        settlement.resources = \
+            ResourceCollection(res.ore, res.timber, res.magma,
+                               res.aurora, res.bloodstone, res.obsidian, res.sunstone, res.aquamarine)
+    else:
+        settlement.resources = ResourceCollection()
 
 
 def migrate_game_config(config) -> GameConfig:
@@ -162,6 +191,24 @@ def migrate_game_config(config) -> GameConfig:
         # We now delete the old attribute so that it does not pollute future saves.
         delattr(config, "player_colour")
     return config
+
+
+def migrate_game_version(game_state, save):
+    """
+    Apply the game_version migration for the game state, if required.
+    :param game_state: The state of the game being loaded in.
+    :param save: The loaded save data.
+    """
+    # If the save file is from a version of the game prior to 3.0 in which resources were introduced, remove the
+    # resource requirements for the construction of all improvements.
+    if not hasattr(save, "game_version") or save.game_version == 0.0:
+        for i in range(len(IMPROVEMENTS)):
+            IMPROVEMENTS[i].req_resources = None
+        # We need to set the game version here regardless so that if this loaded save is saved again after some
+        # turns, we can still tell that it was originally from before resources were introduced.
+        game_state.game_version = 0.0
+    else:
+        game_state.game_version = save.game_version
 
 
 def get_faction_for_colour(colour: int) -> Faction:

@@ -3,12 +3,13 @@ import random
 import typing
 
 from source.util.calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, \
-    attack_setl, investigate_relic, heal, gen_spiral_indices
+    attack_setl, investigate_relic, heal, gen_spiral_indices, get_resources_for_settlement, \
+    subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
 from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
     UnitPlan, Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction, VictoryType, DeployerUnitPlan, \
-    DeployerUnit
+    DeployerUnit, Project, ResourceCollection
 
 
 def set_blessing(player: Player, player_totals: (float, float, float, float)):
@@ -94,8 +95,8 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
     :param is_night: Whether it is night.
     """
 
-    avail_imps = get_available_improvements(player, setl)
-    avail_units = get_available_unit_plans(player, setl.level)
+    avail_imps = get_available_improvements(player, setl, strict=True)
+    avail_units = get_available_unit_plans(player, setl)
     # Note that if there are no available improvements for the given settlement, the 'ideal' construction will default
     # to the first available unit. Additionally, the first improvement is only selected if it won't reduce satisfaction.
     ideal: Improvement | UnitPlan = avail_imps[0] \
@@ -173,6 +174,10 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
         # In all other circumstances, i.e. most of the time, just construct the ideal improvement.
         else:
             setl.current_work = Construction(ideal)
+    # If the selected construction ended up being an improvement that requires resources, subtract those from the
+    # player's total.
+    if isinstance(cons := setl.current_work.construction, Improvement) and cons.req_resources:
+        subtract_player_resources_for_improvement(player, cons)
 
 
 def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
@@ -197,8 +202,8 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
             return 5
         return 10
 
-    avail_imps = get_available_improvements(player, setl)
-    avail_units = get_available_unit_plans(player, setl.level)
+    avail_imps = get_available_improvements(player, setl, strict=True)
+    avail_units = get_available_unit_plans(player, setl)
     settler_units = [settler for settler in avail_units if settler.can_settle]
     healer_units = [healer for healer in avail_units if healer.heals]
     deployer_units = [deployer for deployer in avail_units if isinstance(deployer, DeployerUnitPlan)]
@@ -338,6 +343,10 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
                 # Neutral AIs will always choose the 'ideal' construction.
                 case _:
                     setl.current_work = Construction(ideal)
+    # If the selected construction ended up being an improvement that requires resources, subtract those from the AI
+    # player's total.
+    if isinstance(cons := setl.current_work.construction, Improvement) and cons.req_resources:
+        subtract_player_resources_for_improvement(player, cons)
 
 
 def search_for_relics_or_move(unit: Unit,
@@ -495,15 +504,16 @@ class MoveMaker:
             if setl.current_work is None:
                 set_ai_construction(player, setl, is_night, other_player_vics)
             elif player.faction is not Faction.FUNDAMENTALISTS:
-                constr = setl.current_work.construction
+                cons = setl.current_work.construction
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out. In
                 # circumstances where the settlement's satisfaction is less than 50 and the construction would yield
                 # harvest or satisfaction, buy it out as soon as the AI is able to afford it. Fundamentalist AIs are
                 # exempt from this, as they cannot buy out constructions.
-                if (constr.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or \
-                        (setl.satisfaction < 50 and player.wealth >= constr.cost and isinstance(constr, Improvement) and
-                         (constr.effect.satisfaction > 0 or constr.effect.harvest > 0)):
-                    player.wealth -= constr.cost - setl.current_work.zeal_consumed
+                if not isinstance(cons, Project) and \
+                        ((cons.cost - setl.current_work.zeal_consumed) < player.wealth / 3 or
+                         (setl.satisfaction < 50 and player.wealth >= cons.cost and isinstance(cons, Improvement) and
+                          (cons.effect.satisfaction > 0 or cons.effect.harvest > 0))):
+                    player.wealth -= cons.cost - setl.current_work.zeal_consumed
                     complete_construction(setl, player)
             # If the settlement has a settler, deploy them.
             if len(settlers := [unit for unit in setl.garrison if unit.plan.can_settle]) > 0:
@@ -555,9 +565,9 @@ class MoveMaker:
     def move_settler_unit(self, unit: Unit, player: Player, other_units: typing.List[Unit],
                           all_setls: typing.List[Settlement]):
         """
-        Randomly move the given settler until it is far enough away from any of the player's other settlements, ensuring
-        that it does not collide with any other units or settlements. Once this has been achieved, found a new
-        settlement and destroy the unit.
+        Randomly move the given settler until it is both far enough away from any of the player's other settlements and
+        next to one or more core resources, ensuring that it does not collide with any other units or settlements. Once
+        this has been achieved, found a new settlement and destroy the unit.
         :param unit: The settler unit.
         :param player: The player owner of the settler unit.
         :param other_units: The other units in the game. Used to make sure no unit collisions occur.
@@ -577,21 +587,32 @@ class MoveMaker:
                 found_valid_loc = True
                 unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
-        far_enough = True
+        should_settle = True
         for setl in player.settlements:
             dist = max(abs(unit.location[0] - setl.location[0]), abs(unit.location[1] - setl.location[1]))
             if dist < 10:
-                far_enough = False
-        if far_enough:
-            quad_biome = self.board_ref.quads[unit.location[1]][unit.location[0]].biome
+                should_settle = False
+        prospective_quad: Quad = self.board_ref.quads[unit.location[1]][unit.location[0]]
+        prospective_resources: ResourceCollection = \
+            get_resources_for_settlement([prospective_quad.location], self.board_ref.quads)
+        # We make sure that AI settler units only settle next to core resources so that they don't end up in a situation
+        # where they are missing the necessary core resources to construct improvements, and as a result, are unable to
+        # effectively compete with the human player to win the game.
+        if not prospective_resources.ore and not prospective_resources.timber and not prospective_resources.magma:
+            should_settle = False
+        if should_settle:
+            quad_biome = prospective_quad.biome
             setl_name = self.namer.get_settlement_name(quad_biome)
-            new_settl = Settlement(setl_name, unit.location, [],
-                                   [self.board_ref.quads[unit.location[1]][unit.location[0]]], [])
+            setl_resources = get_resources_for_settlement([unit.location], self.board_ref.quads)
+            new_settl = Settlement(setl_name, unit.location, [], [prospective_quad], setl_resources, [])
             if player.faction is Faction.FRONTIERSMEN:
                 new_settl.satisfaction = 75
             elif player.faction is Faction.IMPERIALS:
                 new_settl.strength /= 2
                 new_settl.max_strength /= 2
+            if new_settl.resources.obsidian:
+                new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
+                new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
             player.settlements.append(new_settl)
             player.units.remove(unit)
 

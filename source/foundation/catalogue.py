@@ -7,7 +7,8 @@ import pyxel
 from source.foundation import achievements
 from source.foundation.models import FactionDetail, Player, Improvement, ImprovementType, Effect, Blessing, \
     Settlement, UnitPlan, Unit, Biome, Heathen, Faction, Project, ProjectType, VictoryType, DeployerUnitPlan, \
-    Achievement, HarvestStatus, EconomicStatus
+    Achievement, HarvestStatus, EconomicStatus, ResourceCollection
+from source.util.calculator import player_has_resources_for_improvement
 
 # The list of settlement names, for each biome.
 SETL_NAMES = {
@@ -198,21 +199,24 @@ BLESSINGS = {
 # The list of improvements that can be built.
 IMPROVEMENTS = [
     Improvement(ImprovementType.MAGICAL, 30, "Melting Pot", "A starting pot to conduct concoctions.",
-                Effect(fortune=5, satisfaction=2), None),
+                Effect(fortune=5, satisfaction=2), None, req_resources=ResourceCollection(magma=5)),
     Improvement(ImprovementType.MAGICAL, 180, "Haunted Forest", "The branches shake, yet there's no wind.",
                 Effect(harvest=1, fortune=8, satisfaction=-5), BLESSINGS["beg_spl"]),
     Improvement(ImprovementType.MAGICAL, 180, "Occult Bartering", "Dealing with both dead and alive.",
                 Effect(wealth=1, fortune=8, satisfaction=-1), BLESSINGS["adv_trd"]),
     Improvement(ImprovementType.MAGICAL, 1080, "Ancient Shrine", "Some say it emanates an invigorating aura.",
-                Effect(wealth=2, zeal=-2, fortune=20, satisfaction=10), BLESSINGS["div_arc"]),
+                Effect(wealth=2, zeal=-2, fortune=20, satisfaction=10), BLESSINGS["div_arc"],
+                req_resources=ResourceCollection(timber=20)),
     Improvement(ImprovementType.MAGICAL, 1080, "Dimensional imagery", "See into another world.",
                 Effect(fortune=25, satisfaction=2), BLESSINGS["apr_ref"]),
     Improvement(ImprovementType.MAGICAL, 1080, "Fortune Distillery", "Straight from the mouth.",
-                Effect(zeal=-2, fortune=25, strength=-10, satisfaction=5), BLESSINGS["inh_luc"]),
+                Effect(zeal=-2, fortune=25, strength=-10, satisfaction=5), BLESSINGS["inh_luc"],
+                req_resources=ResourceCollection(ore=20)),
     Improvement(ImprovementType.INDUSTRIAL, 30, "Local Forge", "Just a mum-and-dad-type operation.",
-                Effect(wealth=2, zeal=5), None),
+                Effect(wealth=2, zeal=5), None, req_resources=ResourceCollection(ore=5)),
     Improvement(ImprovementType.INDUSTRIAL, 180, "Weapons Factory", "Made to kill outsiders. Mostly.",
-                Effect(wealth=2, zeal=5, strength=25, satisfaction=-2), BLESSINGS["rud_exp"]),
+                Effect(wealth=2, zeal=5, strength=25, satisfaction=-2), BLESSINGS["rud_exp"],
+                req_resources=ResourceCollection(ore=10)),
     Improvement(ImprovementType.INDUSTRIAL, 180, "Enslaved Workforce", "Gets the job done.",
                 Effect(wealth=2, harvest=-1, zeal=6, fortune=-2, satisfaction=-5), BLESSINGS["tor_tec"]),
     Improvement(ImprovementType.INDUSTRIAL, 1080, "Automated Production", "In and out, no fuss.",
@@ -220,7 +224,8 @@ IMPROVEMENTS = [
     Improvement(ImprovementType.INDUSTRIAL, 1080, "Lab-grown Workers", "Human or not, they work the same.",
                 Effect(wealth=3, harvest=-2, zeal=30, fortune=-5, strength=2, satisfaction=-10), BLESSINGS["art_pht"]),
     Improvement(ImprovementType.INDUSTRIAL, 1080, "Endless Mine", "Hang on, didn't I just remove that?",
-                Effect(wealth=5, zeal=25, fortune=-2), BLESSINGS["res_rep"]),
+                Effect(wealth=5, zeal=25, fortune=-2), BLESSINGS["res_rep"],
+                req_resources=ResourceCollection(timber=20)),
     Improvement(ImprovementType.ECONOMICAL, 30, "City Market", "Pockets empty, but friend or foe?",
                 Effect(wealth=5, harvest=2, zeal=2, fortune=-1, satisfaction=2), None),
     Improvement(ImprovementType.ECONOMICAL, 180, "State Bank", "You're not the first to try your luck.",
@@ -228,7 +233,8 @@ IMPROVEMENTS = [
     Improvement(ImprovementType.ECONOMICAL, 180, "Harvest Levy", "Definitely only for times of need.",
                 Effect(wealth=8, harvest=2, zeal=-1, fortune=-1, satisfaction=-2), BLESSINGS["prf_nec"]),
     Improvement(ImprovementType.ECONOMICAL, 1080, "National Mint", "Gold as far as the eye can see.",
-                Effect(wealth=30, fortune=-5, strength=10, satisfaction=5), BLESSINGS["sl_vau"]),
+                Effect(wealth=30, fortune=-5, strength=10, satisfaction=5), BLESSINGS["sl_vau"],
+                req_resources=ResourceCollection(magma=20)),
     Improvement(ImprovementType.ECONOMICAL, 1080, "Federal Museum", "Cataloguing all that was left for us.",
                 Effect(wealth=10, fortune=10, satisfaction=4), BLESSINGS["div_arc"]),
     Improvement(ImprovementType.ECONOMICAL, 1080, "Planned Economy", "Under the watchful eye.",
@@ -236,13 +242,15 @@ IMPROVEMENTS = [
     Improvement(ImprovementType.BOUNTIFUL, 30, "Collectivised Farms", "Well, the shelves will be stocked.",
                 Effect(wealth=2, harvest=10, zeal=-2, satisfaction=-2), None),
     Improvement(ImprovementType.BOUNTIFUL, 180, "Supermarket Chains", "On every street corner.",
-                Effect(harvest=8, satisfaction=2), BLESSINGS["prf_nec"]),
+                Effect(harvest=8, satisfaction=2), BLESSINGS["prf_nec"], req_resources=ResourceCollection(timber=10)),
     Improvement(ImprovementType.BOUNTIFUL, 180, "Distributed Rations", "Everyone gets their fair share.",
                 Effect(harvest=8, zeal=-1, fortune=1, satisfaction=-1), BLESSINGS["grt_goo"]),
     Improvement(ImprovementType.BOUNTIFUL, 1080, "Sunken Greenhouses", "The glass is just for show.",
-                Effect(harvest=25, zeal=-5, fortune=-2), BLESSINGS["art_pht"]),
+                Effect(harvest=25, zeal=-5, fortune=-2), BLESSINGS["art_pht"],
+                req_resources=ResourceCollection(magma=20)),
     Improvement(ImprovementType.BOUNTIFUL, 1080, "Impenetrable Stores", "Unprecedented control over stock.",
-                Effect(wealth=-1, harvest=25, strength=5, satisfaction=-5), BLESSINGS["sl_vau"]),
+                Effect(wealth=-1, harvest=25, strength=5, satisfaction=-5), BLESSINGS["sl_vau"],
+                req_resources=ResourceCollection(ore=20)),
     Improvement(ImprovementType.BOUNTIFUL, 1080, "Genetic Clinics", "Change me for the better.",
                 Effect(harvest=15, zeal=15), BLESSINGS["met_alt"]),
     Improvement(ImprovementType.INTIMIDATORY, 30, "Insurmountable Walls", "Quite the view from up here.",
@@ -260,9 +268,11 @@ IMPROVEMENTS = [
     Improvement(ImprovementType.PANDERING, 30, "Aqueduct", "Water from there to here.",
                 Effect(harvest=2, fortune=-1, satisfaction=5), None),
     Improvement(ImprovementType.PANDERING, 180, "Soup Kitchen", "No one's going hungry here.",
-                Effect(wealth=-1, zeal=2, fortune=2, satisfaction=6), BLESSINGS["grt_goo"]),
+                Effect(wealth=-1, zeal=2, fortune=2, satisfaction=6), BLESSINGS["grt_goo"],
+                req_resources=ResourceCollection(magma=10)),
     Improvement(ImprovementType.PANDERING, 180, "Puppet Shows", "Putting those spells to use.",
-                Effect(wealth=1, zeal=-1, fortune=1, satisfaction=6), BLESSINGS["beg_spl"]),
+                Effect(wealth=1, zeal=-1, fortune=1, satisfaction=6), BLESSINGS["beg_spl"],
+                req_resources=ResourceCollection(timber=10)),
     Improvement(ImprovementType.PANDERING, 1080, "Common Chief Yield", "Utopian in more ways than one.",
                 Effect(wealth=-5, harvest=2, zeal=2, fortune=2, strength=2, satisfaction=10), BLESSINGS["ref_prc"]),
     Improvement(ImprovementType.PANDERING, 1080, "Infinite Disport", "Where the robots are the stars.",
@@ -439,7 +449,18 @@ ACHIEVEMENTS: typing.List[Achievement] = [
                                   setl.location[1] == 0 or setl.location[1] == 89
                                   for setl in gs.players[0].settlements)),
     Achievement("Speed Run", "Win a 2 player game in 25 turns or less.",
-                lambda gs, _: len(gs.players) == 2 and gs.turn <= 25, post_victory=True)
+                lambda gs, _: len(gs.players) == 2 and gs.turn <= 25, post_victory=True),
+    Achievement("Mighty Miner", "Have 100 ore.",
+                lambda gs, _: gs.players[0].resources.ore >= 100),
+    Achievement("Lofty Lumberjack", "Have 100 timber.",
+                lambda gs, _: gs.players[0].resources.timber >= 100),
+    Achievement("Molten Multitude", "Have 100 magma.",
+                lambda gs, _: gs.players[0].resources.magma >= 100),
+    Achievement("The Third X", "Have a settlement with 4 or more resources.",
+                achievements.verify_the_third_x),
+    Achievement("Luxuries Abound", "Have one of each rare resource.",
+                lambda gs, _: ((res := gs.players[0].resources).aurora and
+                               res.bloodstone and res.obsidian and res.sunstone and res.aquamarine))
 ]
 
 
@@ -473,32 +494,37 @@ def get_default_unit(location: (int, int)) -> Unit:
     return Unit(UNIT_PLANS[0].max_health, UNIT_PLANS[0].total_stamina, location, True, deepcopy(UNIT_PLANS[0]))
 
 
-def get_available_improvements(player: Player, settlement: Settlement) -> typing.List[Improvement]:
+def get_available_improvements(player: Player,
+                               settlement: Settlement,
+                               strict: bool = False) -> typing.List[Improvement]:
     """
     Retrieves the available improvements for the given player's settlement.
     :param player: The owner of the given settlement.
     :param settlement: The settlement to retrieve improvements for.
+    :param strict: Whether to only include improvements that the player has the required resources for.
     :return: A list of available improvements.
     """
     # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
     if player.faction is Faction.FRONTIERSMEN and settlement.level >= 5:
         return []
     completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
-    # An improvement is available if the improvement has not been built in this settlement yet and either the player has
-    # satisfied the improvement's pre-requisite or the improvement does not have one.
+    # An improvement is available if the improvement has not been built in this settlement yet, either the player has
+    # satisfied the improvement's pre-requisite or the improvement does not have one, and either we don't care about
+    # resources for this call or the player has the required resources (if any) for the improvement.
     imps = [imp for imp in IMPROVEMENTS if (imp.prereq is None or imp.prereq.name in completed_blessing_names)
-            and imp not in settlement.improvements]
+            and imp not in settlement.improvements
+            and (not strict or (not imp.req_resources or player_has_resources_for_improvement(player, imp)))]
 
     # Sort improvements by cost.
     imps.sort(key=lambda i: i.cost)
     return imps
 
 
-def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitPlan]:
+def get_available_unit_plans(player: Player, setl: Settlement) -> typing.List[UnitPlan]:
     """
     Retrieves the available unit plans for the given player and settlement level.
     :param player: The player viewing the available units.
-    :param setl_lvl: The level of the settlement the player is viewing units in.
+    :param setl: The settlement the player is viewing units in.
     :return: A list of available units.
     """
     unit_plans = []
@@ -508,10 +534,10 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
         if unit_plan.prereq is None or unit_plan.prereq.name in completed_blessing_names:
             # Note that settlers can only be recruited in settlements of at least level 2. Additionally, users of The
             # Concentrated cannot construct settlers at all.
-            if unit_plan.can_settle and setl_lvl > 1 and player.faction is not Faction.CONCENTRATED:
+            if unit_plan.can_settle and setl.level > 1 and player.faction is not Faction.CONCENTRATED:
                 unit_plans.append(unit_plan)
             # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
-            elif not unit_plan.can_settle and not (player.faction is Faction.FRONTIERSMEN and setl_lvl >= 5):
+            elif not unit_plan.can_settle and not (player.faction is Faction.FRONTIERSMEN and setl.level >= 5):
                 unit_plans.append(unit_plan)
 
     match player.faction:
@@ -526,6 +552,11 @@ def get_available_unit_plans(player: Player, setl_lvl: int) -> typing.List[UnitP
             for unit_plan in unit_plans:
                 unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
                 unit_plan.max_health *= 0.75
+
+    if setl.resources.bloodstone:
+        for unit_plan in unit_plans:
+            unit_plan.power *= (1 + 0.5 * setl.resources.bloodstone)
+            unit_plan.max_health *= (1 + 0.5 * setl.resources.bloodstone)
 
     # Sort unit plans by cost.
     unit_plans.sort(key=lambda up: up.cost)

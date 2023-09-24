@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from source.foundation.models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, \
     Settlement, Improvement, UnitPlan, SetlAttackData, GameConfig, InvestigationResult, Faction, Project, ProjectType, \
-    HealData, DeployerUnitPlan, DeployerUnit
+    HealData, DeployerUnitPlan, DeployerUnit, ResourceCollection, Quad
 
 
 def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
@@ -173,6 +173,8 @@ def get_setl_totals(player: Player,
         total_wealth *= 1.25
     elif player.faction is Faction.ORTHODOX:
         total_wealth *= 0.75
+    if setl.resources.aurora:
+        total_wealth *= (1 + 0.5 * setl.resources.aurora)
     total_harvest = max(sum(quad.harvest for quad in setl.quads) +
                         sum(imp.effect.harvest for imp in setl.improvements), 0)
     total_harvest += (setl.level - 1) * 0.25 * total_harvest
@@ -185,7 +187,7 @@ def get_setl_totals(player: Player,
         total_harvest *= 1.5
     if player.faction is Faction.RAVENOUS:
         total_harvest *= 1.25
-    if is_night and player.faction is not Faction.NOCTURNE:
+    if is_night and player.faction is not Faction.NOCTURNE and not setl.resources.sunstone:
         total_harvest /= 2
     total_fortune = max(sum(quad.fortune for quad in setl.quads) +
                         sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 0.5)
@@ -199,6 +201,8 @@ def get_setl_totals(player: Player,
         total_fortune *= 0.75
     elif player.faction is Faction.ORTHODOX:
         total_fortune *= 1.25
+    if setl.resources.aquamarine:
+        total_fortune *= (1 + 0.5 * setl.resources.aquamarine)
 
     return total_wealth, total_harvest, total_zeal, total_fortune
 
@@ -248,6 +252,7 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
     - Permanent +5 power
     - Permanent +1 stamina
     - Unit upkeep reduced to 0 permanently
+    - 10 ore, timber, or magma
     :param player: The owner of the unit investigating the relic.
     :param unit: The unit investigating the relic.
     :param relic_loc: The location of the relic.
@@ -255,10 +260,14 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
     war is disabled.
     :return: The type of investigation result, i.e. the bonus granted, if there is one.
     """
-    random_chance = random.randint(0, 100)
+    random_chance = random.randint(0, 140)
     # Scrutineers always succeed when investigating.
-    was_successful = True if player.faction is Faction.SCRUTINEERS else random_chance < 70
+    was_successful = True if player.faction is Faction.SCRUTINEERS else random_chance < 100
     if was_successful:
+        # For players of the Scrutineers faction, we need to scale down their random value, as if it was 100 or more,
+        # then the result would always be the last investigation result.
+        if player.faction is Faction.SCRUTINEERS:
+            random_chance *= (100 / 140)
         if random_chance < 10 and player.ongoing_blessing is not None:
             player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.blessing.cost / 5
             return InvestigationResult.FORTUNE
@@ -281,8 +290,17 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
             unit.plan.total_stamina += 1
             unit.remaining_stamina = unit.plan.total_stamina
             return InvestigationResult.STAMINA
-        unit.plan.cost = 0
-        return InvestigationResult.UPKEEP
+        if random_chance < 70:
+            unit.plan.cost = 0
+            return InvestigationResult.UPKEEP
+        if random_chance < 80:
+            player.resources.ore += 10
+            return InvestigationResult.ORE
+        if random_chance < 90:
+            player.resources.timber += 10
+            return InvestigationResult.TIMBER
+        player.resources.magma += 10
+        return InvestigationResult.MAGMA
     return InvestigationResult.NONE
 
 
@@ -324,3 +342,55 @@ def gen_spiral_indices(initial_loc: (int, int)) -> typing.List[typing.Tuple[int,
         m += 1
 
     return indices
+
+
+def get_resources_for_settlement(setl_locs: typing.List[typing.Tuple[int, int]],
+                                 quads: typing.List[typing.List[Quad]]) -> ResourceCollection:
+    """
+    Determine and return the resources that a settlement with the given locations would be able to exploit.
+    :param setl_locs: The locations of the quads belonging to the settlement.
+    :param quads: The quads on the board.
+    :return: A ResourceCollection representation of the settlement's resources.
+    """
+    setl_resources: ResourceCollection = ResourceCollection()
+    # We need to keep track of the quads that we've already seen so that settlements with multiple quads don't double up
+    # resources from the same quad.
+    found_locs: typing.Set[typing.Tuple[int, int]] = set()
+    for setl_loc in setl_locs:
+        for i in range(setl_loc[0] - 1, setl_loc[0] + 2):
+            for j in range(setl_loc[1] - 1, setl_loc[1] + 2):
+                if 0 <= i <= 99 and 0 <= j <= 89:
+                    if quads[j][i].resource and (j, i) not in found_locs:
+                        setl_resources.ore += quads[j][i].resource.ore
+                        setl_resources.timber += quads[j][i].resource.timber
+                        setl_resources.magma += quads[j][i].resource.magma
+                        setl_resources.aurora += quads[j][i].resource.aurora
+                        setl_resources.bloodstone += quads[j][i].resource.bloodstone
+                        setl_resources.obsidian += quads[j][i].resource.obsidian
+                        setl_resources.sunstone += quads[j][i].resource.sunstone
+                        setl_resources.aquamarine += quads[j][i].resource.aquamarine
+                        found_locs.add((j, i))
+    return setl_resources
+
+
+def player_has_resources_for_improvement(player: Player, improvement: Improvement) -> bool:
+    """
+    Return whether the given player has the resources (if required) to construct the given improvement.
+    :param player: The player checking whether they can construct the given improvement.
+    :param improvement: The improvement being validated against the given player.
+    :return: Whether the player can construct the improvement.
+    """
+    return not improvement.req_resources or (player.resources.ore >= improvement.req_resources.ore and
+                                             player.resources.timber >= improvement.req_resources.timber and
+                                             player.resources.magma >= improvement.req_resources.magma)
+
+
+def subtract_player_resources_for_improvement(player: Player, improvement: Improvement):
+    """
+    Deduct the required resources for the given improvement from the given player's resources.
+    :param player: The player having their resources deducted.
+    :param improvement: The improvement being constructed.
+    """
+    player.resources.ore -= improvement.req_resources.ore
+    player.resources.timber -= improvement.req_resources.timber
+    player.resources.magma -= improvement.req_resources.magma

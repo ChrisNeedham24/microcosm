@@ -84,7 +84,8 @@ class GameSaveManagerTest(unittest.TestCase):
             "heathens": self.game_state.heathens,
             "turn": self.game_state.turn,
             "cfg": self.game_state.board.game_config,
-            "night_status": {"until": self.game_state.until_night, "remaining": self.game_state.nighttime_left}
+            "night_status": {"until": self.game_state.until_night, "remaining": self.game_state.nighttime_left},
+            "game_version": self.game_state.game_version
         }
 
         save_game(self.game_state, auto=True)
@@ -280,23 +281,26 @@ class GameSaveManagerTest(unittest.TestCase):
         # Note: this file needs to be updated whenever the game save format changes.
         #
         # Assumptions:
+        # - The save game is from version 3.0.
         # - There are 2 players, with the human player using The Nocturne as their faction.
         # - The human player has a populated quads_seen list, but the AI player doesn't, despite it being populated in
         #   the save file. This is because AI players have no use for them.
-        # - The human player has no deployed units, but the AI player has 1.
-        # - The AI player has a Warrior with increased power.
+        # - The human player has no deployed units, but the AI player has 2 (a Warrior with increased power and a
+        #   Settler).
         # - The human player has 2 settlements and the AI player has 1.
         # - The human player's two settlements are constructing a project and a unit, while the AI's settlement is
         #   constructing an improvement.
-        # - The human player's first settlement has four improvements, and their second has none. The AI player's
-        #   settlement also has four improvements.
-        # - Both of the human player's garrisons have a unit present, while the AI player's has none.
+        # - The human player's first settlement has two improvements, and their second has none. The AI player's
+        #   settlement also has two improvements.
+        # - The human player's first garrison has a unit present, but the second does not, while the AI player's has
+        #   none either.
         # - Both players have ongoing blessings.
-        # - The human player has completed a blessing, but the AI player has not.
+        # - The human player has completed two blessings, but the AI player has not completed any.
         # - Naturally, the human player has no AI playstyle, but the AI player does have one.
-        # - Since the game has only two players, both have the Elimination victory as imminent.
-        # - There are four heathens in the game.
-        # - The game is at turn 23, with 20 turns until nighttime.
+        # - The human player has the Elimination victory as imminent as there is only one other settlement, but the AI
+        #   player does not, since it has two opposing settlements.
+        # - There are five heathens in the game.
+        # - The game is at turn 26, with 18 turns until nighttime.
         # - The game config has everything enabled.
         #
         # The subsequent test logic is separated by assumption.
@@ -318,6 +322,8 @@ class GameSaveManagerTest(unittest.TestCase):
 
         self.game_controller.namer.reset.assert_called()
 
+        self.assertEqual(3.0, self.game_state.game_version)
+
         self.assertEqual(2, len(self.game_state.players))
         self.assertEqual(Faction.NOCTURNE, human.faction)
 
@@ -325,9 +331,11 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertFalse(ai.quads_seen)
 
         self.assertFalse(human.units)
-        self.assertEqual(1, len(ai.units))
+        self.assertEqual(2, len(ai.units))
         self.assertTrue(isinstance(ai.units[0], Unit))
         self.assertTrue(isinstance(ai.units[0].plan, UnitPlan))
+        self.assertTrue(isinstance(ai.units[1], Unit))
+        self.assertTrue(isinstance(ai.units[1].plan, UnitPlan))
 
         self.assertEqual(105, ai.units[0].plan.power)
 
@@ -339,24 +347,24 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertTrue(isinstance(human.settlements[1].current_work.construction, UnitPlan))
         self.assertTrue(isinstance(ai.settlements[0].current_work.construction, Improvement))
 
-        self.assertEqual(4, len(human.settlements[0].improvements))
+        self.assertEqual(2, len(human.settlements[0].improvements))
         self.assertFalse(human.settlements[1].improvements)
-        self.assertEqual(4, len(ai.settlements[0].improvements))
+        self.assertEqual(2, len(ai.settlements[0].improvements))
         self.assertTrue(all(isinstance(imp, Improvement) for imp in human.settlements[0].improvements))
         self.assertTrue(all(isinstance(imp, Improvement) for imp in ai.settlements[0].improvements))
 
         self.assertEqual(1, len(human.settlements[0].garrison))
-        self.assertEqual(1, len(human.settlements[1].garrison))
+        self.assertFalse(human.settlements[1].garrison)
         self.assertFalse(ai.settlements[0].garrison)
         self.assertTrue(isinstance(human.settlements[0].garrison[0], Unit))
-        self.assertTrue(isinstance(human.settlements[1].garrison[0], Unit))
 
         self.assertTrue(isinstance(human.ongoing_blessing.blessing, Blessing))
         self.assertTrue(isinstance(ai.ongoing_blessing.blessing, Blessing))
 
-        self.assertEqual(1, len(human.blessings))
+        self.assertEqual(2, len(human.blessings))
         self.assertFalse(ai.blessings)
         self.assertTrue(isinstance(human.blessings[0], Blessing))
+        self.assertTrue(isinstance(human.blessings[1], Blessing))
 
         self.assertIsNone(human.ai_playstyle)
         self.assertTrue(isinstance(ai.ai_playstyle, AIPlaystyle))
@@ -364,14 +372,14 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertTrue(isinstance(ai.ai_playstyle.expansion, ExpansionPlaystyle))
 
         self.assertEqual(1, len(human.imminent_victories))
-        self.assertEqual(1, len(ai.imminent_victories))
+        self.assertFalse(len(ai.imminent_victories))
 
-        self.assertEqual(4, len(self.game_state.heathens))
+        self.assertEqual(5, len(self.game_state.heathens))
         self.assertTrue(all(isinstance(heathen, Heathen) for heathen in self.game_state.heathens))
         self.assertTrue(all(isinstance(heathen.plan, UnitPlan) for heathen in self.game_state.heathens))
 
-        self.assertEqual(23, self.game_state.turn)
-        self.assertEqual(20, self.game_state.until_night)
+        self.assertEqual(26, self.game_state.turn)
+        self.assertEqual(18, self.game_state.until_night)
         self.assertFalse(self.game_state.nighttime_left)
 
         mouse_mock.assert_called_with(visible=True)
@@ -388,6 +396,7 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertTupleEqual((self.game_state.players[0].settlements[0].location[0] - 12,
                                self.game_state.players[0].settlements[0].location[1] - 11), self.game_state.map_pos)
         self.assertEqual(self.game_state.players[0], self.game_state.board.overlay.current_player)
+        self.assertEqual(3, self.game_state.board.overlay.total_settlement_count)
         self.game_controller.music_player.stop_menu_music.assert_called()
         self.game_controller.music_player.play_game_music.assert_called()
 

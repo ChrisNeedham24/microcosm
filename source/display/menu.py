@@ -44,6 +44,7 @@ class WikiOption(Enum):
     """
     VICTORIES = "VIC"
     FACTIONS = "FAC"
+    RESOURCES = "RES"
     CLIMATE = "CLIM"
     BLESSINGS = "BLS"
     IMPROVEMENTS = "IMP"
@@ -106,6 +107,7 @@ class Menu:
             [up for up in UNIT_PLANS if not up.heals and not isinstance(up, DeployerUnitPlan)]
         self.viewing_achievements = False
         self.achievements_boundaries = 0, 3
+        self.showing_rare_resources = False
 
     def draw(self):
         """
@@ -325,6 +327,60 @@ class Menu:
                     pyxel.text(25, 150, faction_detail.debuff, pyxel.COLOR_RED)
                     pyxel.text(25, 170, faction_detail.rec_victory_type,
                                VICTORY_TYPE_COLOURS[faction_detail.rec_victory_type])
+                case WikiOption.RESOURCES:
+                    pyxel.load("resources/quads.pyxres")
+                    pyxel.rectb(20, 10, 160, 184, pyxel.COLOR_WHITE)
+                    pyxel.rect(21, 11, 158, 182, pyxel.COLOR_BLACK)
+                    pyxel.text(83, 15, "Resources", pyxel.COLOR_WHITE)
+
+                    if not self.showing_rare_resources:
+                        draw_paragraph(28, 25,
+                                       "Core resources are used to construct select improvements requiring resources.",
+                                       36)
+                        pyxel.line(24, 45, 175, 45, pyxel.COLOR_GRAY)
+                        pyxel.text(28, 55, "Ore", pyxel.COLOR_GRAY)
+                        draw_paragraph(28, 65, "Ore is used to construct improvements of size and strength.", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 65 + (i // 4) * 9, 0, i * 8, 28, 8, 8)
+                        pyxel.text(28, 90, "Timber", pyxel.COLOR_BROWN)
+                        draw_paragraph(28, 100, "Timber is used to construct improvements requiring lumber.", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 100 + (i // 4) * 9, 0, i * 8, 36, 8, 8)
+                        pyxel.text(28, 125, "Magma", pyxel.COLOR_RED)
+                        draw_paragraph(28, 135,
+                                       "Magma is used to construct improvements requiring melting or heating.", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 135 + (i // 4) * 9, 0, i * 8, 44, 8, 8)
+                        pyxel.text(150, 180, "Rare ->", pyxel.COLOR_YELLOW)
+                    else:
+                        draw_paragraph(28, 25,
+                                       "Rare resources apply special effects to settlements within one quad.",
+                                       36)
+                        pyxel.line(24, 40, 175, 40, pyxel.COLOR_GRAY)
+                        pyxel.text(28, 45, "Aurora", pyxel.COLOR_YELLOW)
+                        draw_paragraph(28, 51, "Adds a wealth bonus of 50% per exploitation.", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 46 + (i // 4) * 9, 0, i * 8, 52, 8, 8)
+                        pyxel.text(28, 65, "Bloodstone", pyxel.COLOR_RED)
+                        draw_paragraph(28, 71, "Produced units gain 50% health/power per exploitation.", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 70 + (i // 4) * 9, 0, i * 8, 60, 8, 8)
+                        pyxel.text(28, 91, "Obsidian", pyxel.COLOR_GRAY)
+                        draw_paragraph(28, 97, "Adds a strength bonus of 50% per exploitation.", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 93 + (i // 4) * 9, 0, i * 8, 68, 8, 8)
+                        pyxel.text(28, 111, "Sunstone", pyxel.COLOR_ORANGE)
+                        draw_paragraph(28, 117, """At nighttime, adds a vision bonus per exploitation, removes harvest
+                        effect, and protects from heathens.""", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 120 + (i // 4) * 9, 0, i * 8, 76, 8, 8)
+                        pyxel.text(28, 149, "Aquamarine", pyxel.COLOR_LIGHT_BLUE)
+                        draw_paragraph(28, 155, "Adds a fortune bonus of 50% per exploitation.", 25)
+                        for i in range(8):
+                            pyxel.blt(135 + i * 9 - (i // 4) * 36, 150 + (i // 4) * 9, 0, i * 8, 84, 8, 8)
+                        pyxel.text(25, 180, "<- Core", pyxel.COLOR_GRAY)
+
+                    pyxel.text(58, 180, "Press SPACE to go back", pyxel.COLOR_WHITE)
                 case WikiOption.CLIMATE:
                     pyxel.load("resources/sprites.pyxres")
                     pyxel.rectb(20, 10, 160, 164, pyxel.COLOR_WHITE)
@@ -398,13 +454,22 @@ class Menu:
                     pyxel.rect(11, 21, 178, 152, pyxel.COLOR_BLACK)
                     pyxel.text(78, 30, "Improvements", pyxel.COLOR_ORANGE)
                     pyxel.text(20, 40, "Name", pyxel.COLOR_WHITE)
-                    pyxel.text(155, 40, "Cost", pyxel.COLOR_WHITE)
-                    pyxel.blt(173, 39, 0, 16, 44, 8, 8)
+                    pyxel.text(125, 40, "Cost", pyxel.COLOR_WHITE)
+                    pyxel.blt(143, 39, 0, 16, 44, 8, 8)
+                    pyxel.blt(152, 39, 0, 0, 132, 8, 8)
                     for idx, imp in enumerate(IMPROVEMENTS):
                         if self.improvement_boundaries[0] <= idx <= self.improvement_boundaries[1]:
                             adj_offset = (idx - self.improvement_boundaries[0]) * 25
                             pyxel.text(20, 50 + adj_offset, str(imp.name), pyxel.COLOR_WHITE)
-                            pyxel.text(160, 50 + adj_offset, str(imp.cost), pyxel.COLOR_WHITE)
+                            cost_str: str = str(imp.cost)
+                            if res := imp.req_resources:
+                                if res.ore:
+                                    cost_str += f", {res.ore} ore"
+                                if res.timber:
+                                    cost_str += f", {res.timber} timber"
+                                if res.magma:
+                                    cost_str += f", {res.magma} magma"
+                            pyxel.text(125, 50 + adj_offset, cost_str, pyxel.COLOR_WHITE)
                             pyxel.text(20, 57 + adj_offset, str(imp.description), pyxel.COLOR_WHITE)
                             effects = 0
                             if (wealth := imp.effect.wealth) != 0:
@@ -492,17 +557,18 @@ class Menu:
                                        pyxel.COLOR_WHITE)
                             pyxel.text(132, 50 + adj_idx * 10, str(unit.total_stamina), pyxel.COLOR_WHITE)
                 case _:
-                    pyxel.rectb(60, 45, 80, 110, pyxel.COLOR_WHITE)
-                    pyxel.rect(61, 46, 78, 108, pyxel.COLOR_BLACK)
-                    pyxel.text(92, 50, "Wiki", pyxel.COLOR_WHITE)
-                    pyxel.text(82, 65, "Victories", self.get_option_colour(WikiOption.VICTORIES))
-                    pyxel.text(85, 75, "Factions", self.get_option_colour(WikiOption.FACTIONS))
-                    pyxel.text(86, 85, "Climate", self.get_option_colour(WikiOption.CLIMATE))
-                    pyxel.text(82, 95, "Blessings", self.get_option_colour(WikiOption.BLESSINGS))
-                    pyxel.text(78, 105, "Improvements", self.get_option_colour(WikiOption.IMPROVEMENTS))
-                    pyxel.text(84, 115, "Projects", self.get_option_colour(WikiOption.PROJECTS))
-                    pyxel.text(90, 125, "Units", self.get_option_colour(WikiOption.UNITS))
-                    pyxel.text(92, 145, "Back", self.get_option_colour(WikiOption.BACK))
+                    pyxel.rectb(60, 40, 80, 120, pyxel.COLOR_WHITE)
+                    pyxel.rect(61, 41, 78, 118, pyxel.COLOR_BLACK)
+                    pyxel.text(92, 45, "Wiki", pyxel.COLOR_WHITE)
+                    pyxel.text(82, 60, "Victories", self.get_option_colour(WikiOption.VICTORIES))
+                    pyxel.text(85, 70, "Factions", self.get_option_colour(WikiOption.FACTIONS))
+                    pyxel.text(83, 80, "Resources", self.get_option_colour(WikiOption.RESOURCES))
+                    pyxel.text(86, 90, "Climate", self.get_option_colour(WikiOption.CLIMATE))
+                    pyxel.text(82, 100, "Blessings", self.get_option_colour(WikiOption.BLESSINGS))
+                    pyxel.text(78, 110, "Improvements", self.get_option_colour(WikiOption.IMPROVEMENTS))
+                    pyxel.text(84, 120, "Projects", self.get_option_colour(WikiOption.PROJECTS))
+                    pyxel.text(90, 130, "Units", self.get_option_colour(WikiOption.UNITS))
+                    pyxel.text(92, 150, "Back", self.get_option_colour(WikiOption.BACK))
         elif self.viewing_stats:
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
@@ -553,6 +619,7 @@ class Menu:
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
             pyxel.text(77, 25, "Achievements", pyxel.COLOR_WHITE)
+            pyxel.text(155, 25, f"{len(self.player_stats.achievements)}/{len(ACHIEVEMENTS)}", pyxel.COLOR_WHITE)
 
             for idx, ach in enumerate(ACHIEVEMENTS):
                 if self.achievements_boundaries[0] <= idx <= self.achievements_boundaries[1]:
@@ -666,6 +733,8 @@ class Menu:
                 self.previous_menu_option(self.victory_type)
             elif self.in_wiki and self.wiki_showing is WikiOption.FACTIONS and self.faction_wiki_idx != 0:
                 self.faction_wiki_idx -= 1
+            elif self.in_wiki and self.wiki_showing is WikiOption.RESOURCES:
+                self.showing_rare_resources = False
             elif self.in_wiki and self.wiki_showing is WikiOption.CLIMATE:
                 self.showing_night = False
             elif self.in_wiki and self.wiki_showing is WikiOption.UNITS:
@@ -696,6 +765,8 @@ class Menu:
             elif self.in_wiki and self.wiki_showing is WikiOption.FACTIONS and \
                     self.faction_wiki_idx != len(self.faction_colours) - 1:
                 self.faction_wiki_idx += 1
+            elif self.in_wiki and self.wiki_showing is WikiOption.RESOURCES:
+                self.showing_rare_resources = True
             elif self.in_wiki and self.wiki_showing is WikiOption.CLIMATE:
                 self.showing_night = True
             elif self.in_wiki and self.wiki_showing is WikiOption.UNITS:

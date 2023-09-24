@@ -20,7 +20,7 @@ if typing.TYPE_CHECKING:
     from source.game_management.game_state import GameState
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
 from source.saving.save_migrator import migrate_unit, migrate_player, migrate_climatic_effects, \
-    migrate_quad, migrate_settlement, migrate_game_config
+    migrate_quad, migrate_settlement, migrate_game_config, migrate_game_version
 from source.util.calculator import clamp
 
 # The prefix attached to save files created by the autosave feature.
@@ -61,7 +61,8 @@ def save_game(game_state, auto: bool = False):
             "heathens": game_state.heathens,
             "turn": game_state.turn,
             "cfg": game_state.board.game_config,
-            "night_status": {"until": game_state.until_night, "remaining": game_state.nighttime_left}
+            "night_status": {"until": game_state.until_night, "remaining": game_state.nighttime_left},
+            "game_version": game_state.game_version
         }
         # Note that we use the SaveEncoder here for custom encoding for some classes.
         save_file.write(json.dumps(save, cls=SaveEncoder))
@@ -206,6 +207,7 @@ def load_game(game_state, game_controller: GameController):
             for i in range(90):
                 for j in range(100):
                     quads[i][j] = migrate_quad(save.quads[i * 100 + j], (j, i))
+            migrate_game_version(game_state, save)
             game_state.players = save.players
             # The list of tuples that is quads_seen needs special loading, as do a few other of the same type,
             # because tuples do not exist in JSON, so they are represented as arrays, which will clearly not work.
@@ -272,6 +274,7 @@ def load_game(game_state, game_controller: GameController):
         game_state.map_pos = (clamp(game_state.players[0].settlements[0].location[0] - 12, -1, 77),
                               clamp(game_state.players[0].settlements[0].location[1] - 11, -1, 69))
         game_state.board.overlay.current_player = game_state.players[0]
+        game_state.board.overlay.total_settlement_count = sum(len(p.settlements) for p in game_state.players)
         game_controller.music_player.stop_menu_music()
         game_controller.music_player.play_game_music()
     except (JSONDecodeError, AttributeError, KeyError, StopIteration, ValueError):

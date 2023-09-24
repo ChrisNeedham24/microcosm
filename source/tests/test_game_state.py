@@ -6,7 +6,7 @@ from source.display.board import Board
 from source.foundation.catalogue import Namer, UNIT_PLANS, get_heathen_plan, IMPROVEMENTS, BLESSINGS, ACHIEVEMENTS
 from source.foundation.models import GameConfig, Faction, Player, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
     Unit, Heathen, Settlement, Victory, VictoryType, Construction, OngoingBlessing, EconomicStatus, UnitPlan, \
-    HarvestStatus, Quad, Biome, CompletedConstruction
+    HarvestStatus, Quad, Biome, CompletedConstruction, ResourceCollection
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
 
@@ -28,8 +28,8 @@ class GameStateTest(unittest.TestCase):
         self.TEST_UNIT = Unit(1, 2, (3, 4), False, self.TEST_UNIT_PLAN)
         self.TEST_UNIT_2 = Unit(5, 6, (7, 8), True, self.TEST_UNIT_PLAN_2)
         self.TEST_HEATHEN = Heathen(40, 6, (3, 3), get_heathen_plan(1))
-        self.TEST_SETTLEMENT = Settlement("Numero Uno", (0, 0), [], [], [self.TEST_UNIT_2])
-        self.TEST_SETTLEMENT_2 = Settlement("Numero Duo", (1, 1), [], [], [])
+        self.TEST_SETTLEMENT = Settlement("Numero Uno", (0, 0), [], [], ResourceCollection(), [self.TEST_UNIT_2])
+        self.TEST_SETTLEMENT_2 = Settlement("Numero Duo", (1, 1), [], [], ResourceCollection(), [])
 
         self.game_state = GameState()
         self.game_state.players = [
@@ -122,11 +122,11 @@ class GameStateTest(unittest.TestCase):
         Ensure that the harvest and economic statuses of settlements with varying levels of satisfaction are updated
         correctly at the end of a turn.
         """
-        test_setl_real_bad = Settlement("Real Bad", (60, 60), [], [], [], satisfaction=19)
-        test_setl_bad = Settlement("Bad", (61, 61), [], [], [], satisfaction=39)
-        test_setl_okay = Settlement("Okay", (62, 62), [], [], [], satisfaction=59)
-        test_setl_good = Settlement("Good", (63, 63), [], [], [], satisfaction=79)
-        test_setl_real_good = Settlement("Real Good", (64, 64), [], [], [], satisfaction=99)
+        test_setl_real_bad = Settlement("Real Bad", (60, 60), [], [], ResourceCollection(), [], satisfaction=19)
+        test_setl_bad = Settlement("Bad", (61, 61), [], [], ResourceCollection(), [], satisfaction=39)
+        test_setl_okay = Settlement("Okay", (62, 62), [], [], ResourceCollection(), [], satisfaction=59)
+        test_setl_good = Settlement("Good", (63, 63), [], [], ResourceCollection(), [], satisfaction=79)
+        test_setl_real_good = Settlement("Real Good", (64, 64), [], [], ResourceCollection(), [], satisfaction=99)
         self.game_state.players[0].settlements = \
             [test_setl_real_bad, test_setl_bad, test_setl_okay, test_setl_good, test_setl_real_good]
 
@@ -183,17 +183,17 @@ class GameStateTest(unittest.TestCase):
         at the end of a turn.
         """
         # The first settlement is currently under active siege.
-        besieged_settlement = Settlement("Under Siege", (10, 20), [], [Quad(Biome.FOREST, 0, 0, 0, 0, (10, 20))], [],
-                                         besieged=True)
+        besieged_settlement = Settlement("Under Siege", (10, 20), [], [Quad(Biome.FOREST, 0, 0, 0, 0, (10, 20))],
+                                         ResourceCollection(), [], besieged=True)
         # The second settlement was under siege, but now there are no units surrounding it.
-        previously_besieged_settlement = Settlement("Previously", (30, 40), [],
-                                                    [Quad(Biome.SEA, 0, 0, 0, 0, (30, 40))], [], besieged=True)
+        previously_besieged_settlement = Settlement("Previously", (30, 40), [], [Quad(Biome.SEA, 0, 0, 0, 0, (30, 40))],
+                                                    ResourceCollection(), [], besieged=True)
         # The third settlement was under siege some time ago, and is now recovering its strength.
-        recovering_settlement = Settlement("Recovering", (50, 60), [], [Quad(Biome.MOUNTAIN, 0, 0, 0, 0, (50, 60))], [],
-                                           besieged=False, strength=50)
+        recovering_settlement = Settlement("Recovering", (50, 60), [], [Quad(Biome.MOUNTAIN, 0, 0, 0, 0, (50, 60))],
+                                           ResourceCollection(), [], besieged=False, strength=50)
         # The last settlement is under siege, but it has just killed the last unit surrounding it.
-        killed_all_settlement = Settlement("Killed All", (70, 80), [], [Quad(Biome.DESERT, 0, 0, 0, 0, (70, 80))], [],
-                                           besieged=True)
+        killed_all_settlement = Settlement("Killed All", (70, 80), [], [Quad(Biome.DESERT, 0, 0, 0, 0, (70, 80))],
+                                           ResourceCollection(), [], besieged=True)
         self.game_state.players[0].units = []
         # Place TEST_UNIT next to the first settlement.
         self.TEST_UNIT.location = 11, 20
@@ -313,12 +313,19 @@ class GameStateTest(unittest.TestCase):
         """
         self.game_state.board.overlay.toggle_level_up_notification = MagicMock()
         harvest_amount = 30
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.FOREST, harvest=harvest_amount, wealth=0, zeal=0, fortune=0,
-                                           location=self.TEST_SETTLEMENT.location)]
+        self.TEST_SETTLEMENT.quads = \
+            [self.game_state.board.quads[self.TEST_SETTLEMENT.location[1]][self.TEST_SETTLEMENT.location[0]]]
+        self.TEST_SETTLEMENT.quads[0].harvest = harvest_amount
+        # Rather than somehow guaranteeing that the new quad that the settlement gets has a resource, we can instead
+        # verify that the settlement's resources are updated by giving the quad that the settlement occupies a resource,
+        # but not updating the settlement's resources themselves. Of course, this is an impossible scenario, but it
+        # serves a purpose for this test.
+        self.TEST_SETTLEMENT.quads[0].resource = ResourceCollection(ore=1)
         self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
         self.game_state.players[0].ai_playstyle = None
         self.game_state.players[0].faction = Faction.CONCENTRATED
 
+        self.assertFalse(self.TEST_SETTLEMENT.resources)
         self.assertFalse(self.game_state.players[0].quads_seen)
 
         self.game_state.process_player(self.game_state.players[0])
@@ -328,6 +335,9 @@ class GameStateTest(unittest.TestCase):
         self.assertEqual(2, self.TEST_SETTLEMENT.level)
         # Since the player is of The Concentrated faction, the level up should also grant the settlement a new quad.
         self.assertEqual(2, len(self.TEST_SETTLEMENT.quads))
+        # We expect the test settlement to now have at least one resource. Note that we test for 'at least one' because
+        # technically the random quad expanded to could also result in an ore resource being added.
+        self.assertTrue(self.TEST_SETTLEMENT.resources.ore)
         # Additionally, the seen quads list for the player should be updated to include the new quad in the radius.
         # Vision is granted five steps vertically and horizontally from the new quad's location, making for an 11x11
         # square.
@@ -402,6 +412,27 @@ class GameStateTest(unittest.TestCase):
         self.assertEqual(0.9 * self.TEST_UNIT.plan.cost, self.game_state.players[0].wealth)
         # However, we do not include auto-sold units in accumulated wealth.
         self.assertEqual(-0.1 * self.TEST_UNIT.plan.cost, self.game_state.players[0].accumulated_wealth)
+
+    def test_process_player_resources(self):
+        """
+        Ensure that the player's core resources accumulate and their rare resources reset on processing.
+        """
+        test_settlement = Settlement("Resourceful", (60, 70), [], [],
+                                     ResourceCollection(ore=1, timber=2, magma=3,
+                                                        aurora=1, bloodstone=1, obsidian=1, sunstone=1, aquamarine=1),
+                                     [])
+        self.game_state.players[0].settlements = [test_settlement]
+        # In order to verify that the player's rare resources are reset on processing, we simulate that they had another
+        # magical settlement with one of each rare resource last turn, which has now been sacked.
+        self.game_state.players[0].resources =\
+            ResourceCollection(ore=0, timber=0, magma=0, aurora=2, bloodstone=2, obsidian=2, sunstone=2, aquamarine=2)
+
+        self.game_state.process_player(self.game_state.players[0])
+
+        # The player's core resources should have accumulated, and their rare resources should have reset.
+        self.assertEqual(ResourceCollection(ore=1, timber=2, magma=3,
+                                            aurora=1, bloodstone=1, obsidian=1, sunstone=1, aquamarine=1),
+                         self.game_state.players[0].resources)
 
     def test_process_climatic_effects_daytime_continue(self):
         """
@@ -763,13 +794,16 @@ class GameStateTest(unittest.TestCase):
         self.game_state.players[0].settlements = [self.TEST_SETTLEMENT] * 5
         # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
         # victory.
-        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2]
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2] * 2
         # If the settlement's satisfaction was at 100, this 24 would be incremented to 25 and the victory triggered.
         self.game_state.players[0].jubilation_ctr = 24
+        self.game_state.players[0].imminent_victories = {VictoryType.JUBILATION}
 
-        # As such, no victory should have been achieved, and the counter should have been reset for the relevant player.
+        # As such, no victory should have been achieved, and the counter and imminent victory should have been reset for
+        # the relevant player.
         self.assertIsNone(self.game_state.check_for_victory())
         self.assertFalse(self.game_state.players[0].jubilation_ctr)
+        self.assertFalse(self.game_state.players[0].imminent_victories)
 
     def test_check_for_victory_settler_preventing_elimination(self):
         """
@@ -796,6 +830,22 @@ class GameStateTest(unittest.TestCase):
         self.assertTrue(self.game_state.players[2].eliminated)
         self.assertTrue(self.game_state.players[3].eliminated)
         self.assertEqual(2, self.game_state.board.overlay.toggle_elimination.call_count)
+
+    def test_check_for_victory_removal(self):
+        """
+        Ensure that players who were once close to a victory, but are now no longer, have the imminent victory removed.
+        """
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
+        # victory.
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2] * 2
+        # Simulate a situation in which the player had all four of the imminent victories that can become no longer
+        # imminent.
+        self.game_state.players[0].imminent_victories = \
+            {VictoryType.ELIMINATION, VictoryType.VIGOUR, VictoryType.JUBILATION, VictoryType.GLUTTONY}
+        # No victory should have been achieved, and all four imminent victories should have been removed.
+        self.assertIsNone(self.game_state.check_for_victory())
+        self.assertFalse(self.game_state.players[0].imminent_victories)
 
     def test_process_heathens_infidel(self):
         """
@@ -896,24 +946,56 @@ class GameStateTest(unittest.TestCase):
         # Because the heathen was killed, the game state should no longer have any heathens.
         self.assertFalse(self.game_state.heathens)
 
-    def test_initialise_ais(self):
+    def test_process_heathens_sunstone(self):
+        """
+        Ensure that when a settlement has sunstone at nighttime, any heathens that cannot escape the effect perish.
+        """
+        self.game_state.nighttime_left = 1
+        self.TEST_SETTLEMENT.location = 40, 40
+        self.TEST_SETTLEMENT.quads = [self.game_state.board.quads[40][40]]
+        # By giving the settlement two sunstone, six quads in all four directions are inhospitable for heathens.
+        self.TEST_SETTLEMENT.resources = ResourceCollection(sunstone=2)
+        self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        # By placing the heathen directly to the left of the settlement, and reducing its stamina to one, we guarantee
+        # that the heathen will not be able to escape.
+        self.TEST_HEATHEN.location = self.TEST_SETTLEMENT.location[0] - 1, self.TEST_SETTLEMENT.location[1]
+        self.TEST_HEATHEN.remaining_stamina = 1
+        self.game_state.process_heathens()
+        # We expect the heathen to have been removed.
+        self.assertFalse(self.game_state.heathens)
+
+    @patch("random.randint")
+    def test_initialise_ais(self, random_mock: MagicMock):
         """
         Ensure that AI players have their settlements correctly initialised.
         """
-        # To begin with, make sure that the settlements are created at all.
+        # By mocking out the random positions of the initialised AI settlements, we guarantee that the settlements will
+        # be positioned at (10, 20), (30, 40), (50, 60), and (70, 80).
+        random_mock.side_effect = [10, 20, 30, 40, 50, 60, 70, 80]
+
+        # To make things consistent, remove resources from all quads to begin with.
+        for i in range(90):
+            for j in range(100):
+                self.game_state.board.quads[i][j].resource = None
+        # However, we place one obsidian directly to the left of the first settlement, which belongs to a player
+        # belonging to a faction with no strength or satisfaction modifiers for settlements.
+        self.game_state.board.quads[20][9].resource = ResourceCollection(obsidian=1)
+
+        # Initially, make sure that the settlements are created at all.
         self.assertFalse(any(player.settlements for player in self.game_state.players))
         self.game_state.initialise_ais(self.TEST_NAMER)
         self.assertTrue(all(player.settlements for player in self.game_state.players))
 
-        # The first player is of the Infidels faction, so their settlement should have no modifiers applied.
-        self.assertEqual(100, self.game_state.players[0].settlements[0].strength)
-        self.assertEqual(100, self.game_state.players[0].settlements[0].max_strength)
+        # The first player is of the Infidels faction, so normally their settlement would have no modifiers applied.
+        # However, since their settlement has obsidian in range, we expect strength to be increased.
+        self.assertEqual(150, self.game_state.players[0].settlements[0].strength)
+        self.assertEqual(150, self.game_state.players[0].settlements[0].max_strength)
         self.assertEqual(50, self.game_state.players[0].settlements[0].satisfaction)
 
         # The second player is of the Concentrated faction, so their settlement should have double the strength.
         self.assertEqual(200, self.game_state.players[1].settlements[0].strength)
         self.assertEqual(200, self.game_state.players[1].settlements[0].max_strength)
-        self.assertEqual(50, self.game_state.players[0].settlements[0].satisfaction)
+        self.assertEqual(50, self.game_state.players[1].settlements[0].satisfaction)
 
         # The third player is of the Frontiersmen faction, so their settlement should have increased satisfaction.
         self.assertEqual(100, self.game_state.players[2].settlements[0].strength)
@@ -923,7 +1005,7 @@ class GameStateTest(unittest.TestCase):
         # The final player is of the Imperials faction, so their settlement should have half the strength.
         self.assertEqual(50, self.game_state.players[3].settlements[0].strength)
         self.assertEqual(50, self.game_state.players[3].settlements[0].max_strength)
-        self.assertEqual(50, self.game_state.players[0].settlements[0].satisfaction)
+        self.assertEqual(50, self.game_state.players[3].settlements[0].satisfaction)
 
     def test_process_ais(self):
         """

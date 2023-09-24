@@ -3,7 +3,7 @@ import typing
 
 from source.display.board import Board
 from source.saving.game_save_manager import save_stats_achievements
-from source.util.calculator import clamp, attack, get_setl_totals, complete_construction
+from source.util.calculator import clamp, attack, get_setl_totals, complete_construction, get_resources_for_settlement
 from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
 from source.foundation.models import Heathen, Quad
 from source.foundation.models import Player, Settlement, CompletedConstruction, Unit, HarvestStatus, EconomicStatus, \
@@ -36,6 +36,10 @@ class GameState:
         self.until_night: int = random.randint(10, 20)
         # Also keep track of how many turns of night are left. If this is 0, it is daytime.
         self.nighttime_left = 0
+
+        # We can hard-code the version here and update it when required. This was introduced so that saves with
+        # resources can be distinguished from those without.
+        self.game_version: float = 3.0
 
     def gen_players(self, cfg: GameConfig):
         """
@@ -200,14 +204,28 @@ class GameState:
                                     if quad_to_test not in setl.quads and quad_yield > best_quad_with_yield[1]:
                                         best_quad_with_yield = quad_to_test, quad_yield
                     setl.quads.append(best_quad_with_yield[0])
-                    # If the player playing as The Concentrated faction is the human player, updated the quads seen
-                    # list.
+                    setl.resources = \
+                        get_resources_for_settlement([quad.location for quad in setl.quads], self.board.quads)
+                    # If the player playing as The Concentrated faction is the human player, update the quads seen list.
                     if player == self.players[0]:
                         for i in range(best_quad_with_yield[0].location[1] - 5,
                                        best_quad_with_yield[0].location[1] + 6):
                             for j in range(best_quad_with_yield[0].location[0] - 5,
                                            best_quad_with_yield[0].location[0] + 6):
                                 self.players[0].quads_seen.add((j, i))
+
+            if setl.resources:
+                # Only core resources accumulate.
+                player.resources.ore += setl.resources.ore
+                player.resources.timber += setl.resources.timber
+                player.resources.magma += setl.resources.magma
+
+        # Just reset rare resources each turn - it's easier that way.
+        player.resources.aurora = sum(1 for setl in player.settlements if setl.resources.aurora)
+        player.resources.bloodstone = sum(1 for setl in player.settlements if setl.resources.bloodstone)
+        player.resources.obsidian = sum(1 for setl in player.settlements if setl.resources.obsidian)
+        player.resources.sunstone = sum(1 for setl in player.settlements if setl.resources.sunstone)
+        player.resources.aquamarine = sum(1 for setl in player.settlements if setl.resources.aquamarine)
 
         # Show notifications if the player's constructions have completed or one of their settlements has levelled
         # up.
@@ -346,12 +364,18 @@ class GameState:
             if len(p.settlements) > 0:
                 jubilated_setls = 0
                 lvl_ten_setls = 0
+                constructing_sanctum = False
                 constructed_sanctum = False
 
                 # If a player controls all settlements bar one, they are close to an ELIMINATION victory.
-                if len(p.settlements) + 1 == len(all_setls) and VictoryType.ELIMINATION not in p.imminent_victories:
-                    close_to_vics.append(Victory(p, VictoryType.ELIMINATION))
-                    p.imminent_victories.add(VictoryType.ELIMINATION)
+                if len(p.settlements) + 1 == len(all_setls):
+                    if VictoryType.ELIMINATION not in p.imminent_victories:
+                        close_to_vics.append(Victory(p, VictoryType.ELIMINATION))
+                        p.imminent_victories.add(VictoryType.ELIMINATION)
+                # However, if a new settlement has been founded in the last turn, or the player has lost one of their
+                # settlements, remove the imminent victory.
+                elif VictoryType.ELIMINATION in p.imminent_victories:
+                    p.imminent_victories.remove(VictoryType.ELIMINATION)
 
                 players_with_setls += 1
                 for s in p.settlements:
@@ -362,10 +386,16 @@ class GameState:
                     if any(imp.name == "Holy Sanctum" for imp in s.improvements):
                         constructed_sanctum = True
                     # If a player is currently constructing the Holy Sanctum, they are close to a VIGOUR victory.
-                    elif s.current_work is not None and s.current_work.construction.name == "Holy Sanctum" and \
-                            VictoryType.VIGOUR not in p.imminent_victories:
+                    elif s.current_work is not None and s.current_work.construction.name == "Holy Sanctum":
+                        constructing_sanctum = True
+                if constructing_sanctum:
+                    if VictoryType.VIGOUR not in p.imminent_victories:
                         close_to_vics.append(Victory(p, VictoryType.VIGOUR))
                         p.imminent_victories.add(VictoryType.VIGOUR)
+                # If the player is no longer constructing the Holy Sanctum in any of their settlements, remove the
+                # imminent victory.
+                elif VictoryType.VIGOUR in p.imminent_victories:
+                    p.imminent_victories.remove(VictoryType.VIGOUR)
                 if jubilated_setls >= 5:
                     p.jubilation_ctr += 1
                     # If a player has achieved 100% satisfaction in 5 settlements, they are close to (25 turns away)
@@ -375,6 +405,8 @@ class GameState:
                         p.imminent_victories.add(VictoryType.JUBILATION)
                 else:
                     p.jubilation_ctr = 0
+                    if VictoryType.JUBILATION in p.imminent_victories:
+                        p.imminent_victories.remove(VictoryType.JUBILATION)
                 # If the player has maintained 5 settlements at 100% satisfaction for 25 turns, they have achieved a
                 # JUBILATION victory.
                 if p.jubilation_ctr == 25:
@@ -383,9 +415,13 @@ class GameState:
                 if lvl_ten_setls >= 10:
                     return Victory(p, VictoryType.GLUTTONY)
                 # If a player has 8 level 10 settlements, they are close to a GLUTTONY victory.
-                if lvl_ten_setls >= 8 and VictoryType.GLUTTONY not in p.imminent_victories:
-                    close_to_vics.append(Victory(p, VictoryType.GLUTTONY))
-                    p.imminent_victories.add(VictoryType.GLUTTONY)
+                if lvl_ten_setls >= 8:
+                    if VictoryType.GLUTTONY not in p.imminent_victories:
+                        close_to_vics.append(Victory(p, VictoryType.GLUTTONY))
+                        p.imminent_victories.add(VictoryType.GLUTTONY)
+                # If a player has lost one of their level 10 settlements since last turn, remove the imminent victory.
+                elif VictoryType.GLUTTONY in p.imminent_victories:
+                    p.imminent_victories.remove(VictoryType.GLUTTONY)
                 # If the player has constructed the Holy Sanctum, they have achieved a VIGOUR victory.
                 if constructed_sanctum:
                     return Victory(p, VictoryType.VIGOUR)
@@ -405,6 +441,9 @@ class GameState:
             if p.accumulated_wealth >= 100000:
                 return Victory(p, VictoryType.AFFLUENCE)
             # If a player has accumulated at least 75k wealth over the game, they are close to an AFFLUENCE victory.
+            # Note that we don't need to worry about removing this victory type from the player's imminent victories due
+            # to the fact that accumulated wealth is never subtracted from; it can never reach 75000 and then go below
+            # it again.
             if p.accumulated_wealth >= 75000 and VictoryType.AFFLUENCE not in p.imminent_victories:
                 close_to_vics.append(Victory(p, VictoryType.AFFLUENCE))
                 p.imminent_victories.add(VictoryType.AFFLUENCE)
@@ -414,7 +453,8 @@ class GameState:
             if ardour_pieces == 3:
                 return Victory(p, VictoryType.SERENDIPITY)
             # If a player has undergone two of the required three blessings for the pieces of ardour, they are close to
-            # a SERENDIPITY victory.
+            # a SERENDIPITY victory. Note that we don't need to worry about removing this victory type from the player's
+            # imminent victories due to the fact that once a blessing is completed, it cannot be uncompleted.
             if ardour_pieces == 2 and VictoryType.SERENDIPITY not in p.imminent_victories:
                 close_to_vics.append(Victory(p, VictoryType.SERENDIPITY))
                 p.imminent_victories.add(VictoryType.SERENDIPITY)
@@ -436,12 +476,25 @@ class GameState:
         """
         Process the turns for each of the heathens.
         """
-        all_units = []
+        all_units: typing.List[Unit] = []
+        banned_quads: typing.Set[typing.Tuple[int, int]] = set()
         for player in self.players:
             # Heathens will not attack Infidel units.
             if player.faction is not Faction.INFIDELS:
                 for unit in player.units:
                     all_units.append(unit)
+            # During nighttime, heathens cannot be within a certain number of quads of settlements with sunstone
+            # resources. For example, heathens cannot be within 6 quads of a settlement with 1 sunstone resource, and
+            # they cannot be within 9 quads of a settlement with 2 sunstone resources.
+            for setl in player.settlements:
+                if self.nighttime_left > 0 and setl.resources.sunstone:
+                    exclusion_range = 3 * (1 + setl.resources.sunstone)
+                    for setl_quad in setl.quads:
+                        for i in range(setl_quad.location[0] - exclusion_range,
+                                       setl_quad.location[0] + exclusion_range + 1):
+                            for j in range(setl_quad.location[1] - exclusion_range,
+                                           setl_quad.location[1] + exclusion_range + 1):
+                                banned_quads.add((i, j))
         for heathen in self.heathens:
             within_range: typing.Optional[Unit] = None
             # Check if any player unit is within range of the heathen.
@@ -473,13 +526,23 @@ class GameState:
                 if heathen.health <= 0:
                     self.heathens.remove(heathen)
             else:
-                # If there are no units within range, just move randomly.
-                x_movement = random.randint(-heathen.remaining_stamina, heathen.remaining_stamina)
-                rem_movement = heathen.remaining_stamina - abs(x_movement)
-                y_movement = random.choice([-rem_movement, rem_movement])
-                heathen.location = (clamp(heathen.location[0] + x_movement, 0, 99),
-                                    clamp(heathen.location[1] + y_movement, 0, 89))
-                heathen.remaining_stamina -= abs(x_movement) + abs(y_movement)
+                # If there are no units within range, just move randomly. Attempt this five times, and if a valid
+                # location (i.e. one away from the influence of a settlement with one or more sunstones) is not found,
+                # the heathen dies.
+                found_valid_loc = False
+                for i in range(5):
+                    x_movement = random.randint(-heathen.remaining_stamina, heathen.remaining_stamina)
+                    rem_movement = heathen.remaining_stamina - abs(x_movement)
+                    y_movement = random.choice([-rem_movement, rem_movement])
+                    new_loc = (clamp(heathen.location[0] + x_movement, 0, 99),
+                               clamp(heathen.location[1] + y_movement, 0, 89))
+                    if new_loc not in banned_quads:
+                        heathen.location = new_loc
+                        heathen.remaining_stamina -= abs(x_movement) + abs(y_movement)
+                        found_valid_loc = True
+                        break
+                if not found_valid_loc:
+                    self.heathens.remove(heathen)
 
             # Players of the Infidels faction share vision with Heathen units.
             if self.players[0].faction is Faction.INFIDELS:
@@ -496,8 +559,9 @@ class GameState:
                 setl_coords = random.randint(0, 99), random.randint(0, 89)
                 quad_biome = self.board.quads[setl_coords[1]][setl_coords[0]].biome
                 setl_name = namer.get_settlement_name(quad_biome)
+                setl_resources = get_resources_for_settlement([setl_coords], self.board.quads)
                 new_settl = Settlement(setl_name, setl_coords, [],
-                                       [self.board.quads[setl_coords[1]][setl_coords[0]]],
+                                       [self.board.quads[setl_coords[1]][setl_coords[0]]], setl_resources,
                                        [get_default_unit(setl_coords)])
                 match player.faction:
                     case Faction.CONCENTRATED:
@@ -508,6 +572,11 @@ class GameState:
                     case Faction.IMPERIALS:
                         new_settl.strength /= 2
                         new_settl.max_strength /= 2
+
+                if new_settl.resources.obsidian:
+                    new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
+                    new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
+
                 player.settlements.append(new_settl)
 
     def process_ais(self, move_maker: MoveMaker):

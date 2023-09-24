@@ -2,13 +2,13 @@ import unittest
 
 import pyxel
 
-from source.foundation.catalogue import UNIT_PLANS
+from source.foundation.catalogue import UNIT_PLANS, IMPROVEMENTS
 from source.foundation.models import UnitPlan, Unit, AttackPlaystyle, ExpansionPlaystyle, VictoryType, Faction, \
-    Settlement, Biome, Quad, GameConfig, DeployerUnitPlan, DeployerUnit
+    Settlement, Biome, Quad, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection
 from source.game_management.game_state import GameState
 from source.saving.save_encoder import ObjectConverter
 from source.saving.save_migrator import migrate_unit_plan, migrate_unit, migrate_player, migrate_climatic_effects, \
-    migrate_quad, migrate_settlement, migrate_game_config
+    migrate_quad, migrate_settlement, migrate_game_config, migrate_game_version
 
 
 class SaveMigratorTest(unittest.TestCase):
@@ -203,10 +203,21 @@ class SaveMigratorTest(unittest.TestCase):
         test_imminent_victories = [VictoryType.SERENDIPITY.value]
         test_faction = Faction.FUNDAMENTALISTS.value
 
-        # Simulate an up-to-date loaded AI playstyle and an up-to-date loaded player.
+        # Simulate an up-to-date loaded AI playstyle, an up-to-date loaded resource collection, and an up-to-date loaded
+        # player.
         test_loaded_ai_playstyle: ObjectConverter = ObjectConverter({
             "attacking": test_attack_playstyle,
             "expansion": test_expansion_playstyle
+        })
+        test_loaded_resources: ObjectConverter = ObjectConverter({
+            "ore": 1,
+            "timber": 2,
+            "magma": 3,
+            "aurora": 4,
+            "bloodstone": 5,
+            "obsidian": 6,
+            "sunstone": 7,
+            "aquamarine": 8
         })
         test_loaded_player: ObjectConverter = ObjectConverter({
             "ai_playstyle": test_loaded_ai_playstyle,
@@ -214,7 +225,8 @@ class SaveMigratorTest(unittest.TestCase):
             "faction": test_faction,
             "colour": pyxel.COLOR_ORANGE,
             "eliminated": False,
-            "settlements": [Settlement("A", (1, 2), [], [], [])]
+            "settlements": [Settlement("A", (1, 2), [], [], ResourceCollection(), [])],
+            "resources": test_loaded_resources
         })
 
         migrate_player(test_loaded_player)
@@ -224,13 +236,17 @@ class SaveMigratorTest(unittest.TestCase):
         self.assertEqual(test_expansion_playstyle, test_loaded_player.ai_playstyle.expansion)
         self.assertSetEqual(set(test_imminent_victories), test_loaded_player.imminent_victories)
         self.assertEqual(test_faction, test_loaded_player.faction)
+        self.assertEqual(ResourceCollection(ore=1, timber=2, magma=3,
+                                            aurora=4, bloodstone=5, obsidian=6, sunstone=7, aquamarine=8),
+                         test_loaded_player.resources)
 
         # Now, convert the object to be like an outdated save, where AI playstyle only consisted of attacking, and the
-        # imminent victories, faction, and eliminated attributes did not exist.
+        # imminent victories, faction, eliminated, and resources attributes did not exist.
         test_loaded_player.__dict__["ai_playstyle"] = test_attack_playstyle
         delattr(test_loaded_player, "imminent_victories")
         delattr(test_loaded_player, "faction")
         delattr(test_loaded_player, "eliminated")
+        delattr(test_loaded_player, "resources")
 
         migrate_player(test_loaded_player)
 
@@ -241,12 +257,14 @@ class SaveMigratorTest(unittest.TestCase):
         self.assertSetEqual(set(), test_loaded_player.imminent_victories)
         # The player's faction should have been determined based on the player's colour.
         self.assertEqual(test_faction, test_loaded_player.faction)
-        # Lastly, the player should not be eliminated, since they have a settlement.
+        # The player should not be eliminated, since they have a settlement.
         self.assertFalse(test_loaded_player.eliminated)
+        # Lastly, the player should have an empty resource collection.
+        self.assertEqual(ResourceCollection(), test_loaded_player.resources)
 
     def test_climatic_effects(self):
         """
-        Ensure that migrations occur correctly for game state.
+        Ensure that migrations occur correctly for climatic effects.
         """
         test_until_night = 3
         test_nighttime_left = 0
@@ -283,11 +301,22 @@ class SaveMigratorTest(unittest.TestCase):
         """
         test_biome = Biome.FOREST.value
 
-        # Simulate an up-to-date loaded quad.
+        # Simulate an up-to-date loaded resource collection and an up-to-date loaded quad.
+        test_loaded_resource: ObjectConverter = ObjectConverter({
+            "ore": 1,
+            "timber": 0,
+            "magma": 0,
+            "aurora": 0,
+            "bloodstone": 0,
+            "obsidian": 0,
+            "sunstone": 0,
+            "aquamarine": 0
+        })
         test_loaded_quad: ObjectConverter = ObjectConverter({
             "biome": test_biome,
             "is_relic": True,
-            "location": [1, 2]
+            "location": [1, 2],
+            "resource": test_loaded_resource
         })
 
         migrated_quad: Quad = migrate_quad(test_loaded_quad, (0, 0))
@@ -297,10 +326,12 @@ class SaveMigratorTest(unittest.TestCase):
         self.assertTrue(migrated_quad.is_relic)
         # Note that we passed in (0, 0) as the backup location, but since the save had the location, we don't need it.
         self.assertTupleEqual((1, 2), migrated_quad.location)
+        self.assertEqual(ResourceCollection(ore=1), migrated_quad.resource)
 
-        # Now if we delete the is_relic and location attributes, we are replicating an outdated save.
+        # Now if we delete the is_relic, location, and resource attributes, we are replicating an outdated save.
         delattr(test_loaded_quad, "is_relic")
         delattr(test_loaded_quad, "location")
+        delattr(test_loaded_quad, "resource")
 
         outdated_quad: Quad = migrate_quad(test_loaded_quad, (0, 0))
 
@@ -308,6 +339,7 @@ class SaveMigratorTest(unittest.TestCase):
         self.assertFalse(outdated_quad.is_relic)
         # Similarly, the backup location passed through should be used instead.
         self.assertTupleEqual((0, 0), outdated_quad.location)
+        self.assertIsNone(outdated_quad.resource)
 
     def test_settlement(self):
         """
@@ -349,6 +381,31 @@ class SaveMigratorTest(unittest.TestCase):
         self.assertFalse(hasattr(test_loaded_settlement, "under_siege_by"))
         # Once again, the settlement's location should have been passed through to the quad.
         self.assertTupleEqual((1, 2), test_loaded_besieged_settlement.quads[0].location)
+        self.assertEqual(ResourceCollection(), test_loaded_settlement.resources)
+
+        # Lastly, simulate an up-to-date settlement with resources.
+        test_loaded_resources: ObjectConverter = ObjectConverter({
+            "ore": 1,
+            "timber": 0,
+            "magma": 2,
+            "aurora": 0,
+            "bloodstone": 0,
+            "obsidian": 0,
+            "sunstone": 1,
+            "aquamarine": 0
+        })
+        test_loaded_settlement = ObjectConverter({
+            "besieged": False,
+            "location": [1, 2],
+            "quads": [ObjectConverter({
+                "biome": Biome.FOREST.value
+            })],
+            "resources": test_loaded_resources
+        })
+
+        migrate_settlement(test_loaded_settlement)
+
+        self.assertEqual(ResourceCollection(ore=1, magma=2, sunstone=1), test_loaded_settlement.resources)
 
     def test_game_config(self):
         """
@@ -376,6 +433,47 @@ class SaveMigratorTest(unittest.TestCase):
         self.assertEqual(test_player_count, outdated_config.player_count)
         self.assertTrue(outdated_config.biome_clustering)
         self.assertTrue(outdated_config.fog_of_war)
+
+    def test_game_version(self):
+        """
+        Ensure that migrations occur correctly for the game version.
+        """
+        test_game_version = 3.0
+        test_old_version = 0.0
+
+        # Simulate an up-to-date loaded save.
+        test_loaded_save: ObjectConverter = ObjectConverter({
+            "game_version": test_game_version
+        })
+        test_game_state = GameState()
+
+        migrate_game_version(test_game_state, test_loaded_save)
+
+        # For up-to-date saves, the attribute should be mapped directly.
+        self.assertEqual(test_game_state.game_version, test_game_version)
+
+        # Now simulate an older save that has since been loaded in, a few turns have been played, and then saved again.
+        test_loaded_save: ObjectConverter = ObjectConverter({
+            "game_version": test_old_version
+        })
+        test_game_state = GameState()
+
+        migrate_game_version(test_game_state, test_loaded_save)
+
+        # For older saves, all improvements should have their required resources removed, and the attribute should have
+        # been set to 0.0, despite already being that value.
+        self.assertTrue(all(imp.req_resources is None for imp in IMPROVEMENTS))
+        self.assertEqual(test_game_state.game_version, test_old_version)
+
+        # Now delete the game_version attribute, to simulate an outdated save from before the introduction of resources.
+        delattr(test_loaded_save, "game_version")
+
+        migrate_game_version(test_game_state, test_loaded_save)
+
+        # For saves without a version altogether, we still expect the same changes to improvements, and for the version
+        # to be set to 0.0.
+        self.assertTrue(all(imp.req_resources is None for imp in IMPROVEMENTS))
+        self.assertEqual(test_game_state.game_version, test_old_version)
 
 
 if __name__ == '__main__':

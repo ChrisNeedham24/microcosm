@@ -6,7 +6,7 @@ from source.foundation.catalogue import UNIT_PLANS, ACHIEVEMENTS
 from source.foundation.models import OverlayType, Settlement, Player, Faction, ConstructionMenu, Project, ProjectType, \
     Improvement, Effect, ImprovementType, UnitPlan, Blessing, Unit, CompletedConstruction, AttackData, HealData, \
     SetlAttackData, Victory, VictoryType, SettlementAttackType, PauseOption, InvestigationResult, DeployerUnitPlan, \
-    DeployerUnit
+    DeployerUnit, GameConfig, ResourceCollection, StandardOverlayView
 
 
 class OverlayTest(unittest.TestCase):
@@ -18,8 +18,9 @@ class OverlayTest(unittest.TestCase):
         """
         Instantiate a standard Overlay object before each test and initialise test models.
         """
-        self.overlay = Overlay()
-        self.TEST_SETTLEMENT = Settlement("Testville", (0, 0), [], [], [])
+        self.TEST_CONFIG = GameConfig(14, Faction.INFIDELS, True, True, True)
+        self.overlay = Overlay(self.TEST_CONFIG)
+        self.TEST_SETTLEMENT = Settlement("Testville", (0, 0), [], [], ResourceCollection(), [])
         self.TEST_UNIT = Unit(1, 2, (3, 4), False, UNIT_PLANS[0])
         self.TEST_UNIT_2 = Unit(5, 6, (7, 8), False, UNIT_PLANS[0])
         self.TEST_BLESSING = Blessing("Cool", "Magic", 0)
@@ -39,24 +40,23 @@ class OverlayTest(unittest.TestCase):
         """
         # When the Standard and Blessing overlays are being displayed, toggling should not remove the Standard overlay.
         self.overlay.showing = [OverlayType.STANDARD, OverlayType.BLESSING]
-        self.overlay.toggle_standard(0)
+        self.overlay.toggle_standard()
         self.assertTrue(self.overlay.is_standard())
 
         # Now with only the Standard overlay, toggling should remove it.
         self.overlay.showing = [OverlayType.STANDARD]
-        self.overlay.toggle_standard(0)
+        self.overlay.toggle_standard()
         self.assertFalse(self.overlay.is_standard())
 
         # When displaying the Pause overlay (or a number of others), toggling should not add the Standard overlay.
         self.overlay.showing = [OverlayType.PAUSE]
-        self.overlay.toggle_standard(5)
+        self.overlay.toggle_standard()
         self.assertFalse(self.overlay.is_standard())
 
-        # When no overlay is being displayed, toggling should add the Standard overlay and set the current turn.
+        # When no overlay is being displayed, toggling should add the Standard overlay.
         self.overlay.showing = []
-        self.overlay.toggle_standard(5)
+        self.overlay.toggle_standard()
         self.assertTrue(self.overlay.is_standard())
-        self.assertEqual(5, self.overlay.current_turn)
 
     def test_navigate_standard(self):
         """
@@ -64,26 +64,55 @@ class OverlayTest(unittest.TestCase):
         """
         self.overlay.current_player = Player("Tester", Faction.NOCTURNE, 0)
 
+        # Begin by testing that the various standard overlay views can be toggled between.
+        self.assertEqual(StandardOverlayView.BLESSINGS, self.overlay.current_standard_overlay_view)
+
+        self.overlay.navigate_standard(right=True)
+        self.assertEqual(StandardOverlayView.VAULT, self.overlay.current_standard_overlay_view)
+        self.overlay.navigate_standard(right=True)
+        self.assertEqual(StandardOverlayView.SETTLEMENTS, self.overlay.current_standard_overlay_view)
+        self.overlay.navigate_standard(right=True)
+        self.assertEqual(StandardOverlayView.VICTORIES, self.overlay.current_standard_overlay_view)
+        # Pressing right when already on the last view should have no effect.
+        self.overlay.navigate_standard(right=True)
+        self.assertEqual(StandardOverlayView.VICTORIES, self.overlay.current_standard_overlay_view)
+
+        self.overlay.navigate_standard(left=True)
+        self.assertEqual(StandardOverlayView.SETTLEMENTS, self.overlay.current_standard_overlay_view)
+        self.overlay.navigate_standard(left=True)
+        self.assertEqual(StandardOverlayView.VAULT, self.overlay.current_standard_overlay_view)
+        self.overlay.navigate_standard(left=True)
+        self.assertEqual(StandardOverlayView.BLESSINGS, self.overlay.current_standard_overlay_view)
+        # Pressing left when already on the first view should have no effect.
+        self.overlay.navigate_standard(left=True)
+        self.assertEqual(StandardOverlayView.BLESSINGS, self.overlay.current_standard_overlay_view)
+
         # To begin with, the current player has no settlements at all. As such, navigating downwards shouldn't do
         # anything.
-        self.assertTupleEqual((0, 7), self.overlay.settlement_status_boundaries)
+        self.assertTupleEqual((0, 9), self.overlay.settlement_status_boundaries)
         self.overlay.navigate_standard(down=True)
-        self.assertTupleEqual((0, 7), self.overlay.settlement_status_boundaries)
+        self.assertTupleEqual((0, 9), self.overlay.settlement_status_boundaries)
 
-        # Now if we give the player some settlements, they should be able to navigate down.
-        self.overlay.current_player.settlements = [Settlement("Test", (0, 0), [], [], [])] * 8
+        # Now give the player some settlements.
+        self.overlay.current_player.settlements = [Settlement("Test", (0, 0), [], [], ResourceCollection(), [])] * 10
         self.overlay.navigate_standard(down=True)
-        self.assertTupleEqual((1, 8), self.overlay.settlement_status_boundaries)
+        # However! We still expect no change because the player is not on the settlements view.
+        self.assertTupleEqual((0, 9), self.overlay.settlement_status_boundaries)
+
+        self.overlay.current_standard_overlay_view = StandardOverlayView.SETTLEMENTS
+        # Now on the settlements view, the player should be able to navigate now.
+        self.overlay.navigate_standard(down=True)
+        self.assertTupleEqual((1, 10), self.overlay.settlement_status_boundaries)
         # However, since they only have one more than the threshold, they should only be able to navigate down once.
         self.overlay.navigate_standard(down=True)
-        self.assertTupleEqual((1, 8), self.overlay.settlement_status_boundaries)
+        self.assertTupleEqual((1, 10), self.overlay.settlement_status_boundaries)
 
         # Navigating upwards should work initially, but once the player has reached the top again, should then do
         # nothing.
-        self.overlay.navigate_standard(down=False)
-        self.assertTupleEqual((0, 7), self.overlay.settlement_status_boundaries)
-        self.overlay.navigate_standard(down=False)
-        self.assertTupleEqual((0, 7), self.overlay.settlement_status_boundaries)
+        self.overlay.navigate_standard(up=True)
+        self.assertTupleEqual((0, 9), self.overlay.settlement_status_boundaries)
+        self.overlay.navigate_standard(up=True)
+        self.assertTupleEqual((0, 9), self.overlay.settlement_status_boundaries)
 
     def test_toggle_construction(self):
         """
@@ -337,7 +366,7 @@ class OverlayTest(unittest.TestCase):
         """
         Ensure that the overlay's current settlement can be updated.
         """
-        extra_settlement = Settlement("Extra", (1, 1), [], [], [])
+        extra_settlement = Settlement("Extra", (1, 1), [], [], ResourceCollection(), [])
 
         self.overlay.current_settlement = self.TEST_SETTLEMENT
         self.overlay.update_settlement(extra_settlement)
@@ -401,15 +430,6 @@ class OverlayTest(unittest.TestCase):
         self.overlay.showing = []
         self.overlay.toggle_tutorial()
         self.assertTrue(self.overlay.is_tutorial())
-
-    def test_update_turn(self):
-        """
-        Ensure that the turn can be successfully updated.
-        """
-        test_turn = 999
-        self.overlay.current_turn = 1
-        self.overlay.update_turn(test_turn)
-        self.assertEqual(test_turn, self.overlay.current_turn)
 
     def test_setl_unit_iteration(self):
         """

@@ -2,7 +2,7 @@ import typing
 
 from source.foundation.models import Settlement, Player, Improvement, Unit, Blessing, CompletedConstruction, UnitPlan, \
     Heathen, AttackData, SetlAttackData, Victory, InvestigationResult, OverlayType, SettlementAttackType, PauseOption, \
-    Project, ConstructionMenu, HealData, Achievement
+    Project, ConstructionMenu, HealData, Achievement, StandardOverlayView, GameConfig
 
 
 class Overlay:
@@ -10,12 +10,12 @@ class Overlay:
     The class responsible for keeping track of the overlay menus in-game.
     """
 
-    def __init__(self):
+    def __init__(self, cfg: GameConfig):
         """
         Initialise the many variables used by the overlay to keep track of game state.
+        :param cfg: The configuration for the current game.
         """
         self.showing: typing.List[OverlayType] = []  # What the overlay is currently displaying.
-        self.current_turn: int = 0
         self.current_settlement: typing.Optional[Settlement] = None
         self.current_player: typing.Optional[Player] = None  # Will always be the non-AI player.
         self.available_constructions: typing.List[Improvement] = []
@@ -55,22 +55,24 @@ class Overlay:
         self.close_to_vics: typing.List[Victory] = []
         self.investigation_result: typing.Optional[InvestigationResult] = None
         self.night_beginning: bool = False
-        self.settlement_status_boundaries: typing.Tuple[int, int] = 0, 7
+        self.settlement_status_boundaries: typing.Tuple[int, int] = 0, 9
         self.show_auto_construction_prompt: bool = False
         self.show_additional_controls: bool = False
         self.show_unit_passengers: bool = False
         self.unit_passengers_idx: int = 0
         self.new_achievements: typing.List[Achievement] = []
+        self.current_standard_overlay_view: StandardOverlayView = StandardOverlayView.BLESSINGS
+        self.current_game_config: GameConfig = cfg
+        self.total_settlement_count: int = 0
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
     displayed along with which other overlays.
     """
 
-    def toggle_standard(self, turn: int):
+    def toggle_standard(self):
         """
         Toggle the standard overlay.
-        :param turn: The current turn.
         """
         # Ensure that we can only remove the standard overlay if the player is not choosing a blessing.
         if OverlayType.STANDARD in self.showing and not self.is_blessing():
@@ -80,19 +82,38 @@ class Overlay:
                 not self.is_pause() and not self.is_controls() and not self.is_victory() and \
                 not self.is_constructing() and not self.is_ach_notif():
             self.showing.append(OverlayType.STANDARD)
-            self.current_turn = turn
 
-    def navigate_standard(self, down: bool):
+    def navigate_standard(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
         """
         Navigate the standard overlay.
-        :param down: Whether the down arrow key was pressed. If this is false, the up arrow key was pressed.
+        :param up: Whether the up arrow key was pressed.
+        :param down: Whether the down arrow key was pressed.
+        :param left: Whether the left arrow key was pressed.
+        :param right: Whether the right arrow key was pressed.
         """
+        if left:
+            match self.current_standard_overlay_view:
+                case StandardOverlayView.VAULT:
+                    self.current_standard_overlay_view = StandardOverlayView.BLESSINGS
+                case StandardOverlayView.SETTLEMENTS:
+                    self.current_standard_overlay_view = StandardOverlayView.VAULT
+                case StandardOverlayView.VICTORIES:
+                    self.current_standard_overlay_view = StandardOverlayView.SETTLEMENTS
+        elif right:
+            match self.current_standard_overlay_view:
+                case StandardOverlayView.BLESSINGS:
+                    self.current_standard_overlay_view = StandardOverlayView.VAULT
+                case StandardOverlayView.VAULT:
+                    self.current_standard_overlay_view = StandardOverlayView.SETTLEMENTS
+                case StandardOverlayView.SETTLEMENTS:
+                    self.current_standard_overlay_view = StandardOverlayView.VICTORIES
         # Only allow navigation if the player has enough settlements to warrant scrolling.
-        if len(self.current_player.settlements) > 7:
+        elif self.current_standard_overlay_view is StandardOverlayView.SETTLEMENTS and \
+                len(self.current_player.settlements) > 9:
             if down and self.settlement_status_boundaries[1] != len(self.current_player.settlements):
                 self.settlement_status_boundaries = \
                     self.settlement_status_boundaries[0] + 1, self.settlement_status_boundaries[1] + 1
-            elif not down and self.settlement_status_boundaries[0] != 0:
+            elif up and self.settlement_status_boundaries[0] != 0:
                 self.settlement_status_boundaries = \
                     self.settlement_status_boundaries[0] - 1, self.settlement_status_boundaries[1] - 1
 
@@ -309,14 +330,6 @@ class Overlay:
         :return: Whether the tutorial overlay is being displayed.
         """
         return OverlayType.TUTORIAL in self.showing
-
-    def update_turn(self, turn: int):
-        """
-        Updates the turn to be displayed in the standard overlay. Necessary for cases in which the player ends their
-        turn while viewing the standard overlay.
-        :param turn: The new turn to display.
-        """
-        self.current_turn = turn
 
     def is_unit(self):
         """
@@ -776,7 +789,7 @@ class Overlay:
         elif self.is_setl_click():
             self.toggle_setl_click(None, None)
         elif self.is_standard():
-            self.toggle_standard(self.current_turn)
+            self.toggle_standard()
         elif self.is_constructing():
             self.toggle_construction([], [], [])
         elif self.is_unit():

@@ -126,6 +126,9 @@ class InvestigationResult(Enum):
     POWER = "POWER"
     STAMINA = "STAMINA"
     UPKEEP = "UPKEEP"
+    ORE = "ORE"
+    TIMBER = "TIMBER"
+    MAGMA = "MAGMA"
     NONE = "NONE"
 
 
@@ -186,6 +189,16 @@ class ConstructionMenu(Enum):
     UNITS = "UNITS"
 
 
+class StandardOverlayView(Enum):
+    """
+    The four different views the player is presented with when viewing the standard overlay.
+    """
+    BLESSINGS = "BLESSINGS"
+    VAULT = "VAULT"
+    SETTLEMENTS = "SETTLEMENTS"
+    VICTORIES = "VICTORIES"
+
+
 @dataclass
 class Quad:
     """
@@ -197,6 +210,8 @@ class Quad:
     zeal: float
     fortune: float
     location: (int, int)
+    # Even though a quad will only ever have one resource, it's easier to use this.
+    resource: typing.Optional[ResourceCollection] = None
     selected: bool = False
     is_relic: bool = False
 
@@ -247,6 +262,8 @@ class Improvement:
     description: str
     effect: Effect
     prereq: typing.Optional[Blessing]
+    # The construction of some improvements requires core resources to be used.
+    req_resources: typing.Optional[ResourceCollection] = None
 
 
 @dataclass
@@ -257,6 +274,32 @@ class Project:
     type: ProjectType
     name: str
     description: str
+
+
+@dataclass
+class ResourceCollection:
+    """
+    A utility class representing a collection of resources. This is used for Quad, Settlement, and Player objects.
+    """
+    # Core resources
+    ore: int = 0
+    timber: int = 0
+    magma: int = 0
+    # Rare resources
+    aurora: int = 0
+    bloodstone: int = 0
+    obsidian: int = 0
+    sunstone: int = 0
+    aquamarine: int = 0
+
+    def __bool__(self) -> bool:
+        """
+        A custom truth value testing method - this exists so that we can do checks like `if quad.resource` without
+        having to check each individual resource in the quad's collection.
+        :return: Whether the collection has one or more resources of any type.
+        """
+        return bool(self.ore or self.timber or self.magma or
+                    self.aurora or self.bloodstone or self.obsidian or self.sunstone or self.aquamarine)
 
 
 @dataclass
@@ -345,6 +388,8 @@ class Settlement:
     location: (int, int)
     improvements: typing.List[Improvement]
     quads: typing.List[Quad]  # Only players of The Concentrated faction can have more than one quad in a settlement.
+    # Resources can be exploited by a settlement if they are within 1 quad.
+    resources: ResourceCollection
     garrison: typing.List[Unit]
     strength: float = 100
     max_strength: float = 100
@@ -401,6 +446,7 @@ class Player:
     settlements: typing.List[Settlement] = field(default_factory=lambda: [])
     units: typing.List[Unit] = field(default_factory=lambda: [])
     blessings: typing.List[Blessing] = field(default_factory=lambda: [])
+    resources: ResourceCollection = field(default_factory=ResourceCollection)
     quads_seen: typing.Set[typing.Tuple[int, int]] = field(default_factory=set)
     imminent_victories: typing.Set[VictoryType] = field(default_factory=set)
     ongoing_blessing: typing.Optional[OngoingBlessing] = None

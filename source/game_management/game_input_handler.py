@@ -5,14 +5,15 @@ import typing
 import pyxel
 
 from source.display.board import Board
-from source.util.calculator import clamp, complete_construction, attack_setl
+from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
+    subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
     PROJECTS
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
 from source.foundation.models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, \
-    OverlayType, Faction, ConstructionMenu, Project, DeployerUnit
+    OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView, Improvement
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
 from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats_achievements, get_stats
@@ -73,7 +74,7 @@ def on_key_arrow_up(game_controller: GameController, game_state: GameState, is_c
         elif game_state.board.overlay.is_pause():
             game_state.board.overlay.navigate_pause(down=False)
         elif game_state.board.overlay.is_standard():
-            game_state.board.overlay.navigate_standard(down=False)
+            game_state.board.overlay.navigate_standard(up=True)
         elif game_state.board.overlay.is_unit() and game_state.board.overlay.show_unit_passengers:
             game_state.board.overlay.navigate_unit(down=False)
         else:
@@ -95,16 +96,19 @@ def on_key_arrow_left(game_controller: GameController, game_state: GameState, is
     """
     if game_state.on_menu:
         game_controller.menu.navigate(left=True)
-    if game_state.game_started and game_state.board.overlay.is_constructing():
-        if game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS and \
-                len(game_state.board.overlay.available_constructions) > 0:
-            game_state.board.overlay.current_construction_menu = ConstructionMenu.IMPROVEMENTS
-            game_state.board.overlay.selected_construction = game_state.board.overlay.available_constructions[0]
-        elif game_state.board.overlay.current_construction_menu is ConstructionMenu.UNITS:
-            game_state.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
-            game_state.board.overlay.selected_construction = game_state.board.overlay.available_projects[0]
     elif game_state.game_started:
-        if game_state.board.overlay.is_setl_click():
+        if game_state.board.overlay.is_constructing():
+            if game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS and \
+                    len(game_state.board.overlay.available_constructions) > 0:
+                game_state.board.overlay.current_construction_menu = ConstructionMenu.IMPROVEMENTS
+                game_state.board.overlay.selected_construction = game_state.board.overlay.available_constructions[0]
+                game_state.board.overlay.construction_boundaries = 0, 5
+            elif game_state.board.overlay.current_construction_menu is ConstructionMenu.UNITS:
+                game_state.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
+                game_state.board.overlay.selected_construction = game_state.board.overlay.available_projects[0]
+        elif game_state.board.overlay.is_standard() and not game_state.board.overlay.is_blessing():
+            game_state.board.overlay.navigate_standard(left=True)
+        elif game_state.board.overlay.is_setl_click():
             game_state.board.overlay.navigate_setl_click(left=True)
         else:
             game_state.board.overlay.remove_warning_if_possible()
@@ -125,16 +129,18 @@ def on_key_arrow_right(game_controller: GameController, game_state: GameState, i
     """
     if game_state.on_menu:
         game_controller.menu.navigate(right=True)
-    if game_state.game_started and game_state.board.overlay.is_constructing():
-        if game_state.board.overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
-            game_state.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
-            game_state.board.overlay.selected_construction = game_state.board.overlay.available_projects[0]
-        elif game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS:
-            game_state.board.overlay.current_construction_menu = ConstructionMenu.UNITS
-            game_state.board.overlay.selected_construction = game_state.board.overlay.available_unit_plans[0]
-            game_state.board.overlay.unit_plan_boundaries = 0, 5
     elif game_state.game_started:
-        if game_state.board.overlay.is_setl_click():
+        if game_state.board.overlay.is_constructing():
+            if game_state.board.overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
+                game_state.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
+                game_state.board.overlay.selected_construction = game_state.board.overlay.available_projects[0]
+            elif game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS:
+                game_state.board.overlay.current_construction_menu = ConstructionMenu.UNITS
+                game_state.board.overlay.selected_construction = game_state.board.overlay.available_unit_plans[0]
+                game_state.board.overlay.unit_plan_boundaries = 0, 5
+        elif game_state.board.overlay.is_standard() and not game_state.board.overlay.is_blessing():
+            game_state.board.overlay.navigate_standard(right=True)
+        elif game_state.board.overlay.is_setl_click():
             game_state.board.overlay.navigate_setl_click(right=True)
         else:
             game_state.board.overlay.remove_warning_if_possible()
@@ -173,6 +179,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.overlay.toggle_tutorial()
             game_controller.namer.reset()
             game_state.initialise_ais(game_controller.namer)
+            game_state.board.overlay.total_settlement_count = sum(len(p.settlements) for p in game_state.players) + 1
             game_controller.music_player.stop_menu_music()
             game_controller.music_player.play_game_music()
         elif game_controller.menu.loading_game:
@@ -213,12 +220,18 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
         game_controller.music_player.stop_game_music()
         game_controller.music_player.play_menu_music()
-        # If the player is choosing a blessing or construction, enter will select it.
+    # If the player is choosing a blessing or construction, enter will select it.
     elif game_state.game_started and game_state.board.overlay.is_constructing():
-        if game_state.board.overlay.selected_construction is not None:
-            game_state.board.selected_settlement.current_work = Construction(
-                game_state.board.overlay.selected_construction)
-        game_state.board.overlay.toggle_construction([], [], [])
+        cons = game_state.board.overlay.selected_construction
+        # If the selected construction is an improvement with required resources that the player does not have, pressing
+        # the enter key will do nothing.
+        if cons is not None and not (isinstance(cons, Improvement) and
+                                     not player_has_resources_for_improvement(game_state.players[0], cons)):
+            if isinstance(cons, Improvement) and cons.req_resources:
+                subtract_player_resources_for_improvement(game_state.players[0], cons)
+            game_state.board.selected_settlement.current_work = \
+                Construction(game_state.board.overlay.selected_construction)
+            game_state.board.overlay.toggle_construction([], [], [])
     elif game_state.game_started and game_state.board.overlay.is_blessing():
         if game_state.board.overlay.selected_blessing is not None:
             game_state.players[0].ongoing_blessing = OngoingBlessing(game_state.board.overlay.selected_blessing)
@@ -302,7 +315,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             if new_achs := save_stats_achievements(game_state, time_elapsed):
                 game_state.board.overlay.toggle_ach_notif(new_achs)
 
-            game_state.board.overlay.update_turn(game_state.turn)
+            game_state.board.overlay.total_settlement_count = sum(len(p.settlements) for p in game_state.players)
             game_state.process_heathens()
             game_state.process_ais(game_controller.move_maker)
 
@@ -315,7 +328,7 @@ def on_key_shift(game_state: GameState):
     if game_state.game_started:
         game_state.board.overlay.remove_warning_if_possible()
         # Display the standard overlay.
-        game_state.board.overlay.toggle_standard(game_state.turn)
+        game_state.board.overlay.toggle_standard()
 
 
 def on_key_c(game_state: GameState):
@@ -329,8 +342,7 @@ def on_key_c(game_state: GameState):
             get_available_improvements(game_state.players[0],
                                        game_state.board.selected_settlement),
             PROJECTS,
-            get_available_unit_plans(game_state.players[0],
-                                     game_state.board.selected_settlement.level))
+            get_available_unit_plans(game_state.players[0], game_state.board.selected_settlement))
 
 
 def on_key_f(game_controller: GameController, game_state: GameState):
@@ -342,7 +354,8 @@ def on_key_f(game_controller: GameController, game_state: GameState):
     if game_state.on_menu and game_controller.menu.in_game_setup \
             and game_controller.menu.setup_option is SetupOption.PLAYER_FACTION:
         game_controller.menu.showing_faction_details = not game_controller.menu.showing_faction_details
-    elif game_state.game_started and game_state.board.overlay.is_standard():
+    elif game_state.game_started and game_state.board.overlay.is_standard() \
+            and game_state.board.overlay.current_standard_overlay_view is StandardOverlayView.BLESSINGS:
         # Pick a blessing.
         game_state.board.overlay.toggle_blessing(get_available_blessings(game_state.players[0]))
 
