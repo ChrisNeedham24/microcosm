@@ -45,8 +45,8 @@ v3.0
 - Resources were added, adding the resource attribute to Quads, and the resources attribute to Settlements and Players.
   These are migrated by setting Quads without the attribute to have None and Settlements and Players without the
   attribute to have empty ResourceCollections. In addition to these, the req_resources attribute was added to
-  Improvements, which is migrated and removed for old saves in game_save_manager.py, as they would have no way of
-  obtaining the necessary resources.
+  Improvements, which is migrated and removed for old saves, as they would have no way of obtaining the necessary
+  resources.
 """
 
 
@@ -124,7 +124,7 @@ def migrate_player(player):
 
 def migrate_climatic_effects(game_state, save):
     """
-    Apply the night_status migrations for climatic effects, if required.
+    Apply the night_status migration for the game state, if required.
     :param game_state: The state of the game being loaded in.
     :param save: The loaded save data.
     """
@@ -156,7 +156,7 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
 
 def migrate_settlement(settlement):
     """
-    Apply the besieged and resource migrations for Settlements, if required.
+    Apply the besieged and resources migrations for Settlements, if required.
     :param settlement: The loaded settlement object.
     """
     if not hasattr(settlement, "besieged"):
@@ -195,7 +195,7 @@ def migrate_game_config(config) -> GameConfig:
 
 def migrate_game_version(game_state, save):
     """
-    Apply the night_status migrations for the game version, if required.
+    Apply the game_version migration for the game state, if required.
     :param game_state: The state of the game being loaded in.
     :param save: The loaded save data.
     """
