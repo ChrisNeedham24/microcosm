@@ -318,28 +318,28 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(20, 24, "Resources:", pyxel.COLOR_WHITE)
             if res := overlay.current_settlement.resources:
                 x_offset = 0
-                for i in range(res.ore):
+                for _ in range(res.ore):
                     pyxel.text(62 + x_offset, 24, "Ore", pyxel.COLOR_GRAY)
                     x_offset += 15
-                for i in range(res.timber):
+                for _ in range(res.timber):
                     pyxel.text(62 + x_offset, 24, "Timber", pyxel.COLOR_BROWN)
                     x_offset += 27
-                for i in range(res.magma):
+                for _ in range(res.magma):
                     pyxel.text(62 + x_offset, 24, "Magma", pyxel.COLOR_RED)
                     x_offset += 23
-                for i in range(res.aurora):
+                for _ in range(res.aurora):
                     pyxel.text(62 + x_offset, 24, "Aurora", pyxel.COLOR_YELLOW)
                     x_offset += 27
-                for i in range(res.bloodstone):
+                for _ in range(res.bloodstone):
                     pyxel.text(62 + x_offset, 24, "Bloodstone", pyxel.COLOR_RED)
                     x_offset += 44
-                for i in range(res.obsidian):
+                for _ in range(res.obsidian):
                     pyxel.text(62 + x_offset, 24, "Obsidian", pyxel.COLOR_GRAY)
                     x_offset += 36
-                for i in range(res.sunstone):
+                for _ in range(res.sunstone):
                     pyxel.text(62 + x_offset, 24, "Sunstone", pyxel.COLOR_ORANGE)
                     x_offset += 36
-                for i in range(res.aquamarine):
+                for _ in range(res.aquamarine):
                     pyxel.text(62 + x_offset, 24, "Aquamarine", pyxel.COLOR_LIGHT_BLUE)
                     x_offset += 50
             else:
@@ -609,7 +609,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.load("resources/sprites.pyxres")
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
-            pyxel.text(80, 30, f"Game status", pyxel.COLOR_WHITE)
+            pyxel.text(80, 30, "Game status", pyxel.COLOR_WHITE)
             match overlay.current_standard_overlay_view:
                 case StandardOverlayView.BLESSINGS:
                     pyxel.text(84, 40, "Blessings", pyxel.COLOR_PURPLE)
