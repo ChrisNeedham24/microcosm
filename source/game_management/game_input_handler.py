@@ -582,6 +582,9 @@ def on_key_j(game_state: GameState):
         # Pressing the J key will jump to an idle settlement, if such a settlement exists.
         idle_settlements = [setl for setl in game_state.players[0].settlements if setl.current_work is None]
         if idle_settlements:
+            if game_state.board.overlay.is_unit():
+                game_state.board.selected_unit = None
+                game_state.board.overlay.toggle_unit(None)
             if game_state.board.selected_settlement is None:
                 game_state.board.selected_settlement = idle_settlements[0]
                 game_state.board.overlay.toggle_settlement(game_state.board.selected_settlement, game_state.players[0])
