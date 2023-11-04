@@ -1437,10 +1437,17 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.game_started = True
         self.game_state.board.overlay.toggle_settlement = MagicMock()
         self.game_state.board.overlay.update_settlement = MagicMock()
+        self.game_state.board.overlay.toggle_unit = MagicMock()
         # Slightly change the order of the settlements to make this test's demonstration simpler.
         self.TEST_PLAYER.settlements = [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_WITH_WORK, self.TEST_SETTLEMENT_2]
+        # Set up a situation where the player has one of their units selected.
+        self.game_state.board.overlay.showing = [OverlayType.UNIT]
+        self.game_state.board.selected_unit = self.TEST_UNIT
 
         on_key_j(self.game_state)
+        # We firstly expect the selected unit to now be deselected, and the unit overlay removed.
+        self.assertIsNone(self.game_state.board.selected_unit)
+        self.game_state.board.overlay.toggle_unit.assert_called_with(None)
         # Having not had any settlement selected beforehand, after the first press, the first settlement should be
         # selected and centred, with its overlay displayed.
         self.assertEqual(self.TEST_SETTLEMENT, self.game_state.board.selected_settlement)
