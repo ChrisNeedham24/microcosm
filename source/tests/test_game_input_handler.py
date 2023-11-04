@@ -997,7 +997,12 @@ class GameInputHandlerTest(unittest.TestCase):
         self.TEST_SETTLEMENT.garrison.append(self.TEST_UNIT)
         on_key_d(self.game_state)
         self.assertTrue(self.game_state.board.deploying_army)
-        self.game_state.board.overlay.toggle_deployment.assert_called()
+        self.assertEqual(1, self.game_state.board.overlay.toggle_deployment.call_count)
+
+        # We also expect to be able to abort the deployment if we want to, by pressing the D key again.
+        on_key_d(self.game_state)
+        self.assertFalse(self.game_state.board.deploying_army)
+        self.assertEqual(2, self.game_state.board.overlay.toggle_deployment.call_count)
 
     def test_d_deployment_from_unit(self):
         """

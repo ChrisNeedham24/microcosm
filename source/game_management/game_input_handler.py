@@ -367,7 +367,7 @@ def on_key_d(game_state: GameState):
     """
     if game_state.game_started and game_state.board.selected_settlement is not None and \
             len(game_state.board.selected_settlement.garrison) > 0:
-        game_state.board.deploying_army = True
+        game_state.board.deploying_army = not game_state.board.deploying_army
         game_state.board.overlay.toggle_deployment()
     elif game_state.game_started and game_state.board.selected_unit is not None and \
             game_state.board.selected_unit in game_state.players[0].units and \
