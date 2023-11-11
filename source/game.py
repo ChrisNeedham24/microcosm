@@ -1,9 +1,7 @@
 import time
-import typing
 
 import pyxel
 from PIL import Image
-from PIL.PyAccess import PyAccess
 
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
@@ -12,6 +10,7 @@ from source.game_management.game_input_handler import on_key_arrow_down, on_key_
     on_key_x
 from source.game_management.game_state import GameState
 from source.saving.game_save_manager import init_app_data
+from source.util.converter import convert_image_to_pyxel_icon_data
 
 
 class Game:
@@ -28,32 +27,8 @@ class Game:
 
         pyxel.init(200, 200, title="Microcosm", display_scale=5, quit_key=pyxel.KEY_NONE)
 
-        icon_image = Image.open("resources/icon.png")
-        icon_pixels: PyAccess = icon_image.load()
-        icon_colours: typing.List[str] = []
-        rgb_pyxel_mappings: typing.Dict[typing.Tuple[str, str, str], str] = {}
-        pyxel_colours: typing.List[int] = pyxel.colors.to_list()
-        for y in range(500):
-            row_colours: str = ""
-            for x in range(500):
-                r, g, b, a = icon_pixels[x, y]
-                if (r, g, b) in rgb_pyxel_mappings:
-                    row_colours += rgb_pyxel_mappings[(r, g, b)]
-                else:
-                    closest_colour: str = "0"
-                    closest_colour_dist: float = 99999
-                    for i in range(pyxel.NUM_COLORS):
-                        r_dist = (r - (pyxel_colours[i] >> 16 & 0xff)) * 0.30
-                        g_dist = (g - (pyxel_colours[i] >> 8 & 0xff)) * 0.59
-                        b_dist = (b - (pyxel_colours[i] & 0xff)) * 0.11
-                        colour_dist = pow(r_dist, 2) + pow(g_dist, 2) + pow(b_dist, 2)
-                        if colour_dist < closest_colour_dist:
-                            closest_colour = f"{i:x}"
-                            closest_colour_dist = colour_dist
-                    rgb_pyxel_mappings[(r, g, b)] = closest_colour
-                    row_colours += str(closest_colour)
-            icon_colours.append(row_colours)
-        pyxel.icon(icon_colours, 1)
+        icon_image: Image = Image.open("resources/icon.png")
+        pyxel.icon(convert_image_to_pyxel_icon_data(icon_image), 1)
 
         self.game_controller = GameController()
         self.game_state = GameState()
