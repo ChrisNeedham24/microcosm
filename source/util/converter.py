@@ -46,8 +46,12 @@ def convert_image_to_pyxel_icon_data(image: Image) -> typing.List[str]:
         # Initialise the row as an empty string, with each character added to it being a pixel in the row.
         row_colours: str = ""
         for x in range(image.width):
-            # We ignore the alpha channel here because it is not required.
-            r, g, b, _ = icon_pixels[x, y]
+            # Handle images with and without alpha channels.
+            if len(pixel := icon_pixels[x, y]) == 3:
+                r, g, b = pixel
+            else:
+                # We ignore the alpha channel here because it is not required.
+                r, g, b, _ = pixel
             # If we've already determined the colour for these RGB values, just get it from the dictionary.
             if (r, g, b) in rgb_pyxel_mappings:
                 row_colours += rgb_pyxel_mappings[(r, g, b)]
@@ -78,7 +82,7 @@ def convert_rgb_colour_to_pyxel_colour(red: int, green: int, blue: int) -> str:
         # crate.
         r_dist = (red - (pyxel.colors[i] >> 16 & 0xff)) * 0.30
         g_dist = (green - (pyxel.colors[i] >> 8 & 0xff)) * 0.59
-        b_dist = (blue - (pyxel.colors[i] & 0xff)) * 0.11
+        b_dist = (blue - (pyxel.colors[i] & 0xff)) * 0.20
         colour_dist = pow(r_dist, 2) + pow(g_dist, 2) + pow(b_dist, 2)
         if colour_dist < closest_colour_dist:
             # Convert our integer index into hex so that it fits with the required format.

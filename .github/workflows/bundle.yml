@@ -33,7 +33,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
       - name: Bundle (Windows)
         run: |
-          python -m nuitka --onefile --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads --mingw64 microcosm.py
+          python -m nuitka --onefile --standalone --include-data-dir=source=source --noinclude-data-files='*.json' --remove-output --assume-yes-for-downloads --mingw64 --windows-icon-from-ico=source/resources/icon.png microcosm.py
         if: matrix.os == 'windows-latest'
       - name: Upload artifact (MacOS)
         uses: actions/upload-artifact@v3
