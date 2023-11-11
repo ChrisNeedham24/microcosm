@@ -1,6 +1,7 @@
 import time
 
 import pyxel
+from PIL import Image
 
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
@@ -9,6 +10,7 @@ from source.game_management.game_input_handler import on_key_arrow_down, on_key_
     on_key_x
 from source.game_management.game_state import GameState
 from source.saving.game_save_manager import init_app_data
+from source.util.converter import convert_image_to_pyxel_icon_data
 
 
 class Game:
@@ -24,6 +26,9 @@ class Game:
         init_app_data()
 
         pyxel.init(200, 200, title="Microcosm", display_scale=5, quit_key=pyxel.KEY_NONE)
+
+        icon_image: Image = Image.open("resources/icon.png")
+        pyxel.icon(convert_image_to_pyxel_icon_data(icon_image), 1)
 
         self.game_controller = GameController()
         self.game_state = GameState()
