@@ -160,28 +160,32 @@ def on_key_return(game_controller: GameController, game_state: GameState):
     """
     if game_state.on_menu:
         if game_controller.menu.in_game_setup and game_controller.menu.setup_option is SetupOption.START_GAME:
-            # If the player has pressed enter to start the game, generate the players, board, and AI players.
-            pyxel.mouse(visible=True)
-            game_controller.last_turn_time = time.time()
-            game_state.game_started = True
-            game_state.turn = 1
-            # Reinitialise night variables.
-            random.seed()
-            game_state.until_night = random.randint(10, 20)
-            game_state.nighttime_left = 0
-            game_state.on_menu = False
-            cfg: GameConfig = game_controller.menu.get_game_config()
-            # Update stats to include the newly-selected faction.
-            save_stats_achievements(game_state, faction_to_add=cfg.player_faction)
-            game_state.gen_players(cfg)
-            game_state.board = Board(cfg, game_controller.namer)
-            game_controller.move_maker.board_ref = game_state.board
-            game_state.board.overlay.toggle_tutorial()
-            game_controller.namer.reset()
-            game_state.initialise_ais(game_controller.namer)
-            game_state.board.overlay.total_settlement_count = sum(len(p.settlements) for p in game_state.players) + 1
-            game_controller.music_player.stop_menu_music()
-            game_controller.music_player.play_game_music()
+            if game_controller.menu.multiplayer_enabled:
+                game_controller.menu.in_multiplayer_lobby = True
+            else:
+                # If the player has pressed enter to start the game, generate the players, board, and AI players.
+                pyxel.mouse(visible=True)
+                game_controller.last_turn_time = time.time()
+                game_state.game_started = True
+                game_state.turn = 1
+                # Reinitialise night variables.
+                random.seed()
+                game_state.until_night = random.randint(10, 20)
+                game_state.nighttime_left = 0
+                game_state.on_menu = False
+                cfg: GameConfig = game_controller.menu.get_game_config()
+                # Update stats to include the newly-selected faction.
+                save_stats_achievements(game_state, faction_to_add=cfg.player_faction)
+                game_state.gen_players(cfg)
+                game_state.board = Board(cfg, game_controller.namer)
+                game_controller.move_maker.board_ref = game_state.board
+                game_state.board.overlay.toggle_tutorial()
+                game_controller.namer.reset()
+                game_state.initialise_ais(game_controller.namer)
+                game_state.board.overlay.total_settlement_count = \
+                    sum(len(p.settlements) for p in game_state.players) + 1
+                game_controller.music_player.stop_menu_music()
+                game_controller.music_player.play_game_music()
         elif game_controller.menu.loading_game:
             if game_controller.menu.save_idx == -1:
                 game_controller.menu.loading_game = False

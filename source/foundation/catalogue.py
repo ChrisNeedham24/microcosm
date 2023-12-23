@@ -10,6 +10,20 @@ from source.foundation.models import FactionDetail, Player, Improvement, Improve
     Achievement, HarvestStatus, EconomicStatus, ResourceCollection
 from source.util.calculator import player_has_resources_for_improvement
 
+
+LOBBY_NAMES = [
+    "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta", "Iota", "Kappa", "Lambda", "Mu", "Nu", "Xi",
+    "Omicron", "Pi", "Rho", "Sigma", "Tau", "Upsilon", "Phi", "Chi", "Psi", "Omega"
+]
+
+
+PLAYER_NAMES = [
+    "Ace", "Buster", "Chief", "Dingo", "E.T.", "Fang", "Ghost", "Hawk", "Iris", "Judge", "Kanga", "Laser", "Meteor",
+    "Neutron", "Ozone", "Pyro", "Quokka", "Reaper", "Scorpion", "Turbo", "Ultimate", "Viper", "Wizard", "Xylo", "Yabby",
+    "Zulu"
+]
+
+
 # The list of settlement names, for each biome.
 SETL_NAMES = {
     Biome.DESERT: [

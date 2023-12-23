@@ -32,6 +32,7 @@ class SetupOption(Enum):
     """
     PLAYER_FACTION = "FACTION"
     PLAYER_COUNT = "COUNT"
+    MULTIPLAYER = "MULTI"
     BIOME_CLUSTERING = "BIOME"
     FOG_OF_WAR = "FOG"
     CLIMATIC_EFFECTS = "CLIMATE"
@@ -91,6 +92,7 @@ class Menu:
         self.setup_option = SetupOption.PLAYER_FACTION
         self.faction_idx = 0
         self.player_count = 2
+        self.multiplayer_enabled = False
         self.biome_clustering_enabled = True
         self.fog_of_war_enabled = True
         self.climatic_effects_enabled = True
@@ -108,6 +110,7 @@ class Menu:
         self.viewing_achievements = False
         self.achievements_boundaries = 0, 3
         self.showing_rare_resources = False
+        self.in_multiplayer_lobby = False
 
     def draw(self):
         """
@@ -143,16 +146,21 @@ class Menu:
                 case _:
                     pyxel.text(130, 65, f"<- {self.player_count} ->", pyxel.COLOR_WHITE)
 
-            pyxel.text(28, 85, "Biome Clustering", self.get_option_colour(SetupOption.BIOME_CLUSTERING))
+            pyxel.text(28, 80, "Multiplayer", self.get_option_colour(SetupOption.MULTIPLAYER))
+            if self.multiplayer_enabled:
+                pyxel.text(125, 80, "<- Enabled", pyxel.COLOR_GREEN)
+            else:
+                pyxel.text(125, 80, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 95, "Biome Clustering", self.get_option_colour(SetupOption.BIOME_CLUSTERING))
             if self.biome_clustering_enabled:
-                pyxel.text(125, 85, "<- Enabled", pyxel.COLOR_GREEN)
+                pyxel.text(125, 95, "<- Enabled", pyxel.COLOR_GREEN)
             else:
-                pyxel.text(125, 85, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 105, "Fog of War", self.get_option_colour(SetupOption.FOG_OF_WAR))
+                pyxel.text(125, 95, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 110, "Fog of War", self.get_option_colour(SetupOption.FOG_OF_WAR))
             if self.fog_of_war_enabled:
-                pyxel.text(125, 105, "<- Enabled", pyxel.COLOR_GREEN)
+                pyxel.text(125, 110, "<- Enabled", pyxel.COLOR_GREEN)
             else:
-                pyxel.text(125, 105, "Disabled ->", pyxel.COLOR_RED)
+                pyxel.text(125, 110, "Disabled ->", pyxel.COLOR_RED)
             pyxel.text(28, 125, "Climatic Effects", self.get_option_colour(SetupOption.CLIMATIC_EFFECTS))
             if self.climatic_effects_enabled:
                 pyxel.text(125, 125, "<- Enabled", pyxel.COLOR_GREEN)
@@ -184,6 +192,53 @@ class Menu:
                 if self.faction_idx != len(self.faction_colours) - 1:
                     pyxel.blt(148, 138, 0, (self.faction_idx + 1) * 8, 92, 8, 8)
                     pyxel.text(158, 140, "->", pyxel.COLOR_WHITE)
+        elif self.in_multiplayer_lobby:
+            pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
+            pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
+            pyxel.text(81, 25, "Multiplayer Lobby", pyxel.COLOR_WHITE)
+            pyxel.text(28, 40, "Player Faction", self.get_option_colour(SetupOption.PLAYER_FACTION))
+            faction_offset = 50 - pow(len(self.faction_colours[self.faction_idx][0]), 1.4)
+            if self.faction_idx == 0:
+                pyxel.text(100 + faction_offset, 40, f"{self.faction_colours[self.faction_idx][0].value} ->",
+                           self.faction_colours[self.faction_idx][1])
+            elif self.faction_idx == len(self.faction_colours) - 1:
+                pyxel.text(95 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0].value}",
+                           self.faction_colours[self.faction_idx][1])
+            else:
+                pyxel.text(88 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0].value} ->",
+                           self.faction_colours[self.faction_idx][1])
+            pyxel.text(26, 50, "(Press F to show more faction details)", pyxel.COLOR_WHITE)
+            pyxel.text(28, 65, "Player Count", self.get_option_colour(SetupOption.PLAYER_COUNT))
+            match self.player_count:
+                case 2:
+                    pyxel.text(140, 65, "2 ->", pyxel.COLOR_WHITE)
+                case 14:
+                    pyxel.text(130, 65, "<- 14", pyxel.COLOR_WHITE)
+                case _:
+                    pyxel.text(130, 65, f"<- {self.player_count} ->", pyxel.COLOR_WHITE)
+
+            pyxel.text(28, 80, "Multiplayer", self.get_option_colour(SetupOption.MULTIPLAYER))
+            if self.multiplayer_enabled:
+                pyxel.text(125, 80, "<- Enabled", pyxel.COLOR_GREEN)
+            else:
+                pyxel.text(125, 80, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 95, "Biome Clustering", self.get_option_colour(SetupOption.BIOME_CLUSTERING))
+            if self.biome_clustering_enabled:
+                pyxel.text(125, 95, "<- Enabled", pyxel.COLOR_GREEN)
+            else:
+                pyxel.text(125, 95, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 110, "Fog of War", self.get_option_colour(SetupOption.FOG_OF_WAR))
+            if self.fog_of_war_enabled:
+                pyxel.text(125, 110, "<- Enabled", pyxel.COLOR_GREEN)
+            else:
+                pyxel.text(125, 110, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 125, "Climatic Effects", self.get_option_colour(SetupOption.CLIMATIC_EFFECTS))
+            if self.climatic_effects_enabled:
+                pyxel.text(125, 125, "<- Enabled", pyxel.COLOR_GREEN)
+            else:
+                pyxel.text(125, 125, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(81, 150, "Start Game", self.get_option_colour(SetupOption.START_GAME))
+            pyxel.text(52, 160, "(Press SPACE to go back)", pyxel.COLOR_WHITE)
         elif self.loading_game:
             pyxel.load("resources/sprites.pyxres")
 
@@ -723,6 +778,8 @@ class Menu:
                         self.faction_idx = clamp(self.faction_idx - 1, 0, len(self.faction_colours) - 1)
                     case SetupOption.PLAYER_COUNT:
                         self.player_count = max(2, self.player_count - 1)
+                    case SetupOption.MULTIPLAYER:
+                        self.multiplayer_enabled = False
                     case SetupOption.BIOME_CLUSTERING:
                         self.biome_clustering_enabled = False
                     case SetupOption.FOG_OF_WAR:
@@ -754,6 +811,8 @@ class Menu:
                         self.faction_idx = clamp(self.faction_idx + 1, 0, len(self.faction_colours) - 1)
                     case SetupOption.PLAYER_COUNT:
                         self.player_count = min(14, self.player_count + 1)
+                    case SetupOption.MULTIPLAYER:
+                        self.multiplayer_enabled = True
                     case SetupOption.BIOME_CLUSTERING:
                         self.biome_clustering_enabled = True
                     case SetupOption.FOG_OF_WAR:
@@ -785,7 +844,7 @@ class Menu:
         :return: The appropriate GameConfig object.
         """
         return GameConfig(self.player_count, self.faction_colours[self.faction_idx][0], self.biome_clustering_enabled,
-                          self.fog_of_war_enabled, self.climatic_effects_enabled)
+                          self.fog_of_war_enabled, self.climatic_effects_enabled, self.multiplayer_enabled)
 
     def next_menu_option(self, current_option: MenuOptions, wrap_around: bool = False) -> None:
         """
