@@ -556,4 +556,5 @@ class PlayerDetails:
 @dataclass
 class LobbyDetails:
     name: str
+    current_players: typing.List[PlayerDetails]
     cfg: GameConfig

@@ -1,18 +1,20 @@
 import datetime
+import os
 import random
 import time
 import typing
 import uuid
+from copy import deepcopy
 
 import pyxel
 
 from source.display.board import Board
 from source.networking.client import dispatch_event
-from source.networking.event_listener import CreateEvent, EventType
+from source.networking.event_listener import CreateEvent, EventType, QueryEvent, LeaveEvent, JoinEvent
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
     subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
-    PROJECTS
+    PROJECTS, FACTION_COLOURS
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
@@ -166,9 +168,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         if game_controller.menu.in_game_setup and game_controller.menu.setup_option is SetupOption.START_GAME:
             if game_controller.menu.multiplayer_enabled:
                 lobby_create_event: CreateEvent = CreateEvent(EventType.CREATE, datetime.datetime.now(),
+                                                              hash((uuid.getnode(), os.getpid())),
                                                               game_controller.menu.get_game_config(), uuid.getnode())
                 dispatch_event(lobby_create_event)
-                game_controller.menu.in_game_setup = False
                 game_controller.menu.in_multiplayer_lobby = True
             else:
                 # If the player has pressed enter to start the game, generate the players, board, and AI players.
@@ -199,6 +201,12 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_controller.menu.loading_game = False
             else:
                 load_game(game_state, game_controller)
+        elif game_controller.menu.viewing_lobbies:
+            available_factions = deepcopy(FACTION_COLOURS)
+            for player in game_controller.menu.multiplayer_lobbies[game_controller.menu.lobby_index].current_players:
+                available_factions.pop(player.faction)
+            game_controller.menu.available_multiplayer_factions = list(available_factions.items())
+            game_controller.menu.joining_game = True
         elif game_controller.menu.in_wiki:
             if game_controller.menu.wiki_option is WikiOption.BACK:
                 game_controller.menu.in_wiki = False
@@ -211,6 +219,11 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 case MainMenuOption.LOAD_GAME:
                     game_controller.menu.loading_game = True
                     get_saves(game_controller)
+                case MainMenuOption.JOIN_GAME:
+                    lobbies_query_event: QueryEvent = \
+                        QueryEvent(EventType.QUERY, datetime.datetime.now(), hash((uuid.getnode(), os.getpid())))
+                    dispatch_event(lobbies_query_event)
+                    game_controller.menu.viewing_lobbies = True
                 case MainMenuOption.STATISTICS:
                     game_controller.menu.viewing_stats = True
                     game_controller.menu.player_stats = get_stats()
@@ -424,13 +437,19 @@ def on_key_space(game_controller: GameController, game_state: GameState):
     if game_state.on_menu and game_controller.menu.in_wiki and game_controller.menu.wiki_showing is not None:
         game_controller.menu.wiki_showing = None
     if game_state.on_menu and game_controller.menu.in_multiplayer_lobby:
+        leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, datetime.datetime.now(),
+                                                   hash((uuid.getnode(), os.getpid())),
+                                                   game_controller.menu.multiplayer_lobby_name, uuid.getnode())
+        dispatch_event(leave_lobby_event)
         game_controller.menu.in_multiplayer_lobby = False
-    if game_state.on_menu and game_controller.menu.in_game_setup:
+    elif game_state.on_menu and game_controller.menu.in_game_setup:
         game_controller.menu.in_game_setup = False
     if game_state.on_menu and game_controller.menu.loading_game and game_controller.menu.load_failed:
         game_controller.menu.load_failed = False
     elif game_state.on_menu and game_controller.menu.loading_game:
         game_controller.menu.loading_game = False
+    elif game_state.on_menu and game_controller.menu.viewing_lobbies:
+        game_controller.menu.viewing_lobbies = False
     elif game_state.on_menu and game_controller.menu.viewing_stats:
         game_controller.menu.viewing_stats = False
     elif game_state.on_menu and game_controller.menu.viewing_achievements:

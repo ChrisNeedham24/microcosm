@@ -2,6 +2,7 @@ import random
 import socket
 import typing
 import uuid
+from copy import deepcopy
 from math import ceil
 from enum import Enum
 from typing import List, Optional, Tuple
@@ -13,7 +14,7 @@ from source.util.calculator import clamp
 from source.foundation.catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, \
     IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS, ACHIEVEMENTS
 from source.foundation.models import GameConfig, VictoryType, Faction, ProjectType, Statistics, UnitPlan, \
-    DeployerUnitPlan, PlayerDetails
+    DeployerUnitPlan, PlayerDetails, LobbyDetails
 
 
 class MainMenuOption(Enum):
@@ -116,6 +117,11 @@ class Menu:
         self.in_multiplayer_lobby = False
         self.multiplayer_lobby_name: typing.Optional[str] = None
         self.multiplayer_player_details: typing.List[PlayerDetails] = []
+        self.viewing_lobbies = False
+        self.multiplayer_lobbies: typing.List[LobbyDetails] = []
+        self.lobby_index = 0
+        self.joining_game = False
+        self.available_multiplayer_factions: typing.List[typing.Tuple[Faction, int]] = []
 
     def draw(self):
         """
@@ -148,7 +154,7 @@ class Menu:
                 pyxel.text(100 + faction_offset, 66 + idx * 10, pl.faction, FACTION_COLOURS[pl.faction])
 
             pyxel.text(81, 150, "Start Game", self.get_option_colour(SetupOption.START_GAME))
-            pyxel.text(52, 160, "(Press SPACE to go back)", pyxel.COLOR_WHITE)
+            pyxel.text(58, 160, "(Press SPACE to leave)", pyxel.COLOR_WHITE)
         elif self.in_game_setup:
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
@@ -675,16 +681,45 @@ class Menu:
                 pyxel.blt(170, 151, 0, 0, 76, 8, 8)
 
             pyxel.text(58, 160, "Press SPACE to go back", pyxel.COLOR_WHITE)
+        elif self.joining_game:
+            pyxel.rectb(30, 30, 140, 100, pyxel.COLOR_WHITE)
+            pyxel.rect(31, 31, 138, 98, pyxel.COLOR_BLACK)
+            pyxel.text(72, 35, f"Joining {self.multiplayer_lobbies[self.lobby_index].name}", pyxel.COLOR_WHITE)
+            pyxel.text(62, 60, "Choose your faction", pyxel.COLOR_GREEN)
+            faction_offset = 50 - pow(len(self.available_multiplayer_factions[self.faction_idx][0]), 1.4)
+            if self.faction_idx == 0:
+                pyxel.text(60 + faction_offset, 70, f"{self.available_multiplayer_factions[self.faction_idx][0].value} ->",
+                           self.available_multiplayer_factions[self.faction_idx][1])
+            elif self.faction_idx == len(self.available_multiplayer_factions) - 1:
+                pyxel.text(55 + faction_offset, 70, f"<- {self.available_multiplayer_factions[self.faction_idx][0].value}",
+                           self.available_multiplayer_factions[self.faction_idx][1])
+            else:
+                pyxel.text(48 + faction_offset, 70, f"<- {self.available_multiplayer_factions[self.faction_idx][0].value} ->",
+                           self.available_multiplayer_factions[self.faction_idx][1])
+            pyxel.text(40, 80, "(Press F to show more details)", pyxel.COLOR_WHITE)
+            pyxel.text(58, 105, "Press ENTER to continue", pyxel.COLOR_WHITE)
+            pyxel.text(60, 115, "Press SPACE to go back", pyxel.COLOR_WHITE)
+        elif self.viewing_lobbies:
+            pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
+            pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
+            pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
+            for idx, lobby in enumerate(self.multiplayer_lobbies):
+                pyxel.text(25, 35 + idx * 10,
+                           f"{lobby.name} - {len(lobby.current_players)}/{lobby.cfg.player_count}", pyxel.COLOR_WHITE)
+                pyxel.text(150, 35 + idx * 10, "Join",
+                           pyxel.COLOR_RED if self.lobby_index is idx else pyxel.COLOR_WHITE)
+            pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
         else:
-            pyxel.rectb(72, 100, 56, 80, pyxel.COLOR_WHITE)
-            pyxel.rect(73, 101, 54, 78, pyxel.COLOR_BLACK)
-            pyxel.text(82, 105, "MICROCOSM", pyxel.COLOR_WHITE)
-            pyxel.text(85, 120, "New Game", self.get_option_colour(MainMenuOption.NEW_GAME))
-            pyxel.text(82, 130, "Load Game", self.get_option_colour(MainMenuOption.LOAD_GAME))
-            pyxel.text(80, 140, "Statistics", self.get_option_colour(MainMenuOption.STATISTICS))
-            pyxel.text(76, 150, "Achievements", self.get_option_colour(MainMenuOption.ACHIEVEMENTS))
-            pyxel.text(92, 160, "Wiki", self.get_option_colour(MainMenuOption.WIKI))
-            pyxel.text(92, 170, "Exit", self.get_option_colour(MainMenuOption.EXIT))
+            pyxel.rectb(72, 95, 56, 90, pyxel.COLOR_WHITE)
+            pyxel.rect(73, 96, 54, 88, pyxel.COLOR_BLACK)
+            pyxel.text(82, 100, "MICROCOSM", pyxel.COLOR_WHITE)
+            pyxel.text(85, 115, "New Game", self.get_option_colour(MainMenuOption.NEW_GAME))
+            pyxel.text(82, 125, "Load Game", self.get_option_colour(MainMenuOption.LOAD_GAME))
+            pyxel.text(82, 135, "Join Game", self.get_option_colour(MainMenuOption.JOIN_GAME))
+            pyxel.text(80, 145, "Statistics", self.get_option_colour(MainMenuOption.STATISTICS))
+            pyxel.text(76, 155, "Achievements", self.get_option_colour(MainMenuOption.ACHIEVEMENTS))
+            pyxel.text(92, 165, "Wiki", self.get_option_colour(MainMenuOption.WIKI))
+            pyxel.text(92, 175, "Exit", self.get_option_colour(MainMenuOption.EXIT))
 
     def navigate(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
         """
@@ -767,6 +802,8 @@ class Menu:
                         self.fog_of_war_enabled = False
                     case SetupOption.CLIMATIC_EFFECTS:
                         self.climatic_effects_enabled = False
+            elif self.joining_game:
+                self.faction_idx = clamp(self.faction_idx - 1, 0, len(self.available_multiplayer_factions) - 1)
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:
                 self.previous_menu_option(self.victory_type)
             elif self.in_wiki and self.wiki_showing is WikiOption.FACTIONS and self.faction_wiki_idx != 0:
@@ -800,6 +837,8 @@ class Menu:
                         self.fog_of_war_enabled = True
                     case SetupOption.CLIMATIC_EFFECTS:
                         self.climatic_effects_enabled = True
+            elif self.joining_game:
+                self.faction_idx = clamp(self.faction_idx + 1, 0, len(self.available_multiplayer_factions) - 1)
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:
                 self.next_menu_option(self.victory_type)
             elif self.in_wiki and self.wiki_showing is WikiOption.FACTIONS and \

@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import json
 import socket
+import typing
 
-from source.networking.event_listener import Event
 from source.saving.save_encoder import SaveEncoder
+
+if typing.TYPE_CHECKING:
+    from source.networking.event_listener import Event
 
 HOST, PORT = "localhost", 9999
 
