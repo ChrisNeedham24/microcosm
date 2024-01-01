@@ -1,5 +1,7 @@
 import random
+import socket
 import typing
+import uuid
 from math import ceil
 from enum import Enum
 from typing import List, Optional, Tuple
@@ -11,7 +13,7 @@ from source.util.calculator import clamp
 from source.foundation.catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, \
     IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS, ACHIEVEMENTS
 from source.foundation.models import GameConfig, VictoryType, Faction, ProjectType, Statistics, UnitPlan, \
-    DeployerUnitPlan
+    DeployerUnitPlan, PlayerDetails
 
 
 class MainMenuOption(Enum):
@@ -20,6 +22,7 @@ class MainMenuOption(Enum):
     """
     NEW_GAME = "New Game"
     LOAD_GAME = "Load Game"
+    JOIN_GAME = "Join Game"
     STATISTICS = "Statistics"
     ACHIEVEMENTS = "Achievements"
     WIKI = "Wiki"
@@ -111,6 +114,8 @@ class Menu:
         self.achievements_boundaries = 0, 3
         self.showing_rare_resources = False
         self.in_multiplayer_lobby = False
+        self.multiplayer_lobby_name: typing.Optional[str] = None
+        self.multiplayer_player_details: typing.List[PlayerDetails] = []
 
     def draw(self):
         """
@@ -121,7 +126,30 @@ class Menu:
         pyxel.load(background_path)
         pyxel.blt(0, 0, self.image_bank % 3, 0, 0, 200, 200)
 
-        if self.in_game_setup:
+        if self.in_multiplayer_lobby:
+            pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
+            pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
+            pyxel.text(70, 25, "Multiplayer Lobby", pyxel.COLOR_WHITE)
+
+            pyxel.text(28, 40, "Lobby Name", pyxel.COLOR_WHITE)
+            if self.multiplayer_lobby_name:
+                lobby_offset = 50 - pow(len(self.multiplayer_lobby_name), 1.4)
+                pyxel.text(100 + lobby_offset, 40, self.multiplayer_lobby_name, pyxel.COLOR_GREEN)
+            pyxel.text(80, 50,
+                       f"{len(self.multiplayer_player_details)}/{self.player_count} players", pyxel.COLOR_WHITE)
+
+            pyxel.line(24, 58, 175, 58, pyxel.COLOR_GRAY)
+
+            for idx, pl in enumerate(self.multiplayer_player_details):
+                player_is_client: bool = uuid.getnode() == pl.id
+                name = pl.name + " (you)" if player_is_client else pl.name
+                pyxel.text(28, 66 + idx * 10, name, pyxel.COLOR_GREEN if player_is_client else pyxel.COLOR_WHITE)
+                faction_offset = 50 - pow(len(pl.faction), 1.4)
+                pyxel.text(100 + faction_offset, 66 + idx * 10, pl.faction, FACTION_COLOURS[pl.faction])
+
+            pyxel.text(81, 150, "Start Game", self.get_option_colour(SetupOption.START_GAME))
+            pyxel.text(52, 160, "(Press SPACE to go back)", pyxel.COLOR_WHITE)
+        elif self.in_game_setup:
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
             pyxel.text(81, 25, "Game Setup", pyxel.COLOR_WHITE)
@@ -192,53 +220,6 @@ class Menu:
                 if self.faction_idx != len(self.faction_colours) - 1:
                     pyxel.blt(148, 138, 0, (self.faction_idx + 1) * 8, 92, 8, 8)
                     pyxel.text(158, 140, "->", pyxel.COLOR_WHITE)
-        elif self.in_multiplayer_lobby:
-            pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
-            pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
-            pyxel.text(81, 25, "Multiplayer Lobby", pyxel.COLOR_WHITE)
-            pyxel.text(28, 40, "Player Faction", self.get_option_colour(SetupOption.PLAYER_FACTION))
-            faction_offset = 50 - pow(len(self.faction_colours[self.faction_idx][0]), 1.4)
-            if self.faction_idx == 0:
-                pyxel.text(100 + faction_offset, 40, f"{self.faction_colours[self.faction_idx][0].value} ->",
-                           self.faction_colours[self.faction_idx][1])
-            elif self.faction_idx == len(self.faction_colours) - 1:
-                pyxel.text(95 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0].value}",
-                           self.faction_colours[self.faction_idx][1])
-            else:
-                pyxel.text(88 + faction_offset, 40, f"<- {self.faction_colours[self.faction_idx][0].value} ->",
-                           self.faction_colours[self.faction_idx][1])
-            pyxel.text(26, 50, "(Press F to show more faction details)", pyxel.COLOR_WHITE)
-            pyxel.text(28, 65, "Player Count", self.get_option_colour(SetupOption.PLAYER_COUNT))
-            match self.player_count:
-                case 2:
-                    pyxel.text(140, 65, "2 ->", pyxel.COLOR_WHITE)
-                case 14:
-                    pyxel.text(130, 65, "<- 14", pyxel.COLOR_WHITE)
-                case _:
-                    pyxel.text(130, 65, f"<- {self.player_count} ->", pyxel.COLOR_WHITE)
-
-            pyxel.text(28, 80, "Multiplayer", self.get_option_colour(SetupOption.MULTIPLAYER))
-            if self.multiplayer_enabled:
-                pyxel.text(125, 80, "<- Enabled", pyxel.COLOR_GREEN)
-            else:
-                pyxel.text(125, 80, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 95, "Biome Clustering", self.get_option_colour(SetupOption.BIOME_CLUSTERING))
-            if self.biome_clustering_enabled:
-                pyxel.text(125, 95, "<- Enabled", pyxel.COLOR_GREEN)
-            else:
-                pyxel.text(125, 95, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 110, "Fog of War", self.get_option_colour(SetupOption.FOG_OF_WAR))
-            if self.fog_of_war_enabled:
-                pyxel.text(125, 110, "<- Enabled", pyxel.COLOR_GREEN)
-            else:
-                pyxel.text(125, 110, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 125, "Climatic Effects", self.get_option_colour(SetupOption.CLIMATIC_EFFECTS))
-            if self.climatic_effects_enabled:
-                pyxel.text(125, 125, "<- Enabled", pyxel.COLOR_GREEN)
-            else:
-                pyxel.text(125, 125, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(81, 150, "Start Game", self.get_option_colour(SetupOption.START_GAME))
-            pyxel.text(52, 160, "(Press SPACE to go back)", pyxel.COLOR_WHITE)
         elif self.loading_game:
             pyxel.load("resources/sprites.pyxres")
 

@@ -1,10 +1,14 @@
+import datetime
 import random
 import time
 import typing
+import uuid
 
 import pyxel
 
 from source.display.board import Board
+from source.networking.client import dispatch_event
+from source.networking.event_listener import CreateEvent, EventType
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
     subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
@@ -161,6 +165,10 @@ def on_key_return(game_controller: GameController, game_state: GameState):
     if game_state.on_menu:
         if game_controller.menu.in_game_setup and game_controller.menu.setup_option is SetupOption.START_GAME:
             if game_controller.menu.multiplayer_enabled:
+                lobby_create_event: CreateEvent = CreateEvent(EventType.CREATE, datetime.datetime.now(),
+                                                              game_controller.menu.get_game_config(), uuid.getnode())
+                dispatch_event(lobby_create_event)
+                game_controller.menu.in_game_setup = False
                 game_controller.menu.in_multiplayer_lobby = True
             else:
                 # If the player has pressed enter to start the game, generate the players, board, and AI players.
@@ -415,6 +423,8 @@ def on_key_space(game_controller: GameController, game_state: GameState):
     # Pressing space either dismisses the current overlay or iterates through the player's units.
     if game_state.on_menu and game_controller.menu.in_wiki and game_controller.menu.wiki_showing is not None:
         game_controller.menu.wiki_showing = None
+    if game_state.on_menu and game_controller.menu.in_multiplayer_lobby:
+        game_controller.menu.in_multiplayer_lobby = False
     if game_state.on_menu and game_controller.menu.in_game_setup:
         game_controller.menu.in_game_setup = False
     if game_state.on_menu and game_controller.menu.loading_game and game_controller.menu.load_failed:

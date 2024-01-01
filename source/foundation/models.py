@@ -543,3 +543,17 @@ class Achievement:
     verification_fn: typing.Callable[[GameState, Statistics], bool]
     # Whether this achievement can only be verified immediately after the player has won a game.
     post_victory: bool = False
+
+
+@dataclass
+class PlayerDetails:
+    name: str
+    faction: Faction
+    id: int
+    host: str
+
+
+@dataclass
+class LobbyDetails:
+    name: str
+    cfg: GameConfig

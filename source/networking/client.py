@@ -2,14 +2,15 @@ import json
 import socket
 
 from source.networking.event_listener import Event
+from source.saving.save_encoder import SaveEncoder
 
 HOST, PORT = "localhost", 9999
 
 
 def dispatch_event(evt: Event):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    evt_json: str = json.dumps(evt)
-    sock.sendto(evt_json.encode("utf-8"), (HOST, PORT))
+    evt_json: str = json.dumps(evt, cls=SaveEncoder)
+    sock.sendto(evt_json.encode(), (HOST, PORT))
 
 
 """
