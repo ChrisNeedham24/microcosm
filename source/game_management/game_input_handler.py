@@ -10,7 +10,7 @@ import pyxel
 
 from source.display.board import Board
 from source.networking.client import dispatch_event
-from source.networking.event_listener import CreateEvent, EventType, QueryEvent, LeaveEvent, JoinEvent
+from source.networking.event_listener import CreateEvent, EventType, QueryEvent, LeaveEvent, JoinEvent, InitEvent
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
     subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
@@ -165,35 +165,45 @@ def on_key_return(game_controller: GameController, game_state: GameState):
     :param game_state: The current GameState object.
     """
     if game_state.on_menu:
-        if game_controller.menu.in_game_setup and game_controller.menu.setup_option is SetupOption.START_GAME:
-            if game_controller.menu.multiplayer_enabled:
+        if (game_controller.menu.in_game_setup or game_controller.menu.in_multiplayer_lobby) and \
+                game_controller.menu.setup_option is SetupOption.START_GAME:
+            if game_controller.menu.multiplayer_enabled and not game_controller.menu.in_multiplayer_lobby:
                 lobby_create_event: CreateEvent = CreateEvent(EventType.CREATE, datetime.datetime.now(),
                                                               hash((uuid.getnode(), os.getpid())),
-                                                              game_controller.menu.get_game_config(), uuid.getnode())
+                                                              game_controller.menu.get_game_config())
                 dispatch_event(lobby_create_event)
                 game_controller.menu.in_multiplayer_lobby = True
             else:
+                if game_controller.menu.in_multiplayer_lobby:
+                    game_init_event: InitEvent = InitEvent(EventType.INIT, datetime.datetime.now(),
+                                                           hash((uuid.getnode(), os.getpid())),
+                                                           game_controller.menu.multiplayer_lobby_name)
+                    dispatch_event(game_init_event)
                 # If the player has pressed enter to start the game, generate the players, board, and AI players.
                 pyxel.mouse(visible=True)
                 game_controller.last_turn_time = time.time()
                 game_state.game_started = True
                 game_state.turn = 1
                 # Reinitialise night variables.
-                random.seed()
-                game_state.until_night = random.randint(10, 20)
+                if not game_controller.menu.in_multiplayer_lobby:
+                    random.seed()
+                    game_state.until_night = random.randint(10, 20)
                 game_state.nighttime_left = 0
                 game_state.on_menu = False
                 cfg: GameConfig = game_controller.menu.get_game_config()
                 # Update stats to include the newly-selected faction.
+                # TODO this will now only work for the player that started the game
                 save_stats_achievements(game_state, faction_to_add=cfg.player_faction)
-                game_state.gen_players(cfg)
-                game_state.board = Board(cfg, game_controller.namer)
-                game_controller.move_maker.board_ref = game_state.board
-                game_state.board.overlay.toggle_tutorial()
+                if not game_controller.menu.in_multiplayer_lobby:
+                    game_state.gen_players(cfg)
+                    game_state.board = Board(cfg, game_controller.namer)
+                    game_controller.move_maker.board_ref = game_state.board
+                    game_state.board.overlay.toggle_tutorial()
                 game_controller.namer.reset()
-                game_state.initialise_ais(game_controller.namer)
-                game_state.board.overlay.total_settlement_count = \
-                    sum(len(p.settlements) for p in game_state.players) + 1
+                if not game_controller.menu.in_multiplayer_lobby:
+                    game_state.initialise_ais(game_controller.namer)
+                    game_state.board.overlay.total_settlement_count = \
+                        sum(len(p.settlements) for p in game_state.players) + 1
                 game_controller.music_player.stop_menu_music()
                 game_controller.music_player.play_game_music()
         elif game_controller.menu.loading_game:
@@ -201,6 +211,17 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_controller.menu.loading_game = False
             else:
                 load_game(game_state, game_controller)
+        elif game_controller.menu.joining_game:
+            menu = game_controller.menu
+            lobby_join_event: JoinEvent = JoinEvent(EventType.JOIN, datetime.datetime.now(),
+                                                    hash((uuid.getnode(), os.getpid())),
+                                                    menu.multiplayer_lobbies[menu.lobby_index].name,
+                                                    menu.available_multiplayer_factions[menu.faction_idx][0])
+            dispatch_event(lobby_join_event)
+            menu.joining_game = False
+            menu.viewing_lobbies = False
+            menu.in_multiplayer_lobby = True
+            menu.setup_option = SetupOption.START_GAME
         elif game_controller.menu.viewing_lobbies:
             available_factions = deepcopy(FACTION_COLOURS)
             for player in game_controller.menu.multiplayer_lobbies[game_controller.menu.lobby_index].current_players:
@@ -376,8 +397,9 @@ def on_key_f(game_controller: GameController, game_state: GameState):
     :param game_controller: The current GameController object.
     :param game_state: The current GameState object.
     """
-    if game_state.on_menu and game_controller.menu.in_game_setup \
-            and game_controller.menu.setup_option is SetupOption.PLAYER_FACTION:
+    if game_state.on_menu and ((game_controller.menu.in_game_setup and
+                                game_controller.menu.setup_option is SetupOption.PLAYER_FACTION)
+                               or game_controller.menu.joining_game):
         game_controller.menu.showing_faction_details = not game_controller.menu.showing_faction_details
     elif game_state.game_started and game_state.board.overlay.is_standard() \
             and game_state.board.overlay.current_standard_overlay_view is StandardOverlayView.BLESSINGS:
@@ -439,7 +461,7 @@ def on_key_space(game_controller: GameController, game_state: GameState):
     if game_state.on_menu and game_controller.menu.in_multiplayer_lobby:
         leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, datetime.datetime.now(),
                                                    hash((uuid.getnode(), os.getpid())),
-                                                   game_controller.menu.multiplayer_lobby_name, uuid.getnode())
+                                                   game_controller.menu.multiplayer_lobby_name)
         dispatch_event(leave_lobby_event)
         game_controller.menu.in_multiplayer_lobby = False
     elif game_state.on_menu and game_controller.menu.in_game_setup:
@@ -448,6 +470,8 @@ def on_key_space(game_controller: GameController, game_state: GameState):
         game_controller.menu.load_failed = False
     elif game_state.on_menu and game_controller.menu.loading_game:
         game_controller.menu.loading_game = False
+    elif game_state.on_menu and game_controller.menu.joining_game:
+        game_controller.menu.joining_game = False
     elif game_state.on_menu and game_controller.menu.viewing_lobbies:
         game_controller.menu.viewing_lobbies = False
     elif game_state.on_menu and game_controller.menu.viewing_stats:

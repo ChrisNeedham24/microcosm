@@ -1,3 +1,4 @@
+import os
 import random
 import socket
 import typing
@@ -147,7 +148,7 @@ class Menu:
             pyxel.line(24, 58, 175, 58, pyxel.COLOR_GRAY)
 
             for idx, pl in enumerate(self.multiplayer_player_details):
-                player_is_client: bool = uuid.getnode() == pl.id
+                player_is_client: bool = hash((uuid.getnode(), os.getpid())) == pl.id
                 name = pl.name + " (you)" if player_is_client else pl.name
                 pyxel.text(28, 66 + idx * 10, name, pyxel.COLOR_GREEN if player_is_client else pyxel.COLOR_WHITE)
                 faction_offset = 50 - pow(len(pl.faction), 1.4)
@@ -686,19 +687,42 @@ class Menu:
             pyxel.rect(31, 31, 138, 98, pyxel.COLOR_BLACK)
             pyxel.text(72, 35, f"Joining {self.multiplayer_lobbies[self.lobby_index].name}", pyxel.COLOR_WHITE)
             pyxel.text(62, 60, "Choose your faction", pyxel.COLOR_GREEN)
-            faction_offset = 50 - pow(len(self.available_multiplayer_factions[self.faction_idx][0]), 1.4)
+            current_faction: (Faction, int) = self.available_multiplayer_factions[self.faction_idx]
+            faction_offset = 50 - pow(len(current_faction[0]), 1.4)
             if self.faction_idx == 0:
-                pyxel.text(60 + faction_offset, 70, f"{self.available_multiplayer_factions[self.faction_idx][0].value} ->",
-                           self.available_multiplayer_factions[self.faction_idx][1])
+                pyxel.text(60 + faction_offset, 70, f"{current_faction[0].value} ->", current_faction[1])
             elif self.faction_idx == len(self.available_multiplayer_factions) - 1:
-                pyxel.text(55 + faction_offset, 70, f"<- {self.available_multiplayer_factions[self.faction_idx][0].value}",
-                           self.available_multiplayer_factions[self.faction_idx][1])
+                pyxel.text(55 + faction_offset, 70, f"<- {current_faction[0].value}", current_faction[1])
             else:
-                pyxel.text(48 + faction_offset, 70, f"<- {self.available_multiplayer_factions[self.faction_idx][0].value} ->",
-                           self.available_multiplayer_factions[self.faction_idx][1])
+                pyxel.text(48 + faction_offset, 70, f"<- {current_faction[0].value} ->", current_faction[1])
             pyxel.text(40, 80, "(Press F to show more details)", pyxel.COLOR_WHITE)
             pyxel.text(58, 105, "Press ENTER to continue", pyxel.COLOR_WHITE)
             pyxel.text(60, 115, "Press SPACE to go back", pyxel.COLOR_WHITE)
+
+            if self.showing_faction_details:
+                pyxel.load("resources/sprites.pyxres")
+                pyxel.rectb(30, 30, 140, 124, pyxel.COLOR_WHITE)
+                pyxel.rect(31, 31, 138, 122, pyxel.COLOR_BLACK)
+                pyxel.text(70, 35, "Faction Details", pyxel.COLOR_WHITE)
+                pyxel.text(35, 50, str(current_faction[0].value), current_faction[1])
+                pyxel.text(35, 110, "Recommended victory:", pyxel.COLOR_WHITE)
+
+                # Draw the buff and debuff text for the currently selected faction.
+                faction_detail = next(detail for detail in FACTION_DETAILS
+                                      if detail.faction == current_faction[0].value)
+                total_faction_idx = FACTION_DETAILS.index(faction_detail)
+                pyxel.text(35, 70, faction_detail.buff, pyxel.COLOR_GREEN)
+                pyxel.text(35, 90, faction_detail.debuff, pyxel.COLOR_RED)
+                pyxel.text(35, 120, faction_detail.rec_victory_type,
+                           VICTORY_TYPE_COLOURS[faction_detail.rec_victory_type])
+                pyxel.blt(150, 48, 0, total_faction_idx * 8, 92, 8, 8)
+                if self.faction_idx != 0:
+                    pyxel.text(35, 140, "<-", pyxel.COLOR_WHITE)
+                    pyxel.blt(45, 138, 0, (total_faction_idx - 1) * 8, 92, 8, 8)
+                pyxel.text(65, 140, "Press F to go back", pyxel.COLOR_WHITE)
+                if self.faction_idx != len(self.faction_colours) - 1:
+                    pyxel.blt(148, 138, 0, (total_faction_idx + 1) * 8, 92, 8, 8)
+                    pyxel.text(158, 140, "->", pyxel.COLOR_WHITE)
         elif self.viewing_lobbies:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)

@@ -8,14 +8,16 @@ import typing
 import uuid
 from dataclasses import dataclass
 from enum import Enum
+from itertools import chain
 
 from source.display.board import Board
-from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAMES
-from source.foundation.models import GameConfig, Faction, Player, PlayerDetails, LobbyDetails
+from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAMES, Namer
+from source.foundation.models import GameConfig, Faction, Player, PlayerDetails, LobbyDetails, Quad
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.networking.client import dispatch_event
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
+from source.saving.save_migrator import migrate_quad
 
 HOST, SERVER_PORT, CLIENT_PORT = "localhost", 9999, 55555
 
@@ -43,13 +45,14 @@ class CreateEvent(Event):
     cfg: GameConfig
     lobby_name: typing.Optional[str] = None
     player_details: typing.Optional[typing.List[PlayerDetails]] = None
-    until_night: typing.Optional[int] = None
 
 
 @dataclass
 class InitEvent(Event):
     game_name: str
-    players: typing.List[typing.Tuple[str, Faction]]
+    until_night: typing.Optional[int] = None
+    cfg: typing.Optional[GameConfig] = None
+    quads: typing.Optional[typing.List[Quad]] = None
 
 
 @dataclass
@@ -71,7 +74,7 @@ class LeaveEvent(Event):
 class JoinEvent(Event):
     lobby_name: str
     player_faction: Faction
-    player_name: typing.Optional[str] = None
+    player_details: typing.Optional[typing.List[PlayerDetails]] = None
 
 
 @dataclass
@@ -89,7 +92,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         if evt.type == EventType.CREATE:
             self.process_create_event(evt, sock)
         elif evt.type == EventType.INIT:
-            self.process_init_event(evt)
+            self.process_init_event(evt, sock)
         elif evt.type == EventType.UPDATE:
             self.process_update_event(evt)
         elif evt.type == EventType.QUERY:
@@ -114,30 +117,44 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.server.game_clients_ref[lobby_name] = \
                 [PlayerDetails(player_name, evt.cfg.player_faction, evt.identifier, self.client_address[0])]
             self.server.lobbies_ref[lobby_name] = evt.cfg
-            resp_evt: CreateEvent = CreateEvent(evt.type, evt.timestamp, None, evt.cfg, evt.identifier, lobby_name,
-                                                self.server.game_clients_ref[lobby_name], gsrs[lobby_name].until_night)
+            resp_evt: CreateEvent = CreateEvent(evt.type, evt.timestamp, None, evt.cfg, lobby_name,
+                                                self.server.game_clients_ref[lobby_name])
             sock.sendto(json.dumps(resp_evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
         else:
-            gsrs["local"].until_night = evt.until_night
             gsrs["local"].players.append(Player(evt.player_details[0].name, evt.cfg.player_faction,
                                                 FACTION_COLOURS[evt.cfg.player_faction]))
             gc: GameController = self.server.game_controller_ref
             gc.menu.multiplayer_lobby_name = evt.lobby_name
             gc.menu.multiplayer_player_details = evt.player_details
 
-    def process_init_event(self, evt: InitEvent):
+    def process_init_event(self, evt: InitEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
-        init_event: InitEvent = evt
-        gsr: GameState = gsrs[init_event.game_name]
-        gsr.game_started = True
-        gsr.turn = 1
-        random.seed()
-        gsr.until_night = random.randint(10, 20)
-        gsr.nighttime_left = 0
-        gsr.on_menu = False
-        for player in init_event.players:
-            gsr.players.append(Player(player[0], player[1], FACTION_COLOURS[player[1]]))
-        gsr.board = Board(init_event.cfg)
+        if self.server.is_server:
+            gsr: GameState = gsrs[evt.game_name]
+            gsr.game_started = True
+            gsr.turn = 1
+            random.seed()
+            gsr.until_night = random.randint(10, 20)
+            gsr.nighttime_left = 0
+            gsr.on_menu = False
+            # TODO This Namer is probably going to be a problem - other code will have to change to not use it for
+            #  multiplayer games
+            gsr.board = Board(self.server.lobbies_ref[evt.game_name], Namer())
+            resp_evt: InitEvent = InitEvent(evt.type, datetime.datetime.now(), None, evt.game_name,
+                                            gsr.until_night, self.server.lobbies_ref[evt.game_name],
+                                            list(chain.from_iterable(gsr.board.quads)))
+            print(len(json.dumps(resp_evt, cls=SaveEncoder)))
+            sock.sendto(json.dumps(resp_evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
+        else:
+            gsrs["local"].until_night = evt.until_night
+            quads = [[None] * 100 for _ in range(90)]
+            for i in range(90):
+                for j in range(100):
+                    quads[i][j] = migrate_quad(evt.quads[i * 100 + j], (j, i))
+            gsrs["local"].board = Board(evt.cfg, Namer(), evt.quads)
+            gsrs["local"].board.overlay.toggle_tutorial()
+            gsrs["local"].board.overlay.total_settlement_count = \
+                sum(len(p.settlements) for p in gsrs["local"].players) + 1
 
     def process_update_event(self, evt: UpdateEvent):
         self.server.events_ref.append(evt)
@@ -163,20 +180,31 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.server.game_states_ref.pop(evt.lobby_name)
 
     def process_join_event(self, evt: JoinEvent, sock: socket.socket):
+        gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
         if self.server.is_server:
-            gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
             player_name = random.choice(PLAYER_NAMES)
             while any(player.name == player_name for player in self.server.game_clients_ref[evt.lobby_name]):
                 player_name = random.choice(PLAYER_NAMES)
             gsrs[evt.lobby_name].players.append(Player(player_name, evt.player_faction,
                                                        FACTION_COLOURS[evt.player_faction]))
-            self.server.game_clients_ref[evt.lobby_name].append([PlayerDetails(player_name, evt.player_faction,
-                                                                               evt.identifier, self.client_address[0])])
+            self.server.game_clients_ref[evt.lobby_name].append(PlayerDetails(player_name, evt.player_faction,
+                                                                              evt.identifier, self.client_address[0]))
             resp_evt: JoinEvent = JoinEvent(EventType.JOIN, datetime.datetime.now(), None, evt.lobby_name,
-                                            evt.identifier, evt.player_faction, player_name)
+                                            evt.player_faction, self.server.game_clients_ref[evt.lobby_name])
             sock.sendto(json.dumps(resp_evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
+            for player in self.server.game_clients_ref[evt.lobby_name]:
+                if player.id != evt.identifier:
+                    update_evt: JoinEvent = JoinEvent(EventType.JOIN, datetime.datetime.now(), None, evt.lobby_name,
+                                                      evt.player_faction, self.server.game_clients_ref[evt.lobby_name])
+                    sock.sendto(json.dumps(update_evt, cls=SaveEncoder).encode(),
+                                self.server.clients_ref[player.id])
         else:
-            pass
+            for player in evt.player_details:
+                if player.faction != evt.player_faction:
+                    gsrs["local"].players.append(Player(player.name, player.faction, FACTION_COLOURS[player.faction]))
+            gc: GameController = self.server.game_controller_ref
+            gc.menu.multiplayer_lobby_name = evt.lobby_name
+            gc.menu.multiplayer_player_details = evt.player_details
     
     def process_register_event(self, evt: RegisterEvent):
         self.server.clients_ref[evt.identifier] = self.client_address[0], evt.port

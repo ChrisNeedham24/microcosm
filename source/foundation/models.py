@@ -205,10 +205,10 @@ class Quad:
     A quad on the board. Has a biome, yield, and whether it is selected.
     """
     biome: Biome
-    wealth: float
-    harvest: float
-    zeal: float
-    fortune: float
+    wealth: int
+    harvest: int
+    zeal: int
+    fortune: int
     location: (int, int)
     # Even though a quad will only ever have one resource, it's easier to use this.
     resource: typing.Optional[ResourceCollection] = None

@@ -7,38 +7,38 @@ from source.foundation.models import Biome, Unit, Heathen, AttackData, Player, E
     HealData, DeployerUnitPlan, DeployerUnit, ResourceCollection, Quad
 
 
-def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
+def calculate_yield_for_quad(biome: Biome) -> (int, int, int, int):
     """
     Given the supplied biome, generate a random yield to be used for a quad.
     :param biome: The biome of the quad-to-be.
     :return: A tuple of wealth, harvest, zeal, and fortune.
     """
-    wealth: float = 0
-    harvest: float = 0
-    zeal: float = 0
-    fortune: float = 0
+    wealth: int = 0
+    harvest: int = 0
+    zeal: int = 0
+    fortune: int = 0
 
     match biome:
         case Biome.FOREST:
-            wealth = random.uniform(0.0, 2.0)
-            harvest = random.uniform(5.0, 9.0)
-            zeal = random.uniform(1.0, 4.0)
-            fortune = random.uniform(3.0, 6.0)
+            wealth = random.randint(0, 2)
+            harvest = random.randint(5, 9)
+            zeal = random.randint(1, 4)
+            fortune = random.randint(3, 6)
         case Biome.SEA:
-            wealth = random.uniform(1.0, 4.0)
-            harvest = random.uniform(3.0, 6.0)
-            zeal = random.uniform(0.0, 1.0)
-            fortune = random.uniform(5.0, 9.0)
+            wealth = random.randint(1, 4)
+            harvest = random.randint(3, 6)
+            zeal = random.randint(0, 1)
+            fortune = random.randint(5, 9)
         case Biome.DESERT:
-            wealth = random.uniform(5.0, 9.0)
-            harvest = random.uniform(0.0, 1.0)
-            zeal = random.uniform(3.0, 6.0)
-            fortune = random.uniform(1.0, 4.0)
+            wealth = random.randint(5, 9)
+            harvest = random.randint(0, 1)
+            zeal = random.randint(3, 6)
+            fortune = random.randint(1, 4)
         case Biome.MOUNTAIN:
-            wealth = random.uniform(3.0, 6.0)
-            harvest = random.uniform(1.0, 4.0)
-            zeal = random.uniform(5.0, 9.0)
-            fortune = random.uniform(0.0, 2.0)
+            wealth = random.randint(3, 6)
+            harvest = random.randint(1, 4)
+            zeal = random.randint(5, 9)
+            fortune = random.randint(0, 2)
 
     return wealth, harvest, zeal, fortune
 
