@@ -394,3 +394,8 @@ def subtract_player_resources_for_improvement(player: Player, improvement: Impro
     player.resources.ore -= improvement.req_resources.ore
     player.resources.timber -= improvement.req_resources.timber
     player.resources.magma -= improvement.req_resources.magma
+
+
+def split_list_into_chunks(list_to_split: list, chunk_length: int) -> typing.Generator[list, None, None]:
+    for i in range(0, len(list_to_split), chunk_length):
+        yield list_to_split[i:i + chunk_length]

@@ -40,6 +40,8 @@ class GameState:
         # We can hard-code the version here and update it when required. This was introduced so that saves with
         # resources can be distinguished from those without.
         self.game_version: float = 3.0
+        
+        self.player_idx: int = 0
 
     def gen_players(self, cfg: GameConfig):
         """
@@ -65,7 +67,7 @@ class GameState:
         """
         problematic_settlements = []
         total_wealth = 0
-        for setl in self.players[0].settlements:
+        for setl in self.players[self.player_idx].settlements:
             if setl.current_work is None:
                 problematic_settlements.append(setl)
             total_wealth += sum(quad.wealth for quad in setl.quads)
@@ -75,15 +77,15 @@ class GameState:
                 total_wealth = 0
             elif setl.economic_status is EconomicStatus.BOOM:
                 total_wealth *= 1.5
-        for unit in self.players[0].units:
+        for unit in self.players[self.player_idx].units:
             if not unit.garrisoned:
                 total_wealth -= unit.plan.cost / 10
-        if self.players[0].faction is Faction.GODLESS:
+        if self.players[self.player_idx].faction is Faction.GODLESS:
             total_wealth *= 1.25
-        elif self.players[0].faction is Faction.ORTHODOX:
+        elif self.players[self.player_idx].faction is Faction.ORTHODOX:
             total_wealth *= 0.75
-        has_no_blessing = self.players[0].ongoing_blessing is None
-        will_have_negative_wealth = (self.players[0].wealth + total_wealth) < 0 and len(self.players[0].units) > 0
+        has_no_blessing = self.players[self.player_idx].ongoing_blessing is None
+        will_have_negative_wealth = (self.players[self.player_idx].wealth + total_wealth) < 0 and len(self.players[self.player_idx].units) > 0
         if not self.board.overlay.is_warning() and \
                 (len(problematic_settlements) > 0 or has_no_blessing or will_have_negative_wealth):
             self.board.overlay.toggle_warning(problematic_settlements, has_no_blessing, will_have_negative_wealth)
@@ -207,12 +209,12 @@ class GameState:
                     setl.resources = \
                         get_resources_for_settlement([quad.location for quad in setl.quads], self.board.quads)
                     # If the player playing as The Concentrated faction is the human player, update the quads seen list.
-                    if player == self.players[0]:
+                    if player == self.players[self.player_idx]:
                         for i in range(best_quad_with_yield[0].location[1] - 5,
                                        best_quad_with_yield[0].location[1] + 6):
                             for j in range(best_quad_with_yield[0].location[0] - 5,
                                            best_quad_with_yield[0].location[0] + 6):
-                                self.players[0].quads_seen.add((j, i))
+                                self.players[self.player_idx].quads_seen.add((j, i))
 
             if setl.resources:
                 # Only core resources accumulate.
@@ -274,10 +276,10 @@ class GameState:
                 self.nighttime_left = random.randint(5, 20)
                 for h in self.heathens:
                     h.plan.power = round(2 * h.plan.power)
-                if self.players[0].faction is Faction.NOCTURNE:
-                    for u in self.players[0].units:
+                if self.players[self.player_idx].faction is Faction.NOCTURNE:
+                    for u in self.players[self.player_idx].units:
                         u.plan.power = round(2 * u.plan.power)
-                    for setl in self.players[0].settlements:
+                    for setl in self.players[self.player_idx].settlements:
                         for unit in setl.garrison:
                             unit.plan.power = round(2 * unit.plan.power)
         else:
@@ -287,13 +289,13 @@ class GameState:
                 self.board.overlay.toggle_night(False)
                 for h in self.heathens:
                     h.plan.power = round(h.plan.power / 2)
-                if self.players[0].faction is Faction.NOCTURNE:
-                    for u in self.players[0].units:
+                if self.players[self.player_idx].faction is Faction.NOCTURNE:
+                    for u in self.players[self.player_idx].units:
                         u.plan.power = round(u.plan.power / 4)
                         u.health = round(u.health / 2)
                         u.plan.max_health = round(u.plan.max_health / 2)
                         u.plan.total_stamina = round(u.plan.total_stamina / 2)
-                    for setl in self.players[0].settlements:
+                    for setl in self.players[self.player_idx].settlements:
                         for unit in setl.garrison:
                             unit.plan.power = round(unit.plan.power / 4)
                             unit.health = round(unit.health / 2)
@@ -336,13 +338,13 @@ class GameState:
             self.board.overlay.toggle_victory(possible_victory)
             # Update the victory/defeat statistics, depending on whether the player achieved a victory, or an AI player
             # did. Also check for any newly-obtained achievements.
-            if possible_victory.player is self.players[0]:
+            if possible_victory.player is self.players[self.player_idx]:
                 if new_achs := save_stats_achievements(self, victory_to_add=possible_victory.type):
                     self.board.overlay.toggle_ach_notif(new_achs)
             # We need an extra eliminated check in here because if the player was eliminated at the same time that the
             # victory was achieved, e.g. in an elimination victory between two players, the defeat count would be
             # incremented twice - once here and once when they are marked as eliminated.
-            elif not self.players[0].eliminated:
+            elif not self.players[self.player_idx].eliminated:
                 if new_achs := save_stats_achievements(self, increment_defeats=True):
                     self.board.overlay.toggle_ach_notif(new_achs)
             return False
@@ -427,11 +429,11 @@ class GameState:
                     return Victory(p, VictoryType.VIGOUR)
             # The player has a special advantage over the AIs - if they have a settler unit despite losing all of their
             # settlements, they are considered to still be in the game.
-            elif not (p == self.players[0] and any(unit.plan.can_settle for unit in p.units)) and not p.eliminated:
+            elif not (p == self.players[self.player_idx] and any(unit.plan.can_settle for unit in p.units)) and not p.eliminated:
                 p.eliminated = True
                 self.board.overlay.toggle_elimination(p)
                 # Update the defeats stat if the eliminated player is the human player.
-                if p == self.players[0]:
+                if p == self.players[self.player_idx]:
                     # We ignore any returned achievements here for a couple of reasons - mainly because once eliminated,
                     # the player can't actually view them anyway, because they're taken back to the menu, but also
                     # because it is exceedingly unlikely that the player will have achieved one in the same turn that
@@ -460,7 +462,7 @@ class GameState:
                 p.imminent_victories.add(VictoryType.SERENDIPITY)
 
         if players_with_setls == 1 and \
-                not (not self.players[0].settlements and any(unit.plan.can_settle for unit in self.players[0].units)):
+                not (not self.players[self.player_idx].settlements and any(unit.plan.can_settle for unit in self.players[self.player_idx].units)):
             # If there is only one player with settlements (and the human player doesn't have a settler), they have
             # achieved an ELIMINATION victory.
             return Victory(next(player for player in self.players if len(player.settlements) > 0),
@@ -513,7 +515,7 @@ class GameState:
                 heathen.remaining_stamina = 0
                 data = attack(heathen, within_range)
                 # Only show the attack overlay if the unit attacked was the non-AI player's.
-                if within_range in self.players[0].units:
+                if within_range in self.players[self.player_idx].units:
                     self.board.overlay.toggle_attack(data)
                 if within_range.health <= 0:
                     for player in self.players:
@@ -545,10 +547,10 @@ class GameState:
                     self.heathens.remove(heathen)
 
             # Players of the Infidels faction share vision with Heathen units.
-            if self.players[0].faction is Faction.INFIDELS:
+            if self.players[self.player_idx].faction is Faction.INFIDELS:
                 for i in range(heathen.location[1] - 5, heathen.location[1] + 6):
                     for j in range(heathen.location[0] - 5, heathen.location[0] + 6):
-                        self.players[0].quads_seen.add((j, i))
+                        self.players[self.player_idx].quads_seen.add((j, i))
 
     def initialise_ais(self, namer: Namer):
         """

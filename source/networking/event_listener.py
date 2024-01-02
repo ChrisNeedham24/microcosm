@@ -4,20 +4,25 @@ import os
 import random
 import socket
 import socketserver
+import time
 import typing
 import uuid
 from dataclasses import dataclass
 from enum import Enum
 from itertools import chain
 
+import pyxel
+
 from source.display.board import Board
 from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAMES, Namer
-from source.foundation.models import GameConfig, Faction, Player, PlayerDetails, LobbyDetails, Quad
+from source.foundation.models import GameConfig, Faction, Player, PlayerDetails, LobbyDetails, Quad, Biome, \
+    ResourceCollection
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.networking.client import dispatch_event
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_quad
+from source.util.calculator import split_list_into_chunks
 
 HOST, SERVER_PORT, CLIENT_PORT = "localhost", 9999, 55555
 
@@ -52,7 +57,8 @@ class InitEvent(Event):
     game_name: str
     until_night: typing.Optional[int] = None
     cfg: typing.Optional[GameConfig] = None
-    quads: typing.Optional[typing.List[Quad]] = None
+    quad_chunk: typing.Optional[str] = None
+    quad_chunk_idx: typing.Optional[int] = None
 
 
 @dataclass
@@ -140,24 +146,104 @@ class RequestHandler(socketserver.BaseRequestHandler):
             # TODO This Namer is probably going to be a problem - other code will have to change to not use it for
             #  multiplayer games
             gsr.board = Board(self.server.lobbies_ref[evt.game_name], Namer())
-            resp_evt: InitEvent = InitEvent(evt.type, datetime.datetime.now(), None, evt.game_name,
-                                            gsr.until_night, self.server.lobbies_ref[evt.game_name],
-                                            list(chain.from_iterable(gsr.board.quads)))
-            print(len(json.dumps(resp_evt, cls=SaveEncoder)))
-            sock.sendto(json.dumps(resp_evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
+            quads_list: typing.List[Quad] = list(chain.from_iterable(gsr.board.quads))
+            for idx, quads_chunk in enumerate(split_list_into_chunks(quads_list, 100)):
+                minified_quads: str = ""
+                for quad in quads_chunk:
+                    quad_str = f"{quad.biome.value[0]}{quad.wealth}{quad.harvest}{quad.zeal}{quad.fortune}"
+                    if res := quad.resource:
+                        if res.ore:
+                            quad_str += "or"
+                        elif res.timber:
+                            quad_str += "t"
+                        elif res.magma:
+                            quad_str += "m"
+                        elif res.aurora:
+                            quad_str += "au"
+                        elif res.bloodstone:
+                            quad_str += "b"
+                        elif res.obsidian:
+                            quad_str += "ob"
+                        elif res.sunstone:
+                            quad_str += "s"
+                        elif res.aquamarine:
+                            quad_str += "aq"
+                    if quad.is_relic:
+                        quad_str += "ir"
+                    quad_str += ","
+                    minified_quads += quad_str
+                for player in self.server.game_clients_ref[evt.game_name]:
+                    resp_evt: InitEvent = InitEvent(evt.type, datetime.datetime.now(), None, evt.game_name,
+                                                    gsr.until_night, self.server.lobbies_ref[evt.game_name],
+                                                    minified_quads, idx)
+                    sock.sendto(json.dumps(resp_evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[player.id])
         else:
-            gsrs["local"].until_night = evt.until_night
-            quads = [[None] * 100 for _ in range(90)]
+            if not gsrs["local"].board:
+                gsrs["local"].until_night = evt.until_night
+                gsrs["local"].board = Board(evt.cfg, Namer(), [[None] * 100 for _ in range(90)],
+                                            player_idx=gsrs["local"].player_idx)
+            split_quads: typing.List[str] = evt.quad_chunk.split(",")[:-1]
+            for j in range(100):
+                mini: str = split_quads[j]
+                quad_biome: Biome
+                match mini[0]:
+                    case "D":
+                        quad_biome = Biome.DESERT
+                    case "F":
+                        quad_biome = Biome.FOREST
+                    case "S":
+                        quad_biome = Biome.SEA
+                    case "M":
+                        quad_biome = Biome.MOUNTAIN
+                quad_resource: typing.Optional[ResourceCollection] = None
+                quad_is_relic: bool = False
+                if len(mini) > 5:
+                    if "or" in mini:
+                        quad_resource = ResourceCollection(ore=1)
+                    elif "t" in mini:
+                        quad_resource = ResourceCollection(timber=1)
+                    elif "m" in mini:
+                        quad_resource = ResourceCollection(magma=1)
+                    elif "au" in mini:
+                        quad_resource = ResourceCollection(aurora=1)
+                    elif "b" in mini:
+                        quad_resource = ResourceCollection(bloodstone=1)
+                    elif "ob" in mini:
+                        quad_resource = ResourceCollection(obsidian=1)
+                    elif "s" in mini:
+                        quad_resource = ResourceCollection(sunstone=1)
+                    elif "aq" in mini:
+                        quad_resource = ResourceCollection(aquamarine=1)
+                    quad_is_relic = mini.endswith("ir")
+                expanded_quad: Quad = Quad(quad_biome, int(mini[1]), int(mini[2]), int(mini[3]), int(mini[4]),
+                                           (j, evt.quad_chunk_idx), resource=quad_resource, is_relic=quad_is_relic)
+                gsrs["local"].board.quads[evt.quad_chunk_idx][j] = expanded_quad
+            # TODO busy wait bad fix later
+            quads_populated: bool = True
             for i in range(90):
                 for j in range(100):
-                    quads[i][j] = migrate_quad(evt.quads[i * 100 + j], (j, i))
-            gsrs["local"].board = Board(evt.cfg, Namer(), evt.quads)
-            gsrs["local"].board.overlay.toggle_tutorial()
-            gsrs["local"].board.overlay.total_settlement_count = \
-                sum(len(p.settlements) for p in gsrs["local"].players) + 1
+                    if not gsrs["local"].board or gsrs["local"].board.quads[i][j] is None:
+                        quads_populated = False
+                        break
+                if not quads_populated:
+                    break
+            if quads_populated:
+                gc: GameController = self.server.game_controller_ref
+                pyxel.mouse(visible=True)
+                gc.last_turn_time = time.time()
+                gsrs["local"].game_started = True
+                gsrs["local"].on_menu = False
+                # TODO add stats/achs later
+                gsrs["local"].board.overlay.toggle_tutorial()
+                gsrs["local"].board.overlay.total_settlement_count = \
+                    sum(len(p.settlements) for p in gsrs["local"].players) + 1
+                gc.music_player.stop_menu_music()
+                gc.music_player.play_game_music()
 
     def process_update_event(self, evt: UpdateEvent):
-        self.server.events_ref.append(evt)
+        # self.server.events_ref.append(evt)
+        pass
 
     def process_query_event(self, evt: QueryEvent, sock: socket.socket):
         if self.server.is_server:
@@ -199,9 +285,10 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     sock.sendto(json.dumps(update_evt, cls=SaveEncoder).encode(),
                                 self.server.clients_ref[player.id])
         else:
-            for player in evt.player_details:
-                if player.faction != evt.player_faction:
-                    gsrs["local"].players.append(Player(player.name, player.faction, FACTION_COLOURS[player.faction]))
+            for idx, player in enumerate(evt.player_details):
+                if player.faction == evt.player_faction:
+                    gsrs["local"].player_idx = idx
+                gsrs["local"].players.append(Player(player.name, player.faction, FACTION_COLOURS[player.faction]))
             gc: GameController = self.server.game_controller_ref
             gc.menu.multiplayer_lobby_name = evt.lobby_name
             gc.menu.multiplayer_player_details = evt.player_details
@@ -213,7 +300,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
 class EventListener:
     def __init__(self, is_server: bool = False):
         self.game_states: typing.Dict[str, GameState] = {}
-        self.events: typing.Dict[str, typing.List[Event]] = {}
+        # self.events: typing.Dict[str, typing.List[Event]] = {}
         self.is_server: bool = is_server
         self.game_controller: typing.Optional[GameController] = None
         self.game_clients: typing.Dict[str, typing.List[PlayerDetails]] = {}
@@ -226,7 +313,7 @@ class EventListener:
                 dispatch_event(RegisterEvent(EventType.REGISTER, datetime.datetime.now(),
                                              hash((uuid.getnode(), os.getpid())), server.server_address[1]))
             server.game_states_ref = self.game_states
-            server.events_ref = self.events
+            # server.events_ref = self.events
             server.is_server = self.is_server
             server.game_controller_ref = self.game_controller
             server.game_clients_ref = self.game_clients

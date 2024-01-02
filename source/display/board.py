@@ -30,7 +30,8 @@ class Board:
     The class responsible for drawing everything in-game (i.e. not on menu).
     """
 
-    def __init__(self, cfg: GameConfig, namer: Namer, quads: typing.List[typing.List[Quad]] = None):
+    def __init__(self, cfg: GameConfig, namer: Namer, quads: typing.List[typing.List[Quad]] = None,
+                 player_idx: int = 0):
         """
         Initialises the board with the given config and quads, if supplied.
         :param cfg: The game config.
@@ -63,6 +64,8 @@ class Board:
         self.deploying_army_from_unit = False
         self.selected_unit: typing.Optional[Unit | Heathen] = None
 
+        self.player_idx: int = player_idx
+
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
              is_night: bool, turns_until_change: int):  # pragma: no cover
         """
@@ -84,34 +87,34 @@ class Board:
         # At nighttime, the player can only see a few quads around their settlements and units. However, players of the
         # Nocturne faction have no vision impacts at nighttime. In addition to this, settlements with one or more
         # sunstone resources have extended vision proportionate to the number of sunstone resources they have.
-        if is_night and players[0].faction is not Faction.NOCTURNE:
-            for setl in players[0].settlements:
+        if is_night and players[self.player_idx].faction is not Faction.NOCTURNE:
+            for setl in players[self.player_idx].settlements:
                 vision_range = 3 * (1 + setl.resources.sunstone)
                 for setl_quad in setl.quads:
                     for i in range(setl_quad.location[0] - vision_range, setl_quad.location[0] + vision_range + 1):
                         for j in range(setl_quad.location[1] - vision_range, setl_quad.location[1] + vision_range + 1):
                             quads_to_show.add((i, j))
-            for unit in players[0].units:
+            for unit in players[self.player_idx].units:
                 for i in range(unit.location[0] - 3, unit.location[0] + 4):
                     for j in range(unit.location[1] - 3, unit.location[1] + 4):
                         quads_to_show.add((i, j))
             # Players of the Infidels faction share vision with Heathen units.
-            if players[0].faction is Faction.INFIDELS:
+            if players[self.player_idx].faction is Faction.INFIDELS:
                 for heathen in heathens:
                     for i in range(heathen.location[0] - 5, heathen.location[0] + 6):
                         for j in range(heathen.location[1] - 5, heathen.location[1] + 6):
                             quads_to_show.add((i, j))
         else:
-            quads_to_show = players[0].quads_seen
+            quads_to_show = players[self.player_idx].quads_seen
         fog_of_war_impacts: bool = self.game_config.fog_of_war or \
-            (is_night and players[0].faction is not Faction.NOCTURNE)
+            (is_night and players[self.player_idx].faction is not Faction.NOCTURNE)
         # Draw the quads.
         for i in range(map_pos[0], map_pos[0] + 24):
             for j in range(map_pos[1], map_pos[1] + 22):
                 if 0 <= i <= 99 and 0 <= j <= 89:
                     # Draw the quad if fog of war is off, or if the player has seen the quad, or we're in the tutorial.
                     # This same logic applies to all subsequent draws.
-                    if (i, j) in quads_to_show or len(players[0].settlements) == 0 or not fog_of_war_impacts:
+                    if (i, j) in quads_to_show or len(players[self.player_idx].settlements) == 0 or not fog_of_war_impacts:
                         quad = self.quads[j][i]
                         match quad.biome:
                             case Biome.DESERT:
@@ -204,7 +207,7 @@ class Board:
                     pyxel.rectb((unit.location[0] - map_pos[0]) * 8 + 4,
                                 (unit.location[1] - map_pos[1]) * 8 + 4, 8, 8, player.colour)
                     # Highlight the player-selected unit, if there is one.
-                    if self.selected_unit is unit and unit in players[0].units:
+                    if self.selected_unit is unit and unit in players[self.player_idx].units:
                         movement = self.selected_unit.remaining_stamina
                         pyxel.rectb((self.selected_unit.location[0] - map_pos[0]) * 8 + 4 - (movement * 8),
                                     (self.selected_unit.location[1] - map_pos[1]) * 8 + 4 - (movement * 8),
@@ -278,7 +281,7 @@ class Board:
 
         # For the selected quad, display its yield.
         if self.quad_selected is not None and selected_quad_coords is not None and \
-                (selected_quad_coords in quads_to_show or len(players[0].settlements) == 0 or
+                (selected_quad_coords in quads_to_show or len(players[self.player_idx].settlements) == 0 or
                  not fog_of_war_impacts):
             x_offset = 30 if selected_quad_coords[0] - map_pos[0] <= 8 else 0
             y_offset = -34 if selected_quad_coords[1] - map_pos[1] >= 36 else 0
@@ -328,7 +331,7 @@ class Board:
                         pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_WHITE)
 
         # Also display the number of units the player can move at the bottom-right of the screen.
-        movable_units = [unit for unit in players[0].units if unit.remaining_stamina > 0 and not unit.besieging]
+        movable_units = [unit for unit in players[self.player_idx].units if unit.remaining_stamina > 0 and not unit.besieging]
         if len(movable_units) > 0:
             pluralisation = "s" if len(movable_units) > 1 else ""
             pyxel.rectb(150, 147, 40, 20, pyxel.COLOR_WHITE)
@@ -351,7 +354,7 @@ class Board:
         exclamation_offset: int = 0
         if self.game_config.climatic_effects:
             exclamation_offset += 12
-            if players[0].faction is Faction.NOCTURNE:
+            if players[self.player_idx].faction is Faction.NOCTURNE:
                 exclamation_offset += 17
                 pyxel.text(135, 190, f"({turns_until_change})", pyxel.COLOR_WHITE)
             if is_night:
@@ -360,10 +363,10 @@ class Board:
                 pyxel.blt(153, 188, 0, 0, 84, 8, 8)
         # If the player isn't undergoing a blessing, or has one or more settlements without a construction, display
         # exclamation marks in the status bar.
-        if any(setl.current_work is None for setl in players[0].settlements):
+        if any(setl.current_work is None for setl in players[self.player_idx].settlements):
             pyxel.blt(154 - exclamation_offset, 188, 0, 8, 124, 8, 8)
             exclamation_offset += 8
-        if players[0].ongoing_blessing is None:
+        if players[self.player_idx].ongoing_blessing is None:
             pyxel.blt(154 - exclamation_offset, 188, 0, 0, 124, 8, 8)
 
         pyxel.text(165, 189, f"Turn {turn}", pyxel.COLOR_WHITE)

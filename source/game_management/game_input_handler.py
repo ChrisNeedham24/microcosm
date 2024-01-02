@@ -179,33 +179,30 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                                            hash((uuid.getnode(), os.getpid())),
                                                            game_controller.menu.multiplayer_lobby_name)
                     dispatch_event(game_init_event)
-                # If the player has pressed enter to start the game, generate the players, board, and AI players.
-                pyxel.mouse(visible=True)
-                game_controller.last_turn_time = time.time()
-                game_state.game_started = True
-                game_state.turn = 1
-                # Reinitialise night variables.
-                if not game_controller.menu.in_multiplayer_lobby:
+                else:
+                    # If the player has pressed enter to start the game, generate the players, board, and AI players.
+                    pyxel.mouse(visible=True)
+                    game_controller.last_turn_time = time.time()
+                    game_state.game_started = True
+                    game_state.turn = 1
+                    # Reinitialise night variables.
                     random.seed()
                     game_state.until_night = random.randint(10, 20)
-                game_state.nighttime_left = 0
-                game_state.on_menu = False
-                cfg: GameConfig = game_controller.menu.get_game_config()
-                # Update stats to include the newly-selected faction.
-                # TODO this will now only work for the player that started the game
-                save_stats_achievements(game_state, faction_to_add=cfg.player_faction)
-                if not game_controller.menu.in_multiplayer_lobby:
+                    game_state.nighttime_left = 0
+                    game_state.on_menu = False
+                    cfg: GameConfig = game_controller.menu.get_game_config()
+                    # Update stats to include the newly-selected faction.
+                    save_stats_achievements(game_state, faction_to_add=cfg.player_faction)
                     game_state.gen_players(cfg)
                     game_state.board = Board(cfg, game_controller.namer)
                     game_controller.move_maker.board_ref = game_state.board
                     game_state.board.overlay.toggle_tutorial()
-                game_controller.namer.reset()
-                if not game_controller.menu.in_multiplayer_lobby:
+                    game_controller.namer.reset()
                     game_state.initialise_ais(game_controller.namer)
                     game_state.board.overlay.total_settlement_count = \
                         sum(len(p.settlements) for p in game_state.players) + 1
-                game_controller.music_player.stop_menu_music()
-                game_controller.music_player.play_game_music()
+                    game_controller.music_player.stop_menu_music()
+                    game_controller.music_player.play_game_music()
         elif game_controller.menu.loading_game:
             if game_controller.menu.save_idx == -1:
                 game_controller.menu.loading_game = False
@@ -256,7 +253,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 case MainMenuOption.EXIT:
                     pyxel.quit()
     elif game_state.game_started and (game_state.board.overlay.is_victory() or
-                                      game_state.board.overlay.is_elimination() and game_state.players[0].eliminated):
+                                      game_state.board.overlay.is_elimination() and game_state.players[game_state.player_idx].eliminated):
         # If the player has won the game, or they've just been eliminated themselves, enter will take them back
         # to the menu.
         game_state.game_started = False
@@ -272,15 +269,15 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         # If the selected construction is an improvement with required resources that the player does not have, pressing
         # the enter key will do nothing.
         if cons is not None and not (isinstance(cons, Improvement) and
-                                     not player_has_resources_for_improvement(game_state.players[0], cons)):
+                                     not player_has_resources_for_improvement(game_state.players[game_state.player_idx], cons)):
             if isinstance(cons, Improvement) and cons.req_resources:
-                subtract_player_resources_for_improvement(game_state.players[0], cons)
+                subtract_player_resources_for_improvement(game_state.players[game_state.player_idx], cons)
             game_state.board.selected_settlement.current_work = \
                 Construction(game_state.board.overlay.selected_construction)
             game_state.board.overlay.toggle_construction([], [], [])
     elif game_state.game_started and game_state.board.overlay.is_blessing():
         if game_state.board.overlay.selected_blessing is not None:
-            game_state.players[0].ongoing_blessing = OngoingBlessing(game_state.board.overlay.selected_blessing)
+            game_state.players[game_state.player_idx].ongoing_blessing = OngoingBlessing(game_state.board.overlay.selected_blessing)
         game_state.board.overlay.toggle_blessing([])
     elif game_state.game_started and game_state.board.overlay.is_setl_click():
         match game_state.board.overlay.setl_attack_opt:
@@ -291,14 +288,14 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                    game_state.board.overlay.attacked_settlement_owner, False)
                 if data.attacker_was_killed:
                     # If the player's unit died, destroy and deselect it.
-                    game_state.players[0].units.remove(game_state.board.selected_unit)
+                    game_state.players[game_state.player_idx].units.remove(game_state.board.selected_unit)
                     game_state.board.selected_unit = None
                     game_state.board.overlay.toggle_unit(None)
                 elif data.setl_was_taken:
                     # If the settlement was taken, transfer it to the player, while also marking any units that
                     # were involved in the siege as no longer besieging.
                     data.settlement.besieged = False
-                    for unit in game_state.players[0].units:
+                    for unit in game_state.players[game_state.player_idx].units:
                         for setl_quad in data.settlement.quads:
                             if abs(unit.location[0] - setl_quad.location[0]) <= 1 and \
                                     abs(unit.location[1] - setl_quad.location[1]) <= 1:
@@ -306,8 +303,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                 break
                     # The Concentrated can only have a single settlement, so when they take others, the
                     # settlements simply disappear.
-                    if game_state.players[0].faction is not Faction.CONCENTRATED:
-                        game_state.players[0].settlements.append(data.settlement)
+                    if game_state.players[game_state.player_idx].faction is not Faction.CONCENTRATED:
+                        game_state.players[game_state.player_idx].settlements.append(data.settlement)
                     for idx, p in enumerate(game_state.players):
                         if data.settlement in p.settlements and idx != 0:
                             p.settlements.remove(data.settlement)
@@ -353,7 +350,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         # If we are not in any of the above situations, end the turn.
         if game_state.end_turn():
             # Autosave every turn, but only if the player is actually still in the game.
-            if game_state.players[0].settlements:
+            if game_state.players[game_state.player_idx].settlements:
                 save_game(game_state, auto=True)
             # Update the playtime statistic and check if any achievements have been obtained.
             time_elapsed = time.time() - game_controller.last_turn_time
@@ -385,10 +382,10 @@ def on_key_c(game_state: GameState):
     if game_state.game_started and game_state.board.selected_settlement is not None:
         # Pick a construction.
         game_state.board.overlay.toggle_construction(
-            get_available_improvements(game_state.players[0],
+            get_available_improvements(game_state.players[game_state.player_idx],
                                        game_state.board.selected_settlement),
             PROJECTS,
-            get_available_unit_plans(game_state.players[0], game_state.board.selected_settlement))
+            get_available_unit_plans(game_state.players[game_state.player_idx], game_state.board.selected_settlement))
 
 
 def on_key_f(game_controller: GameController, game_state: GameState):
@@ -404,7 +401,7 @@ def on_key_f(game_controller: GameController, game_state: GameState):
     elif game_state.game_started and game_state.board.overlay.is_standard() \
             and game_state.board.overlay.current_standard_overlay_view is StandardOverlayView.BLESSINGS:
         # Pick a blessing.
-        game_state.board.overlay.toggle_blessing(get_available_blessings(game_state.players[0]))
+        game_state.board.overlay.toggle_blessing(get_available_blessings(game_state.players[game_state.player_idx]))
 
 
 def on_key_d(game_state: GameState):
@@ -417,7 +414,7 @@ def on_key_d(game_state: GameState):
         game_state.board.deploying_army = not game_state.board.deploying_army
         game_state.board.overlay.toggle_deployment()
     elif game_state.game_started and game_state.board.selected_unit is not None and \
-            game_state.board.selected_unit in game_state.players[0].units and \
+            game_state.board.selected_unit in game_state.players[game_state.player_idx].units and \
             isinstance(game_state.board.selected_unit, DeployerUnit) and \
             len(game_state.board.selected_unit.passengers) > 0:
         game_state.board.overlay.show_unit_passengers = not game_state.board.overlay.show_unit_passengers
@@ -430,21 +427,21 @@ def on_key_tab(game_state: GameState):
     """
     # Pressing tab iterates through the player's settlements, centreing on each one.
     if game_state.game_started and game_state.board.overlay.can_iter_settlements_units() and \
-            len(game_state.players[0].settlements) > 0:
+            len(game_state.players[game_state.player_idx].settlements) > 0:
         game_state.board.overlay.remove_warning_if_possible()
         if game_state.board.overlay.is_unit():
             game_state.board.selected_unit = None
             game_state.board.overlay.toggle_unit(None)
         if game_state.board.selected_settlement is None:
-            game_state.board.selected_settlement = game_state.players[0].settlements[0]
-            game_state.board.overlay.toggle_settlement(game_state.players[0].settlements[0], game_state.players[0])
-        elif len(game_state.players[0].settlements) > 1:
-            current_idx = game_state.players[0].settlements.index(game_state.board.selected_settlement)
+            game_state.board.selected_settlement = game_state.players[game_state.player_idx].settlements[0]
+            game_state.board.overlay.toggle_settlement(game_state.players[game_state.player_idx].settlements[0], game_state.players[game_state.player_idx])
+        elif len(game_state.players[game_state.player_idx].settlements) > 1:
+            current_idx = game_state.players[game_state.player_idx].settlements.index(game_state.board.selected_settlement)
             new_idx = 0
-            if current_idx != len(game_state.players[0].settlements) - 1:
+            if current_idx != len(game_state.players[game_state.player_idx].settlements) - 1:
                 new_idx = current_idx + 1
-            game_state.board.selected_settlement = game_state.players[0].settlements[new_idx]
-            game_state.board.overlay.update_settlement(game_state.players[0].settlements[new_idx])
+            game_state.board.selected_settlement = game_state.players[game_state.player_idx].settlements[new_idx]
+            game_state.board.overlay.update_settlement(game_state.players[game_state.player_idx].settlements[new_idx])
         game_state.map_pos = (clamp(game_state.board.selected_settlement.location[0] - 12, -1, 77),
                               clamp(game_state.board.selected_settlement.location[1] - 11, -1, 69))
 
@@ -479,7 +476,7 @@ def on_key_space(game_controller: GameController, game_state: GameState):
     elif game_state.on_menu and game_controller.menu.viewing_achievements:
         game_controller.menu.viewing_achievements = False
     # You should only be able to toggle the elimination overlay if you're actually still in the game.
-    if game_state.game_started and game_state.board.overlay.is_elimination() and not game_state.players[0].eliminated:
+    if game_state.game_started and game_state.board.overlay.is_elimination() and not game_state.players[game_state.player_idx].eliminated:
         game_state.board.overlay.toggle_elimination(None)
     elif game_state.game_started and game_state.board.overlay.is_ach_notif():
         game_state.board.overlay.toggle_ach_notif([])
@@ -498,21 +495,21 @@ def on_key_space(game_controller: GameController, game_state: GameState):
     elif game_state.game_started and game_state.board.overlay.is_investigation():
         game_state.board.overlay.toggle_investigation(None)
     elif game_state.game_started and game_state.board.overlay.can_iter_settlements_units() and \
-            len(game_state.players[0].units) > 0:
+            len(game_state.players[game_state.player_idx].units) > 0:
         game_state.board.overlay.remove_warning_if_possible()
         if game_state.board.overlay.is_setl():
             game_state.board.selected_settlement = None
-            game_state.board.overlay.toggle_settlement(None, game_state.players[0])
+            game_state.board.overlay.toggle_settlement(None, game_state.players[game_state.player_idx])
         if game_state.board.selected_unit is None or isinstance(game_state.board.selected_unit, Heathen):
-            game_state.board.selected_unit = game_state.players[0].units[0]
-            game_state.board.overlay.toggle_unit(game_state.players[0].units[0])
-        elif len(game_state.players[0].units) > 1:
-            current_idx = game_state.players[0].units.index(game_state.board.selected_unit)
+            game_state.board.selected_unit = game_state.players[game_state.player_idx].units[0]
+            game_state.board.overlay.toggle_unit(game_state.players[game_state.player_idx].units[0])
+        elif len(game_state.players[game_state.player_idx].units) > 1:
+            current_idx = game_state.players[game_state.player_idx].units.index(game_state.board.selected_unit)
             new_idx = 0
-            if current_idx != len(game_state.players[0].units) - 1:
+            if current_idx != len(game_state.players[game_state.player_idx].units) - 1:
                 new_idx = current_idx + 1
-            game_state.board.selected_unit = game_state.players[0].units[new_idx]
-            game_state.board.overlay.update_unit(game_state.players[0].units[new_idx])
+            game_state.board.selected_unit = game_state.players[game_state.player_idx].units[new_idx]
+            game_state.board.overlay.update_unit(game_state.players[game_state.player_idx].units[new_idx])
         game_state.map_pos = (clamp(game_state.board.selected_unit.location[0] - 12, -1, 77),
                               clamp(game_state.board.selected_unit.location[1] - 11, -1, 69))
 
@@ -525,7 +522,7 @@ def on_key_s(game_state: GameState):
     if game_state.game_started and game_state.board.selected_unit is not None and \
             game_state.board.selected_unit.plan.can_settle:
         # Units that can settle can found new settlements when S is pressed.
-        game_state.board.handle_new_settlement(game_state.players[0])
+        game_state.board.handle_new_settlement(game_state.players[game_state.player_idx])
 
 
 def on_key_n(game_controller: GameController, game_state: GameState):
@@ -548,7 +545,7 @@ def on_key_a(game_state: GameState):
         # Pressing the A key while a player settlement with no active construction is selected results in the
         # selection being made automatically (in much the same way that AI settlements have their constructions
         # selected).
-        set_player_construction(game_state.players[0], game_state.board.selected_settlement,
+        set_player_construction(game_state.players[game_state.player_idx], game_state.board.selected_settlement,
                                 game_state.nighttime_left > 0)
 
 
@@ -583,19 +580,19 @@ def on_key_b(game_state: GameState):
     """
     if game_state.game_started and game_state.board.selected_settlement is not None and \
             game_state.board.selected_settlement.current_work is not None and \
-            game_state.players[0].faction is not Faction.FUNDAMENTALISTS and \
+            game_state.players[game_state.player_idx].faction is not Faction.FUNDAMENTALISTS and \
             not isinstance(game_state.board.selected_settlement.current_work.construction, Project):
         # Pressing B will buyout the remaining cost of the settlement's current construction. However, players
         # using the Fundamentalists faction are barred from this.
         current_work = game_state.board.selected_settlement.current_work
         remaining_work = current_work.construction.cost - current_work.zeal_consumed
-        if game_state.players[0].wealth >= remaining_work:
+        if game_state.players[game_state.player_idx].wealth >= remaining_work:
             game_state.board.overlay.toggle_construction_notification([
                 CompletedConstruction(game_state.board.selected_settlement.current_work.construction,
                                       game_state.board.selected_settlement)
             ])
-            complete_construction(game_state.board.selected_settlement, game_state.players[0])
-            game_state.players[0].wealth -= remaining_work
+            complete_construction(game_state.board.selected_settlement, game_state.players[game_state.player_idx])
+            game_state.players[game_state.player_idx].wealth -= remaining_work
 
 
 def on_key_m(game_state: GameState):
@@ -603,7 +600,7 @@ def on_key_m(game_state: GameState):
     Handles an M key event in the game loop.
     :param game_state: The current GameState object.
     """
-    units = game_state.players[0].units
+    units = game_state.players[game_state.player_idx].units
     filtered_units = [unit for unit in units if not unit.besieging and unit.remaining_stamina > 0]
 
     if game_state.game_started and game_state.board.overlay.can_iter_settlements_units() and \
@@ -611,7 +608,7 @@ def on_key_m(game_state: GameState):
         game_state.board.overlay.remove_warning_if_possible()
         if game_state.board.overlay.is_setl():
             game_state.board.selected_settlement = None
-            game_state.board.overlay.toggle_settlement(None, game_state.players[0])
+            game_state.board.overlay.toggle_settlement(None, game_state.players[game_state.player_idx])
         if game_state.board.selected_unit is None or isinstance(game_state.board.selected_unit, Heathen):
             game_state.board.selected_unit = filtered_units[0]
             game_state.board.overlay.toggle_unit(filtered_units[0])
@@ -637,14 +634,14 @@ def on_key_j(game_state: GameState):
     """
     if game_state.game_started and game_state.board.overlay.can_jump_to_setl():
         # Pressing the J key will jump to an idle settlement, if such a settlement exists.
-        idle_settlements = [setl for setl in game_state.players[0].settlements if setl.current_work is None]
+        idle_settlements = [setl for setl in game_state.players[game_state.player_idx].settlements if setl.current_work is None]
         if idle_settlements:
             if game_state.board.overlay.is_unit():
                 game_state.board.selected_unit = None
                 game_state.board.overlay.toggle_unit(None)
             if game_state.board.selected_settlement is None:
                 game_state.board.selected_settlement = idle_settlements[0]
-                game_state.board.overlay.toggle_settlement(game_state.board.selected_settlement, game_state.players[0])
+                game_state.board.overlay.toggle_settlement(game_state.board.selected_settlement, game_state.players[game_state.player_idx])
             elif game_state.board.selected_settlement not in idle_settlements:
                 # If the player has currently selected another non-idle settlement, when they press the J key,
                 # bring them back to the first idle settlement.
@@ -689,8 +686,8 @@ def on_mouse_button_left(game_state: GameState):
             other_setls.extend(game_state.players[i].settlements)
         game_state.board.overlay.remove_warning_if_possible()
         game_state.board.process_left_click(pyxel.mouse_x, pyxel.mouse_y,
-                                            len(game_state.players[0].settlements) > 0,
-                                            game_state.players[0], game_state.map_pos, game_state.heathens,
+                                            len(game_state.players[game_state.player_idx].settlements) > 0,
+                                            game_state.players[game_state.player_idx], game_state.map_pos, game_state.heathens,
                                             all_units,
                                             game_state.players, other_setls)
 
@@ -701,9 +698,9 @@ def on_key_x(game_state: GameState):
     :param game_state: The current GameState object.
     """
     if game_state.game_started and game_state.board.selected_unit is not None and \
-            game_state.board.selected_unit in game_state.players[0].units:
+            game_state.board.selected_unit in game_state.players[game_state.player_idx].units:
         # If a unit is selected, pressing X disbands the army, destroying the unit and adding to the player's wealth.
-        game_state.players[0].wealth += game_state.board.selected_unit.plan.cost
-        game_state.players[0].units.remove(game_state.board.selected_unit)
+        game_state.players[game_state.player_idx].wealth += game_state.board.selected_unit.plan.cost
+        game_state.players[game_state.player_idx].units.remove(game_state.board.selected_unit)
         game_state.board.selected_unit = None
         game_state.board.overlay.toggle_unit(None)
