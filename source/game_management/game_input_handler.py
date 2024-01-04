@@ -10,7 +10,8 @@ import pyxel
 
 from source.display.board import Board
 from source.networking.client import dispatch_event
-from source.networking.event_listener import CreateEvent, EventType, QueryEvent, LeaveEvent, JoinEvent, InitEvent
+from source.networking.events import CreateEvent, EventType, QueryEvent, LeaveEvent, JoinEvent, InitEvent, \
+    SetConstructionEvent, UpdateAction, SetBlessingEvent
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
     subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
@@ -275,9 +276,26 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.selected_settlement.current_work = \
                 Construction(game_state.board.overlay.selected_construction)
             game_state.board.overlay.toggle_construction([], [], [])
+            if game_state.board.game_config.multiplayer:
+                sc_evt = SetConstructionEvent(EventType.UPDATE, datetime.datetime.now(),
+                                              hash((uuid.getnode(), os.getpid())), UpdateAction.SET_CONSTRUCTION,
+                                              game_state.board.game_name,
+                                              game_state.players[game_state.player_idx].faction,
+                                              game_state.players[game_state.player_idx].resources,
+                                              game_state.board.selected_settlement.name,
+                                              game_state.board.selected_settlement.current_work)
+                dispatch_event(sc_evt)
     elif game_state.game_started and game_state.board.overlay.is_blessing():
         if game_state.board.overlay.selected_blessing is not None:
-            game_state.players[game_state.player_idx].ongoing_blessing = OngoingBlessing(game_state.board.overlay.selected_blessing)
+            game_state.players[game_state.player_idx].ongoing_blessing = \
+                OngoingBlessing(game_state.board.overlay.selected_blessing)
+            if game_state.board.game_config.multiplayer:
+                sb_evt = SetBlessingEvent(EventType.UPDATE, datetime.datetime.now(),
+                                          hash((uuid.getnode(), os.getpid())), UpdateAction.SET_BLESSING,
+                                          game_state.board.game_name,
+                                          game_state.players[game_state.player_idx].faction,
+                                          game_state.players[game_state.player_idx].ongoing_blessing)
+                dispatch_event(sb_evt)
         game_state.board.overlay.toggle_blessing([])
     elif game_state.game_started and game_state.board.overlay.is_setl_click():
         match game_state.board.overlay.setl_attack_opt:

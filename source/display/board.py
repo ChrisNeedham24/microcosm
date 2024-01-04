@@ -1,10 +1,15 @@
+import datetime
+import os
 import random
 import typing
+import uuid
 from collections import Counter
 from enum import Enum
 
 import pyxel
 
+from source.networking.client import dispatch_event
+from source.networking.events import FoundSettlementEvent, EventType, UpdateAction
 from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal, \
     get_resources_for_settlement
 from source.foundation.catalogue import get_default_unit, Namer
@@ -31,7 +36,7 @@ class Board:
     """
 
     def __init__(self, cfg: GameConfig, namer: Namer, quads: typing.List[typing.List[Quad]] = None,
-                 player_idx: int = 0):
+                 player_idx: int = 0, game_name: typing.Optional[str] = None):
         """
         Initialises the board with the given config and quads, if supplied.
         :param cfg: The game config.
@@ -65,6 +70,7 @@ class Board:
         self.selected_unit: typing.Optional[Unit | Heathen] = None
 
         self.player_idx: int = player_idx
+        self.game_name: typing.Optional[str] = game_name
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
              is_night: bool, turns_until_change: int):  # pragma: no cover
@@ -599,6 +605,12 @@ class Board:
                     # Select the new settlement.
                     self.selected_settlement = new_settl
                     self.overlay.toggle_settlement(new_settl, player)
+                    if self.game_config.multiplayer:
+                        fs_evt: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, datetime.datetime.now(),
+                                                                           hash((uuid.getnode(), os.getpid())),
+                                                                           UpdateAction.FOUND_SETTLEMENT,
+                                                                           self.game_name, player.faction, new_settl)
+                        dispatch_event(fs_evt)
                 else:
                     # If the player has selected a settlement, but has now clicked elsewhere, deselect the settlement.
                     if not self.deploying_army and \

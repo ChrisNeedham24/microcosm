@@ -7,85 +7,24 @@ import socketserver
 import time
 import typing
 import uuid
-from dataclasses import dataclass
-from enum import Enum
 from itertools import chain
 
 import pyxel
 
 from source.display.board import Board
 from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAMES, Namer
-from source.foundation.models import GameConfig, Faction, Player, PlayerDetails, LobbyDetails, Quad, Biome, \
-    ResourceCollection
+from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDetails, Quad, Biome, ResourceCollection, \
+    OngoingBlessing
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.networking.client import dispatch_event
+from source.networking.events import Event, EventType, CreateEvent, InitEvent, UpdateEvent, UpdateAction, \
+    FoundSettlementEvent, QueryEvent, LeaveEvent, JoinEvent, RegisterEvent, SetBlessingEvent, SetConstructionEvent
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
-from source.saving.save_migrator import migrate_quad
+from source.saving.save_migrator import migrate_settlement, migrate_quad
 from source.util.calculator import split_list_into_chunks
 
 HOST, SERVER_PORT, CLIENT_PORT = "localhost", 9999, 55555
-
-
-class EventType(str, Enum):
-    CREATE = "CREATE"
-    INIT = "INIT"
-    UPDATE = "UPDATE"
-    QUERY = "QUERY"
-    LEAVE = "LEAVE"
-    JOIN = "JOIN"
-    REGISTER = "REGISTER"
-
-
-@dataclass
-class Event:
-    type: EventType
-    timestamp: datetime.datetime
-    # A hash of the client's hardware address and PID, identifying the running instance.
-    identifier: typing.Optional[int]
-
-
-@dataclass
-class CreateEvent(Event):
-    cfg: GameConfig
-    lobby_name: typing.Optional[str] = None
-    player_details: typing.Optional[typing.List[PlayerDetails]] = None
-
-
-@dataclass
-class InitEvent(Event):
-    game_name: str
-    until_night: typing.Optional[int] = None
-    cfg: typing.Optional[GameConfig] = None
-    quad_chunk: typing.Optional[str] = None
-    quad_chunk_idx: typing.Optional[int] = None
-
-
-@dataclass
-class UpdateEvent(Event):
-    game_name: str
-
-
-@dataclass
-class QueryEvent(Event):
-    lobbies: typing.Optional[typing.List[LobbyDetails]] = None
-
-
-@dataclass
-class LeaveEvent(Event):
-    lobby_name: str
-
-
-@dataclass
-class JoinEvent(Event):
-    lobby_name: str
-    player_faction: Faction
-    player_details: typing.Optional[typing.List[PlayerDetails]] = None
-
-
-@dataclass
-class RegisterEvent(Event):
-    port: int
 
 
 class RequestHandler(socketserver.BaseRequestHandler):
@@ -100,7 +39,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         elif evt.type == EventType.INIT:
             self.process_init_event(evt, sock)
         elif evt.type == EventType.UPDATE:
-            self.process_update_event(evt)
+            self.process_update_event(evt, sock)
         elif evt.type == EventType.QUERY:
             self.process_query_event(evt, sock)
         elif evt.type == EventType.LEAVE:
@@ -182,7 +121,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             if not gsrs["local"].board:
                 gsrs["local"].until_night = evt.until_night
                 gsrs["local"].board = Board(evt.cfg, Namer(), [[None] * 100 for _ in range(90)],
-                                            player_idx=gsrs["local"].player_idx)
+                                            player_idx=gsrs["local"].player_idx, game_name=evt.game_name)
             split_quads: typing.List[str] = evt.quad_chunk.split(",")[:-1]
             for j in range(100):
                 mini: str = split_quads[j]
@@ -241,9 +180,43 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gc.music_player.stop_menu_music()
                 gc.music_player.play_game_music()
 
-    def process_update_event(self, evt: UpdateEvent):
-        # self.server.events_ref.append(evt)
-        pass
+    def process_update_event(self, evt: UpdateEvent, sock: socket.socket):
+        match evt.action:
+            case UpdateAction.FOUND_SETTLEMENT:
+                self.process_found_settlement_event(evt, sock)
+            case UpdateAction.SET_BLESSING:
+                self.process_set_blessing_event(evt)
+            case UpdateAction.SET_CONSTRUCTION:
+                self.process_set_construction_event(evt)
+
+    def process_found_settlement_event(self, evt: FoundSettlementEvent, sock: socket.socket):
+        gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
+        evt.settlement.location = (evt.settlement.location[0], evt.settlement.location[1])
+        for i in range(len(evt.settlement.quads)):
+            evt.settlement.quads[i] = migrate_quad(evt.settlement.quads[i],
+                                                   (evt.settlement.location[0], evt.settlement.location[1]))
+        if self.server.is_server:
+            player = next(pl for pl in gsrs[evt.game_name].players if pl.faction == evt.player_faction)
+            player.settlements.append(evt.settlement)
+            for player in self.server.game_clients_ref[evt.game_name]:
+                if player.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[player.id])
+        else:
+            player = next(pl for pl in gsrs["local"].players if pl.faction == evt.player_faction)
+            player.settlements.append(evt.settlement)
+
+    def process_set_blessing_event(self, evt: SetBlessingEvent):
+        player = next(pl for pl in self.server.game_states_ref[evt.game_name].players
+                      if pl.faction == evt.player_faction)
+        player.ongoing_blessing = evt.blessing
+
+    def process_set_construction_event(self, evt: SetConstructionEvent):
+        player = next(pl for pl in self.server.game_states_ref[evt.game_name].players
+                      if pl.faction == evt.player_faction)
+        player.resources = evt.player_resources
+        setl = next(setl for setl in player.settlements if setl.name == evt.settlement_name)
+        setl.current_work = evt.construction
 
     def process_query_event(self, evt: QueryEvent, sock: socket.socket):
         if self.server.is_server:
