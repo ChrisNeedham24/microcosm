@@ -11,7 +11,7 @@ import pyxel
 from source.display.board import Board
 from source.networking.client import dispatch_event
 from source.networking.events import CreateEvent, EventType, QueryEvent, LeaveEvent, JoinEvent, InitEvent, \
-    SetConstructionEvent, UpdateAction, SetBlessingEvent
+    SetConstructionEvent, UpdateAction, SetBlessingEvent, BesiegeSettlementEvent
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
     subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
@@ -328,11 +328,21 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                             p.settlements.remove(data.settlement)
                             break
                 game_state.board.overlay.toggle_setl_attack(data)
+                # TODO event for attacking settlements
                 game_state.board.attack_time_bank = 0
             case SettlementAttackType.BESIEGE:
                 # Alternatively, begin a siege on the settlement.
                 game_state.board.selected_unit.besieging = True
                 game_state.board.overlay.attacked_settlement.besieged = True
+                if game_state.board.game_config.multiplayer:
+                    bs_evt: BesiegeSettlementEvent = \
+                        BesiegeSettlementEvent(EventType.UPDATE, datetime.datetime.now(),
+                                               hash((uuid.getnode(), os.getpid())), UpdateAction.BESIEGE_SETTLEMENT,
+                                               game_state.board.game_name,
+                                               game_state.players[game_state.player_idx].faction,
+                                               game_state.board.selected_unit.location,
+                                               game_state.board.overlay.attacked_settlement.name)
+                    dispatch_event(bs_evt)
                 game_state.board.overlay.toggle_setl_click(None, None)
             case _:
                 game_state.board.overlay.toggle_setl_click(None, None)

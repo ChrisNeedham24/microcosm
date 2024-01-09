@@ -14,12 +14,13 @@ import pyxel
 from source.display.board import Board
 from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAMES, Namer
 from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDetails, Quad, Biome, ResourceCollection, \
-    OngoingBlessing
+    OngoingBlessing, InvestigationResult, Settlement
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.networking.client import dispatch_event
 from source.networking.events import Event, EventType, CreateEvent, InitEvent, UpdateEvent, UpdateAction, \
-    FoundSettlementEvent, QueryEvent, LeaveEvent, JoinEvent, RegisterEvent, SetBlessingEvent, SetConstructionEvent
+    FoundSettlementEvent, QueryEvent, LeaveEvent, JoinEvent, RegisterEvent, SetBlessingEvent, SetConstructionEvent, \
+    MoveUnitEvent, DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_quad
 from source.util.calculator import split_list_into_chunks
@@ -188,6 +189,16 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 self.process_set_blessing_event(evt)
             case UpdateAction.SET_CONSTRUCTION:
                 self.process_set_construction_event(evt)
+            case UpdateAction.MOVE_UNIT:
+                self.process_move_unit_event(evt, sock)
+            case UpdateAction.DEPLOY_UNIT:
+                self.process_deploy_unit_event(evt, sock)
+            case UpdateAction.GARRISON_UNIT:
+                self.process_garrison_unit_event(evt, sock)
+            case UpdateAction.INVESTIGATE:
+                self.process_investigate_event(evt, sock)
+            case UpdateAction.BESIEGE_SETTLEMENT:
+                self.process_besiege_settlement_event(evt, sock)
 
     def process_found_settlement_event(self, evt: FoundSettlementEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
@@ -217,6 +228,103 @@ class RequestHandler(socketserver.BaseRequestHandler):
         player.resources = evt.player_resources
         setl = next(setl for setl in player.settlements if setl.name == evt.settlement_name)
         setl.current_work = evt.construction
+
+    def process_move_unit_event(self, evt: MoveUnitEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        player = next(pl for pl in self.server.game_states_ref[game_name].players
+                      if pl.faction == evt.player_faction)
+        unit = next(u for u in player.units if u.location == (evt.initial_loc[0], evt.initial_loc[1]))
+        unit.location = (evt.new_loc[0], evt.new_loc[1])
+        unit.remaining_stamina = evt.new_stamina
+        unit.besieging = evt.besieging
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
+
+    def process_deploy_unit_event(self, evt: DeployUnitEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        player = next(pl for pl in self.server.game_states_ref[game_name].players
+                      if pl.faction == evt.player_faction)
+        setl = next(setl for setl in player.settlements if setl.name == evt.settlement_name)
+        deployed = setl.garrison.pop()
+        deployed.garrisoned = False
+        deployed.location = (evt.location[0], evt.location[1])
+        player.units.append(deployed)
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
+
+    def process_garrison_unit_event(self, evt: GarrisonUnitEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        player = next(pl for pl in self.server.game_states_ref[game_name].players
+                      if pl.faction == evt.player_faction)
+        unit = next(u for u in player.units if u.location == (evt.initial_loc[0], evt.initial_loc[1]))
+        setl = next(setl for setl in player.settlements if setl.name == evt.settlement_name)
+        unit.remaining_stamina = evt.new_stamina
+        unit.garrisoned = True
+        setl.garrison.append(unit)
+        player.units.remove(unit)
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
+
+    def process_investigate_event(self, evt: InvestigateEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        player = next(pl for pl in self.server.game_states_ref[game_name].players
+                      if pl.faction == evt.player_faction)
+        unit = next(u for u in player.units if u.location == (evt.unit_loc[0], evt.unit_loc[1]))
+        # TODO Loading from saves is eventually going to be a problem because we're ignoring quads_seen
+        match evt.result:
+            case InvestigationResult.FORTUNE:
+                player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.cost / 5
+            case InvestigationResult.WEALTH:
+                player.wealth += 25
+            case InvestigationResult.HEALTH:
+                unit.plan.max_health += 5
+                unit.health += 5
+            case InvestigationResult.POWER:
+                unit.plan.power += 5
+            case InvestigationResult.STAMINA:
+                unit.plan.total_stamina += 1
+                unit.remaining_stamina = unit.plan.total_stamina
+            case InvestigationResult.UPKEEP:
+                unit.plan.cost = 0
+            case InvestigationResult.ORE:
+                player.resources.ore += 10
+            case InvestigationResult.TIMBER:
+                player.resources.timber += 10
+            case InvestigationResult.MAGMA:
+                player.resources.magma += 10
+        self.server.game_states_ref[game_name].board.quads[evt.relic_loc[1]][evt.relic_loc[0]].is_relic = False
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
+
+    def process_besiege_settlement_event(self, evt: BesiegeSettlementEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        player = next(pl for pl in self.server.game_states_ref[game_name].players
+                      if pl.faction == evt.player_faction)
+        unit = next(u for u in player.units if u.location == (evt.unit_loc[0], evt.unit_loc[1]))
+        setl: Settlement
+        for p in self.server.game_states_ref[game_name].players:
+            for s in p.settlements:
+                if s.name == evt.settlement_name:
+                    setl = s
+        unit.besieging = True
+        setl.besieged = True
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
 
     def process_query_event(self, evt: QueryEvent, sock: socket.socket):
         if self.server.is_server:
@@ -265,7 +373,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gc: GameController = self.server.game_controller_ref
             gc.menu.multiplayer_lobby_name = evt.lobby_name
             gc.menu.multiplayer_player_details = evt.player_details
-    
+
     def process_register_event(self, evt: RegisterEvent):
         self.server.clients_ref[evt.identifier] = self.client_address[0], evt.port
 

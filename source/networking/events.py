@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from source.foundation.models import GameConfig, PlayerDetails, Faction, Settlement, LobbyDetails, Blessing, \
-    ResourceCollection, Construction, OngoingBlessing
+    ResourceCollection, Construction, OngoingBlessing, InvestigationResult
 
 
 class EventType(str, Enum):
@@ -21,6 +21,11 @@ class UpdateAction(str, Enum):
     FOUND_SETTLEMENT = "FS"
     SET_BLESSING = "SB"
     SET_CONSTRUCTION = "SC"
+    MOVE_UNIT = "MU"
+    DEPLOY_UNIT = "DU"
+    GARRISON_UNIT = "GU"
+    INVESTIGATE = "I"
+    BESIEGE_SETTLEMENT = "BS"
 
 
 @dataclass
@@ -69,6 +74,40 @@ class SetConstructionEvent(UpdateEvent):
     player_resources: ResourceCollection
     settlement_name: str
     construction: Construction
+
+
+@dataclass
+class MoveUnitEvent(UpdateEvent):
+    initial_loc: (int, int)
+    new_loc: (int, int)
+    new_stamina: int
+    besieging: bool
+
+
+@dataclass
+class DeployUnitEvent(UpdateEvent):
+    settlement_name: str
+    location: (int, int)
+
+
+@dataclass
+class GarrisonUnitEvent(UpdateEvent):
+    initial_loc: (int, int)
+    new_stamina: int
+    settlement_name: str
+
+
+@dataclass
+class InvestigateEvent(UpdateEvent):
+    unit_loc: (int, int)
+    relic_loc: (int, int)
+    result: InvestigationResult
+
+
+@dataclass
+class BesiegeSettlementEvent(UpdateEvent):
+    unit_loc: (int, int)
+    settlement_name: str
 
 
 @dataclass

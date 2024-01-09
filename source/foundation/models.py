@@ -115,7 +115,7 @@ class Faction(str, Enum):
     NOCTURNE = "The Nocturne"
 
 
-class InvestigationResult(Enum):
+class InvestigationResult(str, Enum):
     """
     The types of result a relic investigation can yield.
     """
