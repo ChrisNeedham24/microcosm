@@ -22,10 +22,13 @@ class UpdateAction(str, Enum):
     SET_BLESSING = "SB"
     SET_CONSTRUCTION = "SC"
     MOVE_UNIT = "MU"
-    DEPLOY_UNIT = "DU"
+    DEPLOY_UNIT = "DEU"
     GARRISON_UNIT = "GU"
     INVESTIGATE = "I"
     BESIEGE_SETTLEMENT = "BS"
+    BUYOUT_CONSTRUCTION = "BC"
+    DISBAND_UNIT = "DIU"
+    ATTACK_UNIT = "AU"
 
 
 @dataclass
@@ -62,6 +65,7 @@ class UpdateEvent(Event):
 @dataclass
 class FoundSettlementEvent(UpdateEvent):
     settlement: Settlement
+    from_settler: bool = True
 
 
 @dataclass
@@ -108,6 +112,23 @@ class InvestigateEvent(UpdateEvent):
 class BesiegeSettlementEvent(UpdateEvent):
     unit_loc: (int, int)
     settlement_name: str
+
+
+@dataclass
+class BuyoutConstructionEvent(UpdateEvent):
+    settlement_name: str
+    player_wealth: float
+
+
+@dataclass
+class DisbandUnitEvent(UpdateEvent):
+    location: (int, int)
+
+
+@dataclass
+class AttackUnitEvent(UpdateEvent):
+    attacker_loc: (int, int)
+    defender_loc: (int, int)
 
 
 @dataclass

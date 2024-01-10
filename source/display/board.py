@@ -10,7 +10,7 @@ import pyxel
 
 from source.networking.client import dispatch_event
 from source.networking.events import FoundSettlementEvent, EventType, UpdateAction, MoveUnitEvent, DeployUnitEvent, \
-    GarrisonUnitEvent, InvestigateEvent
+    GarrisonUnitEvent, InvestigateEvent, AttackUnitEvent
 from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal, \
     get_resources_for_settlement
 from source.foundation.catalogue import get_default_unit, Namer
@@ -608,9 +608,10 @@ class Board:
                     self.overlay.toggle_settlement(new_settl, player)
                     if self.game_config.multiplayer:
                         fs_evt: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, datetime.datetime.now(),
-                                                                           hash((uuid.getnode(), os.getpid())),
-                                                                           UpdateAction.FOUND_SETTLEMENT,
-                                                                           self.game_name, player.faction, new_settl)
+                                                                            hash((uuid.getnode(), os.getpid())),
+                                                                            UpdateAction.FOUND_SETTLEMENT,
+                                                                            self.game_name, player.faction, new_settl,
+                                                                            from_settler=False)
                         dispatch_event(fs_evt)
                 else:
                     # If the player has selected a settlement, but has now clicked elsewhere, deselect the settlement.
@@ -755,6 +756,14 @@ class Board:
                                 abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
                                 abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
                             data = attack(self.selected_unit, other_unit, ai=False)
+                            if self.game_config.multiplayer:
+                                au_evt: AttackUnitEvent = AttackUnitEvent(EventType.UPDATE, datetime.datetime.now(),
+                                                                          hash((uuid.getnode(), os.getpid())),
+                                                                          UpdateAction.ATTACK_UNIT,
+                                                                          self.game_name, player.faction,
+                                                                          self.selected_unit.location,
+                                                                          other_unit.location)
+                                dispatch_event(au_evt)
                             # Destroy the player's unit if it died.
                             if self.selected_unit.health <= 0:
                                 player.units.remove(self.selected_unit)
@@ -772,7 +781,6 @@ class Board:
                             # Show the attack results.
                             self.overlay.toggle_attack(data)
                             self.attack_time_bank = 0
-                            # TODO event for attacking
                         # However, if the player clicked on another of their units, either heal or select it rather than
                         # attacking, depending on whether the currently-selected unit can heal others or not. Note that
                         # healer units cannot heal deployer units, since this would create weird behaviour where
@@ -900,6 +908,12 @@ class Board:
             player.settlements.append(new_settl)
             # Destroy the settler unit and select the new settlement.
             player.units.remove(self.selected_unit)
+            if self.game_config.multiplayer:
+                fs_evt: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, datetime.datetime.now(),
+                                                                    hash((uuid.getnode(), os.getpid())),
+                                                                    UpdateAction.FOUND_SETTLEMENT,
+                                                                    self.game_name, player.faction, new_settl)
+                dispatch_event(fs_evt)
             self.selected_unit = None
             self.overlay.toggle_unit(None)
             self.selected_settlement = new_settl

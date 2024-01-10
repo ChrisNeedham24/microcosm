@@ -11,7 +11,8 @@ import pyxel
 from source.display.board import Board
 from source.networking.client import dispatch_event
 from source.networking.events import CreateEvent, EventType, QueryEvent, LeaveEvent, JoinEvent, InitEvent, \
-    SetConstructionEvent, UpdateAction, SetBlessingEvent, BesiegeSettlementEvent
+    SetConstructionEvent, UpdateAction, SetBlessingEvent, BesiegeSettlementEvent, BuyoutConstructionEvent, \
+    DisbandUnitEvent
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
     subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
@@ -375,6 +376,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.overlay.is_close_to_vic() or
             game_state.board.overlay.is_investigation() or game_state.board.overlay.is_night() or
             game_state.board.overlay.is_ach_notif()):
+        # TODO event for ending turn
         # If we are not in any of the above situations, end the turn.
         if game_state.end_turn():
             # Autosave every turn, but only if the player is actually still in the game.
@@ -575,6 +577,15 @@ def on_key_a(game_state: GameState):
         # selected).
         set_player_construction(game_state.players[game_state.player_idx], game_state.board.selected_settlement,
                                 game_state.nighttime_left > 0)
+        if game_state.board.game_config.multiplayer:
+            sc_evt = SetConstructionEvent(EventType.UPDATE, datetime.datetime.now(),
+                                          hash((uuid.getnode(), os.getpid())), UpdateAction.SET_CONSTRUCTION,
+                                          game_state.board.game_name,
+                                          game_state.players[game_state.player_idx].faction,
+                                          game_state.players[game_state.player_idx].resources,
+                                          game_state.board.selected_settlement.name,
+                                          game_state.board.selected_settlement.current_work)
+            dispatch_event(sc_evt)
 
 
 def on_key_escape(game_state: GameState):
@@ -621,6 +632,15 @@ def on_key_b(game_state: GameState):
             ])
             complete_construction(game_state.board.selected_settlement, game_state.players[game_state.player_idx])
             game_state.players[game_state.player_idx].wealth -= remaining_work
+            if game_state.board.game_config.multiplayer:
+                bc_evt: BuyoutConstructionEvent = \
+                    BuyoutConstructionEvent(EventType.UPDATE, datetime.datetime.now(),
+                                            hash((uuid.getnode(), os.getpid())), UpdateAction.BUYOUT_CONSTRUCTION,
+                                            game_state.board.game_name,
+                                            game_state.players[game_state.player_idx].faction,
+                                            game_state.board.selected_settlement.name,
+                                            game_state.players[game_state.player_idx].wealth)
+                dispatch_event(bc_evt)
 
 
 def on_key_m(game_state: GameState):
@@ -730,5 +750,12 @@ def on_key_x(game_state: GameState):
         # If a unit is selected, pressing X disbands the army, destroying the unit and adding to the player's wealth.
         game_state.players[game_state.player_idx].wealth += game_state.board.selected_unit.plan.cost
         game_state.players[game_state.player_idx].units.remove(game_state.board.selected_unit)
+        if game_state.board.game_config.multiplayer:
+            du_evt: DisbandUnitEvent = DisbandUnitEvent(EventType.UPDATE, datetime.datetime.now(),
+                                                        hash((uuid.getnode(), os.getpid())), UpdateAction.DISBAND_UNIT,
+                                                        game_state.board.game_name,
+                                                        game_state.players[game_state.player_idx].faction,
+                                                        game_state.board.selected_unit.location)
+            dispatch_event(du_evt)
         game_state.board.selected_unit = None
         game_state.board.overlay.toggle_unit(None)

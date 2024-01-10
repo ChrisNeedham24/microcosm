@@ -12,18 +12,20 @@ from itertools import chain
 import pyxel
 
 from source.display.board import Board
-from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAMES, Namer
+from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAMES, Namer, get_improvement, get_project, \
+    get_unit_plan, get_blessing
 from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDetails, Quad, Biome, ResourceCollection, \
-    OngoingBlessing, InvestigationResult, Settlement
+    OngoingBlessing, InvestigationResult, Settlement, Unit, Heathen
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.networking.client import dispatch_event
 from source.networking.events import Event, EventType, CreateEvent, InitEvent, UpdateEvent, UpdateAction, \
     FoundSettlementEvent, QueryEvent, LeaveEvent, JoinEvent, RegisterEvent, SetBlessingEvent, SetConstructionEvent, \
-    MoveUnitEvent, DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent
+    MoveUnitEvent, DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent, \
+    BuyoutConstructionEvent, DisbandUnitEvent, AttackUnitEvent
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_quad
-from source.util.calculator import split_list_into_chunks
+from source.util.calculator import split_list_into_chunks, complete_construction, attack
 
 HOST, SERVER_PORT, CLIENT_PORT = "localhost", 9999, 55555
 
@@ -188,7 +190,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             case UpdateAction.SET_BLESSING:
                 self.process_set_blessing_event(evt)
             case UpdateAction.SET_CONSTRUCTION:
-                self.process_set_construction_event(evt)
+                self.process_set_construction_event(evt, sock)
             case UpdateAction.MOVE_UNIT:
                 self.process_move_unit_event(evt, sock)
             case UpdateAction.DEPLOY_UNIT:
@@ -199,35 +201,54 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 self.process_investigate_event(evt, sock)
             case UpdateAction.BESIEGE_SETTLEMENT:
                 self.process_besiege_settlement_event(evt, sock)
+            case UpdateAction.BUYOUT_CONSTRUCTION:
+                self.process_buyout_construction_event(evt, sock)
+            case UpdateAction.DISBAND_UNIT:
+                self.process_disband_unit_event(evt, sock)
+            case UpdateAction.ATTACK_UNIT:
+                self.process_attack_unit_event(evt, sock)
 
     def process_found_settlement_event(self, evt: FoundSettlementEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
+        game_name: str = evt.game_name if self.server.is_server else "local"
         evt.settlement.location = (evt.settlement.location[0], evt.settlement.location[1])
         for i in range(len(evt.settlement.quads)):
             evt.settlement.quads[i] = migrate_quad(evt.settlement.quads[i],
                                                    (evt.settlement.location[0], evt.settlement.location[1]))
+        player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
+        player.settlements.append(evt.settlement)
+        if evt.from_settler:
+            settler_unit = next(u for u in player.units if u.location == evt.settlement.location)
+            player.units.remove(settler_unit)
         if self.server.is_server:
-            player = next(pl for pl in gsrs[evt.game_name].players if pl.faction == evt.player_faction)
-            player.settlements.append(evt.settlement)
             for player in self.server.game_clients_ref[evt.game_name]:
                 if player.faction != evt.player_faction:
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[player.id])
-        else:
-            player = next(pl for pl in gsrs["local"].players if pl.faction == evt.player_faction)
-            player.settlements.append(evt.settlement)
 
     def process_set_blessing_event(self, evt: SetBlessingEvent):
         player = next(pl for pl in self.server.game_states_ref[evt.game_name].players
                       if pl.faction == evt.player_faction)
-        player.ongoing_blessing = evt.blessing
+        player.ongoing_blessing = get_blessing(evt.blessing.blessing.name)
 
-    def process_set_construction_event(self, evt: SetConstructionEvent):
-        player = next(pl for pl in self.server.game_states_ref[evt.game_name].players
+    def process_set_construction_event(self, evt: SetConstructionEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
         player.resources = evt.player_resources
         setl = next(setl for setl in player.settlements if setl.name == evt.settlement_name)
         setl.current_work = evt.construction
+        if hasattr(evt.construction.construction, "effect"):
+            setl.current_work.construction = get_improvement(evt.construction.construction.name)
+        elif hasattr(evt.construction.construction, "type"):
+            setl.current_work.construction = get_project(evt.construction.construction.name)
+        else:
+            setl.current_work.construction = get_unit_plan(evt.construction.construction.name)
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
 
     def process_move_unit_event(self, evt: MoveUnitEvent, sock: socket.socket):
         game_name: str = evt.game_name if self.server.is_server else "local"
@@ -325,6 +346,72 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 if p.faction != evt.player_faction:
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[p.id])
+
+    def process_buyout_construction_event(self, evt: BuyoutConstructionEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        player = next(pl for pl in self.server.game_states_ref[game_name].players
+                      if pl.faction == evt.player_faction)
+        setl = next(s for s in player.settlements if s.name == evt.settlement_name)
+        complete_construction(setl, player)
+        player.wealth = evt.player_wealth
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
+
+    def process_disband_unit_event(self, evt: DisbandUnitEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        player = next(pl for pl in self.server.game_states_ref[game_name].players
+                      if pl.faction == evt.player_faction)
+        unit = next(u for u in player.units if u.location == (evt.location[0], evt.location[1]))
+        player.wealth += unit.plan.cost
+        player.units.remove(unit)
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
+
+    def process_attack_unit_event(self, evt: AttackUnitEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
+        player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
+        attacker = next(u for u in player.units if u.location == (evt.attacker_loc[0], evt.attacker_loc[1]))
+        defender: (Unit | Heathen, typing.Optional[Player])
+        found_defender: bool = False
+        for p in gsrs[game_name].players:
+            for u in p.units:
+                if u.location == (evt.defender_loc[0], evt.defender_loc[1]):
+                    defender = u, p
+        if not found_defender:
+            for h in gsrs[game_name].heathens:
+                if h.location == (evt.defender_loc[0], evt.defender_loc[1]):
+                    defender = h, None
+        data = attack(attacker, defender[0], ai=False)
+        if attacker.health <= 0:
+            player.units.remove(attacker)
+        if defender[0].health <= 0:
+            if defender[1] is None:
+                gsrs[game_name].heathens.remove(defender[0])
+            else:
+                defender[1].units.remove(defender[0])
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
+        else:
+            if defender[1] is not None and \
+                    defender[1].faction == gsrs["local"].players[gsrs["local"].player_idx].faction:
+                data.player_attack = False
+                sel_u = gsrs["local"].board.selected_unit
+                if sel_u is not None and sel_u.location == (evt.defender_loc[0], evt.defender_loc[1]) and \
+                        data.defender_was_killed:
+                    gsrs["local"].board.selected_unit = None
+                    gsrs["local"].board.overlay.toggle_unit(None)
+                gsrs["local"].board.overlay.toggle_attack(data)
+                gsrs["local"].board.attack_time_bank = 0
 
     def process_query_event(self, evt: QueryEvent, sock: socket.socket):
         if self.server.is_server:
