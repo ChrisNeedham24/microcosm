@@ -15,6 +15,7 @@ class EventType(str, Enum):
     LEAVE = "LEAVE"
     JOIN = "JOIN"
     REGISTER = "REGISTER"
+    END_TURN = "END_TURN"
 
 
 class UpdateAction(str, Enum):
@@ -29,6 +30,7 @@ class UpdateAction(str, Enum):
     BUYOUT_CONSTRUCTION = "BC"
     DISBAND_UNIT = "DIU"
     ATTACK_UNIT = "AU"
+    ATTACK_SETTLEMENT = "AS"
 
 
 @dataclass
@@ -132,6 +134,12 @@ class AttackUnitEvent(UpdateEvent):
 
 
 @dataclass
+class AttackSettlementEvent(UpdateEvent):
+    attacker_loc: (int, int)
+    settlement_name: str
+
+
+@dataclass
 class QueryEvent(Event):
     lobbies: typing.Optional[typing.List[LobbyDetails]] = None
 
@@ -151,3 +159,9 @@ class JoinEvent(Event):
 @dataclass
 class RegisterEvent(Event):
     port: int
+
+
+@dataclass
+class EndTurnEvent(Event):
+    game_name: str
+    player_faction: Faction

@@ -72,6 +72,7 @@ class Board:
 
         self.player_idx: int = player_idx
         self.game_name: typing.Optional[str] = game_name
+        self.waiting_for_other_players: bool = False
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
              is_night: bool, turns_until_change: int):  # pragma: no cover
@@ -351,7 +352,9 @@ class Board:
         # If a unit is selected that can settle, override all other help text and alert the player as to the settle
         # button. Alternatively, if a unit is selected that can heal other units, similarly alert the player as to how
         # to heal other units.
-        if self.selected_unit is not None and self.selected_unit.plan.can_settle:
+        if self.game_config.multiplayer and self.waiting_for_other_players:
+            pyxel.text(2, 189, "Waiting for other players...", pyxel.COLOR_WHITE)
+        elif self.selected_unit is not None and self.selected_unit.plan.can_settle:
             pyxel.text(2, 189, "S: Found new settlement", pyxel.COLOR_WHITE)
         elif self.selected_unit is not None and self.selected_unit.plan.heals and not self.selected_unit.has_acted:
             pyxel.text(2, 189, "L CLICK: Heal adjacent unit", pyxel.COLOR_WHITE)

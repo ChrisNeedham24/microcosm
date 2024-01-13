@@ -12,7 +12,7 @@ from source.display.board import Board
 from source.networking.client import dispatch_event
 from source.networking.events import CreateEvent, EventType, QueryEvent, LeaveEvent, JoinEvent, InitEvent, \
     SetConstructionEvent, UpdateAction, SetBlessingEvent, BesiegeSettlementEvent, BuyoutConstructionEvent, \
-    DisbandUnitEvent
+    DisbandUnitEvent, AttackSettlementEvent, EndTurnEvent
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
     subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
@@ -305,6 +305,15 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_state.board.overlay.toggle_setl_click(None, None)
                 data = attack_setl(game_state.board.selected_unit, game_state.board.overlay.attacked_settlement,
                                    game_state.board.overlay.attacked_settlement_owner, False)
+                if game_state.board.game_config.multiplayer:
+                    as_evt: AttackSettlementEvent = \
+                        AttackSettlementEvent(EventType.UPDATE, datetime.datetime.now(),
+                                              hash((uuid.getnode(), os.getpid())), UpdateAction.ATTACK_SETTLEMENT,
+                                              game_state.board.game_name,
+                                              game_state.players[game_state.player_idx].faction,
+                                              game_state.board.selected_unit.location,
+                                              game_state.board.overlay.attacked_settlement.name)
+                    dispatch_event(as_evt)
                 if data.attacker_was_killed:
                     # If the player's unit died, destroy and deselect it.
                     game_state.players[game_state.player_idx].units.remove(game_state.board.selected_unit)
@@ -329,7 +338,6 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                             p.settlements.remove(data.settlement)
                             break
                 game_state.board.overlay.toggle_setl_attack(data)
-                # TODO event for attacking settlements
                 game_state.board.attack_time_bank = 0
             case SettlementAttackType.BESIEGE:
                 # Alternatively, begin a siege on the settlement.
@@ -376,9 +384,16 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.overlay.is_close_to_vic() or
             game_state.board.overlay.is_investigation() or game_state.board.overlay.is_night() or
             game_state.board.overlay.is_ach_notif()):
-        # TODO event for ending turn
+        # TODO we'll probably want a way to unready at some point
+        if game_state.board.game_config.multiplayer:
+            game_state.ready_players.add(hash((uuid.getnode(), os.getpid())))
+            game_state.board.waiting_for_other_players = True
+            et_evt: EndTurnEvent = EndTurnEvent(EventType.END_TURN, datetime.datetime.now(),
+                                                hash((uuid.getnode(), os.getpid())), game_state.board.game_name,
+                                                game_state.players[game_state.player_idx].faction)
+            dispatch_event(et_evt)
         # If we are not in any of the above situations, end the turn.
-        if game_state.end_turn():
+        elif game_state.end_turn():
             # Autosave every turn, but only if the player is actually still in the game.
             if game_state.players[game_state.player_idx].settlements:
                 save_game(game_state, auto=True)
@@ -730,8 +745,9 @@ def on_mouse_button_left(game_state: GameState):
                 all_units.append(unit)
 
         other_setls = []
-        for i in range(1, len(game_state.players)):
-            other_setls.extend(game_state.players[i].settlements)
+        for i in range(len(game_state.players)):
+            if i != game_state.player_idx:
+                other_setls.extend(game_state.players[i].settlements)
         game_state.board.overlay.remove_warning_if_possible()
         game_state.board.process_left_click(pyxel.mouse_x, pyxel.mouse_y,
                                             len(game_state.players[game_state.player_idx].settlements) > 0,

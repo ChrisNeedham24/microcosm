@@ -41,7 +41,8 @@ class GameState:
         # resources can be distinguished from those without.
         self.game_version: float = 3.0
         
-        self.player_idx: int = 0
+        self.player_idx: typing.Optional[int] = None
+        self.ready_players: typing.Set[int] = set()
 
     def gen_players(self, cfg: GameConfig):
         """
@@ -92,7 +93,7 @@ class GameState:
             return True
         return False
 
-    def process_player(self, player: Player):
+    def process_player(self, player: Player, is_current_player: bool):
         """
         Process a player when they are ending their turn. The following things are done in this method:
 
@@ -231,9 +232,9 @@ class GameState:
 
         # Show notifications if the player's constructions have completed or one of their settlements has levelled
         # up.
-        if player.ai_playstyle is None and len(completed_constructions) > 0:
+        if is_current_player and len(completed_constructions) > 0:
             self.board.overlay.toggle_construction_notification(completed_constructions)
-        if player.ai_playstyle is None and len(levelled_up_settlements) > 0:
+        if is_current_player and len(levelled_up_settlements) > 0:
             self.board.overlay.toggle_level_up_notification(levelled_up_settlements)
         # Reset all units.
         for unit in player.units:
@@ -249,7 +250,7 @@ class GameState:
             if player.ongoing_blessing.fortune_consumed >= player.ongoing_blessing.blessing.cost:
                 player.blessings.append(player.ongoing_blessing.blessing)
                 # Show a notification if the player is non-AI.
-                if player.ai_playstyle is None:
+                if is_current_player:
                     self.board.overlay.toggle_blessing_notification(player.ongoing_blessing.blessing)
                 player.ongoing_blessing = None
         # If the player's wealth will go into the negative this turn, sell their units until it's above 0 again.
@@ -312,8 +313,8 @@ class GameState:
         if self.check_for_warnings():
             return False
 
-        for player in self.players:
-            self.process_player(player)
+        for idx, player in enumerate(self.players):
+            self.process_player(player, idx == self.player_idx)
 
         # Spawn a heathen every 5 turns.
         if self.turn % 5 == 0:
