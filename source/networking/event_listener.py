@@ -13,7 +13,7 @@ import pyxel
 
 from source.display.board import Board
 from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAMES, Namer, get_improvement, get_project, \
-    get_unit_plan, get_blessing
+    get_unit_plan, get_blessing, get_heathen
 from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDetails, Quad, Biome, ResourceCollection, \
     OngoingBlessing, InvestigationResult, Settlement, Unit, Heathen, Faction
 from source.game_management.game_controller import GameController
@@ -22,10 +22,11 @@ from source.networking.client import dispatch_event
 from source.networking.events import Event, EventType, CreateEvent, InitEvent, UpdateEvent, UpdateAction, \
     FoundSettlementEvent, QueryEvent, LeaveEvent, JoinEvent, RegisterEvent, SetBlessingEvent, SetConstructionEvent, \
     MoveUnitEvent, DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent, \
-    BuyoutConstructionEvent, DisbandUnitEvent, AttackUnitEvent, AttackSettlementEvent, EndTurnEvent
+    BuyoutConstructionEvent, DisbandUnitEvent, AttackUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, \
+    HealUnitEvent
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_quad
-from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl
+from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal
 
 HOST, SERVER_PORT, CLIENT_PORT = "localhost", 9999, 55555
 
@@ -53,6 +54,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.process_register_event(evt)
         elif evt.type == EventType.END_TURN:
             self.process_end_turn_event(evt, sock)
+        elif evt.type == EventType.UNREADY:
+            self.process_unready_event(evt)
 
     def process_create_event(self, evt: CreateEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
@@ -88,8 +91,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gsr.until_night = random.randint(10, 20)
             gsr.nighttime_left = 0
             gsr.on_menu = False
-            # TODO This Namer is probably going to be a problem - other code will have to change to not use it for
-            #  multiplayer games
             gsr.board = Board(self.server.lobbies_ref[evt.game_name], Namer())
             quads_list: typing.List[Quad] = list(chain.from_iterable(gsr.board.quads))
             for idx, quads_chunk in enumerate(split_list_into_chunks(quads_list, 100)):
@@ -164,7 +165,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 expanded_quad: Quad = Quad(quad_biome, int(mini[1]), int(mini[2]), int(mini[3]), int(mini[4]),
                                            (j, evt.quad_chunk_idx), resource=quad_resource, is_relic=quad_is_relic)
                 gsrs["local"].board.quads[evt.quad_chunk_idx][j] = expanded_quad
-            # TODO busy wait bad fix later
             quads_populated: bool = True
             for i in range(90):
                 for j in range(100):
@@ -191,7 +191,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             case UpdateAction.FOUND_SETTLEMENT:
                 self.process_found_settlement_event(evt, sock)
             case UpdateAction.SET_BLESSING:
-                self.process_set_blessing_event(evt)
+                self.process_set_blessing_event(evt, sock)
             case UpdateAction.SET_CONSTRUCTION:
                 self.process_set_construction_event(evt, sock)
             case UpdateAction.MOVE_UNIT:
@@ -212,6 +212,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 self.process_attack_unit_event(evt, sock)
             case UpdateAction.ATTACK_SETTLEMENT:
                 self.process_attack_settlement_event(evt, sock)
+            case UpdateAction.HEAL_UNIT:
+                self.process_heal_unit_event(evt, sock)
 
     def process_found_settlement_event(self, evt: FoundSettlementEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
@@ -230,11 +232,20 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 if player.faction != evt.player_faction:
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[player.id])
+        else:
+            self.server.game_controller_ref.namer.remove_settlement_name(evt.settlement.name,
+                                                                         evt.settlement.quads[0].biome)
 
-    def process_set_blessing_event(self, evt: SetBlessingEvent):
-        player = next(pl for pl in self.server.game_states_ref[evt.game_name].players
+    def process_set_blessing_event(self, evt: SetBlessingEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
         player.ongoing_blessing = OngoingBlessing(get_blessing(evt.blessing.blessing.name))
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
 
     def process_set_construction_event(self, evt: SetConstructionEvent, sock: socket.socket):
         game_name: str = evt.game_name if self.server.is_server else "local"
@@ -457,6 +468,19 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gsrs["local"].board.overlay.toggle_setl_attack(data)
                 gsrs["local"].board.attack_time_bank = 0
 
+    def process_heal_unit_event(self, evt: HealUnitEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
+        player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
+        healer = next(u for u in player.units if u.location == (evt.healer_loc[0], evt.healer_loc[1]))
+        healed = next(u for u in player.units if u.location == (evt.healed_loc[0], evt.healed_loc[1]))
+        heal(healer, healed)
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
+
     def process_query_event(self, evt: QueryEvent, sock: socket.socket):
         if self.server.is_server:
             lobbies: typing.List[LobbyDetails] = []
@@ -517,24 +541,42 @@ class RequestHandler(socketserver.BaseRequestHandler):
             if len(gs.ready_players) == len(gs.players):
                 for idx, player in enumerate(gs.players):
                     gs.process_player(player, idx == gs.player_idx)
-                # TODO will need to add heathens in here and then send out an update, also reset them
+                if gs.turn % 5 == 0:
+                    new_heathen_loc: (int, int) = random.randint(0, 89), random.randint(0, 99)
+                    gs.heathens.append(get_heathen(new_heathen_loc, gs.turn))
+                    evt.new_heathen_loc = new_heathen_loc
+                for h in gs.heathens:
+                    h.remaining_stamina = h.plan.total_stamina
+                    if h.health < h.plan.max_health:
+                        h.health = min(h.health + h.plan.max_health * 0.1, h.plan.max_health)
                 gs.turn += 1
                 # TODO process climatic effects in here, then send out update
                 for p in self.server.game_clients_ref[evt.game_name]:
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[p.id])
                 gs.ready_players.clear()
+                # TODO handle heathen movements
         else:
             for idx, player in enumerate(gs.players):
                 gs.process_player(player, idx == gs.player_idx)
+            if evt.new_heathen_loc:
+                gs.heathens.append(get_heathen((evt.new_heathen_loc[0], evt.new_heathen_loc[1]), gs.turn))
+            for h in gs.heathens:
+                h.remaining_stamina = h.plan.total_stamina
+                if h.health < h.plan.max_health:
+                    h.health = min(h.health + h.plan.max_health * 0.1, h.plan.max_health)
             gs.board.overlay.remove_warning_if_possible()
             gs.turn += 1
             possible_vic = gs.check_for_victory()
             if possible_vic is not None:
                 gs.board.overlay.toggle_victory(possible_vic)
                 # TODO handle victory/defeat stats/achs in here later
-            gs.ready_players.clear()
             gs.board.waiting_for_other_players = False
+            # TODO handle playtime stats/achs
+            gs.board.overlay.total_settlement_count = sum(len(p.settlements) for p in gs.players)
+
+    def process_unready_event(self, evt: UnreadyEvent):
+        self.server.game_states_ref[evt.game_name].ready_players.remove(evt.identifier)
 
 
 class EventListener:

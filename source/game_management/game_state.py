@@ -325,7 +325,7 @@ class GameState:
         for heathen in self.heathens:
             heathen.remaining_stamina = heathen.plan.total_stamina
             if heathen.health < heathen.plan.max_health:
-                heathen.health = min(heathen.health + heathen.plan.max_health * 0.1, 100)
+                heathen.health = min(heathen.health + heathen.plan.max_health * 0.1, heathen.plan.max_health)
 
         self.board.overlay.remove_warning_if_possible()
         self.turn += 1

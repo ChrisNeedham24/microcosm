@@ -12,7 +12,7 @@ from source.display.board import Board
 from source.networking.client import dispatch_event
 from source.networking.events import CreateEvent, EventType, QueryEvent, LeaveEvent, JoinEvent, InitEvent, \
     SetConstructionEvent, UpdateAction, SetBlessingEvent, BesiegeSettlementEvent, BuyoutConstructionEvent, \
-    DisbandUnitEvent, AttackSettlementEvent, EndTurnEvent
+    DisbandUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
     subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
@@ -384,14 +384,18 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.overlay.is_close_to_vic() or
             game_state.board.overlay.is_investigation() or game_state.board.overlay.is_night() or
             game_state.board.overlay.is_ach_notif()):
-        # TODO we'll probably want a way to unready at some point
         if game_state.board.game_config.multiplayer:
-            game_state.ready_players.add(hash((uuid.getnode(), os.getpid())))
-            game_state.board.waiting_for_other_players = True
-            et_evt: EndTurnEvent = EndTurnEvent(EventType.END_TURN, datetime.datetime.now(),
-                                                hash((uuid.getnode(), os.getpid())), game_state.board.game_name,
-                                                game_state.players[game_state.player_idx].faction)
-            dispatch_event(et_evt)
+            game_state.board.waiting_for_other_players = not game_state.board.waiting_for_other_players
+            if game_state.board.waiting_for_other_players:
+                et_evt: EndTurnEvent = EndTurnEvent(EventType.END_TURN, datetime.datetime.now(),
+                                                    hash((uuid.getnode(), os.getpid())), game_state.board.game_name,
+                                                    game_state.players[game_state.player_idx].faction)
+                dispatch_event(et_evt)
+            else:
+                u_evt: UnreadyEvent = UnreadyEvent(EventType.UNREADY, datetime.datetime.now(),
+                                                   hash((uuid.getnode(), os.getpid())), game_state.board.game_name,
+                                                   game_state.players[game_state.player_idx].faction)
+                dispatch_event(u_evt)
         # If we are not in any of the above situations, end the turn.
         elif game_state.end_turn():
             # Autosave every turn, but only if the player is actually still in the game.

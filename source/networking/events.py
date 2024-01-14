@@ -16,6 +16,7 @@ class EventType(str, Enum):
     JOIN = "JOIN"
     REGISTER = "REGISTER"
     END_TURN = "END_TURN"
+    UNREADY = "UNREADY"
 
 
 class UpdateAction(str, Enum):
@@ -31,6 +32,7 @@ class UpdateAction(str, Enum):
     DISBAND_UNIT = "DIU"
     ATTACK_UNIT = "AU"
     ATTACK_SETTLEMENT = "AS"
+    HEAL_UNIT = "HU"
 
 
 @dataclass
@@ -140,6 +142,12 @@ class AttackSettlementEvent(UpdateEvent):
 
 
 @dataclass
+class HealUnitEvent(UpdateEvent):
+    healer_loc: (int, int)
+    healed_loc: (int, int)
+
+
+@dataclass
 class QueryEvent(Event):
     lobbies: typing.Optional[typing.List[LobbyDetails]] = None
 
@@ -163,5 +171,12 @@ class RegisterEvent(Event):
 
 @dataclass
 class EndTurnEvent(Event):
+    game_name: str
+    player_faction: Faction
+    new_heathen_loc: typing.Optional[typing.Tuple[int, int]] = None
+
+
+@dataclass
+class UnreadyEvent(Event):
     game_name: str
     player_faction: Faction

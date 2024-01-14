@@ -10,7 +10,7 @@ import pyxel
 
 from source.networking.client import dispatch_event
 from source.networking.events import FoundSettlementEvent, EventType, UpdateAction, MoveUnitEvent, DeployUnitEvent, \
-    GarrisonUnitEvent, InvestigateEvent, AttackUnitEvent
+    GarrisonUnitEvent, InvestigateEvent, AttackUnitEvent, HealUnitEvent
 from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal, \
     get_resources_for_settlement
 from source.foundation.catalogue import get_default_unit, Namer
@@ -794,7 +794,13 @@ class Board:
                                     abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
                                     abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
                                 data = heal(self.selected_unit, other_unit, ai=False)
-                                # TODO event for healing
+                                if self.game_config.multiplayer:
+                                    hu_evt: HealUnitEvent = HealUnitEvent(EventType.UPDATE, datetime.datetime.now(),
+                                                                          hash((uuid.getnode(), os.getpid())),
+                                                                          UpdateAction.HEAL_UNIT, self.game_name,
+                                                                          player.faction, self.selected_unit.location,
+                                                                          other_unit.location)
+                                    dispatch_event(hu_evt)
                                 self.overlay.toggle_heal(data)
                                 self.heal_time_bank = 0
                             else:
