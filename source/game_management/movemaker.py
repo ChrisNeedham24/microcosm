@@ -221,7 +221,7 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
     # expansion, choose that. Alternatively, if the AI is facing a situation where all of their settlements are
     # dissatisfied, and they can produce a settler, produce one regardless of whether they have produced one before.
     # Naturally, The Concentrated are exempt from this requirement.
-    elif player.faction is not Faction.CONCENTRATED and \
+    elif player.faction != Faction.CONCENTRATED and \
             ((setl.level >= get_expansion_lvl() and not setl.produced_settler) or
              (setl.level > 1 and all(setl.satisfaction < 40 for setl in player.settlements))):
         setl.current_work = Construction(settler_units[0])
@@ -503,7 +503,7 @@ class MoveMaker:
         for setl in player.settlements:
             if setl.current_work is None:
                 set_ai_construction(player, setl, is_night, other_player_vics)
-            elif player.faction is not Faction.FUNDAMENTALISTS:
+            elif player.faction != Faction.FUNDAMENTALISTS:
                 cons = setl.current_work.construction
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out. In
                 # circumstances where the settlement's satisfaction is less than 50 and the construction would yield
@@ -605,9 +605,9 @@ class MoveMaker:
             setl_name = self.namer.get_settlement_name(quad_biome)
             setl_resources = get_resources_for_settlement([unit.location], self.board_ref.quads)
             new_settl = Settlement(setl_name, unit.location, [], [prospective_quad], setl_resources, [])
-            if player.faction is Faction.FRONTIERSMEN:
+            if player.faction == Faction.FRONTIERSMEN:
                 new_settl.satisfaction = 75
-            elif player.faction is Faction.IMPERIALS:
+            elif player.faction == Faction.IMPERIALS:
                 new_settl.strength /= 2
                 new_settl.max_strength /= 2
             if new_settl.resources.obsidian:
@@ -705,7 +705,7 @@ class MoveMaker:
                 is_infidel = False
                 is_close_to_elimination_vic = False
                 for pl in all_players:
-                    if pl.faction is Faction.INFIDELS and other_u in pl.units:
+                    if pl.faction == Faction.INFIDELS and other_u in pl.units:
                         is_infidel = True
                         break
                     if VictoryType.ELIMINATION in pl.imminent_victories:
@@ -829,7 +829,7 @@ class MoveMaker:
                                                abs(u.location[1] - setl_quad.location[1]) <= 1
                                                for setl_quad in data.settlement.quads):
                                             u.besieging = False
-                                    if player.faction is not Faction.CONCENTRATED:
+                                    if player.faction != Faction.CONCENTRATED:
                                         player.settlements.append(data.settlement)
                                     setl_owner.settlements.remove(data.settlement)
                     # If we have chosen to place a settlement under siege, and the unit is not already besieging another

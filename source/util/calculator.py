@@ -153,11 +153,11 @@ def get_setl_totals(player: Player,
     # settlements with high satisfaction will yield 1.5 times the wealth and harvest.
 
     total_zeal = max(sum(quad.zeal for quad in setl.quads) +
-                     sum(imp.effect.zeal for imp in setl.improvements), 0 if strict else 0.5)
+                     sum(imp.effect.zeal for imp in setl.improvements), 0 if strict else 1)
     total_zeal += (setl.level - 1) * 0.25 * total_zeal
-    if player.faction is Faction.AGRICULTURISTS:
+    if player.faction == Faction.AGRICULTURISTS:
         total_zeal *= 0.75
-    elif player.faction is Faction.FUNDAMENTALISTS:
+    elif player.faction == Faction.FUNDAMENTALISTS:
         total_zeal *= 1.25
     total_wealth = max(sum(quad.wealth for quad in setl.quads) +
                        sum(imp.effect.wealth for imp in setl.improvements), 0)
@@ -169,9 +169,9 @@ def get_setl_totals(player: Player,
         total_wealth = 0
     elif setl.economic_status is EconomicStatus.BOOM:
         total_wealth *= 1.5
-    if player.faction is Faction.GODLESS:
+    if player.faction == Faction.GODLESS:
         total_wealth *= 1.25
-    elif player.faction is Faction.ORTHODOX:
+    elif player.faction == Faction.ORTHODOX:
         total_wealth *= 0.75
     if setl.resources.aurora:
         total_wealth *= (1 + 0.5 * setl.resources.aurora)
@@ -185,21 +185,21 @@ def get_setl_totals(player: Player,
         total_harvest = 0
     elif setl.harvest_status is HarvestStatus.PLENTIFUL:
         total_harvest *= 1.5
-    if player.faction is Faction.RAVENOUS:
+    if player.faction == Faction.RAVENOUS:
         total_harvest *= 1.25
-    if is_night and player.faction is not Faction.NOCTURNE and not setl.resources.sunstone:
+    if is_night and player.faction != Faction.NOCTURNE and not setl.resources.sunstone:
         total_harvest /= 2
     total_fortune = max(sum(quad.fortune for quad in setl.quads) +
-                        sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 0.5)
+                        sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 1)
     total_fortune += (setl.level - 1) * 0.25 * total_fortune
     if setl.current_work is not None and isinstance(setl.current_work.construction, Project) and \
             setl.current_work.construction.type is ProjectType.MAGICAL:
         total_fortune += total_zeal / 4
     if is_night:
         total_fortune *= 1.1
-    if player.faction is Faction.SCRUTINEERS:
+    if player.faction == Faction.SCRUTINEERS:
         total_fortune *= 0.75
-    elif player.faction is Faction.ORTHODOX:
+    elif player.faction == Faction.ORTHODOX:
         total_fortune *= 1.25
     if setl.resources.aquamarine:
         total_fortune *= (1 + 0.5 * setl.resources.aquamarine)
@@ -218,7 +218,7 @@ def complete_construction(setl: Settlement, player: Player):
     if isinstance(setl.current_work.construction, Improvement):
         setl.improvements.append(setl.current_work.construction)
         if setl.current_work.construction.effect.strength > 0:
-            strength_multiplier = 2 if player.faction is Faction.CONCENTRATED else 1
+            strength_multiplier = 2 if player.faction == Faction.CONCENTRATED else 1
             setl.strength += setl.current_work.construction.effect.strength * strength_multiplier
             setl.max_strength += setl.current_work.construction.effect.strength * strength_multiplier
         if setl.current_work.construction.effect.satisfaction != 0:
@@ -262,11 +262,11 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
     """
     random_chance = random.randint(0, 140)
     # Scrutineers always succeed when investigating.
-    was_successful = True if player.faction is Faction.SCRUTINEERS else random_chance < 100
+    was_successful = True if player.faction == Faction.SCRUTINEERS else random_chance < 100
     if was_successful:
         # For players of the Scrutineers faction, we need to scale down their random value, as if it was 100 or more,
         # then the result would always be the last investigation result.
-        if player.faction is Faction.SCRUTINEERS:
+        if player.faction == Faction.SCRUTINEERS:
             random_chance *= (100 / 140)
         if random_chance < 10 and player.ongoing_blessing is not None:
             player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.blessing.cost / 5

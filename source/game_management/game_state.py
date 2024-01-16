@@ -81,9 +81,9 @@ class GameState:
         for unit in self.players[self.player_idx].units:
             if not unit.garrisoned:
                 total_wealth -= unit.plan.cost / 10
-        if self.players[self.player_idx].faction is Faction.GODLESS:
+        if self.players[self.player_idx].faction == Faction.GODLESS:
             total_wealth *= 1.25
-        elif self.players[self.player_idx].faction is Faction.ORTHODOX:
+        elif self.players[self.player_idx].faction == Faction.ORTHODOX:
             total_wealth *= 0.75
         has_no_blessing = self.players[self.player_idx].ongoing_blessing is None
         will_have_negative_wealth = (self.players[self.player_idx].wealth + total_wealth) < 0 and len(self.players[self.player_idx].units) > 0
@@ -118,12 +118,12 @@ class GameState:
             # satisfaction of [20, 40) will yield 0 harvest, a satisfaction of [60, 80) will yield 150% harvest,
             # and a satisfaction of 80 or more will yield 150% wealth and 150% harvest.
             if setl.satisfaction < 20:
-                if player.faction is not Faction.AGRICULTURISTS:
+                if player.faction != Faction.AGRICULTURISTS:
                     setl.harvest_status = HarvestStatus.POOR
-                if player.faction is not Faction.CAPITALISTS:
+                if player.faction != Faction.CAPITALISTS:
                     setl.economic_status = EconomicStatus.RECESSION
             elif setl.satisfaction < 40:
-                if player.faction is not Faction.AGRICULTURISTS:
+                if player.faction != Faction.AGRICULTURISTS:
                     setl.harvest_status = HarvestStatus.POOR
                 setl.economic_status = EconomicStatus.STANDARD
             elif setl.satisfaction < 60:
@@ -173,7 +173,7 @@ class GameState:
 
             # Settlement satisfaction is regulated by the amount of harvest generated against the level.
             if total_harvest < setl.level * 4:
-                setl.satisfaction -= (1 if player.faction is Faction.CAPITALISTS else 0.5)
+                setl.satisfaction -= (1 if player.faction == Faction.CAPITALISTS else 0.5)
             elif total_harvest >= setl.level * 8:
                 setl.satisfaction += 0.25
             setl.satisfaction = clamp(setl.satisfaction, 0, 100)
@@ -188,14 +188,14 @@ class GameState:
             setl.harvest_reserves += total_harvest
             # Settlement levels are increased if the settlement's harvest reserves exceed a certain level (specified
             # in models.py).
-            level_cap = 5 if player.faction is Faction.RAVENOUS else 10
+            level_cap = 5 if player.faction == Faction.RAVENOUS else 10
             if setl.harvest_reserves >= pow(setl.level, 2) * 25 and setl.level < level_cap:
                 setl.level += 1
                 levelled_up_settlements.append(setl)
                 # For players of The Concentrated faction, every time their one and only settlement levels up, it gains
                 # an extra quad. The quad gained is determined by calculating which adjacent quad has the highest total
                 # yield.
-                if player.faction is Faction.CONCENTRATED:
+                if player.faction == Faction.CONCENTRATED:
                     best_quad_with_yield: (Quad, float) = None, 0
                     for setl_quad in setl.quads:
                         for i in range(setl_quad.location[0] - 1, setl_quad.location[0] + 2):
@@ -264,7 +264,9 @@ class GameState:
         player.wealth = max(player.wealth + overall_wealth, 0)
         player.accumulated_wealth += overall_wealth
 
-    def process_climatic_effects(self):
+    def process_climatic_effects(self,
+                                 new_nighttime_left: typing.Optional[int] = None,
+                                 new_until_night: typing.Optional[int] = None):
         """
         Updates current night tracking variables, and toggles nighttime if the correct turn arrives.
         """
@@ -274,34 +276,36 @@ class GameState:
             if self.until_night == 0:
                 self.board.overlay.toggle_night(True)
                 # Nights last for between 5 and 20 turns.
-                self.nighttime_left = random.randint(5, 20)
+                self.nighttime_left = new_nighttime_left if new_nighttime_left is not None else random.randint(5, 20)
                 for h in self.heathens:
                     h.plan.power = round(2 * h.plan.power)
-                if self.players[self.player_idx].faction is Faction.NOCTURNE:
-                    for u in self.players[self.player_idx].units:
-                        u.plan.power = round(2 * u.plan.power)
-                    for setl in self.players[self.player_idx].settlements:
-                        for unit in setl.garrison:
-                            unit.plan.power = round(2 * unit.plan.power)
+                for p in self.players:
+                    if p.faction == Faction.NOCTURNE:
+                        for u in p.units:
+                            u.plan.power = round(2 * u.plan.power)
+                        for setl in p.settlements:
+                            for unit in setl.garrison:
+                                unit.plan.power = round(2 * unit.plan.power)
         else:
             self.nighttime_left -= 1
             if self.nighttime_left == 0:
-                self.until_night = random.randint(10, 20)
+                self.until_night = new_until_night if new_until_night is not None else random.randint(10, 20)
                 self.board.overlay.toggle_night(False)
                 for h in self.heathens:
                     h.plan.power = round(h.plan.power / 2)
-                if self.players[self.player_idx].faction is Faction.NOCTURNE:
-                    for u in self.players[self.player_idx].units:
-                        u.plan.power = round(u.plan.power / 4)
-                        u.health = round(u.health / 2)
-                        u.plan.max_health = round(u.plan.max_health / 2)
-                        u.plan.total_stamina = round(u.plan.total_stamina / 2)
-                    for setl in self.players[self.player_idx].settlements:
-                        for unit in setl.garrison:
-                            unit.plan.power = round(unit.plan.power / 4)
-                            unit.health = round(unit.health / 2)
-                            unit.plan.max_health = round(unit.plan.max_health / 2)
-                            unit.plan.total_stamina = round(unit.plan.total_stamina / 2)
+                for p in self.players:
+                    if p.faction == Faction.NOCTURNE:
+                        for u in p.units:
+                            u.plan.power = round(u.plan.power / 4)
+                            u.health = round(u.health / 2)
+                            u.plan.max_health = round(u.plan.max_health / 2)
+                            u.plan.total_stamina = round(u.plan.total_stamina / 2)
+                        for setl in p.settlements:
+                            for unit in setl.garrison:
+                                unit.plan.power = round(unit.plan.power / 4)
+                                unit.health = round(unit.health / 2)
+                                unit.plan.max_health = round(unit.plan.max_health / 2)
+                                unit.plan.total_stamina = round(unit.plan.total_stamina / 2)
 
     def end_turn(self) -> bool:
         """
@@ -483,7 +487,7 @@ class GameState:
         banned_quads: typing.Set[typing.Tuple[int, int]] = set()
         for player in self.players:
             # Heathens will not attack Infidel units.
-            if player.faction is not Faction.INFIDELS:
+            if player.faction != Faction.INFIDELS:
                 for unit in player.units:
                     all_units.append(unit)
             # During nighttime, heathens cannot be within a certain number of quads of settlements with sunstone
@@ -548,7 +552,7 @@ class GameState:
                     self.heathens.remove(heathen)
 
             # Players of the Infidels faction share vision with Heathen units.
-            if self.players[self.player_idx].faction is Faction.INFIDELS:
+            if self.players[self.player_idx].faction == Faction.INFIDELS:
                 for i in range(heathen.location[1] - 5, heathen.location[1] + 6):
                     for j in range(heathen.location[0] - 5, heathen.location[0] + 6):
                         self.players[self.player_idx].quads_seen.add((j, i))

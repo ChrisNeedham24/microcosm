@@ -519,7 +519,7 @@ def get_available_improvements(player: Player,
     :return: A list of available improvements.
     """
     # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
-    if player.faction is Faction.FRONTIERSMEN and settlement.level >= 5:
+    if player.faction == Faction.FRONTIERSMEN and settlement.level >= 5:
         return []
     completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
     # An improvement is available if the improvement has not been built in this settlement yet, either the player has
@@ -548,10 +548,10 @@ def get_available_unit_plans(player: Player, setl: Settlement) -> typing.List[Un
         if unit_plan.prereq is None or unit_plan.prereq.name in completed_blessing_names:
             # Note that settlers can only be recruited in settlements of at least level 2. Additionally, users of The
             # Concentrated cannot construct settlers at all.
-            if unit_plan.can_settle and setl.level > 1 and player.faction is not Faction.CONCENTRATED:
+            if unit_plan.can_settle and setl.level > 1 and player.faction != Faction.CONCENTRATED:
                 unit_plans.append(unit_plan)
             # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
-            elif not unit_plan.can_settle and not (player.faction is Faction.FRONTIERSMEN and setl.level >= 5):
+            elif not unit_plan.can_settle and not (player.faction == Faction.FRONTIERSMEN and setl.level >= 5):
                 unit_plans.append(unit_plan)
 
     match player.faction:
@@ -586,7 +586,7 @@ def get_available_blessings(player: Player) -> typing.List[Blessing]:
     completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
     blessings = [bls for bls in deepcopy(BLESSINGS).values() if bls.name not in completed_blessing_names]
 
-    if player.faction is Faction.GODLESS:
+    if player.faction == Faction.GODLESS:
         for bls in blessings:
             bls.cost *= 1.5
 

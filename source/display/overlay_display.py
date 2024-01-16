@@ -82,7 +82,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(35, 55, "The everlasting night begins...", pyxel.COLOR_YELLOW)
             pyxel.text(63, 75, "Increased fortune", pyxel.COLOR_PURPLE)
             pyxel.text(55, 85, "Strengthened heathens", pyxel.COLOR_RED)
-            if overlay.current_player.faction is Faction.NOCTURNE:
+            if overlay.current_player.faction == Faction.NOCTURNE:
                 pyxel.text(52, 65, "Nocturne bonus to units", pyxel.COLOR_GREEN)
             else:
                 pyxel.text(45, 65, "Reduced vision and harvest", pyxel.COLOR_RED)
@@ -90,7 +90,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(42, 55, "The sun returns once more...", pyxel.COLOR_YELLOW)
             pyxel.text(67, 75, "Regular fortune", pyxel.COLOR_PURPLE)
             pyxel.text(62, 85, "Standard heathens", pyxel.COLOR_GREEN)
-            if overlay.current_player.faction is Faction.NOCTURNE:
+            if overlay.current_player.faction == Faction.NOCTURNE:
                 pyxel.text(45, 65, "Nocturne unit bonus removed", pyxel.COLOR_RED)
             else:
                 pyxel.text(45, 65, "Restored vision and harvest", pyxel.COLOR_GREEN)
@@ -351,7 +351,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     overlay.current_player.wealth >= \
                     (overlay.current_settlement.current_work.construction.cost -
                      overlay.current_settlement.current_work.zeal_consumed) and \
-                    overlay.current_player.faction is not Faction.FUNDAMENTALISTS:
+                    overlay.current_player.faction != Faction.FUNDAMENTALISTS:
                 y_offset = 10
             pyxel.rectb(12, 130 - y_offset, 176, 40 + y_offset, pyxel.COLOR_WHITE)
             pyxel.rect(13, 131 - y_offset, 174, 38 + y_offset, pyxel.COLOR_BLACK)
@@ -362,16 +362,16 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     pyxel.text(20, 145 - y_offset, curr_work.construction.name, pyxel.COLOR_WHITE)
                     remaining_work = curr_work.construction.cost - curr_work.zeal_consumed
                     total_zeal = max(sum(quad.zeal for quad in overlay.current_settlement.quads) +
-                                     sum(imp.effect.zeal for imp in overlay.current_settlement.improvements), 0.5)
+                                     sum(imp.effect.zeal for imp in overlay.current_settlement.improvements), 1)
                     total_zeal += (overlay.current_settlement.level - 1) * 0.25 * total_zeal
-                    if overlay.current_player.faction is Faction.AGRICULTURISTS:
+                    if overlay.current_player.faction == Faction.AGRICULTURISTS:
                         total_zeal *= 0.75
-                    elif overlay.current_player.faction is Faction.FUNDAMENTALISTS:
+                    elif overlay.current_player.faction == Faction.FUNDAMENTALISTS:
                         total_zeal *= 1.25
                     remaining_turns = math.ceil(remaining_work / total_zeal)
                     pyxel.text(20, 155 - y_offset, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
                     if overlay.current_player.wealth >= remaining_work and \
-                            overlay.current_player.faction is not Faction.FUNDAMENTALISTS:
+                            overlay.current_player.faction != Faction.FUNDAMENTALISTS:
                         pyxel.blt(20, 153, 0, 0, 52, 8, 8)
                         pyxel.text(30, 155, "Buyout:", pyxel.COLOR_WHITE)
                         pyxel.blt(60, 153, 0, 0, 44, 8, 8)
@@ -472,10 +472,10 @@ def display_overlay(overlay: Overlay, is_night: bool):
             total_zeal = 0
             total_zeal += sum(quad.zeal for quad in overlay.current_settlement.quads)
             total_zeal += sum(imp.effect.zeal for imp in overlay.current_settlement.improvements)
-            total_zeal = max(0.5, total_zeal) + (overlay.current_settlement.level - 1) * 0.25 * total_zeal
-            if overlay.current_player.faction is Faction.AGRICULTURISTS:
+            total_zeal = max(1, total_zeal) + (overlay.current_settlement.level - 1) * 0.25 * total_zeal
+            if overlay.current_player.faction == Faction.AGRICULTURISTS:
                 total_zeal *= 0.75
-            elif overlay.current_player.faction is Faction.FUNDAMENTALISTS:
+            elif overlay.current_player.faction == Faction.FUNDAMENTALISTS:
                 total_zeal *= 1.25
             if overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
                 for idx, construction in enumerate(overlay.available_constructions):
@@ -695,11 +695,11 @@ def display_overlay(overlay: Overlay, is_night: bool):
                         if current_work is not None and not isinstance(current_work.construction, Project):
                             remaining_work = current_work.construction.cost - current_work.zeal_consumed
                             total_zeal = max(sum(quad.zeal for quad in setl.quads) +
-                                             sum(imp.effect.zeal for imp in setl.improvements), 0.5)
+                                             sum(imp.effect.zeal for imp in setl.improvements), 1)
                             total_zeal += (setl.level - 1) * 0.25 * total_zeal
-                            if overlay.current_player.faction is Faction.AGRICULTURISTS:
+                            if overlay.current_player.faction == Faction.AGRICULTURISTS:
                                 total_zeal *= 0.75
-                            elif overlay.current_player.faction is Faction.FUNDAMENTALISTS:
+                            elif overlay.current_player.faction == Faction.FUNDAMENTALISTS:
                                 total_zeal *= 1.25
                             remaining_turns = math.ceil(remaining_work / total_zeal)
                             pyxel.text(130, 65 + idx * 8, str(remaining_turns), pyxel.COLOR_WHITE)
@@ -737,7 +737,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     pyxel.text(140, 55,
                                f"{len(overlay.current_player.settlements)}/{overlay.total_settlement_count}",
                                pyxel.COLOR_WHITE)
-                    if overlay.current_player.faction is not Faction.CONCENTRATED:
+                    if overlay.current_player.faction != Faction.CONCENTRATED:
                         pyxel.text(30, 70, "Jubilation", pyxel.COLOR_GREEN)
                         if VictoryType.JUBILATION in overlay.current_player.imminent_victories:
                             pyxel.blt(72, 68, 0, 16, 124, 8, 8)

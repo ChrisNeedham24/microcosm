@@ -33,6 +33,8 @@ class UpdateAction(str, Enum):
     ATTACK_UNIT = "AU"
     ATTACK_SETTLEMENT = "AS"
     HEAL_UNIT = "HU"
+    BOARD_DEPLOYER = "BD"
+    DEPLOYER_DEPLOY = "DD"
 
 
 @dataclass
@@ -148,6 +150,20 @@ class HealUnitEvent(UpdateEvent):
 
 
 @dataclass
+class BoardDeployerEvent(UpdateEvent):
+    initial_loc: (int, int)
+    deployer_loc: (int, int)
+    new_stamina: int
+
+
+@dataclass
+class DeployerDeployEvent(UpdateEvent):
+    deployer_loc: (int, int)
+    passenger_idx: int
+    deployed_loc: (int, int)
+
+
+@dataclass
 class QueryEvent(Event):
     lobbies: typing.Optional[typing.List[LobbyDetails]] = None
 
@@ -174,6 +190,8 @@ class EndTurnEvent(Event):
     game_name: str
     player_faction: Faction
     new_heathen_loc: typing.Optional[typing.Tuple[int, int]] = None
+    new_nighttime_left: typing.Optional[int] = None
+    new_until_night: typing.Optional[int] = None
 
 
 @dataclass

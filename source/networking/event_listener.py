@@ -23,7 +23,7 @@ from source.networking.events import Event, EventType, CreateEvent, InitEvent, U
     FoundSettlementEvent, QueryEvent, LeaveEvent, JoinEvent, RegisterEvent, SetBlessingEvent, SetConstructionEvent, \
     MoveUnitEvent, DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent, \
     BuyoutConstructionEvent, DisbandUnitEvent, AttackUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, \
-    HealUnitEvent
+    HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_quad
 from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal
@@ -214,6 +214,10 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 self.process_attack_settlement_event(evt, sock)
             case UpdateAction.HEAL_UNIT:
                 self.process_heal_unit_event(evt, sock)
+            case UpdateAction.BOARD_DEPLOYER:
+                self.process_board_deployer_event(evt, sock)
+            case UpdateAction.DEPLOYER_DEPLOY:
+                self.process_deployer_deploy_event(evt, sock)
 
     def process_found_settlement_event(self, evt: FoundSettlementEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
@@ -450,7 +454,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                             abs(unit.location[1] - setl_quad.location[1]) <= 1:
                         unit.besieging = False
                         break
-            if player.faction is not Faction.CONCENTRATED:
+            if player.faction != Faction.CONCENTRATED:
                 player.settlements.append(setl)
             setl[1].settlements.remove(setl[0])
         if self.server.is_server:
@@ -475,6 +479,36 @@ class RequestHandler(socketserver.BaseRequestHandler):
         healer = next(u for u in player.units if u.location == (evt.healer_loc[0], evt.healer_loc[1]))
         healed = next(u for u in player.units if u.location == (evt.healed_loc[0], evt.healed_loc[1]))
         heal(healer, healed)
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
+
+    def process_board_deployer_event(self, evt: BoardDeployerEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        player = next(pl for pl in self.server.game_states_ref[game_name].players
+                      if pl.faction == evt.player_faction)
+        unit = next(u for u in player.units if u.location == (evt.initial_loc[0], evt.initial_loc[1]))
+        deployer = next(u for u in player.units if u.location == (evt.deployer_loc[0], evt.deployer_loc[1]))
+        unit.remaining_stamina = evt.new_stamina
+        deployer.passengers.append(unit)
+        player.units.remove(unit)
+        if self.server.is_server:
+            for p in self.server.game_clients_ref[evt.game_name]:
+                if p.faction != evt.player_faction:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
+
+    def process_deployer_deploy_event(self, evt: DeployerDeployEvent, sock: socket.socket):
+        game_name: str = evt.game_name if self.server.is_server else "local"
+        player = next(pl for pl in self.server.game_states_ref[game_name].players
+                      if pl.faction == evt.player_faction)
+        deployer = next(u for u in player.units if u.location == (evt.deployer_loc[0], evt.deployer_loc[1]))
+        deployed = deployer.passengers[evt.passenger_idx]
+        deployed.location = (evt.deployed_loc[0], evt.deployed_loc[1])
+        deployer.passengers[evt.passenger_idx:evt.passenger_idx + 1] = []
+        player.units.append(deployed)
         if self.server.is_server:
             for p in self.server.game_clients_ref[evt.game_name]:
                 if p.faction != evt.player_faction:
@@ -550,7 +584,10 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     if h.health < h.plan.max_health:
                         h.health = min(h.health + h.plan.max_health * 0.1, h.plan.max_health)
                 gs.turn += 1
-                # TODO process climatic effects in here, then send out update
+                if gs.board.game_config.climatic_effects:
+                    gs.process_climatic_effects()
+                    evt.new_nighttime_left = gs.nighttime_left
+                    evt.new_until_night = gs.until_night
                 for p in self.server.game_clients_ref[evt.game_name]:
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[p.id])
@@ -567,6 +604,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     h.health = min(h.health + h.plan.max_health * 0.1, h.plan.max_health)
             gs.board.overlay.remove_warning_if_possible()
             gs.turn += 1
+            if evt.new_nighttime_left is not None and evt.new_until_night is not None:
+                gs.process_climatic_effects(evt.new_nighttime_left, evt.new_until_night)
             possible_vic = gs.check_for_victory()
             if possible_vic is not None:
                 gs.board.overlay.toggle_victory(possible_vic)

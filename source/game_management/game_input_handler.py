@@ -331,7 +331,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                 break
                     # The Concentrated can only have a single settlement, so when they take others, the
                     # settlements simply disappear.
-                    if game_state.players[game_state.player_idx].faction is not Faction.CONCENTRATED:
+                    if game_state.players[game_state.player_idx].faction != Faction.CONCENTRATED:
                         game_state.players[game_state.player_idx].settlements.append(data.settlement)
                     for idx, p in enumerate(game_state.players):
                         if data.settlement in p.settlements and idx != 0:
@@ -638,7 +638,7 @@ def on_key_b(game_state: GameState):
     """
     if game_state.game_started and game_state.board.selected_settlement is not None and \
             game_state.board.selected_settlement.current_work is not None and \
-            game_state.players[game_state.player_idx].faction is not Faction.FUNDAMENTALISTS and \
+            game_state.players[game_state.player_idx].faction != Faction.FUNDAMENTALISTS and \
             not isinstance(game_state.board.selected_settlement.current_work.construction, Project):
         # Pressing B will buyout the remaining cost of the settlement's current construction. However, players
         # using the Fundamentalists faction are barred from this.
