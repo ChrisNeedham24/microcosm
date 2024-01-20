@@ -142,6 +142,10 @@ class Menu:
             if self.multiplayer_lobby_name:
                 lobby_offset = 50 - pow(len(self.multiplayer_lobby_name), 1.4)
                 pyxel.text(100 + lobby_offset, 40, self.multiplayer_lobby_name, pyxel.COLOR_GREEN)
+            # TODO Prevent starting with 1 player
+            # TODO Prevent more than max joining
+            # TODO Fill remaining spots with AIs
+            # TODO Allow leaving games mid-way, replaced by AI
             pyxel.text(80, 50,
                        f"{len(self.multiplayer_player_details)}/{self.player_count} players", pyxel.COLOR_WHITE)
 
@@ -726,6 +730,7 @@ class Menu:
         elif self.viewing_lobbies:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
+            # TODO joining mid-game
             pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
             for idx, lobby in enumerate(self.multiplayer_lobbies):
                 pyxel.text(25, 35 + idx * 10,
@@ -762,6 +767,7 @@ class Menu:
                     self.load_game_boundaries = self.load_game_boundaries[0] + 1, self.load_game_boundaries[1] + 1
                 if 0 <= self.save_idx < len(self.saves) - 1:
                     self.save_idx += 1
+            # TODO allow picking a game to join
             elif self.viewing_achievements:
                 if self.achievements_boundaries[1] < len(ACHIEVEMENTS) - 1:
                     self.achievements_boundaries = \

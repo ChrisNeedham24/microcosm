@@ -185,6 +185,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     # If the player has pressed enter to start the game, generate the players, board, and AI players.
                     pyxel.mouse(visible=True)
                     game_controller.last_turn_time = time.time()
+                    game_state.player_idx = 0
                     game_state.game_started = True
                     game_state.turn = 1
                     # Reinitialise night variables.
@@ -256,12 +257,15 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     pyxel.quit()
     elif game_state.game_started and (game_state.board.overlay.is_victory() or
                                       game_state.board.overlay.is_elimination() and game_state.players[game_state.player_idx].eliminated):
+        # TODO Should send a leave req
         # If the player has won the game, or they've just been eliminated themselves, enter will take them back
         # to the menu.
         game_state.game_started = False
         game_state.on_menu = True
         game_controller.menu.loading_game = False
         game_controller.menu.in_game_setup = False
+        game_controller.menu.in_multiplayer_lobby = False
+        game_controller.menu.joining_game = False
         game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
         game_controller.music_player.stop_game_music()
         game_controller.music_player.play_menu_music()
@@ -276,7 +280,6 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 subtract_player_resources_for_improvement(game_state.players[game_state.player_idx], cons)
             game_state.board.selected_settlement.current_work = \
                 Construction(game_state.board.overlay.selected_construction)
-            game_state.board.overlay.toggle_construction([], [], [])
             if game_state.board.game_config.multiplayer:
                 sc_evt = SetConstructionEvent(EventType.UPDATE, datetime.datetime.now(),
                                               hash((uuid.getnode(), os.getpid())), UpdateAction.SET_CONSTRUCTION,
@@ -286,6 +289,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                               game_state.board.selected_settlement.name,
                                               game_state.board.selected_settlement.current_work)
                 dispatch_event(sc_evt)
+        if cons is None or game_state.board.selected_settlement.current_work is not None:
+            game_state.board.overlay.toggle_construction([], [], [])
     elif game_state.game_started and game_state.board.overlay.is_blessing():
         if game_state.board.overlay.selected_blessing is not None:
             game_state.players[game_state.player_idx].ongoing_blessing = \
@@ -366,10 +371,13 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_state.board.overlay.show_additional_controls = False
                 game_state.board.overlay.toggle_controls()
             case PauseOption.QUIT:
+                # TODO should send a leave req
                 game_state.game_started = False
                 game_state.on_menu = True
                 game_controller.menu.loading_game = False
                 game_controller.menu.in_game_setup = False
+                game_controller.menu.in_multiplayer_lobby = False
+                game_controller.menu.joining_game = False
                 game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
                 game_controller.music_player.stop_game_music()
                 game_controller.music_player.play_menu_music()
@@ -385,17 +393,18 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.overlay.is_investigation() or game_state.board.overlay.is_night() or
             game_state.board.overlay.is_ach_notif()):
         if game_state.board.game_config.multiplayer:
-            game_state.board.waiting_for_other_players = not game_state.board.waiting_for_other_players
-            if game_state.board.waiting_for_other_players:
-                et_evt: EndTurnEvent = EndTurnEvent(EventType.END_TURN, datetime.datetime.now(),
-                                                    hash((uuid.getnode(), os.getpid())), game_state.board.game_name,
-                                                    game_state.players[game_state.player_idx].faction)
-                dispatch_event(et_evt)
-            else:
-                u_evt: UnreadyEvent = UnreadyEvent(EventType.UNREADY, datetime.datetime.now(),
-                                                   hash((uuid.getnode(), os.getpid())), game_state.board.game_name,
-                                                   game_state.players[game_state.player_idx].faction)
-                dispatch_event(u_evt)
+            if not game_state.check_for_warnings():
+                game_state.board.waiting_for_other_players = not game_state.board.waiting_for_other_players
+                if game_state.board.waiting_for_other_players:
+                    et_evt: EndTurnEvent = EndTurnEvent(EventType.END_TURN, datetime.datetime.now(),
+                                                        hash((uuid.getnode(), os.getpid())), game_state.board.game_name,
+                                                        game_state.players[game_state.player_idx].faction)
+                    dispatch_event(et_evt)
+                else:
+                    u_evt: UnreadyEvent = UnreadyEvent(EventType.UNREADY, datetime.datetime.now(),
+                                                       hash((uuid.getnode(), os.getpid())), game_state.board.game_name,
+                                                       game_state.players[game_state.player_idx].faction)
+                    dispatch_event(u_evt)
         # If we are not in any of the above situations, end the turn.
         elif game_state.end_turn():
             # Autosave every turn, but only if the player is actually still in the game.
@@ -754,7 +763,7 @@ def on_mouse_button_left(game_state: GameState):
                 other_setls.extend(game_state.players[i].settlements)
         game_state.board.overlay.remove_warning_if_possible()
         game_state.board.process_left_click(pyxel.mouse_x, pyxel.mouse_y,
-                                            len(game_state.players[game_state.player_idx].settlements) > 0,
+                                            len(game_state.players[game_state.player_idx].settlements) > 0 or game_state.turn != 1,
                                             game_state.players[game_state.player_idx], game_state.map_pos, game_state.heathens,
                                             all_units,
                                             game_state.players, other_setls)

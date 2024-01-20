@@ -320,7 +320,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
         unit = next(u for u in player.units if u.location == (evt.unit_loc[0], evt.unit_loc[1]))
-        # TODO Loading from saves is eventually going to be a problem because we're ignoring quads_seen
+        # TODO Loading from saves (going to be a problem because we're ignoring quads_seen)
         match evt.result:
             case InvestigationResult.FORTUNE:
                 player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.cost / 5
@@ -455,7 +455,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         unit.besieging = False
                         break
             if player.faction != Faction.CONCENTRATED:
-                player.settlements.append(setl)
+                player.settlements.append(setl[0])
             setl[1].settlements.remove(setl[0])
         if self.server.is_server:
             for p in self.server.game_clients_ref[evt.game_name]:
@@ -578,7 +578,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 if gs.turn % 5 == 0:
                     new_heathen_loc: (int, int) = random.randint(0, 89), random.randint(0, 99)
                     gs.heathens.append(get_heathen(new_heathen_loc, gs.turn))
-                    evt.new_heathen_loc = new_heathen_loc
+                    evt.heathen_locs = [new_heathen_loc]
                 for h in gs.heathens:
                     h.remaining_stamina = h.plan.total_stamina
                     if h.health < h.plan.max_health:
@@ -588,16 +588,19 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     gs.process_climatic_effects()
                     evt.new_nighttime_left = gs.nighttime_left
                     evt.new_until_night = gs.until_night
+                attacks, sunstone_vics = gs.process_heathens()
+                evt.heathen_locs = [heathen.location for heathen in gs.heathens]
+                evt.heathen_attacks = attacks
+                evt.sunstone_victim_locs = [h.location for h in sunstone_vics]
                 for p in self.server.game_clients_ref[evt.game_name]:
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[p.id])
                 gs.ready_players.clear()
-                # TODO handle heathen movements
         else:
             for idx, player in enumerate(gs.players):
                 gs.process_player(player, idx == gs.player_idx)
-            if evt.new_heathen_loc:
-                gs.heathens.append(get_heathen((evt.new_heathen_loc[0], evt.new_heathen_loc[1]), gs.turn))
+            if len(gs.heathens) < len(evt.heathen_locs):
+                gs.heathens.append(get_heathen((evt.heathen_locs[-1][0], evt.heathen_locs[-1][1]), gs.turn))
             for h in gs.heathens:
                 h.remaining_stamina = h.plan.total_stamina
                 if h.health < h.plan.max_health:
@@ -613,6 +616,34 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gs.board.waiting_for_other_players = False
             # TODO handle playtime stats/achs
             gs.board.overlay.total_settlement_count = sum(len(p.settlements) for p in gs.players)
+            for idx, heathen in enumerate(gs.heathens):
+                gs.heathens[idx].location = (evt.heathen_locs[idx][0], evt.heathen_locs[idx][1])
+                gs.heathens[idx].remaining_stamina = 0
+            for heathen_attack in evt.heathen_attacks:
+                found_heathen: Heathen
+                found_defender: (Unit, Player)
+                for h in gs.heathens:
+                    if h.location == (heathen_attack.attacker.location[0], heathen_attack.attacker.location[1]):
+                        h.health -= heathen_attack.defender.plan.power * 0.25
+                        found_heathen = h
+                for player in gs.players:
+                    for unit in player.units:
+                        if unit.location == (heathen_attack.defender.location[0], heathen_attack.defender.location[1]):
+                            unit.health -= heathen_attack.attacker.plan.power * 0.25 * 1.2
+                            found_defender = unit, player
+                if found_defender[1].faction == gs.players[gs.player_idx].faction:
+                    gs.board.overlay.toggle_attack(heathen_attack)
+                if heathen_attack.defender_was_killed:
+                    found_defender[1].units.remove(found_defender[0])
+                    if gs.board.selected_unit is found_defender[0]:
+                        gs.board.selected_unit = None
+                        gs.board.overlay.toggle_unit(None)
+                if heathen_attack.attacker_was_killed:
+                    gs.heathens.remove(found_heathen)
+            for sunstone_victim_loc in evt.sunstone_victim_locs:
+                for h in gs.heathens:
+                    if h.location == (sunstone_victim_loc[0], sunstone_victim_loc[1]):
+                        gs.heathens.remove(h)
 
     def process_unready_event(self, evt: UnreadyEvent):
         self.server.game_states_ref[evt.game_name].ready_players.remove(evt.identifier)

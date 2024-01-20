@@ -5,7 +5,7 @@ from source.display.board import Board
 from source.saving.game_save_manager import save_stats_achievements
 from source.util.calculator import clamp, attack, get_setl_totals, complete_construction, get_resources_for_settlement
 from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
-from source.foundation.models import Heathen, Quad
+from source.foundation.models import Heathen, Quad, AttackData
 from source.foundation.models import Player, Settlement, CompletedConstruction, Unit, HarvestStatus, EconomicStatus, \
     AttackPlaystyle, GameConfig, Victory, VictoryType, AIPlaystyle, ExpansionPlaystyle, Faction, Project
 from source.game_management.movemaker import MoveMaker
@@ -479,12 +479,14 @@ class GameState:
 
         return None
 
-    def process_heathens(self):
+    def process_heathens(self) -> (typing.List[AttackData], typing.List[Heathen]):
         """
         Process the turns for each of the heathens.
         """
         all_units: typing.List[Unit] = []
         banned_quads: typing.Set[typing.Tuple[int, int]] = set()
+        attacks: typing.List[AttackData] = []
+        sunstone_victims: typing.List[Heathen] = []
         for player in self.players:
             # Heathens will not attack Infidel units.
             if player.faction != Faction.INFIDELS:
@@ -519,15 +521,16 @@ class GameState:
                     heathen.location = within_range.location[0] - 1, within_range.location[1]
                 heathen.remaining_stamina = 0
                 data = attack(heathen, within_range)
+                attacks.append(data)
                 # Only show the attack overlay if the unit attacked was the non-AI player's.
-                if within_range in self.players[self.player_idx].units:
+                if not self.board.game_config.multiplayer and within_range in self.players[self.player_idx].units:
                     self.board.overlay.toggle_attack(data)
                 if within_range.health <= 0:
                     for player in self.players:
                         if within_range in player.units:
                             player.units.remove(within_range)
                             break
-                    if self.board.selected_unit is within_range:
+                    if not self.board.game_config.multiplayer and self.board.selected_unit is within_range:
                         self.board.selected_unit = None
                         self.board.overlay.toggle_unit(None)
                 if heathen.health <= 0:
@@ -549,13 +552,15 @@ class GameState:
                         found_valid_loc = True
                         break
                 if not found_valid_loc:
+                    sunstone_victims.append(heathen)
                     self.heathens.remove(heathen)
 
             # Players of the Infidels faction share vision with Heathen units.
-            if self.players[self.player_idx].faction == Faction.INFIDELS:
+            if not self.board.game_config.multiplayer and self.players[self.player_idx].faction == Faction.INFIDELS:
                 for i in range(heathen.location[1] - 5, heathen.location[1] + 6):
                     for j in range(heathen.location[0] - 5, heathen.location[0] + 6):
                         self.players[self.player_idx].quads_seen.add((j, i))
+        return attacks, sunstone_victims
 
     def initialise_ais(self, namer: Namer):
         """

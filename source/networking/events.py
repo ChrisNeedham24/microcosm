@@ -1,10 +1,10 @@
 import datetime
-import typing
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional, List, Tuple
 
 from source.foundation.models import GameConfig, PlayerDetails, Faction, Settlement, LobbyDetails, Blessing, \
-    ResourceCollection, Construction, OngoingBlessing, InvestigationResult
+    ResourceCollection, Construction, OngoingBlessing, InvestigationResult, AttackData
 
 
 class EventType(str, Enum):
@@ -42,23 +42,23 @@ class Event:
     type: EventType
     timestamp: datetime.datetime
     # A hash of the client's hardware address and PID, identifying the running instance.
-    identifier: typing.Optional[int]
+    identifier: Optional[int]
 
 
 @dataclass
 class CreateEvent(Event):
     cfg: GameConfig
-    lobby_name: typing.Optional[str] = None
-    player_details: typing.Optional[typing.List[PlayerDetails]] = None
+    lobby_name: Optional[str] = None
+    player_details: Optional[List[PlayerDetails]] = None
 
 
 @dataclass
 class InitEvent(Event):
     game_name: str
-    until_night: typing.Optional[int] = None
-    cfg: typing.Optional[GameConfig] = None
-    quad_chunk: typing.Optional[str] = None
-    quad_chunk_idx: typing.Optional[int] = None
+    until_night: Optional[int] = None
+    cfg: Optional[GameConfig] = None
+    quad_chunk: Optional[str] = None
+    quad_chunk_idx: Optional[int] = None
 
 
 @dataclass
@@ -165,7 +165,7 @@ class DeployerDeployEvent(UpdateEvent):
 
 @dataclass
 class QueryEvent(Event):
-    lobbies: typing.Optional[typing.List[LobbyDetails]] = None
+    lobbies: Optional[List[LobbyDetails]] = None
 
 
 @dataclass
@@ -177,7 +177,7 @@ class LeaveEvent(Event):
 class JoinEvent(Event):
     lobby_name: str
     player_faction: Faction
-    player_details: typing.Optional[typing.List[PlayerDetails]] = None
+    player_details: Optional[List[PlayerDetails]] = None
 
 
 @dataclass
@@ -189,9 +189,11 @@ class RegisterEvent(Event):
 class EndTurnEvent(Event):
     game_name: str
     player_faction: Faction
-    new_heathen_loc: typing.Optional[typing.Tuple[int, int]] = None
-    new_nighttime_left: typing.Optional[int] = None
-    new_until_night: typing.Optional[int] = None
+    heathen_locs: Optional[List[Tuple[int, int]]] = None
+    heathen_attacks: Optional[List[AttackData]] = None
+    sunstone_victim_locs: Optional[List[Tuple[int, int]]] = None
+    new_nighttime_left: Optional[int] = None
+    new_until_night: Optional[int] = None
 
 
 @dataclass
