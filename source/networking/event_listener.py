@@ -28,8 +28,6 @@ from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_quad
 from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal
 
-HOST, SERVER_PORT, CLIENT_PORT = "localhost", 9999, 55555
-
 
 class RequestHandler(socketserver.BaseRequestHandler):
     def handle(self):
@@ -660,7 +658,7 @@ class EventListener:
         self.clients: typing.Dict[int, typing.Tuple[str, int]] = {}  # Hash identifier to (host, port).
 
     def run(self):
-        with socketserver.UDPServer((HOST, SERVER_PORT if self.is_server else 0), RequestHandler) as server:
+        with socketserver.UDPServer(("", 9999 if self.is_server else 0), RequestHandler) as server:
             if not self.is_server:
                 dispatch_event(RegisterEvent(EventType.REGISTER, datetime.datetime.now(),
                                              hash((uuid.getnode(), os.getpid())), server.server_address[1]))
