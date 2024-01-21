@@ -658,7 +658,7 @@ class EventListener:
         self.clients: typing.Dict[int, typing.Tuple[str, int]] = {}  # Hash identifier to (host, port).
 
     def run(self):
-        with socketserver.UDPServer(("", 9999 if self.is_server else 0), RequestHandler) as server:
+        with socketserver.UDPServer(("0.0.0.0", 9999 if self.is_server else 0), RequestHandler) as server:
             if not self.is_server:
                 dispatch_event(RegisterEvent(EventType.REGISTER, datetime.datetime.now(),
                                              hash((uuid.getnode(), os.getpid())), server.server_address[1]))
