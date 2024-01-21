@@ -21,7 +21,7 @@ from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
 from source.foundation.models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, \
-    OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView, Improvement
+    OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView, Improvement, LobbyDetails
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
 from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats_achievements, get_stats
@@ -177,10 +177,11 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_controller.menu.in_multiplayer_lobby = True
             else:
                 if game_controller.menu.in_multiplayer_lobby:
-                    game_init_event: InitEvent = InitEvent(EventType.INIT, datetime.datetime.now(),
-                                                           hash((uuid.getnode(), os.getpid())),
-                                                           game_controller.menu.multiplayer_lobby_name)
-                    dispatch_event(game_init_event)
+                    if len(game_controller.menu.multiplayer_player_details) > 1:
+                        game_init_event: InitEvent = InitEvent(EventType.INIT, datetime.datetime.now(),
+                                                               hash((uuid.getnode(), os.getpid())),
+                                                               game_controller.menu.multiplayer_lobby_name)
+                        dispatch_event(game_init_event)
                 else:
                     # If the player has pressed enter to start the game, generate the players, board, and AI players.
                     pyxel.mouse(visible=True)
@@ -223,11 +224,13 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             menu.in_multiplayer_lobby = True
             menu.setup_option = SetupOption.START_GAME
         elif game_controller.menu.viewing_lobbies:
-            available_factions = deepcopy(FACTION_COLOURS)
-            for player in game_controller.menu.multiplayer_lobbies[game_controller.menu.lobby_index].current_players:
-                available_factions.pop(player.faction)
-            game_controller.menu.available_multiplayer_factions = list(available_factions.items())
-            game_controller.menu.joining_game = True
+            current_lobby: LobbyDetails = game_controller.menu.multiplayer_lobbies[game_controller.menu.lobby_index]
+            if len(current_lobby.current_players) < current_lobby.cfg.player_count:
+                available_factions = deepcopy(FACTION_COLOURS)
+                for player in current_lobby.current_players:
+                    available_factions.pop(player.faction)
+                game_controller.menu.available_multiplayer_factions = list(available_factions.items())
+                game_controller.menu.joining_game = True
         elif game_controller.menu.in_wiki:
             if game_controller.menu.wiki_option is WikiOption.BACK:
                 game_controller.menu.in_wiki = False

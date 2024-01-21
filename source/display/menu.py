@@ -142,8 +142,6 @@ class Menu:
             if self.multiplayer_lobby_name:
                 lobby_offset = 50 - pow(len(self.multiplayer_lobby_name), 1.4)
                 pyxel.text(100 + lobby_offset, 40, self.multiplayer_lobby_name, pyxel.COLOR_GREEN)
-            # TODO Prevent starting with 1 player
-            # TODO Prevent more than max joining
             # TODO Fill remaining spots with AIs
             # TODO Allow leaving games mid-way, replaced by AI
             pyxel.text(80, 50,
@@ -158,7 +156,10 @@ class Menu:
                 faction_offset = 50 - pow(len(pl.faction), 1.4)
                 pyxel.text(100 + faction_offset, 66 + idx * 10, pl.faction, FACTION_COLOURS[pl.faction])
 
-            pyxel.text(81, 150, "Start Game", self.get_option_colour(SetupOption.START_GAME))
+            if len(self.multiplayer_player_details) == 1:
+                pyxel.text(46, 150, "Waiting for other players...", pyxel.COLOR_GRAY)
+            else:
+                pyxel.text(81, 150, "Start Game", self.get_option_colour(SetupOption.START_GAME))
             pyxel.text(58, 160, "(Press SPACE to leave)", pyxel.COLOR_WHITE)
         elif self.in_game_setup:
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
@@ -733,10 +734,16 @@ class Menu:
             # TODO joining mid-game
             pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
             for idx, lobby in enumerate(self.multiplayer_lobbies):
+                lobby_is_full: bool = len(lobby.current_players) == lobby.cfg.player_count
                 pyxel.text(25, 35 + idx * 10,
-                           f"{lobby.name} - {len(lobby.current_players)}/{lobby.cfg.player_count}", pyxel.COLOR_WHITE)
-                pyxel.text(150, 35 + idx * 10, "Join",
-                           pyxel.COLOR_RED if self.lobby_index is idx else pyxel.COLOR_WHITE)
+                           f"{lobby.name} - {len(lobby.current_players)}/{lobby.cfg.player_count}",
+                           pyxel.COLOR_RED if lobby_is_full else pyxel.COLOR_WHITE)
+                if lobby_is_full:
+                    pyxel.text(150, 35 + idx * 10, "Full",
+                               pyxel.COLOR_RED if self.lobby_index is idx else pyxel.COLOR_GRAY)
+                else:
+                    pyxel.text(150, 35 + idx * 10, "Join",
+                               pyxel.COLOR_RED if self.lobby_index is idx else pyxel.COLOR_WHITE)
             pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
         else:
             pyxel.rectb(72, 95, 56, 90, pyxel.COLOR_WHITE)
