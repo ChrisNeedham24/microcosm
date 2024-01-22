@@ -144,6 +144,8 @@ class Menu:
                 pyxel.text(100 + lobby_offset, 40, self.multiplayer_lobby_name, pyxel.COLOR_GREEN)
             # TODO Fill remaining spots with AIs
             # TODO Allow leaving games mid-way, replaced by AI
+            # TODO Went back to main menu after joining and factions showed up and could not dismiss
+            # TODO Can't join another game after being in a game?
             pyxel.text(80, 50,
                        f"{len(self.multiplayer_player_details)}/{self.player_count} players", pyxel.COLOR_WHITE)
 

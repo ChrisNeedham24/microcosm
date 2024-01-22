@@ -65,6 +65,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gsrs[lobby_name] = GameState()
             gsrs[lobby_name].players.append(Player(player_name, evt.cfg.player_faction,
                                                    FACTION_COLOURS[evt.cfg.player_faction]))
+            # TODO What index to give server?
             self.server.game_clients_ref[lobby_name] = \
                 [PlayerDetails(player_name, evt.cfg.player_faction, evt.identifier, self.client_address[0])]
             self.server.lobbies_ref[lobby_name] = evt.cfg
@@ -179,6 +180,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gsrs["local"].on_menu = False
                 # TODO add stats/achs later
                 gsrs["local"].board.overlay.toggle_tutorial()
+                # TODO 1/1 settlement count
                 gsrs["local"].board.overlay.total_settlement_count = \
                     sum(len(p.settlements) for p in gsrs["local"].players) + 1
                 gc.music_player.stop_menu_music()
