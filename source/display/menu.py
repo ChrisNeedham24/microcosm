@@ -143,9 +143,7 @@ class Menu:
                 lobby_offset = 50 - pow(len(self.multiplayer_lobby_name), 1.4)
                 pyxel.text(100 + lobby_offset, 40, self.multiplayer_lobby_name, pyxel.COLOR_GREEN)
             # TODO Fill remaining spots with AIs
-            # TODO Allow leaving games mid-way, replaced by AI
             # TODO Went back to main menu after joining and factions showed up and could not dismiss
-            # TODO Can't join another game after being in a game?
             pyxel.text(80, 50,
                        f"{len(self.multiplayer_player_details)}/{self.player_count} players", pyxel.COLOR_WHITE)
 
@@ -158,7 +156,7 @@ class Menu:
                 faction_offset = 50 - pow(len(pl.faction), 1.4)
                 pyxel.text(100 + faction_offset, 66 + idx * 10, pl.faction, FACTION_COLOURS[pl.faction])
 
-            if len(self.multiplayer_player_details) == 1:
+            if len(self.multiplayer_player_details) <= 1:
                 pyxel.text(46, 150, "Waiting for other players...", pyxel.COLOR_GRAY)
             else:
                 pyxel.text(81, 150, "Start Game", self.get_option_colour(SetupOption.START_GAME))
@@ -776,7 +774,8 @@ class Menu:
                     self.load_game_boundaries = self.load_game_boundaries[0] + 1, self.load_game_boundaries[1] + 1
                 if 0 <= self.save_idx < len(self.saves) - 1:
                     self.save_idx += 1
-            # TODO allow picking a game to join
+            elif self.viewing_lobbies and self.lobby_index < len(self.multiplayer_lobbies) - 1:
+                self.lobby_index += 1
             elif self.viewing_achievements:
                 if self.achievements_boundaries[1] < len(ACHIEVEMENTS) - 1:
                     self.achievements_boundaries = \
@@ -806,6 +805,8 @@ class Menu:
                     self.load_game_boundaries = self.load_game_boundaries[0] - 1, self.load_game_boundaries[1] - 1
                 if self.save_idx > 0:
                     self.save_idx -= 1
+            elif self.viewing_lobbies and self.lobby_index > 0:
+                self.lobby_index -= 1
             elif self.viewing_achievements:
                 if self.achievements_boundaries[0] > 0:
                     self.achievements_boundaries = \

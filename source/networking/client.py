@@ -7,6 +7,7 @@ from source.networking.events import Event
 from source.saving.save_encoder import SaveEncoder
 
 
+# HOST, PORT = "170.64.142.122", 9999
 HOST, PORT = "localhost", 9999
 
 

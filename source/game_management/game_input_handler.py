@@ -219,10 +219,6 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                                     menu.multiplayer_lobbies[menu.lobby_index].name,
                                                     menu.available_multiplayer_factions[menu.faction_idx][0])
             dispatch_event(lobby_join_event)
-            menu.joining_game = False
-            menu.viewing_lobbies = False
-            menu.in_multiplayer_lobby = True
-            menu.setup_option = SetupOption.START_GAME
         elif game_controller.menu.viewing_lobbies:
             current_lobby: LobbyDetails = game_controller.menu.multiplayer_lobbies[game_controller.menu.lobby_index]
             if len(current_lobby.current_players) < current_lobby.cfg.player_count:
@@ -247,7 +243,6 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     lobbies_query_event: QueryEvent = \
                         QueryEvent(EventType.QUERY, datetime.datetime.now(), hash((uuid.getnode(), os.getpid())))
                     dispatch_event(lobbies_query_event)
-                    game_controller.menu.viewing_lobbies = True
                 case MainMenuOption.STATISTICS:
                     game_controller.menu.viewing_stats = True
                     game_controller.menu.player_stats = get_stats()
@@ -260,7 +255,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     pyxel.quit()
     elif game_state.game_started and (game_state.board.overlay.is_victory() or
                                       game_state.board.overlay.is_elimination() and game_state.players[game_state.player_idx].eliminated):
-        # TODO Should send a leave req
+        # TODO Should send a leave req (but then also not be able to join if other players haven't left the finished
+        #  game yet)
         # If the player has won the game, or they've just been eliminated themselves, enter will take them back
         # to the menu.
         game_state.game_started = False
@@ -374,7 +370,17 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_state.board.overlay.show_additional_controls = False
                 game_state.board.overlay.toggle_controls()
             case PauseOption.QUIT:
-                # TODO should send a leave req
+                # TODO should replace the player with an AI (if they're not the last player)
+                if game_state.board.game_config.multiplayer:
+                    leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, datetime.datetime.now(),
+                                                               hash((uuid.getnode(), os.getpid())),
+                                                               game_controller.menu.multiplayer_lobby_name)
+                    dispatch_event(leave_lobby_event)
+                    game_controller.menu.in_multiplayer_lobby = False
+                    game_controller.menu.multiplayer_lobby_name = None
+                    game_controller.menu.multiplayer_player_details = []
+                    # TODO this may be bad practice
+                    game_state.__init__()
                 game_state.game_started = False
                 game_state.on_menu = True
                 game_controller.menu.loading_game = False
@@ -522,6 +528,10 @@ def on_key_space(game_controller: GameController, game_state: GameState):
                                                    game_controller.menu.multiplayer_lobby_name)
         dispatch_event(leave_lobby_event)
         game_controller.menu.in_multiplayer_lobby = False
+        game_controller.menu.multiplayer_lobby_name = None
+        game_controller.menu.multiplayer_player_details = []
+        # TODO this may be bad practice
+        game_state.__init__()
     elif game_state.on_menu and game_controller.menu.in_game_setup:
         game_controller.menu.in_game_setup = False
     if game_state.on_menu and game_controller.menu.loading_game and game_controller.menu.load_failed:

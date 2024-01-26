@@ -12,6 +12,7 @@ from itertools import chain
 import pyxel
 
 from source.display.board import Board
+from source.display.menu import SetupOption
 from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAMES, Namer, get_improvement, get_project, \
     get_unit_plan, get_blessing, get_heathen
 from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDetails, Quad, Biome, ResourceCollection, \
@@ -65,7 +66,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gsrs[lobby_name] = GameState()
             gsrs[lobby_name].players.append(Player(player_name, evt.cfg.player_faction,
                                                    FACTION_COLOURS[evt.cfg.player_faction]))
-            # TODO What index to give server?
             self.server.game_clients_ref[lobby_name] = \
                 [PlayerDetails(player_name, evt.cfg.player_faction, evt.identifier, self.client_address[0])]
             self.server.lobbies_ref[lobby_name] = evt.cfg
@@ -180,7 +180,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gsrs["local"].on_menu = False
                 # TODO add stats/achs later
                 gsrs["local"].board.overlay.toggle_tutorial()
-                # TODO 1/1 settlement count
+                gc.namer.reset()
                 gsrs["local"].board.overlay.total_settlement_count = \
                     sum(len(p.settlements) for p in gsrs["local"].players) + 1
                 gc.music_player.stop_menu_music()
@@ -525,6 +525,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         else:
             gc: GameController = self.server.game_controller_ref
             gc.menu.multiplayer_lobbies = evt.lobbies
+            gc.menu.viewing_lobbies = True
 
     def process_leave_event(self, evt: LeaveEvent):
         old_clients = self.server.game_clients_ref[evt.lobby_name]
@@ -551,18 +552,22 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 sock.sendto(json.dumps(update_evt, cls=SaveEncoder).encode(),
                             self.server.clients_ref[player.id])
         else:
+            gc: GameController = self.server.game_controller_ref
+            gc.menu.multiplayer_player_details = evt.player_details
             if gsrs["local"].player_idx is None:
                 for idx, player in enumerate(evt.player_details):
                     if player.faction == evt.player_faction:
                         gsrs["local"].player_idx = idx
                     gsrs["local"].players.append(Player(player.name, player.faction, FACTION_COLOURS[player.faction]))
+                gc.menu.multiplayer_lobby_name = evt.lobby_name
+                gc.menu.joining_game = False
+                gc.menu.viewing_lobbies = False
+                gc.menu.in_multiplayer_lobby = True
+                gc.menu.setup_option = SetupOption.START_GAME
             else:
                 new_player: PlayerDetails = evt.player_details[-1]
                 gsrs["local"].players.append(Player(new_player.name, new_player.faction,
                                                     FACTION_COLOURS[new_player.faction]))
-            gc: GameController = self.server.game_controller_ref
-            gc.menu.multiplayer_lobby_name = evt.lobby_name
-            gc.menu.multiplayer_player_details = evt.player_details
 
     def process_register_event(self, evt: RegisterEvent):
         self.server.clients_ref[evt.identifier] = self.client_address[0], evt.port

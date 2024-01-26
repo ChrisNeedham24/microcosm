@@ -210,12 +210,12 @@ class GameState:
                     setl.resources = \
                         get_resources_for_settlement([quad.location for quad in setl.quads], self.board.quads)
                     # If the player playing as The Concentrated faction is the human player, update the quads seen list.
-                    if player == self.players[self.player_idx]:
+                    if is_current_player:
                         for i in range(best_quad_with_yield[0].location[1] - 5,
                                        best_quad_with_yield[0].location[1] + 6):
                             for j in range(best_quad_with_yield[0].location[0] - 5,
                                            best_quad_with_yield[0].location[0] + 6):
-                                self.players[self.player_idx].quads_seen.add((j, i))
+                                player.quads_seen.add((j, i))
 
             if setl.resources:
                 # Only core resources accumulate.
