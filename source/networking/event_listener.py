@@ -10,6 +10,7 @@ import uuid
 from itertools import chain
 
 import pyxel
+from miniupnpc import UPnP
 
 from source.display.board import Board
 from source.display.menu import SetupOption
@@ -669,6 +670,13 @@ class EventListener:
             if not self.is_server:
                 dispatch_event(RegisterEvent(EventType.REGISTER, datetime.datetime.now(),
                                              hash((uuid.getnode(), os.getpid())), server.server_address[1]))
+            upnp = UPnP()
+            upnp.discover()
+            upnp.selectigd()
+            ip_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            ip_sock.connect(("8.8.8.8", 80))
+            private_ip: str = ip_sock.getsockname()[0]
+            upnp.addportmapping(server.server_address[1], "UDP", private_ip, server.server_address[1], "Microcosm", "")
             server.game_states_ref = self.game_states
             # server.events_ref = self.events
             server.is_server = self.is_server
