@@ -143,7 +143,6 @@ class Menu:
                 lobby_offset = 50 - pow(len(self.multiplayer_lobby_name), 1.4)
                 pyxel.text(100 + lobby_offset, 40, self.multiplayer_lobby_name, pyxel.COLOR_GREEN)
             # TODO Fill remaining spots with AIs
-            # TODO Went back to main menu after joining and factions showed up and could not dismiss
             pyxel.text(80, 50,
                        f"{len(self.multiplayer_player_details)}/{self.player_count} players", pyxel.COLOR_WHITE)
 

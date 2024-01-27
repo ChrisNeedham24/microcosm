@@ -212,7 +212,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_controller.menu.loading_game = False
             else:
                 load_game(game_state, game_controller)
-        elif game_controller.menu.joining_game:
+        elif game_controller.menu.joining_game and not game_controller.menu.showing_faction_details:
             menu = game_controller.menu
             lobby_join_event: JoinEvent = JoinEvent(EventType.JOIN, datetime.datetime.now(),
                                                     hash((uuid.getnode(), os.getpid())),
@@ -255,8 +255,15 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     pyxel.quit()
     elif game_state.game_started and (game_state.board.overlay.is_victory() or
                                       game_state.board.overlay.is_elimination() and game_state.players[game_state.player_idx].eliminated):
-        # TODO Should send a leave req (but then also not be able to join if other players haven't left the finished
-        #  game yet)
+        if game_state.board.game_config.multiplayer:
+            leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, datetime.datetime.now(),
+                                                       hash((uuid.getnode(), os.getpid())),
+                                                       game_controller.menu.multiplayer_lobby_name)
+            dispatch_event(leave_lobby_event)
+            game_controller.menu.in_multiplayer_lobby = False
+            game_controller.menu.multiplayer_lobby_name = None
+            game_controller.menu.multiplayer_player_details = []
+            game_state.reset_state()
         # If the player has won the game, or they've just been eliminated themselves, enter will take them back
         # to the menu.
         game_state.game_started = False
@@ -379,8 +386,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.menu.in_multiplayer_lobby = False
                     game_controller.menu.multiplayer_lobby_name = None
                     game_controller.menu.multiplayer_player_details = []
-                    # TODO this may be bad practice
-                    game_state.__init__()
+                    game_state.reset_state()
                 game_state.game_started = False
                 game_state.on_menu = True
                 game_controller.menu.loading_game = False
@@ -530,8 +536,7 @@ def on_key_space(game_controller: GameController, game_state: GameState):
         game_controller.menu.in_multiplayer_lobby = False
         game_controller.menu.multiplayer_lobby_name = None
         game_controller.menu.multiplayer_player_details = []
-        # TODO this may be bad practice
-        game_state.__init__()
+        game_state.reset_state()
     elif game_state.on_menu and game_controller.menu.in_game_setup:
         game_controller.menu.in_game_setup = False
     if game_state.on_menu and game_controller.menu.loading_game and game_controller.menu.load_failed:

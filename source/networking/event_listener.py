@@ -666,6 +666,8 @@ class EventListener:
         self.clients: typing.Dict[int, typing.Tuple[str, int]] = {}  # Hash identifier to (host, port).
 
     def run(self):
+        # TODO eventually just have a static port for clients too - probably 20k range - do this last once all local
+        #  testing is done (delete the upnp mappings for other ports when this is done)
         with socketserver.UDPServer(("0.0.0.0", 9999 if self.is_server else 0), RequestHandler) as server:
             if not self.is_server:
                 dispatch_event(RegisterEvent(EventType.REGISTER, datetime.datetime.now(),

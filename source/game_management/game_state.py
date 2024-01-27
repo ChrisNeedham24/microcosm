@@ -27,11 +27,11 @@ class GameState:
         self.on_menu = True
         self.game_started = False
 
+        random.seed()
         # The map begins at a random position.
         self.map_pos: (int, int) = random.randint(0, 76), random.randint(0, 68)
         self.turn = 1
 
-        random.seed()
         # There will always be a 10-20 turn break between nights.
         self.until_night: int = random.randint(10, 20)
         # Also keep track of how many turns of night are left. If this is 0, it is daytime.
@@ -40,9 +40,21 @@ class GameState:
         # We can hard-code the version here and update it when required. This was introduced so that saves with
         # resources can be distinguished from those without.
         self.game_version: float = 3.0
-        
+
         self.player_idx: typing.Optional[int] = None
         self.ready_players: typing.Set[int] = set()
+
+    def reset_state(self):
+        self.board = None
+        self.players = []
+        self.heathens = []
+        random.seed()
+        self.map_pos = random.randint(0, 76), random.randint(0, 68)
+        self.turn = 1
+        self.until_night = random.randint(10, 20)
+        self.nighttime_left = 0
+        self.player_idx = None
+        self.ready_players = set()
 
     def gen_players(self, cfg: GameConfig):
         """

@@ -19,7 +19,7 @@ LOBBY_NAMES = [
 
 PLAYER_NAMES = [
     "Ace", "Buster", "Chief", "Dingo", "E.T.", "Fang", "Ghost", "Hawk", "Iris", "Judge", "Kanga", "Laser", "Meteor",
-    "Neutron", "Ozone", "Pyro", "Quokka", "Reaper", "Scorpion", "Turbo", "Ultimate", "Viper", "Wizard", "Xylo", "Yabby",
+    "Neutron", "Ozone", "Pyro", "Quokka", "Reaper", "Snake", "Turbo", "Ultra", "Viper", "Wizard", "Xylo", "Yabby",
     "Zulu"
 ]
 
