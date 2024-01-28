@@ -116,8 +116,7 @@ class Menu:
         self.achievements_boundaries = 0, 3
         self.showing_rare_resources = False
         self.in_multiplayer_lobby = False
-        self.multiplayer_lobby_name: typing.Optional[str] = None
-        self.multiplayer_player_details: typing.List[PlayerDetails] = []
+        self.multiplayer_lobby: typing.Optional[LobbyDetails] = None
         self.viewing_lobbies = False
         self.multiplayer_lobbies: typing.List[LobbyDetails] = []
         self.lobby_index = 0
@@ -133,30 +132,35 @@ class Menu:
         pyxel.load(background_path)
         pyxel.blt(0, 0, self.image_bank % 3, 0, 0, 200, 200)
 
-        if self.in_multiplayer_lobby:
+        if self.in_multiplayer_lobby and (lob := self.multiplayer_lobby):
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
             pyxel.text(70, 25, "Multiplayer Lobby", pyxel.COLOR_WHITE)
 
             pyxel.text(28, 40, "Lobby Name", pyxel.COLOR_WHITE)
-            if self.multiplayer_lobby_name:
-                lobby_offset = 50 - pow(len(self.multiplayer_lobby_name), 1.4)
-                pyxel.text(100 + lobby_offset, 40, self.multiplayer_lobby_name, pyxel.COLOR_GREEN)
+            lobby_offset = 50 - pow(len(lob.name), 1.4)
+            pyxel.text(100 + lobby_offset, 40, lob.name, pyxel.COLOR_GREEN)
             # TODO Fill remaining spots with AIs
-            pyxel.text(80, 50,
-                       f"{len(self.multiplayer_player_details)}/{self.player_count} players", pyxel.COLOR_WHITE)
+            # TODO Are moves actually in sync?
+            pyxel.text(80, 50, f"{len(lob.current_players)}/{lob.cfg.player_count} players", pyxel.COLOR_WHITE)
 
             pyxel.line(24, 58, 175, 58, pyxel.COLOR_GRAY)
 
-            for idx, pl in enumerate(self.multiplayer_player_details):
+            for idx, pl in enumerate(lob.current_players):
                 player_is_client: bool = hash((uuid.getnode(), os.getpid())) == pl.id
-                name = pl.name + " (you)" if player_is_client else pl.name
+                name = pl.name
+                if player_is_client:
+                    name += " (you)"
+                elif pl.is_ai:
+                    name += " (AI)"
                 pyxel.text(28, 66 + idx * 10, name, pyxel.COLOR_GREEN if player_is_client else pyxel.COLOR_WHITE)
                 faction_offset = 50 - pow(len(pl.faction), 1.4)
                 pyxel.text(100 + faction_offset, 66 + idx * 10, pl.faction, FACTION_COLOURS[pl.faction])
+                # TODO implement scrolling of players
 
-            if len(self.multiplayer_player_details) <= 1:
-                pyxel.text(46, 150, "Waiting for other players...", pyxel.COLOR_GRAY)
+            if len(lob.current_players) < lob.cfg.player_count:
+                pyxel.text(46, 140, "Waiting for other players...", pyxel.COLOR_GRAY)
+                pyxel.text(38, 150, "(Press A to generate AI players)", pyxel.COLOR_GRAY)
             else:
                 pyxel.text(81, 150, "Start Game", self.get_option_colour(SetupOption.START_GAME))
             pyxel.text(58, 160, "(Press SPACE to leave)", pyxel.COLOR_WHITE)

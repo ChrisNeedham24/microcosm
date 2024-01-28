@@ -808,6 +808,8 @@ class MoveMaker:
                         # Alternatively, we are attacking a settlement.
                         else:
                             setl_owner = None
+                            print(within_range.__dict__)
+                            # TODO error happening here?
                             for pl in all_players:
                                 if within_range.name in [setl.name for setl in pl.settlements]:
                                     setl_owner = pl

@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Optional, List, Tuple
 
 from source.foundation.models import GameConfig, PlayerDetails, Faction, Settlement, LobbyDetails, Blessing, \
-    ResourceCollection, Construction, OngoingBlessing, InvestigationResult, AttackData
+    ResourceCollection, Construction, OngoingBlessing, InvestigationResult, AttackData, Player
 
 
 class EventType(str, Enum):
@@ -17,6 +17,7 @@ class EventType(str, Enum):
     REGISTER = "REGISTER"
     END_TURN = "END_TURN"
     UNREADY = "UNREADY"
+    AUTOFILL = "AUTOFILL"
 
 
 class UpdateAction(str, Enum):
@@ -177,7 +178,7 @@ class LeaveEvent(Event):
 class JoinEvent(Event):
     lobby_name: str
     player_faction: Faction
-    player_details: Optional[List[PlayerDetails]] = None
+    lobby_details: Optional[LobbyDetails] = None
 
 
 @dataclass
@@ -194,9 +195,16 @@ class EndTurnEvent(Event):
     sunstone_victim_locs: Optional[List[Tuple[int, int]]] = None
     new_nighttime_left: Optional[int] = None
     new_until_night: Optional[int] = None
+    ai_unit_locs: Optional[List[List[Tuple[int, int]]]] = None
 
 
 @dataclass
 class UnreadyEvent(Event):
     game_name: str
     player_faction: Faction
+
+
+@dataclass
+class AutofillEvent(Event):
+    lobby_name: str
+    players: Optional[List[Player]] = None

@@ -113,7 +113,7 @@ class Game:
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
             on_key_escape(self.game_state)
         elif pyxel.btnp(pyxel.KEY_A):
-            on_key_a(self.game_state)
+            on_key_a(self.game_controller, self.game_state)
         elif pyxel.btnp(pyxel.KEY_J):
             on_key_j(self.game_state)
         elif pyxel.btnp(pyxel.KEY_X):

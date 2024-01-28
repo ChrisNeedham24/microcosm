@@ -551,6 +551,7 @@ class PlayerDetails:
     faction: Faction
     id: int
     host: str
+    is_ai: bool = False
 
 
 @dataclass

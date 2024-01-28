@@ -12,7 +12,7 @@ from source.display.board import Board
 from source.networking.client import dispatch_event
 from source.networking.events import CreateEvent, EventType, QueryEvent, LeaveEvent, JoinEvent, InitEvent, \
     SetConstructionEvent, UpdateAction, SetBlessingEvent, BesiegeSettlementEvent, BuyoutConstructionEvent, \
-    DisbandUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent
+    DisbandUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, AutofillEvent
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
     subtract_player_resources_for_improvement
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
@@ -174,13 +174,12 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                                               hash((uuid.getnode(), os.getpid())),
                                                               game_controller.menu.get_game_config())
                 dispatch_event(lobby_create_event)
-                game_controller.menu.in_multiplayer_lobby = True
             else:
                 if game_controller.menu.in_multiplayer_lobby:
-                    if len(game_controller.menu.multiplayer_player_details) > 1:
+                    if len(game_controller.menu.multiplayer_lobby.current_players) > 1:
                         game_init_event: InitEvent = InitEvent(EventType.INIT, datetime.datetime.now(),
                                                                hash((uuid.getnode(), os.getpid())),
-                                                               game_controller.menu.multiplayer_lobby_name)
+                                                               game_controller.menu.multiplayer_lobby.name)
                         dispatch_event(game_init_event)
                 else:
                     # If the player has pressed enter to start the game, generate the players, board, and AI players.
@@ -258,11 +257,10 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         if game_state.board.game_config.multiplayer:
             leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, datetime.datetime.now(),
                                                        hash((uuid.getnode(), os.getpid())),
-                                                       game_controller.menu.multiplayer_lobby_name)
+                                                       game_controller.menu.multiplayer_lobby.name)
             dispatch_event(leave_lobby_event)
             game_controller.menu.in_multiplayer_lobby = False
-            game_controller.menu.multiplayer_lobby_name = None
-            game_controller.menu.multiplayer_player_details = []
+            game_controller.menu.multiplayer_lobby = None
             game_state.reset_state()
         # If the player has won the game, or they've just been eliminated themselves, enter will take them back
         # to the menu.
@@ -381,11 +379,10 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 if game_state.board.game_config.multiplayer:
                     leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, datetime.datetime.now(),
                                                                hash((uuid.getnode(), os.getpid())),
-                                                               game_controller.menu.multiplayer_lobby_name)
+                                                               game_controller.menu.multiplayer_lobby.name)
                     dispatch_event(leave_lobby_event)
                     game_controller.menu.in_multiplayer_lobby = False
-                    game_controller.menu.multiplayer_lobby_name = None
-                    game_controller.menu.multiplayer_player_details = []
+                    game_controller.menu.multiplayer_lobby = None
                     game_state.reset_state()
                 game_state.game_started = False
                 game_state.on_menu = True
@@ -531,11 +528,10 @@ def on_key_space(game_controller: GameController, game_state: GameState):
     if game_state.on_menu and game_controller.menu.in_multiplayer_lobby:
         leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, datetime.datetime.now(),
                                                    hash((uuid.getnode(), os.getpid())),
-                                                   game_controller.menu.multiplayer_lobby_name)
+                                                   game_controller.menu.multiplayer_lobby.name)
         dispatch_event(leave_lobby_event)
         game_controller.menu.in_multiplayer_lobby = False
-        game_controller.menu.multiplayer_lobby_name = None
-        game_controller.menu.multiplayer_player_details = []
+        game_controller.menu.multiplayer_lobby = None
         game_state.reset_state()
     elif game_state.on_menu and game_controller.menu.in_game_setup:
         game_controller.menu.in_game_setup = False
@@ -611,12 +607,17 @@ def on_key_n(game_controller: GameController, game_state: GameState):
         game_controller.music_player.next_song()
 
 
-def on_key_a(game_state: GameState):
+def on_key_a(game_controller: GameController, game_state: GameState):
     """
     Handles an A key event in the game loop.
     :param game_state: The current GameState object.
     """
-    if game_state.game_started and game_state.board.overlay.is_setl() and \
+    if game_state.on_menu and (lob := game_controller.menu.multiplayer_lobby):
+        if len(lob.current_players) < lob.cfg.player_count:
+            af_evt: AutofillEvent = AutofillEvent(EventType.AUTOFILL, datetime.datetime.now(),
+                                                  hash((uuid.getnode(), os.getpid())), lob.name)
+            dispatch_event(af_evt)
+    elif game_state.game_started and game_state.board.overlay.is_setl() and \
             game_state.board.selected_settlement.current_work is None:
         # Pressing the A key while a player settlement with no active construction is selected results in the
         # selection being made automatically (in much the same way that AI settlements have their constructions
