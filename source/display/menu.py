@@ -122,6 +122,7 @@ class Menu:
         self.lobby_index = 0
         self.joining_game = False
         self.available_multiplayer_factions: typing.List[typing.Tuple[Faction, int]] = []
+        self.lobby_player_boundaries = 0, 7
 
     def draw(self):
         """
@@ -142,11 +143,12 @@ class Menu:
             pyxel.text(100 + lobby_offset, 40, lob.name, pyxel.COLOR_GREEN)
             # TODO Fill remaining spots with AIs
             # TODO Are moves actually in sync?
+            # TODO Turn timers? Would need like a game settings page
             pyxel.text(80, 50, f"{len(lob.current_players)}/{lob.cfg.player_count} players", pyxel.COLOR_WHITE)
 
             pyxel.line(24, 58, 175, 58, pyxel.COLOR_GRAY)
 
-            for idx, pl in enumerate(lob.current_players):
+            for idx, pl in enumerate(lob.current_players[self.lobby_player_boundaries[0]:self.lobby_player_boundaries[1]]):
                 player_is_client: bool = hash((uuid.getnode(), os.getpid())) == pl.id
                 name = pl.name
                 if player_is_client:
@@ -156,7 +158,12 @@ class Menu:
                 pyxel.text(28, 66 + idx * 10, name, pyxel.COLOR_GREEN if player_is_client else pyxel.COLOR_WHITE)
                 faction_offset = 50 - pow(len(pl.faction), 1.4)
                 pyxel.text(100 + faction_offset, 66 + idx * 10, pl.faction, FACTION_COLOURS[pl.faction])
-                # TODO implement scrolling of players
+
+            pyxel.load("resources/sprites.pyxres")
+            if (len(self.multiplayer_lobby.current_players) - self.lobby_player_boundaries[1]) > 1:
+                pyxel.blt(165, 130, 0, 0, 76, 8, 8)
+            if self.lobby_player_boundaries[0] != 0:
+                pyxel.blt(165, 60, 0, 8, 76, 8, 8)
 
             if len(lob.current_players) < lob.cfg.player_count:
                 pyxel.text(46, 140, "Waiting for other players...", pyxel.COLOR_GRAY)
@@ -770,13 +777,16 @@ class Menu:
         """
         if down:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
-            if self.in_game_setup and not self.showing_faction_details:
+            if self.in_game_setup and not self.showing_faction_details and not self.in_multiplayer_lobby:
                 self.next_menu_option(self.setup_option, wrap_around=True)
             elif self.loading_game:
                 if self.save_idx == self.load_game_boundaries[1] and self.save_idx < len(self.saves) - 1:
                     self.load_game_boundaries = self.load_game_boundaries[0] + 1, self.load_game_boundaries[1] + 1
                 if 0 <= self.save_idx < len(self.saves) - 1:
                     self.save_idx += 1
+            elif self.in_multiplayer_lobby and \
+                    self.lobby_player_boundaries[1] < len(self.multiplayer_lobby.current_players) - 1:
+                self.lobby_player_boundaries = self.lobby_player_boundaries[0] + 1, self.lobby_player_boundaries[1] + 1
             elif self.viewing_lobbies and self.lobby_index < len(self.multiplayer_lobbies) - 1:
                 self.lobby_index += 1
             elif self.viewing_achievements:
@@ -801,13 +811,15 @@ class Menu:
                 self.next_menu_option(self.main_menu_option, wrap_around=True)
         if up:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
-            if self.in_game_setup and not self.showing_faction_details:
+            if self.in_game_setup and not self.showing_faction_details and not self.in_multiplayer_lobby:
                 self.previous_menu_option(self.setup_option, wrap_around=True)
             elif self.loading_game:
                 if self.save_idx > 0 and self.save_idx == self.load_game_boundaries[0]:
                     self.load_game_boundaries = self.load_game_boundaries[0] - 1, self.load_game_boundaries[1] - 1
                 if self.save_idx > 0:
                     self.save_idx -= 1
+            elif self.in_multiplayer_lobby and self.lobby_player_boundaries[0] > 0:
+                self.lobby_player_boundaries = self.lobby_player_boundaries[0] - 1, self.lobby_player_boundaries[1] - 1
             elif self.viewing_lobbies and self.lobby_index > 0:
                 self.lobby_index -= 1
             elif self.viewing_achievements:

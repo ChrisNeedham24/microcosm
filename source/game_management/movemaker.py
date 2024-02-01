@@ -196,9 +196,9 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
         Returns the settlement level at which an AI player will construct a settler unit to found a new settlement.
         :return: The required level for a new settlement.
         """
-        if player.ai_playstyle.expansion is ExpansionPlaystyle.EXPANSIONIST:
+        if player.ai_playstyle.expansion == ExpansionPlaystyle.EXPANSIONIST:
             return 3
-        if player.ai_playstyle.expansion is ExpansionPlaystyle.NEUTRAL:
+        if player.ai_playstyle.expansion == ExpansionPlaystyle.NEUTRAL:
             return 5
         return 10
 
@@ -527,7 +527,7 @@ class MoveMaker:
             # Deploy a unit from the garrison if the AI is not defensive, or the settlement is under siege or attack, or
             # there are too many units garrisoned.
             if (len(setl.garrison) > 0 and
-                (player.ai_playstyle.attacking is not AttackPlaystyle.DEFENSIVE or setl.besieged
+                (player.ai_playstyle.attacking != AttackPlaystyle.DEFENSIVE or setl.besieged
                  or setl.strength < setl.max_strength / 2)) or len(setl.garrison) > 3:
                 deployed = setl.garrison.pop()
                 deployed.garrisoned = False
@@ -713,8 +713,8 @@ class MoveMaker:
                         break
                 could_attack: bool = any(setl.besieged or setl.strength < setl.max_strength / 2
                                          for setl in player.settlements) or \
-                    player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
-                    (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
+                    player.ai_playstyle.attacking == AttackPlaystyle.AGGRESSIVE or \
+                    (player.ai_playstyle.attacking == AttackPlaystyle.NEUTRAL and
                      unit.health >= other_u.health * 2) or is_infidel or is_close_to_elimination_vic
                 # Of course, the attacked unit has to be close enough.
                 if max(abs(unit.location[0] - other_u.location[0]),
@@ -734,11 +734,11 @@ class MoveMaker:
                         # Settlements are only attacked by AI players under strict conditions. Even aggressive AIs need
                         # to double the strength of the settlement in their health. However, these strict conditions are
                         # ignored in times of desperation, i.e. when the other player has an imminent victory.
-                        could_attack: bool = (player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE and
+                        could_attack: bool = (player.ai_playstyle.attacking == AttackPlaystyle.AGGRESSIVE and
                                               unit.health >= other_setl.strength * 2) or \
-                                             (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
+                                             (player.ai_playstyle.attacking == AttackPlaystyle.NEUTRAL and
                                               unit.health >= other_setl.strength * 10) or \
-                                             (player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE and
+                                             (player.ai_playstyle.attacking == AttackPlaystyle.DEFENSIVE and
                                               other_setl.strength == 0) or setl_owner.imminent_victories
                         if could_attack:
                             if any(max(abs(unit.location[0] - setl_quad.location[0]),
@@ -750,8 +750,8 @@ class MoveMaker:
                             # If there are no attackable settlements, we check if the AI player can place any under
                             # siege. Aggressive AIs will place any settlement they can see under siege, and neutral AIs
                             # will do the same if they have the upper hand.
-                            could_siege: bool = player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
-                                                (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
+                            could_siege: bool = player.ai_playstyle.attacking == AttackPlaystyle.AGGRESSIVE or \
+                                                (player.ai_playstyle.attacking == AttackPlaystyle.NEUTRAL and
                                                  unit.health >= other_setl.strength * 2)
                             if could_siege:
                                 if any(max(abs(unit.location[0] - setl_quad.location[0]),
@@ -808,8 +808,6 @@ class MoveMaker:
                         # Alternatively, we are attacking a settlement.
                         else:
                             setl_owner = None
-                            print(within_range.__dict__)
-                            # TODO error happening here?
                             for pl in all_players:
                                 if within_range.name in [setl.name for setl in pl.settlements]:
                                     setl_owner = pl

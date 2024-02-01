@@ -196,6 +196,7 @@ class EndTurnEvent(Event):
     new_nighttime_left: Optional[int] = None
     new_until_night: Optional[int] = None
     ai_unit_locs: Optional[List[List[Tuple[int, int]]]] = None
+    ai_unit_idxs_to_remove: Optional[List[Tuple[int, int]]] = None
 
 
 @dataclass
