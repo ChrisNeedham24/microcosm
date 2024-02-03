@@ -5,7 +5,7 @@ from source.display.board import Board
 from source.saving.game_save_manager import save_stats_achievements
 from source.util.calculator import clamp, attack, get_setl_totals, complete_construction, get_resources_for_settlement
 from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
-from source.foundation.models import Heathen, Quad, AttackData
+from source.foundation.models import Heathen, Quad, AttackData, Investigation
 from source.foundation.models import Player, Settlement, CompletedConstruction, Unit, HarvestStatus, EconomicStatus, \
     AttackPlaystyle, GameConfig, Victory, VictoryType, AIPlaystyle, ExpansionPlaystyle, Faction, Project
 from source.game_management.movemaker import MoveMaker
@@ -603,11 +603,14 @@ class GameState:
 
                 player.settlements.append(new_settl)
 
-    def process_ais(self, move_maker: MoveMaker):
+    def process_ais(self, move_maker: MoveMaker, skip_random_actions: bool = False) -> typing.List[Investigation]:
         """
         Process the moves for each AI player.
         """
+        investigations = []
         for player in self.players:
             if player.ai_playstyle is not None:
-                move_maker.make_move(player, self.players, self.board.quads, self.board.game_config,
-                                     self.nighttime_left > 0)
+                pl_invs = move_maker.make_move(player, self.players, self.board.quads, self.board.game_config,
+                                               self.nighttime_left > 0, skip_random_actions)
+                investigations.extend(pl_invs)
+        return investigations

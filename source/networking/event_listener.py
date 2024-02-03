@@ -89,6 +89,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gc: GameController = self.server.game_controller_ref
             gc.menu.multiplayer_lobby = LobbyDetails(evt.lobby_name, evt.player_details, evt.cfg)
             gc.menu.in_multiplayer_lobby = True
+            gc.namer.reset()
 
     def process_init_event(self, evt: InitEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
@@ -203,7 +204,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gsrs["local"].on_menu = False
                 # TODO add stats/achs later
                 gsrs["local"].board.overlay.toggle_tutorial()
-                gc.namer.reset()
                 gsrs["local"].board.overlay.total_settlement_count = \
                     sum(len(p.settlements) for p in gsrs["local"].players) + 1
                 gc.music_player.stop_menu_music()
@@ -246,9 +246,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
         game_name: str = evt.game_name if self.server.is_server else "local"
         evt.settlement.location = (evt.settlement.location[0], evt.settlement.location[1])
-        for i in range(len(evt.settlement.quads)):
-            evt.settlement.quads[i] = migrate_quad(evt.settlement.quads[i],
-                                                   (evt.settlement.location[0], evt.settlement.location[1]))
+        migrate_settlement(evt.settlement)
         for idx, u in enumerate(evt.settlement.garrison):
             evt.settlement.garrison[idx] = migrate_unit(u)
         player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
@@ -257,7 +255,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
             settler_unit = next(u for u in player.units if u.location == evt.settlement.location)
             player.units.remove(settler_unit)
         if self.server.is_server:
-            # TODO Seems to be throwing an error a lot
             self.server.namers_ref[evt.game_name].remove_settlement_name(evt.settlement.name,
                                                                          evt.settlement.quads[0].biome)
             for player in self.server.game_clients_ref[evt.game_name]:
@@ -584,6 +581,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                             self.server.clients_ref[player.id])
         else:
             gc: GameController = self.server.game_controller_ref
+            gc.namer.reset()
             gc.menu.multiplayer_lobby = \
                 LobbyDetails(evt.lobby_name, evt.lobby_details.current_players, evt.lobby_details.cfg)
             if gsrs["local"].player_idx is None:
@@ -624,21 +622,12 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     gs.process_climatic_effects()
                     evt.new_nighttime_left = gs.nighttime_left
                     evt.new_until_night = gs.until_night
+                investigations = gs.process_ais(self.server.move_makers_ref[evt.game_name])
+                evt.ai_investigations = investigations
                 attacks, sunstone_vics = gs.process_heathens()
                 evt.heathen_locs = [heathen.location for heathen in gs.heathens]
                 evt.heathen_attacks = attacks
                 evt.sunstone_victim_locs = [h.location for h in sunstone_vics]
-                # Player idx, unit idx, unit
-                ai_units: typing.List[typing.Tuple[int, int, Unit]] = []
-                for idx, player in enumerate([p for p in gs.players if p.ai_playstyle]):
-                    # print(player.name, len(player.units))
-                    for u_idx, unit in enumerate(player.units):
-                        ai_units.append((idx, u_idx, unit))
-                gs.process_ais(self.server.move_makers_ref[evt.game_name])
-                evt.ai_unit_idxs_to_remove = []
-                for p_idx, u_idx, aiu in ai_units:
-                    if aiu.health < 0:
-                        evt.ai_unit_idxs_to_remove.append((p_idx, u_idx))
                 evt.ai_unit_locs = []
                 for idx, player in enumerate([p for p in gs.players if p.ai_playstyle]):
                     evt.ai_unit_locs.append([])
@@ -668,6 +657,42 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gs.board.waiting_for_other_players = False
             # TODO handle playtime stats/achs
             gs.board.overlay.total_settlement_count = sum(len(p.settlements) for p in gs.players)
+            gs.process_ais(self.server.game_controller_ref.move_maker, skip_random_actions=True)
+            ai_player_indices = [idx for idx, pl in enumerate(gs.players) if pl.ai_playstyle]
+            for idx, unit_locs in enumerate(evt.ai_unit_locs):
+                for u_idx, loc in enumerate(unit_locs):
+                    # TODO still something going on here
+                    gs.players[ai_player_indices[idx]].units[u_idx].location = (loc[0], loc[1])
+            for ai_inv in evt.ai_investigations:
+                pl = next(p for p in gs.players if p.name == ai_inv.player_name)
+                # Technically the unit could have been autosold or killed post-investigation, so they might not be here.
+                matching_units = [u for u in pl.units if u.location == (ai_inv.unit_loc[0], ai_inv.unit_loc[1])]
+                unit: typing.Optional[Unit] = matching_units[0] if matching_units else None
+                match ai_inv.result:
+                    case InvestigationResult.FORTUNE:
+                        pl.ongoing_blessing.fortune_consumed += pl.ongoing_blessing.blessing.cost / 5
+                    case InvestigationResult.WEALTH:
+                        pl.wealth += 25
+                    case InvestigationResult.VISION:
+                        for i in range(ai_inv.relic_loc[1] - 10, ai_inv.relic_loc[1] + 11):
+                            for j in range(ai_inv.relic_loc[0] - 10, ai_inv.relic_loc[0] + 11):
+                                pl.quads_seen.add((j, i))
+                    case InvestigationResult.HEALTH if unit:
+                        unit.plan.max_health += 5
+                        unit.health += 5
+                    case InvestigationResult.POWER if unit:
+                        unit.plan.power += 5
+                    case InvestigationResult.STAMINA if unit:
+                        unit.plan.total_stamina += 1
+                        unit.remaining_stamina = unit.plan.total_stamina
+                    case InvestigationResult.UPKEEP if unit:
+                        unit.plan.cost = 0
+                    case InvestigationResult.ORE:
+                        pl.resources.ore += 10
+                    case InvestigationResult.TIMBER:
+                        pl.resources.timber += 10
+                    case InvestigationResult.MAGMA:
+                        pl.resources.magma += 10
             for idx, heathen in enumerate(gs.heathens):
                 gs.heathens[idx].location = (evt.heathen_locs[idx][0], evt.heathen_locs[idx][1])
                 gs.heathens[idx].remaining_stamina = 0
@@ -683,6 +708,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         if unit.location == (heathen_attack.defender.location[0], heathen_attack.defender.location[1]):
                             unit.health -= heathen_attack.attacker.plan.power * 0.25 * 1.2
                             found_defender = unit, player
+                # TODO error here?
                 if found_defender[1].faction == gs.players[gs.player_idx].faction:
                     gs.board.overlay.toggle_attack(heathen_attack)
                 if heathen_attack.defender_was_killed:
@@ -696,18 +722,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 for h in gs.heathens:
                     if h.location == (sunstone_victim_loc[0], sunstone_victim_loc[1]):
                         gs.heathens.remove(h)
-            ai_units: typing.List[typing.Tuple[int, int, Unit]] = []
-            for idx, player in enumerate([p for p in gs.players if p.ai_playstyle]):
-                # print(player.name, len(player.units))
-                for u_idx, unit in enumerate(player.units):
-                    ai_units.append((idx, u_idx, unit.__dict__))
-            gs.process_ais(self.server.game_controller_ref.move_maker)
-            ai_player_indices = [idx for idx, pl in enumerate(gs.players) if pl.ai_playstyle]
-            for idx, unit_locs in enumerate(evt.ai_unit_locs):
-                for u_idx, loc in enumerate(unit_locs):
-                    # TODO what happens to AI units that die? may need to do something similar to heathens
-                    # print(u_idx, len(gs.players[ai_player_indices[idx]].units))
-                    gs.players[ai_player_indices[idx]].units[u_idx].location = (loc[0], loc[1])
 
     def process_unready_event(self, evt: UnreadyEvent):
         self.server.game_states_ref[evt.game_name].ready_players.remove(evt.identifier)

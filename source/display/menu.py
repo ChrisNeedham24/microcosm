@@ -141,8 +141,7 @@ class Menu:
             pyxel.text(28, 40, "Lobby Name", pyxel.COLOR_WHITE)
             lobby_offset = 50 - pow(len(lob.name), 1.4)
             pyxel.text(100 + lobby_offset, 40, lob.name, pyxel.COLOR_GREEN)
-            # TODO Fill remaining spots with AIs
-            # TODO Are moves actually in sync?
+            # TODO AI players not in sync between server and clients
             # TODO Turn timers? Would need like a game settings page
             pyxel.text(80, 50, f"{len(lob.current_players)}/{lob.cfg.player_count} players", pyxel.COLOR_WHITE)
 

@@ -559,3 +559,11 @@ class LobbyDetails:
     name: str
     current_players: typing.List[PlayerDetails]
     cfg: GameConfig
+
+
+@dataclass
+class Investigation:
+    player_name: str
+    unit_loc: (int, int)
+    relic_loc: (int, int)
+    result: InvestigationResult

@@ -1,6 +1,6 @@
 import operator
 import random
-import typing
+from typing import List, Tuple, Optional
 
 from source.util.calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, \
     attack_setl, investigate_relic, heal, gen_spiral_indices, get_resources_for_settlement, \
@@ -9,7 +9,7 @@ from source.foundation.catalogue import get_available_blessings, get_unlockable_
     get_available_improvements, get_available_unit_plans, Namer
 from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
     UnitPlan, Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction, VictoryType, DeployerUnitPlan, \
-    DeployerUnit, Project, ResourceCollection
+    DeployerUnit, Project, ResourceCollection, Investigation
 
 
 def set_blessing(player: Player, player_totals: (float, float, float, float)):
@@ -181,7 +181,7 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
 
 
 def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
-                        other_player_vics: typing.List[typing.Tuple[Player, int]]):
+                        other_player_vics: List[Tuple[Player, int]]):
     """
     Choose and begin a construction for the given AI player's settlement.
     :param player: The AI owner of the given settlement.
@@ -350,11 +350,12 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
 
 
 def search_for_relics_or_move(unit: Unit,
-                              quads: typing.List[typing.List[Quad]],
+                              quads: List[List[Quad]],
                               player: Player,
-                              other_units: typing.List[Unit],
-                              all_setls: typing.List[Settlement],
-                              cfg: GameConfig) -> None:
+                              other_units: List[Unit],
+                              all_setls: List[Settlement],
+                              cfg: GameConfig,
+                              skip_random_actions: bool = False) -> Optional[Investigation]:
     """
     Units that have no action to take can look for relics, or just simply move randomly.
     :param unit: The unit to move.
@@ -382,14 +383,17 @@ def search_for_relics_or_move(unit: Unit,
                     if not any(u.location == loc for u in player.units) and \
                             not any(other_u.location == loc for other_u in other_units) and \
                             not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
-                        unit.location = loc
+                        if not skip_random_actions:
+                            unit.location = loc
                         found_valid_loc = True
                         break
                 unit.remaining_stamina = 0
                 if found_valid_loc:
-                    investigate_relic(player, unit, (j, i), cfg)
+                    if not skip_random_actions:
+                        result = investigate_relic(player, unit, (j, i), cfg)
+                        return Investigation(player.name, unit.location, (j, i), result)
                     quads[j][i].is_relic = False
-                    return
+                    return None
     # We only get to this point if a valid relic was not found. Make sure when moving randomly that the unit does not
     # collide with other units or settlements.
     found_valid_loc = False
@@ -401,13 +405,16 @@ def search_for_relics_or_move(unit: Unit,
         if not any(u.location == loc and u != unit for u in player.units) and \
                 not any(other_u.location == loc for other_u in other_units) and \
                 not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
-            unit.location = loc
+            if not skip_random_actions:
+                unit.location = loc
             found_valid_loc = True
             unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
+    return None
 
 
-def move_healer_unit(player: Player, unit: Unit, other_units: typing.List[Unit],
-                     all_setls: typing.List[Settlement], quads: typing.List[typing.List[Quad]], cfg: GameConfig):
+def move_healer_unit(player: Player, unit: Unit, other_units: List[Unit],
+                     all_setls: List[Settlement], quads: List[List[Quad]], cfg: GameConfig,
+                     skip_random_actions: bool = False) -> Optional[Investigation]:
     """
     Search for any friendly units within range that aren't at full health. If one is found, move next to it and
     heal it. Otherwise, the healer unit looks for relics or moves randomly.
@@ -419,7 +426,7 @@ def move_healer_unit(player: Player, unit: Unit, other_units: typing.List[Unit],
     :param quads: The quads on the board.
     :param cfg: The current game configuration.
     """
-    within_range: typing.Optional[Unit] = None
+    within_range: Optional[Unit] = None
     for player_u in player.units:
         if max(abs(unit.location[0] - player_u.location[0]),
                abs(unit.location[1] - player_u.location[1])) <= unit.remaining_stamina and \
@@ -443,16 +450,17 @@ def move_healer_unit(player: Player, unit: Unit, other_units: typing.List[Unit],
             if not any(u.location == loc for u in player.units) and \
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
-                unit.location = loc
+                if not skip_random_actions:
+                    unit.location = loc
                 found_valid_loc = True
                 break
         unit.remaining_stamina = 0
         # Assuming we found a valid location, the healing can take place.
         if found_valid_loc:
             heal(unit, within_range)
+        return None
     # If there's nothing within range, look for relics or just move randomly.
-    else:
-        search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)
+    return search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg, skip_random_actions)
 
 
 def get_unit_setl_distance(u: Unit, s: Settlement) -> (float, int, int):
@@ -481,8 +489,8 @@ class MoveMaker:
         self.namer: Namer = namer
         self.board_ref = None
 
-    def make_move(self, player: Player, all_players: typing.List[Player], quads: typing.List[typing.List[Quad]],
-                  cfg: GameConfig, is_night: bool):
+    def make_move(self, player: Player, all_players: List[Player], quads: List[List[Quad]],
+                  cfg: GameConfig, is_night: bool, skip_random_actions: bool = False) -> List[Investigation]:
         """
         Make a move for the given AI player.
         :param player: The AI player to make a move for.
@@ -491,6 +499,7 @@ class MoveMaker:
         :param cfg: The game configuration.
         :param is_night: Whether it is night.
         """
+        investigations = []
         all_setls = []
         for pl in all_players:
             all_setls.extend(pl.settlements)
@@ -556,14 +565,18 @@ class MoveMaker:
         for unit in player.units:
             if pow_health := (unit.health + unit.plan.power) < min_pow_health[0]:
                 min_pow_health = pow_health, unit
-            self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg, other_player_vics)
+            unit_inv = self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg, other_player_vics,
+                                      skip_random_actions)
+            if unit_inv:
+                investigations.append(unit_inv)
             overall_wealth -= unit.plan.cost / 10
         if (player.wealth + overall_wealth < 0) and min_pow_health[1] in player.units:
             player.wealth += min_pow_health[1].plan.cost
             player.units.remove(min_pow_health[1])
+        return investigations
 
-    def move_settler_unit(self, unit: Unit, player: Player, other_units: typing.List[Unit],
-                          all_setls: typing.List[Settlement]):
+    def move_settler_unit(self, unit: Unit, player: Player, other_units: List[Unit],
+                          all_setls: List[Settlement], skip_random_actions: bool = False):
         """
         Randomly move the given settler until it is both far enough away from any of the player's other settlements and
         next to one or more core resources, ensuring that it does not collide with any other units or settlements. Once
@@ -583,7 +596,8 @@ class MoveMaker:
             if not any(u.location == loc and u != unit for u in player.units) and \
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
-                unit.location = loc
+                if not skip_random_actions:
+                    unit.location = loc
                 found_valid_loc = True
                 unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
@@ -616,9 +630,10 @@ class MoveMaker:
             player.settlements.append(new_settl)
             player.units.remove(unit)
 
-    def move_unit(self, player: Player, unit: Unit, other_units: typing.List[Unit], all_players: typing.List[Player],
-                  all_setls: typing.List[Settlement], quads: typing.List[typing.List[Quad]], cfg: GameConfig,
-                  other_player_vics: typing.List[typing.Tuple[Player, int]]):
+    def move_unit(self, player: Player, unit: Unit, other_units: List[Unit], all_players: List[Player],
+                  all_setls: List[Settlement], quads: List[List[Quad]], cfg: GameConfig,
+                  other_player_vics: List[Tuple[Player, int]],
+                  skip_random_actions: bool = False) -> Optional[Investigation]:
         """
         Move the given unit, attacking if the right conditions are met.
         :param player: The AI owner of the unit being moved.
@@ -635,11 +650,14 @@ class MoveMaker:
         # settlements, ensuring that it does not collide with any other units or settlements. Once this has been
         # achieved, found a new settlement and destroy the unit.
         if unit.plan.can_settle:
-            self.move_settler_unit(unit, player, other_units, all_setls)
+            self.move_settler_unit(unit, player, other_units, all_setls, skip_random_actions)
+            return None
         # If the unit is a healer, look around for any friendly units within range that aren't at full health. If one is
         # found, move next to it and heal it. Otherwise, just look for relics or move randomly.
         elif unit.plan.heals:
-            move_healer_unit(player, unit, other_units, all_setls, quads, cfg)
+            unit_inv = move_healer_unit(player, unit, other_units, all_setls, quads, cfg, skip_random_actions)
+            if unit_inv:
+                return unit_inv
         # If the unit is a deployer unit, behaviour differs based on whether other players have imminent victories.
         elif isinstance(unit, DeployerUnit):
             if other_player_vics:
@@ -688,12 +706,13 @@ class MoveMaker:
                         unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                          int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
                         unit.remaining_stamina = 0
+                return None
             # If there are no other players with imminent victories, deployer units can just explore.
-            else:
-                search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)
+            elif inv := search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg, skip_random_actions):
+                return inv
         else:
             attack_over_siege = True  # If False, the unit will siege the settlement.
-            within_range: typing.Optional[Unit | Settlement] = None
+            within_range: Optional[Unit | Settlement] = None
             # If the unit cannot settle, then we must first check if it meets the criteria to attack another unit. A
             # unit can attack if one or more of the following apply:
             # - Any of its settlements are under siege or attack
@@ -841,6 +860,7 @@ class MoveMaker:
                             # Show the siege notification if we have placed one of the player's settlements under siege.
                             if within_range in all_players[0].settlements:
                                 self.board_ref.overlay.toggle_siege_notif(within_range, player)
+                return None
             # If a suitable unit or settlement was not found to attack, but there is another player with an imminent
             # victory, either move into a deployer unit or move towards the weakest settlement belonging to the player
             # with the most imminent victories.
@@ -868,6 +888,7 @@ class MoveMaker:
                     unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                      int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
                     unit.remaining_stamina = 0
+                return None
             # If there's nothing within range, look for relics or just move randomly.
-            else:
-                search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)
+            elif inv := search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg, skip_random_actions):
+                return inv
