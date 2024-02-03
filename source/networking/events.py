@@ -197,6 +197,7 @@ class EndTurnEvent(Event):
     new_until_night: Optional[int] = None
     ai_unit_locs: Optional[List[List[Tuple[int, int]]]] = None
     ai_investigations: Optional[List[Investigation]] = None
+    new_ai_settlements: Optional[List[List[Settlement]]] = None
 
 
 @dataclass

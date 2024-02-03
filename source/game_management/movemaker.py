@@ -575,8 +575,7 @@ class MoveMaker:
             player.units.remove(min_pow_health[1])
         return investigations
 
-    def move_settler_unit(self, unit: Unit, player: Player, other_units: List[Unit],
-                          all_setls: List[Settlement], skip_random_actions: bool = False):
+    def move_settler_unit(self, unit: Unit, player: Player, other_units: List[Unit], all_setls: List[Settlement]):
         """
         Randomly move the given settler until it is both far enough away from any of the player's other settlements and
         next to one or more core resources, ensuring that it does not collide with any other units or settlements. Once
@@ -596,8 +595,7 @@ class MoveMaker:
             if not any(u.location == loc and u != unit for u in player.units) and \
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
-                if not skip_random_actions:
-                    unit.location = loc
+                unit.location = loc
                 found_valid_loc = True
                 unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
@@ -649,8 +647,8 @@ class MoveMaker:
         # If the unit can settle, randomly move it until it is far enough away from any of the player's other
         # settlements, ensuring that it does not collide with any other units or settlements. Once this has been
         # achieved, found a new settlement and destroy the unit.
-        if unit.plan.can_settle:
-            self.move_settler_unit(unit, player, other_units, all_setls, skip_random_actions)
+        if unit.plan.can_settle and not skip_random_actions:
+            self.move_settler_unit(unit, player, other_units, all_setls)
             return None
         # If the unit is a healer, look around for any friendly units within range that aren't at full health. If one is
         # found, move next to it and heal it. Otherwise, just look for relics or move randomly.

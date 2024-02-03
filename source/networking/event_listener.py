@@ -247,6 +247,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         game_name: str = evt.game_name if self.server.is_server else "local"
         evt.settlement.location = (evt.settlement.location[0], evt.settlement.location[1])
         migrate_settlement(evt.settlement)
+        # We need this for the initial settlements.
         for idx, u in enumerate(evt.settlement.garrison):
             evt.settlement.garrison[idx] = migrate_unit(u)
         player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
@@ -622,6 +623,10 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     gs.process_climatic_effects()
                     evt.new_nighttime_left = gs.nighttime_left
                     evt.new_until_night = gs.until_night
+                existing_ai_settlement_names = []
+                for player in [p for p in gs.players if p.ai_playstyle]:
+                    for settlement in player.settlements:
+                        existing_ai_settlement_names.append(settlement.name)
                 investigations = gs.process_ais(self.server.move_makers_ref[evt.game_name])
                 evt.ai_investigations = investigations
                 attacks, sunstone_vics = gs.process_heathens()
@@ -633,6 +638,12 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     evt.ai_unit_locs.append([])
                     for u in player.units:
                         evt.ai_unit_locs[idx].append(u.location)
+                evt.new_ai_settlements = []
+                for idx, player in enumerate([p for p in gs.players if p.ai_playstyle]):
+                    evt.new_ai_settlements.append([])
+                    for s in player.settlements:
+                        if s.name not in existing_ai_settlement_names:
+                            evt.new_ai_settlements[idx].append(s)
                 for p in self.server.game_clients_ref[evt.game_name]:
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[p.id])
@@ -693,6 +704,13 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         pl.resources.timber += 10
                     case InvestigationResult.MAGMA:
                         pl.resources.magma += 10
+            for idx, settlements in enumerate(evt.new_ai_settlements):
+                for s in settlements:
+                    s.location = (s.location[0], s.location[1])
+                    migrate_settlement(s)
+                    gs.players[ai_player_indices[idx]].settlements.append(s)
+                    self.server.game_controller_ref.namer.remove_settlement_name(s.name, s.quads[0].biome)
+                    # TODO still need to somehow remove the settler unit
             for idx, heathen in enumerate(gs.heathens):
                 gs.heathens[idx].location = (evt.heathen_locs[idx][0], evt.heathen_locs[idx][1])
                 gs.heathens[idx].remaining_stamina = 0
