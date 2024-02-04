@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Optional, List, Tuple
 
 from source.foundation.models import GameConfig, PlayerDetails, Faction, Settlement, LobbyDetails, \
-    ResourceCollection, Construction, OngoingBlessing, InvestigationResult, Player
+    ResourceCollection, Construction, OngoingBlessing, InvestigationResult, Player, AIPlaystyle
 
 
 class EventType(str, Enum):
@@ -172,6 +172,8 @@ class QueryEvent(Event):
 @dataclass
 class LeaveEvent(Event):
     lobby_name: str
+    leaving_player_faction: Optional[Faction] = None
+    player_ai_playstyle: Optional[AIPlaystyle] = None
 
 
 @dataclass

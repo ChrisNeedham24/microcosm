@@ -6,7 +6,7 @@ import pyxel
 from source.display.display_utils import draw_paragraph
 from source.util.calculator import get_setl_totals, player_has_resources_for_improvement, get_player_totals
 from source.foundation.catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units, \
-    ACHIEVEMENTS, BLESSINGS
+    ACHIEVEMENTS, BLESSINGS, FACTION_COLOURS
 from source.foundation.models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, \
     OverlayType, SettlementAttackType, PauseOption, Faction, HarvestStatus, ConstructionMenu, ProjectType, Project, \
     DeployerUnitPlan, DeployerUnit, StandardOverlayView
@@ -291,6 +291,11 @@ def display_overlay(overlay: Overlay, is_night: bool):
             att_name = overlay.sieger_of_settlement.name
             setl_name = overlay.sieged_settlement.name
             pyxel.text(22, 15, f"{setl_name} was placed under siege by {att_name}", pyxel.COLOR_RED)
+        if OverlayType.PLAYER_CHANGE in overlay.showing:
+            pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
+            pyxel.text(22, 15, f"{overlay.player_changing.name} has left the game, replaced by AI",
+                       FACTION_COLOURS[overlay.player_changing.faction])
         # The settlement overlay displays the currently-selected settlements name, statistics, current construction,
         # garrison, and resources.
         if OverlayType.SETTLEMENT in overlay.showing:

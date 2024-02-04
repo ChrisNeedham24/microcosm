@@ -375,7 +375,6 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_state.board.overlay.show_additional_controls = False
                 game_state.board.overlay.toggle_controls()
             case PauseOption.QUIT:
-                # TODO should replace the player with an AI (if they're not the last player)
                 if game_state.board.game_config.multiplayer:
                     leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, datetime.datetime.now(),
                                                                hash((uuid.getnode(), os.getpid())),

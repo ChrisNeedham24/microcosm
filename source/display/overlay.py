@@ -64,6 +64,8 @@ class Overlay:
         self.current_standard_overlay_view: StandardOverlayView = StandardOverlayView.BLESSINGS
         self.current_game_config: GameConfig = cfg
         self.total_settlement_count: int = 0
+        self.player_changing: typing.Optional[Player] = None
+        self.changed_player_is_leaving: typing.Optional[bool] = None  # False means they're joining.
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
@@ -757,6 +759,19 @@ class Overlay:
         :return: Whether the achievement notification overlay is being displayed.
         """
         return OverlayType.ACH_NOTIF in self.showing
+
+    def toggle_player_change(self,
+                             player_changing: typing.Optional[Player],
+                             changed_player_is_leaving: typing.Optional[bool]):
+        if OverlayType.PLAYER_CHANGE in self.showing:
+            self.showing.remove(OverlayType.PLAYER_CHANGE)
+        else:
+            self.showing.append(OverlayType.PLAYER_CHANGE)
+            self.player_changing = player_changing
+            self.changed_player_is_leaving = changed_player_is_leaving
+
+    def is_player_change(self):
+        return OverlayType.PLAYER_CHANGE in self.showing
 
     def remove_layer(self) -> typing.Optional[OverlayType]:
         """

@@ -50,6 +50,7 @@ class Board:
         self.siege_time_bank = 0
         self.construction_prompt_time_bank = 0
         self.heal_time_bank = 0
+        self.player_change_time_bank = 0
 
         self.game_config: GameConfig = cfg
         self.namer: Namer = namer
@@ -435,6 +436,11 @@ class Board:
             if self.heal_time_bank > 3:
                 self.overlay.toggle_heal(None)
                 self.heal_time_bank = 0
+        if self.overlay.is_player_change():
+            self.player_change_time_bank += elapsed_time
+            if self.player_change_time_bank > 3:
+                self.overlay.toggle_player_change(None, None)
+                self.player_change_time_bank = 0
 
     def generate_quads(self, biome_clustering: bool, climatic_effects: bool):
         """

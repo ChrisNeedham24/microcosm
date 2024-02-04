@@ -52,7 +52,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         elif evt.type == EventType.QUERY:
             self.process_query_event(evt, sock)
         elif evt.type == EventType.LEAVE:
-            self.process_leave_event(evt)
+            self.process_leave_event(evt, sock)
         elif evt.type == EventType.JOIN:
             self.process_join_event(evt, sock)
         elif evt.type == EventType.REGISTER:
@@ -553,14 +553,31 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gc.menu.multiplayer_lobbies = evt.lobbies
             gc.menu.viewing_lobbies = True
 
-    def process_leave_event(self, evt: LeaveEvent):
-        old_clients = self.server.game_clients_ref[evt.lobby_name]
-        new_clients = [client for client in old_clients if client.id != evt.identifier]
-        self.server.game_clients_ref[evt.lobby_name] = new_clients
-        if not new_clients:
-            self.server.game_clients_ref.pop(evt.lobby_name)
-            self.server.lobbies_ref.pop(evt.lobby_name)
-            self.server.game_states_ref.pop(evt.lobby_name)
+    def process_leave_event(self, evt: LeaveEvent, sock: socket.socket):
+        if self.server.is_server:
+            old_clients = self.server.game_clients_ref[evt.lobby_name]
+            client_to_remove: PlayerDetails = next(client for client in old_clients if client.id == evt.identifier)
+            new_clients = [client for client in old_clients if client.id != evt.identifier]
+            self.server.game_clients_ref[evt.lobby_name] = new_clients
+            if not new_clients:
+                self.server.game_clients_ref.pop(evt.lobby_name)
+                self.server.lobbies_ref.pop(evt.lobby_name)
+                self.server.game_states_ref.pop(evt.lobby_name)
+            else:
+                player = next(p for p in self.server.game_states_ref[evt.lobby_name].players
+                              if p.faction == client_to_remove.faction)
+                player.ai_playstyle = AIPlaystyle(random.choice(list(AttackPlaystyle)),
+                                                  random.choice(list(ExpansionPlaystyle)))
+                evt.leaving_player_faction = player.faction
+                evt.player_ai_playstyle = player.ai_playstyle
+                for p in self.server.game_clients_ref[evt.lobby_name]:
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[p.id])
+        else:
+            gs = self.server.game_states_ref["local"]
+            player = next(p for p in gs.players if p.faction == evt.leaving_player_faction)
+            player.ai_playstyle = evt.player_ai_playstyle
+            gs.board.overlay.toggle_player_change(player, changed_player_is_leaving=True)
 
     def process_join_event(self, evt: JoinEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
