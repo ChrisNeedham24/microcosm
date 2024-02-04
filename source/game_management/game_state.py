@@ -5,7 +5,7 @@ from source.display.board import Board
 from source.saving.game_save_manager import save_stats_achievements
 from source.util.calculator import clamp, attack, get_setl_totals, complete_construction, get_resources_for_settlement
 from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
-from source.foundation.models import Heathen, Quad, AttackData, Investigation
+from source.foundation.models import Heathen, Quad
 from source.foundation.models import Player, Settlement, CompletedConstruction, Unit, HarvestStatus, EconomicStatus, \
     AttackPlaystyle, GameConfig, Victory, VictoryType, AIPlaystyle, ExpansionPlaystyle, Faction, Project
 from source.game_management.movemaker import MoveMaker
@@ -276,19 +276,18 @@ class GameState:
         player.wealth = max(player.wealth + overall_wealth, 0)
         player.accumulated_wealth += overall_wealth
 
-    def process_climatic_effects(self,
-                                 new_nighttime_left: typing.Optional[int] = None,
-                                 new_until_night: typing.Optional[int] = None):
+    def process_climatic_effects(self, reseed_random: bool = True):
         """
         Updates current night tracking variables, and toggles nighttime if the correct turn arrives.
         """
-        random.seed()
+        if reseed_random:
+            random.seed()
         if self.nighttime_left == 0:
             self.until_night -= 1
             if self.until_night == 0:
                 self.board.overlay.toggle_night(True)
                 # Nights last for between 5 and 20 turns.
-                self.nighttime_left = new_nighttime_left if new_nighttime_left is not None else random.randint(5, 20)
+                self.nighttime_left = random.randint(5, 20)
                 for h in self.heathens:
                     h.plan.power = round(2 * h.plan.power)
                 for p in self.players:
@@ -301,7 +300,7 @@ class GameState:
         else:
             self.nighttime_left -= 1
             if self.nighttime_left == 0:
-                self.until_night = new_until_night if new_until_night is not None else random.randint(10, 20)
+                self.until_night = random.randint(10, 20)
                 self.board.overlay.toggle_night(False)
                 for h in self.heathens:
                     h.plan.power = round(h.plan.power / 2)
@@ -491,14 +490,12 @@ class GameState:
 
         return None
 
-    def process_heathens(self) -> (typing.List[AttackData], typing.List[Heathen]):
+    def process_heathens(self):
         """
         Process the turns for each of the heathens.
         """
         all_units: typing.List[Unit] = []
         banned_quads: typing.Set[typing.Tuple[int, int]] = set()
-        attacks: typing.List[AttackData] = []
-        sunstone_victims: typing.List[Heathen] = []
         for player in self.players:
             # Heathens will not attack Infidel units.
             if player.faction != Faction.INFIDELS:
@@ -533,16 +530,15 @@ class GameState:
                     heathen.location = within_range.location[0] - 1, within_range.location[1]
                 heathen.remaining_stamina = 0
                 data = attack(heathen, within_range)
-                attacks.append(data)
                 # Only show the attack overlay if the unit attacked was the non-AI player's.
-                if not self.board.game_config.multiplayer and within_range in self.players[self.player_idx].units:
+                if self.player_idx and within_range in self.players[self.player_idx].units:
                     self.board.overlay.toggle_attack(data)
                 if within_range.health <= 0:
                     for player in self.players:
                         if within_range in player.units:
                             player.units.remove(within_range)
                             break
-                    if not self.board.game_config.multiplayer and self.board.selected_unit is within_range:
+                    if self.board.selected_unit is within_range:
                         self.board.selected_unit = None
                         self.board.overlay.toggle_unit(None)
                 if heathen.health <= 0:
@@ -564,15 +560,13 @@ class GameState:
                         found_valid_loc = True
                         break
                 if not found_valid_loc:
-                    sunstone_victims.append(heathen)
                     self.heathens.remove(heathen)
 
             # Players of the Infidels faction share vision with Heathen units.
-            if not self.board.game_config.multiplayer and self.players[self.player_idx].faction == Faction.INFIDELS:
+            if self.player_idx and self.players[self.player_idx].faction == Faction.INFIDELS:
                 for i in range(heathen.location[1] - 5, heathen.location[1] + 6):
                     for j in range(heathen.location[0] - 5, heathen.location[0] + 6):
                         self.players[self.player_idx].quads_seen.add((j, i))
-        return attacks, sunstone_victims
 
     def initialise_ais(self, namer: Namer):
         """
@@ -603,14 +597,11 @@ class GameState:
 
                 player.settlements.append(new_settl)
 
-    def process_ais(self, move_maker: MoveMaker, skip_random_actions: bool = False) -> typing.List[Investigation]:
+    def process_ais(self, move_maker: MoveMaker):
         """
         Process the moves for each AI player.
         """
-        investigations = []
         for player in self.players:
             if player.ai_playstyle is not None:
-                pl_invs = move_maker.make_move(player, self.players, self.board.quads, self.board.game_config,
-                                               self.nighttime_left > 0, skip_random_actions)
-                investigations.extend(pl_invs)
-        return investigations
+                move_maker.make_move(player, self.players, self.board.quads, self.board.game_config,
+                                     self.nighttime_left > 0, self.player_idx)

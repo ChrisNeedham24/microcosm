@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, List, Tuple
 
-from source.foundation.models import GameConfig, PlayerDetails, Faction, Settlement, LobbyDetails, Blessing, \
-    ResourceCollection, Construction, OngoingBlessing, InvestigationResult, AttackData, Player, Investigation
+from source.foundation.models import GameConfig, PlayerDetails, Faction, Settlement, LobbyDetails, \
+    ResourceCollection, Construction, OngoingBlessing, InvestigationResult, Player
 
 
 class EventType(str, Enum):
@@ -190,14 +190,7 @@ class RegisterEvent(Event):
 class EndTurnEvent(Event):
     game_name: str
     player_faction: Faction
-    heathen_locs: Optional[List[Tuple[int, int]]] = None
-    heathen_attacks: Optional[List[AttackData]] = None
-    sunstone_victim_locs: Optional[List[Tuple[int, int]]] = None
-    new_nighttime_left: Optional[int] = None
-    new_until_night: Optional[int] = None
-    ai_unit_locs: Optional[List[List[Tuple[int, int]]]] = None
-    ai_investigations: Optional[List[Investigation]] = None
-    new_ai_settlements: Optional[List[List[Settlement]]] = None
+    ai_random_seed: Optional[int] = None
 
 
 @dataclass

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import typing
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from source.game_management.game_state import GameState
 
 
@@ -211,7 +211,7 @@ class Quad:
     fortune: int
     location: (int, int)
     # Even though a quad will only ever have one resource, it's easier to use this.
-    resource: typing.Optional[ResourceCollection] = None
+    resource: Optional[ResourceCollection] = None
     selected: bool = False
     is_relic: bool = False
 
@@ -261,9 +261,9 @@ class Improvement:
     name: str
     description: str
     effect: Effect
-    prereq: typing.Optional[Blessing]
+    prereq: Optional[Blessing]
     # The construction of some improvements requires core resources to be used.
-    req_resources: typing.Optional[ResourceCollection] = None
+    req_resources: Optional[ResourceCollection] = None
 
 
 @dataclass
@@ -311,7 +311,7 @@ class UnitPlan:
     max_health: float
     total_stamina: int
     name: str
-    prereq: typing.Optional[Blessing]
+    prereq: Optional[Blessing]
     cost: float  # Measured in zeal.
     can_settle: bool = False
     heals: bool = False
@@ -346,7 +346,7 @@ class DeployerUnit(Unit):
     """
     The actual instance of a deployer unit, based on a DeployerUnitPlan.
     """
-    passengers: typing.List[Unit] = field(default_factory=lambda: [])
+    passengers: List[Unit] = field(default_factory=lambda: [])
 
 
 @dataclass
@@ -386,15 +386,15 @@ class Settlement:
     """
     name: str
     location: (int, int)
-    improvements: typing.List[Improvement]
-    quads: typing.List[Quad]  # Only players of The Concentrated faction can have more than one quad in a settlement.
+    improvements: List[Improvement]
+    quads: List[Quad]  # Only players of The Concentrated faction can have more than one quad in a settlement.
     # Resources can be exploited by a settlement if they are within 1 quad.
     resources: ResourceCollection
-    garrison: typing.List[Unit]
+    garrison: List[Unit]
     strength: float = 100
     max_strength: float = 100
     satisfaction: float = 50
-    current_work: typing.Optional[Construction] = None
+    current_work: Optional[Construction] = None
     level: int = 1
     """
     The harvest reserves required for each upgrade is as below:
@@ -443,14 +443,14 @@ class Player:
     faction: Faction
     colour: int  # Refers to pyxel's colours, which resolve to integers.
     wealth: float = 0
-    settlements: typing.List[Settlement] = field(default_factory=lambda: [])
-    units: typing.List[Unit] = field(default_factory=lambda: [])
-    blessings: typing.List[Blessing] = field(default_factory=lambda: [])
+    settlements: List[Settlement] = field(default_factory=lambda: [])
+    units: List[Unit] = field(default_factory=lambda: [])
+    blessings: List[Blessing] = field(default_factory=lambda: [])
     resources: ResourceCollection = field(default_factory=ResourceCollection)
-    quads_seen: typing.Set[typing.Tuple[int, int]] = field(default_factory=set)
-    imminent_victories: typing.Set[VictoryType] = field(default_factory=set)
-    ongoing_blessing: typing.Optional[OngoingBlessing] = None
-    ai_playstyle: typing.Optional[AIPlaystyle] = None
+    quads_seen: Set[Tuple[int, int]] = field(default_factory=set)
+    imminent_victories: Set[VictoryType] = field(default_factory=set)
+    ongoing_blessing: Optional[OngoingBlessing] = None
+    ai_playstyle: Optional[AIPlaystyle] = None
     jubilation_ctr: int = 0  # How many turns the player has had 5 settlements at 100% satisfaction.
     accumulated_wealth: float = 0.0
     eliminated: bool = False
@@ -526,10 +526,10 @@ class Statistics:
     """
     playtime: float = 0
     turns_played: int = 0
-    victories: typing.Dict[VictoryType, int] = field(default_factory=lambda: {})
+    victories: Dict[VictoryType, int] = field(default_factory=lambda: {})
     defeats: int = 0
-    factions: typing.Dict[Faction, int] = field(default_factory=lambda: {})
-    achievements: typing.Set[str] = field(default_factory=set)
+    factions: Dict[Faction, int] = field(default_factory=lambda: {})
+    achievements: Set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -540,7 +540,7 @@ class Achievement:
     name: str
     description: str
     # The function to call to verify whether the achievement has been obtained.
-    verification_fn: typing.Callable[[GameState, Statistics], bool]
+    verification_fn: Callable[[GameState, Statistics], bool]
     # Whether this achievement can only be verified immediately after the player has won a game.
     post_victory: bool = False
 
@@ -557,13 +557,5 @@ class PlayerDetails:
 @dataclass
 class LobbyDetails:
     name: str
-    current_players: typing.List[PlayerDetails]
+    current_players: List[PlayerDetails]
     cfg: GameConfig
-
-
-@dataclass
-class Investigation:
-    player_name: str
-    unit_loc: (int, int)
-    relic_loc: (int, int)
-    result: InvestigationResult

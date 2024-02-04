@@ -605,6 +605,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
     def process_end_turn_event(self, evt: EndTurnEvent, sock: socket.socket):
         game_name: str = evt.game_name if self.server.is_server else "local"
         gs: GameState = self.server.game_states_ref[game_name]
+        random.seed(gs.turn)
         if self.server.is_server:
             gs.ready_players.add(evt.identifier)
             if len(gs.ready_players) == len(self.server.game_clients_ref[evt.game_name]):
@@ -613,37 +614,19 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 if gs.turn % 5 == 0:
                     new_heathen_loc: (int, int) = random.randint(0, 89), random.randint(0, 99)
                     gs.heathens.append(get_heathen(new_heathen_loc, gs.turn))
-                    evt.heathen_locs = [new_heathen_loc]
                 for h in gs.heathens:
                     h.remaining_stamina = h.plan.total_stamina
                     if h.health < h.plan.max_health:
                         h.health = min(h.health + h.plan.max_health * 0.1, h.plan.max_health)
                 gs.turn += 1
                 if gs.board.game_config.climatic_effects:
-                    gs.process_climatic_effects()
-                    evt.new_nighttime_left = gs.nighttime_left
-                    evt.new_until_night = gs.until_night
+                    gs.process_climatic_effects(reseed_random=False)
                 existing_ai_settlement_names = []
                 for player in [p for p in gs.players if p.ai_playstyle]:
                     for settlement in player.settlements:
                         existing_ai_settlement_names.append(settlement.name)
-                investigations = gs.process_ais(self.server.move_makers_ref[evt.game_name])
-                evt.ai_investigations = investigations
-                attacks, sunstone_vics = gs.process_heathens()
-                evt.heathen_locs = [heathen.location for heathen in gs.heathens]
-                evt.heathen_attacks = attacks
-                evt.sunstone_victim_locs = [h.location for h in sunstone_vics]
-                evt.ai_unit_locs = []
-                for idx, player in enumerate([p for p in gs.players if p.ai_playstyle]):
-                    evt.ai_unit_locs.append([])
-                    for u in player.units:
-                        evt.ai_unit_locs[idx].append(u.location)
-                evt.new_ai_settlements = []
-                for idx, player in enumerate([p for p in gs.players if p.ai_playstyle]):
-                    evt.new_ai_settlements.append([])
-                    for s in player.settlements:
-                        if s.name not in existing_ai_settlement_names:
-                            evt.new_ai_settlements[idx].append(s)
+                gs.process_heathens()
+                gs.process_ais(self.server.move_makers_ref[evt.game_name])
                 for p in self.server.game_clients_ref[evt.game_name]:
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[p.id])
@@ -651,16 +634,17 @@ class RequestHandler(socketserver.BaseRequestHandler):
         else:
             for idx, player in enumerate(gs.players):
                 gs.process_player(player, idx == gs.player_idx)
-            if len(gs.heathens) < len(evt.heathen_locs):
-                gs.heathens.append(get_heathen((evt.heathen_locs[-1][0], evt.heathen_locs[-1][1]), gs.turn))
+            if gs.turn % 5 == 0:
+                new_heathen_loc: (int, int) = random.randint(0, 89), random.randint(0, 99)
+                gs.heathens.append(get_heathen(new_heathen_loc, gs.turn))
             for h in gs.heathens:
                 h.remaining_stamina = h.plan.total_stamina
                 if h.health < h.plan.max_health:
                     h.health = min(h.health + h.plan.max_health * 0.1, h.plan.max_health)
             gs.board.overlay.remove_warning_if_possible()
             gs.turn += 1
-            if evt.new_nighttime_left is not None and evt.new_until_night is not None:
-                gs.process_climatic_effects(evt.new_nighttime_left, evt.new_until_night)
+            if gs.board.game_config.climatic_effects:
+                gs.process_climatic_effects(reseed_random=False)
             possible_vic = gs.check_for_victory()
             if possible_vic is not None:
                 gs.board.overlay.toggle_victory(possible_vic)
@@ -668,83 +652,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gs.board.waiting_for_other_players = False
             # TODO handle playtime stats/achs
             gs.board.overlay.total_settlement_count = sum(len(p.settlements) for p in gs.players)
-            gs.process_ais(self.server.game_controller_ref.move_maker, skip_random_actions=True)
-            ai_player_indices = [idx for idx, pl in enumerate(gs.players) if pl.ai_playstyle]
-            for idx, unit_locs in enumerate(evt.ai_unit_locs):
-                for u_idx, loc in enumerate(unit_locs):
-                    # TODO mismatched player units between server and clients
-                    gs.players[ai_player_indices[idx]].units[u_idx].location = (loc[0], loc[1])
-            for ai_inv in evt.ai_investigations:
-                pl = next(p for p in gs.players if p.name == ai_inv.player_name)
-                # Technically the unit could have been autosold or killed post-investigation, so they might not be here.
-                matching_units = [u for u in pl.units if u.location == (ai_inv.unit_loc[0], ai_inv.unit_loc[1])]
-                unit: typing.Optional[Unit] = matching_units[0] if matching_units else None
-                match ai_inv.result:
-                    case InvestigationResult.FORTUNE:
-                        pl.ongoing_blessing.fortune_consumed += pl.ongoing_blessing.blessing.cost / 5
-                    case InvestigationResult.WEALTH:
-                        pl.wealth += 25
-                    case InvestigationResult.VISION:
-                        for i in range(ai_inv.relic_loc[1] - 10, ai_inv.relic_loc[1] + 11):
-                            for j in range(ai_inv.relic_loc[0] - 10, ai_inv.relic_loc[0] + 11):
-                                pl.quads_seen.add((j, i))
-                    case InvestigationResult.HEALTH if unit:
-                        unit.plan.max_health += 5
-                        unit.health += 5
-                    case InvestigationResult.POWER if unit:
-                        unit.plan.power += 5
-                    case InvestigationResult.STAMINA if unit:
-                        unit.plan.total_stamina += 1
-                        unit.remaining_stamina = unit.plan.total_stamina
-                    case InvestigationResult.UPKEEP if unit:
-                        unit.plan.cost = 0
-                    case InvestigationResult.ORE:
-                        pl.resources.ore += 10
-                    case InvestigationResult.TIMBER:
-                        pl.resources.timber += 10
-                    case InvestigationResult.MAGMA:
-                        pl.resources.magma += 10
-            for idx, settlements in enumerate(evt.new_ai_settlements):
-                for s in settlements:
-                    s.location = (s.location[0], s.location[1])
-                    migrate_settlement(s)
-                    setl_owner = gs.players[ai_player_indices[idx]]
-                    setl_owner.settlements.append(s)
-                    self.server.game_controller_ref.namer.remove_settlement_name(s.name, s.quads[0].biome)
-                    for u in setl_owner.units:
-                        if u.location == s.location and u.plan.can_settle:
-                            setl_owner.units.remove(u)
-                            break
-            for idx, heathen in enumerate(gs.heathens):
-                # TODO problem here too with mismatches
-                gs.heathens[idx].location = (evt.heathen_locs[idx][0], evt.heathen_locs[idx][1])
-                gs.heathens[idx].remaining_stamina = 0
-            for heathen_attack in evt.heathen_attacks:
-                found_heathen: Heathen
-                found_defender: (Unit, Player)
-                for h in gs.heathens:
-                    if h.location == (heathen_attack.attacker.location[0], heathen_attack.attacker.location[1]):
-                        h.health -= heathen_attack.defender.plan.power * 0.25
-                        found_heathen = h
-                for player in gs.players:
-                    for unit in player.units:
-                        if unit.location == (heathen_attack.defender.location[0], heathen_attack.defender.location[1]):
-                            unit.health -= heathen_attack.attacker.plan.power * 0.25 * 1.2
-                            found_defender = unit, player
-                # TODO can't find defender - likely because of unit movements not being in sync
-                if found_defender[1].faction == gs.players[gs.player_idx].faction:
-                    gs.board.overlay.toggle_attack(heathen_attack)
-                if heathen_attack.defender_was_killed:
-                    found_defender[1].units.remove(found_defender[0])
-                    if gs.board.selected_unit is found_defender[0]:
-                        gs.board.selected_unit = None
-                        gs.board.overlay.toggle_unit(None)
-                if heathen_attack.attacker_was_killed:
-                    gs.heathens.remove(found_heathen)
-            for sunstone_victim_loc in evt.sunstone_victim_locs:
-                for h in gs.heathens:
-                    if h.location == (sunstone_victim_loc[0], sunstone_victim_loc[1]):
-                        gs.heathens.remove(h)
+            gs.process_heathens()
+            gs.process_ais(self.server.game_controller_ref.move_maker)
 
     def process_unready_event(self, evt: UnreadyEvent):
         self.server.game_states_ref[evt.game_name].ready_players.remove(evt.identifier)
