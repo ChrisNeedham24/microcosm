@@ -672,7 +672,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             ai_player_indices = [idx for idx, pl in enumerate(gs.players) if pl.ai_playstyle]
             for idx, unit_locs in enumerate(evt.ai_unit_locs):
                 for u_idx, loc in enumerate(unit_locs):
-                    # TODO still something going on here
+                    # TODO mismatched player units between server and clients
                     gs.players[ai_player_indices[idx]].units[u_idx].location = (loc[0], loc[1])
             for ai_inv in evt.ai_investigations:
                 pl = next(p for p in gs.players if p.name == ai_inv.player_name)
@@ -708,10 +708,15 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 for s in settlements:
                     s.location = (s.location[0], s.location[1])
                     migrate_settlement(s)
-                    gs.players[ai_player_indices[idx]].settlements.append(s)
+                    setl_owner = gs.players[ai_player_indices[idx]]
+                    setl_owner.settlements.append(s)
                     self.server.game_controller_ref.namer.remove_settlement_name(s.name, s.quads[0].biome)
-                    # TODO still need to somehow remove the settler unit
+                    for u in setl_owner.units:
+                        if u.location == s.location and u.plan.can_settle:
+                            setl_owner.units.remove(u)
+                            break
             for idx, heathen in enumerate(gs.heathens):
+                # TODO problem here too with mismatches
                 gs.heathens[idx].location = (evt.heathen_locs[idx][0], evt.heathen_locs[idx][1])
                 gs.heathens[idx].remaining_stamina = 0
             for heathen_attack in evt.heathen_attacks:
@@ -726,7 +731,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         if unit.location == (heathen_attack.defender.location[0], heathen_attack.defender.location[1]):
                             unit.health -= heathen_attack.attacker.plan.power * 0.25 * 1.2
                             found_defender = unit, player
-                # TODO error here?
+                # TODO can't find defender - likely because of unit movements not being in sync
                 if found_defender[1].faction == gs.players[gs.player_idx].faction:
                     gs.board.overlay.toggle_attack(heathen_attack)
                 if heathen_attack.defender_was_killed:

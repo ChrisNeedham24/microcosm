@@ -386,8 +386,8 @@ def search_for_relics_or_move(unit: Unit,
                         if not skip_random_actions:
                             unit.location = loc
                         found_valid_loc = True
+                        unit.remaining_stamina = 0
                         break
-                unit.remaining_stamina = 0
                 if found_valid_loc:
                     if not skip_random_actions:
                         result = investigate_relic(player, unit, (j, i), cfg)
@@ -575,7 +575,8 @@ class MoveMaker:
             player.units.remove(min_pow_health[1])
         return investigations
 
-    def move_settler_unit(self, unit: Unit, player: Player, other_units: List[Unit], all_setls: List[Settlement]):
+    def move_settler_unit(self, unit: Unit, player: Player, other_units: List[Unit], all_setls: List[Settlement],
+                          preserve_settler: bool = False):
         """
         Randomly move the given settler until it is both far enough away from any of the player's other settlements and
         next to one or more core resources, ensuring that it does not collide with any other units or settlements. Once
@@ -626,7 +627,8 @@ class MoveMaker:
                 new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
                 new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
             player.settlements.append(new_settl)
-            player.units.remove(unit)
+            if not preserve_settler:
+                player.units.remove(unit)
 
     def move_unit(self, player: Player, unit: Unit, other_units: List[Unit], all_players: List[Player],
                   all_setls: List[Settlement], quads: List[List[Quad]], cfg: GameConfig,
@@ -647,8 +649,9 @@ class MoveMaker:
         # If the unit can settle, randomly move it until it is far enough away from any of the player's other
         # settlements, ensuring that it does not collide with any other units or settlements. Once this has been
         # achieved, found a new settlement and destroy the unit.
-        if unit.plan.can_settle and not skip_random_actions:
-            self.move_settler_unit(unit, player, other_units, all_setls)
+        if unit.plan.can_settle:
+            if not skip_random_actions:
+                self.move_settler_unit(unit, player, other_units, all_setls, cfg.multiplayer)
             return None
         # If the unit is a healer, look around for any friendly units within range that aren't at full health. If one is
         # found, move next to it and heal it. Otherwise, just look for relics or move randomly.
