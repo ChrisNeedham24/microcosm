@@ -560,3 +560,9 @@ class LobbyDetails:
     name: str
     current_players: List[PlayerDetails]
     cfg: GameConfig
+    current_turn: Optional[int]  # None if the game hasn't started.
+
+
+@dataclass
+class LoadedMultiplayerState:
+    quad_chunks_loaded: int

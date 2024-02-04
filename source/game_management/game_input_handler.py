@@ -21,7 +21,8 @@ from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
 from source.foundation.models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, \
-    OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView, Improvement, LobbyDetails
+    OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView, Improvement, LobbyDetails, \
+    PlayerDetails
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
 from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats_achievements, get_stats
@@ -220,11 +221,16 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             dispatch_event(lobby_join_event)
         elif game_controller.menu.viewing_lobbies:
             current_lobby: LobbyDetails = game_controller.menu.multiplayer_lobbies[game_controller.menu.lobby_index]
-            if len(current_lobby.current_players) < current_lobby.cfg.player_count:
-                available_factions = deepcopy(FACTION_COLOURS)
-                for player in current_lobby.current_players:
-                    available_factions.pop(player.faction)
-                game_controller.menu.available_multiplayer_factions = list(available_factions.items())
+            human_players: typing.List[PlayerDetails] = [p for p in current_lobby.current_players if not p.is_ai]
+            if len(human_players) < current_lobby.cfg.player_count:
+                if current_lobby.current_turn:
+                    game_controller.menu.available_multiplayer_factions = \
+                        [(Faction(p.faction), FACTION_COLOURS[p.faction]) for p in current_lobby.current_players if p.is_ai]
+                else:
+                    available_factions = deepcopy(FACTION_COLOURS)
+                    for player in current_lobby.current_players:
+                        available_factions.pop(player.faction)
+                    game_controller.menu.available_multiplayer_factions = list(available_factions.items())
                 game_controller.menu.joining_game = True
         elif game_controller.menu.in_wiki:
             if game_controller.menu.wiki_option is WikiOption.BACK:

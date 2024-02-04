@@ -15,7 +15,7 @@ from source.util.calculator import clamp
 from source.foundation.catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, \
     IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS, ACHIEVEMENTS
 from source.foundation.models import GameConfig, VictoryType, Faction, ProjectType, Statistics, UnitPlan, \
-    DeployerUnitPlan, PlayerDetails, LobbyDetails
+    DeployerUnitPlan, PlayerDetails, LobbyDetails, LoadedMultiplayerState
 
 
 class MainMenuOption(Enum):
@@ -123,6 +123,7 @@ class Menu:
         self.joining_game = False
         self.available_multiplayer_factions: typing.List[typing.Tuple[Faction, int]] = []
         self.lobby_player_boundaries = 0, 7
+        self.multiplayer_game_being_loaded: typing.Optional[LoadedMultiplayerState] = None
 
     def draw(self):
         """
@@ -133,7 +134,18 @@ class Menu:
         pyxel.load(background_path)
         pyxel.blt(0, 0, self.image_bank % 3, 0, 0, 200, 200)
 
-        if self.in_multiplayer_lobby and (lob := self.multiplayer_lobby):
+        # TODO it may turn out that we don't need this
+        if m_game := self.multiplayer_game_being_loaded:
+            pyxel.rectb(30, 30, 140, 100, pyxel.COLOR_WHITE)
+            pyxel.rect(31, 31, 138, 98, pyxel.COLOR_BLACK)
+            lobby_name: str = self.multiplayer_lobby.name if self.multiplayer_lobby \
+                else self.multiplayer_lobbies[self.lobby_index].name
+            pyxel.text(72, 35, f"Loading {lobby_name}...", pyxel.COLOR_WHITE)
+            pyxel.text(35, 50, "Quads",
+                       pyxel.COLOR_GREEN if m_game.quad_chunks_loaded == 10 else pyxel.COLOR_WHITE)
+            pyxel.text(160, 50, f"{m_game.quad_chunks_loaded}/10",
+                       pyxel.COLOR_GREEN if m_game.quad_chunks_loaded == 10 else pyxel.COLOR_WHITE)
+        elif self.in_multiplayer_lobby and (lob := self.multiplayer_lobby):
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
             pyxel.text(70, 25, "Multiplayer Lobby", pyxel.COLOR_WHITE)
@@ -702,6 +714,7 @@ class Menu:
             pyxel.text(62, 60, "Choose your faction", pyxel.COLOR_GREEN)
             current_faction: (Faction, int) = self.available_multiplayer_factions[self.faction_idx]
             faction_offset = 50 - pow(len(current_faction[0]), 1.4)
+            # TODO arrows could use some work when joining games with only one available faction
             if self.faction_idx == 0:
                 pyxel.text(60 + faction_offset, 70, f"{current_faction[0].value} ->", current_faction[1])
             elif self.faction_idx == len(self.available_multiplayer_factions) - 1:
@@ -742,9 +755,12 @@ class Menu:
             # TODO joining mid-game
             pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
             for idx, lobby in enumerate(self.multiplayer_lobbies):
-                lobby_is_full: bool = len(lobby.current_players) == lobby.cfg.player_count
+                human_players: typing.List[PlayerDetails] = [p for p in lobby.current_players if not p.is_ai]
+                lobby_is_full: bool = len(human_players) == lobby.cfg.player_count
+                lobby_count_str: str = f"{len(human_players)}/{lobby.cfg.player_count}"
+                lobby_turn_str: str = "in lobby" if lobby.current_turn is None else f"turn {lobby.current_turn}"
                 pyxel.text(25, 35 + idx * 10,
-                           f"{lobby.name} - {len(lobby.current_players)}/{lobby.cfg.player_count}",
+                           f"{lobby.name} - {lobby_count_str} - {lobby_turn_str}",
                            pyxel.COLOR_RED if lobby_is_full else pyxel.COLOR_WHITE)
                 if lobby_is_full:
                     pyxel.text(150, 35 + idx * 10, "Full",

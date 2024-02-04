@@ -87,7 +87,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                                 FACTION_COLOURS[evt.cfg.player_faction]))
             gsrs["local"].player_idx = 0
             gc: GameController = self.server.game_controller_ref
-            gc.menu.multiplayer_lobby = LobbyDetails(evt.lobby_name, evt.player_details, evt.cfg)
+            gc.menu.multiplayer_lobby = LobbyDetails(evt.lobby_name, evt.player_details, evt.cfg, current_turn=None)
             gc.menu.in_multiplayer_lobby = True
             gc.namer.reset()
 
@@ -545,7 +545,12 @@ class RequestHandler(socketserver.BaseRequestHandler):
         if self.server.is_server:
             lobbies: typing.List[LobbyDetails] = []
             for name, cfg in self.server.lobbies_ref.items():
-                lobbies.append(LobbyDetails(name, self.server.game_clients_ref[name], cfg))
+                gs: GameState = self.server.game_states_ref[name]
+                player_details: typing.List[PlayerDetails] = []
+                player_details.extend(self.server.game_clients_ref[name])
+                for player in [p for p in gs.players if p.ai_playstyle]:
+                    player_details.append(PlayerDetails(player.name, player.faction, 0, "", is_ai=True))
+                lobbies.append(LobbyDetails(name, player_details, cfg, None if not gs.game_started else gs.turn))
             resp_evt: QueryEvent = QueryEvent(EventType.QUERY, datetime.datetime.now(), None, lobbies)
             sock.sendto(json.dumps(resp_evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
         else:
@@ -581,40 +586,145 @@ class RequestHandler(socketserver.BaseRequestHandler):
 
     def process_join_event(self, evt: JoinEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
+        gc: GameController = self.server.game_controller_ref
         if self.server.is_server:
             player_name = random.choice(PLAYER_NAMES)
             while any(player.name == player_name for player in self.server.game_clients_ref[evt.lobby_name]):
                 player_name = random.choice(PLAYER_NAMES)
-            gsrs[evt.lobby_name].players.append(Player(player_name, evt.player_faction,
-                                                       FACTION_COLOURS[evt.player_faction]))
+            gs: GameState = gsrs[evt.lobby_name]
+            gs.players.append(Player(player_name, evt.player_faction, FACTION_COLOURS[evt.player_faction]))
             self.server.game_clients_ref[evt.lobby_name].append(PlayerDetails(player_name, evt.player_faction,
                                                                               evt.identifier, self.client_address[0]))
-            for player in self.server.game_clients_ref[evt.lobby_name]:
-                lobby_details: LobbyDetails = LobbyDetails(evt.lobby_name,
-                                                           self.server.game_clients_ref[evt.lobby_name],
-                                                           self.server.lobbies_ref[evt.lobby_name])
-                update_evt: JoinEvent = JoinEvent(EventType.JOIN, datetime.datetime.now(), None, evt.lobby_name,
-                                                  evt.player_faction, lobby_details)
-                sock.sendto(json.dumps(update_evt, cls=SaveEncoder).encode(),
-                            self.server.clients_ref[player.id])
+            lobby_details: LobbyDetails = LobbyDetails(evt.lobby_name,
+                                                       self.server.game_clients_ref[evt.lobby_name],
+                                                       self.server.lobbies_ref[evt.lobby_name],
+                                                       current_turn=None if not gs.game_started else gs.turn)
+            evt.lobby_details = lobby_details
+            for player in [p for p in self.server.game_clients_ref[evt.lobby_name] if p.faction != evt.player_faction]:
+                sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[player.id])
+            if gs.game_started:
+                quads_list: typing.List[Quad] = list(chain.from_iterable(gs.board.quads))
+                for idx, quads_chunk in enumerate(split_list_into_chunks(quads_list, 100)):
+                    minified_quads: str = ""
+                    for quad in quads_chunk:
+                        quad_str = f"{quad.biome.value[0]}{quad.wealth}{quad.harvest}{quad.zeal}{quad.fortune}"
+                        if res := quad.resource:
+                            if res.ore:
+                                quad_str += "or"
+                            elif res.timber:
+                                quad_str += "t"
+                            elif res.magma:
+                                quad_str += "m"
+                            elif res.aurora:
+                                quad_str += "au"
+                            elif res.bloodstone:
+                                quad_str += "b"
+                            elif res.obsidian:
+                                quad_str += "ob"
+                            elif res.sunstone:
+                                quad_str += "s"
+                            elif res.aquamarine:
+                                quad_str += "aq"
+                        if quad.is_relic:
+                            quad_str += "ir"
+                        quad_str += ","
+                        minified_quads += quad_str
+                    evt.until_night = gs.until_night
+                    evt.cfg = self.server.lobbies_ref[evt.lobby_name]
+                    evt.quad_chunk = minified_quads
+                    evt.quad_chunk_idx = idx
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[evt.identifier])
         else:
-            gc: GameController = self.server.game_controller_ref
             gc.namer.reset()
-            gc.menu.multiplayer_lobby = \
-                LobbyDetails(evt.lobby_name, evt.lobby_details.current_players, evt.lobby_details.cfg)
-            if gsrs["local"].player_idx is None:
-                for idx, player in enumerate(evt.lobby_details.current_players):
-                    if player.faction == evt.player_faction:
-                        gsrs["local"].player_idx = idx
-                    gsrs["local"].players.append(Player(player.name, player.faction, FACTION_COLOURS[player.faction]))
-                gc.menu.joining_game = False
-                gc.menu.viewing_lobbies = False
-                gc.menu.in_multiplayer_lobby = True
-                gc.menu.setup_option = SetupOption.START_GAME
+            if evt.lobby_details.current_turn:
+                if gsrs["local"].game_started:
+                    pass
+                else:
+                    if gsrs["local"].player_idx is None:
+                        for idx, player in enumerate(evt.lobby_details.current_players):
+                            if player.faction == evt.player_faction:
+                                gsrs["local"].player_idx = idx
+                            gsrs["local"].players.append(Player(player.name, player.faction,
+                                                                FACTION_COLOURS[player.faction]))
+                    if not gsrs["local"].board:
+                        gsrs["local"].until_night = evt.until_night
+                        gsrs["local"].board = Board(evt.cfg, gc.namer, [[None] * 100 for _ in range(90)],
+                                                    player_idx=gsrs["local"].player_idx, game_name=evt.lobby_name)
+                        gc.move_maker.board_ref = gsrs["local"].board
+                    split_quads: typing.List[str] = evt.quad_chunk.split(",")[:-1]
+                    for j in range(100):
+                        mini: str = split_quads[j]
+                        quad_biome: Biome
+                        match mini[0]:
+                            case "D":
+                                quad_biome = Biome.DESERT
+                            case "F":
+                                quad_biome = Biome.FOREST
+                            case "S":
+                                quad_biome = Biome.SEA
+                            case "M":
+                                quad_biome = Biome.MOUNTAIN
+                        quad_resource: typing.Optional[ResourceCollection] = None
+                        quad_is_relic: bool = False
+                        if len(mini) > 5:
+                            if "or" in mini:
+                                quad_resource = ResourceCollection(ore=1)
+                            elif "t" in mini:
+                                quad_resource = ResourceCollection(timber=1)
+                            elif "m" in mini:
+                                quad_resource = ResourceCollection(magma=1)
+                            elif "au" in mini:
+                                quad_resource = ResourceCollection(aurora=1)
+                            elif "b" in mini:
+                                quad_resource = ResourceCollection(bloodstone=1)
+                            elif "ob" in mini:
+                                quad_resource = ResourceCollection(obsidian=1)
+                            elif "s" in mini:
+                                quad_resource = ResourceCollection(sunstone=1)
+                            elif "aq" in mini:
+                                quad_resource = ResourceCollection(aquamarine=1)
+                            quad_is_relic = mini.endswith("ir")
+                        expanded_quad: Quad = Quad(quad_biome, int(mini[1]), int(mini[2]), int(mini[3]), int(mini[4]),
+                                                   (j, evt.quad_chunk_idx), resource=quad_resource, is_relic=quad_is_relic)
+                        gsrs["local"].board.quads[evt.quad_chunk_idx][j] = expanded_quad
+                    quads_populated: bool = True
+                    for i in range(90):
+                        for j in range(100):
+                            if not gsrs["local"].board or gsrs["local"].board.quads[i][j] is None:
+                                quads_populated = False
+                                break
+                        if not quads_populated:
+                            break
+                    if quads_populated:
+                        pyxel.mouse(visible=True)
+                        gc.last_turn_time = time.time()
+                        gsrs["local"].game_started = True
+                        gsrs["local"].on_menu = False
+                        # TODO add stats/achs later
+                        gsrs["local"].board.overlay.toggle_tutorial()
+                        gsrs["local"].board.overlay.total_settlement_count = \
+                            sum(len(p.settlements) for p in gsrs["local"].players) + 1
+                        gc.music_player.stop_menu_music()
+                        gc.music_player.play_game_music()
             else:
-                new_player: PlayerDetails = evt.lobby_details.current_players[-1]
-                gsrs["local"].players.append(Player(new_player.name, new_player.faction,
-                                                    FACTION_COLOURS[new_player.faction]))
+                gc.menu.multiplayer_lobby = LobbyDetails(evt.lobby_name,
+                                                         evt.lobby_details.current_players,
+                                                         evt.lobby_details.cfg,
+                                                         current_turn=None)
+                if gsrs["local"].player_idx is None:
+                    for idx, player in enumerate(evt.lobby_details.current_players):
+                        if player.faction == evt.player_faction:
+                            gsrs["local"].player_idx = idx
+                        gsrs["local"].players.append(Player(player.name, player.faction, FACTION_COLOURS[player.faction]))
+                    gc.menu.joining_game = False
+                    gc.menu.viewing_lobbies = False
+                    gc.menu.in_multiplayer_lobby = True
+                    gc.menu.setup_option = SetupOption.START_GAME
+                else:
+                    new_player: PlayerDetails = evt.lobby_details.current_players[-1]
+                    gsrs["local"].players.append(Player(new_player.name, new_player.faction,
+                                                        FACTION_COLOURS[new_player.faction]))
 
     def process_register_event(self, evt: RegisterEvent):
         self.server.clients_ref[evt.identifier] = self.client_address[0], evt.port
