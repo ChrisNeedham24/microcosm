@@ -185,6 +185,8 @@ class JoinEvent(Event):
     cfg: Optional[GameConfig] = None
     quad_chunk: Optional[str] = None
     quad_chunk_idx: Optional[int] = None
+    player_chunk: Optional[str] = None
+    player_chunk_idx: Optional[int] = None
 
 
 @dataclass

@@ -29,8 +29,9 @@ from source.networking.events import Event, EventType, CreateEvent, InitEvent, U
     BuyoutConstructionEvent, DisbandUnitEvent, AttackUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, \
     HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent, AutofillEvent
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
-from source.saving.save_migrator import migrate_settlement, migrate_quad, migrate_unit
-from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal
+from source.saving.save_migrator import migrate_settlement, migrate_quad, migrate_unit, migrate_player
+from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp
+from source.util.minifier import minify_quad, inflate_quad, minify_player
 
 
 class RequestHandler(socketserver.BaseRequestHandler):
@@ -118,28 +119,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
             for idx, quads_chunk in enumerate(split_list_into_chunks(quads_list, 100)):
                 minified_quads: str = ""
                 for quad in quads_chunk:
-                    quad_str = f"{quad.biome.value[0]}{quad.wealth}{quad.harvest}{quad.zeal}{quad.fortune}"
-                    if res := quad.resource:
-                        if res.ore:
-                            quad_str += "or"
-                        elif res.timber:
-                            quad_str += "t"
-                        elif res.magma:
-                            quad_str += "m"
-                        elif res.aurora:
-                            quad_str += "au"
-                        elif res.bloodstone:
-                            quad_str += "b"
-                        elif res.obsidian:
-                            quad_str += "ob"
-                        elif res.sunstone:
-                            quad_str += "s"
-                        elif res.aquamarine:
-                            quad_str += "aq"
-                    if quad.is_relic:
-                        quad_str += "ir"
-                    quad_str += ","
-                    minified_quads += quad_str
+                    quad_str: str = minify_quad(quad)
+                    minified_quads += quad_str + ","
                 for player in self.server.game_clients_ref[evt.game_name]:
                     resp_evt: InitEvent = InitEvent(evt.type, datetime.datetime.now(), None, evt.game_name,
                                                     gsr.until_night, self.server.lobbies_ref[evt.game_name],
@@ -155,40 +136,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gc.move_maker.board_ref = gsrs["local"].board
             split_quads: typing.List[str] = evt.quad_chunk.split(",")[:-1]
             for j in range(100):
-                mini: str = split_quads[j]
-                quad_biome: Biome
-                match mini[0]:
-                    case "D":
-                        quad_biome = Biome.DESERT
-                    case "F":
-                        quad_biome = Biome.FOREST
-                    case "S":
-                        quad_biome = Biome.SEA
-                    case "M":
-                        quad_biome = Biome.MOUNTAIN
-                quad_resource: typing.Optional[ResourceCollection] = None
-                quad_is_relic: bool = False
-                if len(mini) > 5:
-                    if "or" in mini:
-                        quad_resource = ResourceCollection(ore=1)
-                    elif "t" in mini:
-                        quad_resource = ResourceCollection(timber=1)
-                    elif "m" in mini:
-                        quad_resource = ResourceCollection(magma=1)
-                    elif "au" in mini:
-                        quad_resource = ResourceCollection(aurora=1)
-                    elif "b" in mini:
-                        quad_resource = ResourceCollection(bloodstone=1)
-                    elif "ob" in mini:
-                        quad_resource = ResourceCollection(obsidian=1)
-                    elif "s" in mini:
-                        quad_resource = ResourceCollection(sunstone=1)
-                    elif "aq" in mini:
-                        quad_resource = ResourceCollection(aquamarine=1)
-                    quad_is_relic = mini.endswith("ir")
-                expanded_quad: Quad = Quad(quad_biome, int(mini[1]), int(mini[2]), int(mini[3]), int(mini[4]),
-                                           (j, evt.quad_chunk_idx), resource=quad_resource, is_relic=quad_is_relic)
-                gsrs["local"].board.quads[evt.quad_chunk_idx][j] = expanded_quad
+                inflated_quad: Quad = inflate_quad(split_quads[j], location=(j, evt.quad_chunk_idx))
+                gsrs["local"].board.quads[evt.quad_chunk_idx][j] = inflated_quad
             quads_populated: bool = True
             for i in range(90):
                 for j in range(100):
@@ -578,6 +527,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 for p in self.server.game_clients_ref[evt.lobby_name]:
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[p.id])
+                # TODO Can ping off an end turn event if everyone else left is ready
         else:
             gs = self.server.game_states_ref["local"]
             player = next(p for p in gs.players if p.faction == evt.leaving_player_faction)
@@ -607,32 +557,17 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 for idx, quads_chunk in enumerate(split_list_into_chunks(quads_list, 100)):
                     minified_quads: str = ""
                     for quad in quads_chunk:
-                        quad_str = f"{quad.biome.value[0]}{quad.wealth}{quad.harvest}{quad.zeal}{quad.fortune}"
-                        if res := quad.resource:
-                            if res.ore:
-                                quad_str += "or"
-                            elif res.timber:
-                                quad_str += "t"
-                            elif res.magma:
-                                quad_str += "m"
-                            elif res.aurora:
-                                quad_str += "au"
-                            elif res.bloodstone:
-                                quad_str += "b"
-                            elif res.obsidian:
-                                quad_str += "ob"
-                            elif res.sunstone:
-                                quad_str += "s"
-                            elif res.aquamarine:
-                                quad_str += "aq"
-                        if quad.is_relic:
-                            quad_str += "ir"
-                        quad_str += ","
-                        minified_quads += quad_str
+                        quad_str: str = minify_quad(quad)
+                        minified_quads += quad_str + ","
                     evt.until_night = gs.until_night
                     evt.cfg = self.server.lobbies_ref[evt.lobby_name]
                     evt.quad_chunk = minified_quads
                     evt.quad_chunk_idx = idx
+                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                self.server.clients_ref[evt.identifier])
+                for idx, player in enumerate(gs.players):
+                    evt.player_chunk = minify_player(player)
+                    evt.player_chunk_idx = idx
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[evt.identifier])
         else:
@@ -652,57 +587,69 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         gsrs["local"].board = Board(evt.cfg, gc.namer, [[None] * 100 for _ in range(90)],
                                                     player_idx=gsrs["local"].player_idx, game_name=evt.lobby_name)
                         gc.move_maker.board_ref = gsrs["local"].board
-                    split_quads: typing.List[str] = evt.quad_chunk.split(",")[:-1]
-                    for j in range(100):
-                        mini: str = split_quads[j]
-                        quad_biome: Biome
-                        match mini[0]:
-                            case "D":
-                                quad_biome = Biome.DESERT
-                            case "F":
-                                quad_biome = Biome.FOREST
-                            case "S":
-                                quad_biome = Biome.SEA
-                            case "M":
-                                quad_biome = Biome.MOUNTAIN
-                        quad_resource: typing.Optional[ResourceCollection] = None
-                        quad_is_relic: bool = False
-                        if len(mini) > 5:
-                            if "or" in mini:
-                                quad_resource = ResourceCollection(ore=1)
-                            elif "t" in mini:
-                                quad_resource = ResourceCollection(timber=1)
-                            elif "m" in mini:
-                                quad_resource = ResourceCollection(magma=1)
-                            elif "au" in mini:
-                                quad_resource = ResourceCollection(aurora=1)
-                            elif "b" in mini:
-                                quad_resource = ResourceCollection(bloodstone=1)
-                            elif "ob" in mini:
-                                quad_resource = ResourceCollection(obsidian=1)
-                            elif "s" in mini:
-                                quad_resource = ResourceCollection(sunstone=1)
-                            elif "aq" in mini:
-                                quad_resource = ResourceCollection(aquamarine=1)
-                            quad_is_relic = mini.endswith("ir")
-                        expanded_quad: Quad = Quad(quad_biome, int(mini[1]), int(mini[2]), int(mini[3]), int(mini[4]),
-                                                   (j, evt.quad_chunk_idx), resource=quad_resource, is_relic=quad_is_relic)
-                        gsrs["local"].board.quads[evt.quad_chunk_idx][j] = expanded_quad
-                    quads_populated: bool = True
+                    if evt.quad_chunk:
+                        split_quads: typing.List[str] = evt.quad_chunk.split(",")[:-1]
+                        for j in range(100):
+                            inflated_quad: Quad = inflate_quad(split_quads[j], location=(j, evt.quad_chunk_idx))
+                            gsrs["local"].board.quads[evt.quad_chunk_idx][j] = inflated_quad
+                    if evt.player_chunk:
+                        pass
+                        # gsrs["local"].players[evt.player_chunk_idx] = \
+                        #     json.loads(evt.player_chunk, object_hook=ObjectConverter)
+                        # p = gsrs["local"].players[evt.player_chunk_idx]
+                        # for idx, u in enumerate(p.units):
+                        #     # We can do a direct conversion to Unit and UnitPlan objects for units.
+                        #     p.units[idx] = migrate_unit(u)
+                        # for s in p.settlements:
+                        #     # Make sure we remove the settlement's name so that we don't get duplicates.
+                        #     gc.namer.remove_settlement_name(s.name, s.quads[0].biome)
+                        #     # Another tuple-array fix.
+                        #     s.location = (s.location[0], s.location[1])
+                        #     if s.current_work is not None:
+                        #         # Get the actual Improvement, Project, or UnitPlan objects for the current work. We use
+                        #         # hasattr() because improvements have an effect where projects do not, and projects have
+                        #         # a type where unit plans do not.
+                        #         if hasattr(s.current_work.construction, "effect"):
+                        #             s.current_work.construction = get_improvement(s.current_work.construction.name)
+                        #         elif hasattr(s.current_work.construction, "type"):
+                        #             s.current_work.construction = get_project(s.current_work.construction.name)
+                        #         else:
+                        #             s.current_work.construction = get_unit_plan(s.current_work.construction.name)
+                        #     for idx, imp in enumerate(s.improvements):
+                        #         # Do another direct conversion for improvements.
+                        #         s.improvements[idx] = get_improvement(imp.name)
+                        #     # Also convert all units in garrisons to Unit objects.
+                        #     for idx, u in enumerate(s.garrison):
+                        #         s.garrison[idx] = migrate_unit(u)
+                        #     migrate_settlement(s)
+                        # # We also do direct conversions to Blessing objects for the ongoing one, if there is one,
+                        # # as well as any previously-completed ones.
+                        # if p.ongoing_blessing:
+                        #     p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
+                        # for idx, bls in enumerate(p.blessings):
+                        #     p.blessings[idx] = get_blessing(bls.name)
+                        # migrate_player(p)
+                    state_populated: bool = True
                     for i in range(90):
                         for j in range(100):
                             if not gsrs["local"].board or gsrs["local"].board.quads[i][j] is None:
-                                quads_populated = False
+                                state_populated = False
                                 break
-                        if not quads_populated:
+                        if not state_populated:
                             break
-                    if quads_populated:
+                    for p in gsrs["local"].players:
+                        if not p.accumulated_wealth:
+                            state_populated = False
+                    if state_populated:
                         pyxel.mouse(visible=True)
                         gc.last_turn_time = time.time()
                         gsrs["local"].game_started = True
                         gsrs["local"].on_menu = False
                         # TODO add stats/achs later
-                        gsrs["local"].board.overlay.toggle_tutorial()
+                        # Initialise the map position to the player's first settlement.
+                        gsrs["local"].map_pos = (clamp(gsrs["local"].players[gsrs["local"].player_idx].settlements[0].location[0] - 12, -1, 77),
+                                              clamp(gsrs["local"].players[gsrs["local"].player_idx].settlements[0].location[1] - 11, -1, 69))
+                        gsrs["local"].board.overlay.current_player = gsrs["local"].players[gsrs["local"].player_idx]
                         gsrs["local"].board.overlay.total_settlement_count = \
                             sum(len(p.settlements) for p in gsrs["local"].players) + 1
                         gc.music_player.stop_menu_music()
