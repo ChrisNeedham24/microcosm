@@ -31,7 +31,7 @@ from source.networking.events import Event, EventType, CreateEvent, InitEvent, U
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_quad, migrate_unit, migrate_player
 from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp
-from source.util.minifier import minify_quad, inflate_quad, minify_player
+from source.util.minifier import minify_quad, inflate_quad, minify_player, inflate_player
 
 
 class RequestHandler(socketserver.BaseRequestHandler):
@@ -520,10 +520,11 @@ class RequestHandler(socketserver.BaseRequestHandler):
             else:
                 player = next(p for p in self.server.game_states_ref[evt.lobby_name].players
                               if p.faction == client_to_remove.faction)
-                player.ai_playstyle = AIPlaystyle(random.choice(list(AttackPlaystyle)),
-                                                  random.choice(list(ExpansionPlaystyle)))
+                if self.server.game_states_ref[evt.lobby_name].game_started:
+                    player.ai_playstyle = AIPlaystyle(random.choice(list(AttackPlaystyle)),
+                                                      random.choice(list(ExpansionPlaystyle)))
+                    evt.player_ai_playstyle = player.ai_playstyle
                 evt.leaving_player_faction = player.faction
-                evt.player_ai_playstyle = player.ai_playstyle
                 for p in self.server.game_clients_ref[evt.lobby_name]:
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[p.id])
@@ -531,18 +532,30 @@ class RequestHandler(socketserver.BaseRequestHandler):
         else:
             gs = self.server.game_states_ref["local"]
             player = next(p for p in gs.players if p.faction == evt.leaving_player_faction)
-            player.ai_playstyle = evt.player_ai_playstyle
-            gs.board.overlay.toggle_player_change(player, changed_player_is_leaving=True)
+            if gs.game_started:
+                player.ai_playstyle = evt.player_ai_playstyle
+                gs.board.overlay.toggle_player_change(player, changed_player_is_leaving=True)
+            else:
+                gs.players.remove(player)
+                current_players: typing.List[PlayerDetails] = \
+                    [p for p in self.server.game_controller_ref.menu.multiplayer_lobby.current_players if p.faction != evt.leaving_player_faction]
+                self.server.game_controller_ref.menu.multiplayer_lobby.current_players = current_players
 
     def process_join_event(self, evt: JoinEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
         gc: GameController = self.server.game_controller_ref
         if self.server.is_server:
-            player_name = random.choice(PLAYER_NAMES)
-            while any(player.name == player_name for player in self.server.game_clients_ref[evt.lobby_name]):
-                player_name = random.choice(PLAYER_NAMES)
             gs: GameState = gsrs[evt.lobby_name]
-            gs.players.append(Player(player_name, evt.player_faction, FACTION_COLOURS[evt.player_faction]))
+            player_name: str
+            if gs.game_started:
+                replaced_player: Player = next(p for p in gs.players if p.faction == evt.player_faction)
+                replaced_player.ai_playstyle = None
+                player_name = replaced_player.name
+            else:
+                player_name = random.choice(PLAYER_NAMES)
+                while any(player.name == player_name for player in self.server.game_clients_ref[evt.lobby_name]):
+                    player_name = random.choice(PLAYER_NAMES)
+                gs.players.append(Player(player_name, evt.player_faction, FACTION_COLOURS[evt.player_faction]))
             self.server.game_clients_ref[evt.lobby_name].append(PlayerDetails(player_name, evt.player_faction,
                                                                               evt.identifier, self.client_address[0]))
             lobby_details: LobbyDetails = LobbyDetails(evt.lobby_name,
@@ -550,7 +563,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                                        self.server.lobbies_ref[evt.lobby_name],
                                                        current_turn=None if not gs.game_started else gs.turn)
             evt.lobby_details = lobby_details
-            for player in [p for p in self.server.game_clients_ref[evt.lobby_name] if p.faction != evt.player_faction]:
+            for player in [p for p in self.server.game_clients_ref[evt.lobby_name] if p.faction != evt.player_faction or not gs.game_started]:
                 sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[player.id])
             if gs.game_started:
                 quads_list: typing.List[Quad] = list(chain.from_iterable(gs.board.quads))
@@ -566,15 +579,21 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[evt.identifier])
                 for idx, player in enumerate(gs.players):
+                    print(idx, player)
                     evt.player_chunk = minify_player(player)
                     evt.player_chunk_idx = idx
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[evt.identifier])
         else:
             gc.namer.reset()
+            gc.menu.multiplayer_lobby = LobbyDetails(evt.lobby_name,
+                                                     evt.lobby_details.current_players,
+                                                     evt.lobby_details.cfg,
+                                                     current_turn=None)
             if evt.lobby_details.current_turn:
                 if gsrs["local"].game_started:
-                    pass
+                    replaced_player: Player = next(p for p in gsrs["local"].players if p.faction == evt.player_faction)
+                    replaced_player.ai_playstyle = None
                 else:
                     if gsrs["local"].player_idx is None:
                         for idx, player in enumerate(evt.lobby_details.current_players):
@@ -593,42 +612,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                             inflated_quad: Quad = inflate_quad(split_quads[j], location=(j, evt.quad_chunk_idx))
                             gsrs["local"].board.quads[evt.quad_chunk_idx][j] = inflated_quad
                     if evt.player_chunk:
-                        pass
-                        # gsrs["local"].players[evt.player_chunk_idx] = \
-                        #     json.loads(evt.player_chunk, object_hook=ObjectConverter)
-                        # p = gsrs["local"].players[evt.player_chunk_idx]
-                        # for idx, u in enumerate(p.units):
-                        #     # We can do a direct conversion to Unit and UnitPlan objects for units.
-                        #     p.units[idx] = migrate_unit(u)
-                        # for s in p.settlements:
-                        #     # Make sure we remove the settlement's name so that we don't get duplicates.
-                        #     gc.namer.remove_settlement_name(s.name, s.quads[0].biome)
-                        #     # Another tuple-array fix.
-                        #     s.location = (s.location[0], s.location[1])
-                        #     if s.current_work is not None:
-                        #         # Get the actual Improvement, Project, or UnitPlan objects for the current work. We use
-                        #         # hasattr() because improvements have an effect where projects do not, and projects have
-                        #         # a type where unit plans do not.
-                        #         if hasattr(s.current_work.construction, "effect"):
-                        #             s.current_work.construction = get_improvement(s.current_work.construction.name)
-                        #         elif hasattr(s.current_work.construction, "type"):
-                        #             s.current_work.construction = get_project(s.current_work.construction.name)
-                        #         else:
-                        #             s.current_work.construction = get_unit_plan(s.current_work.construction.name)
-                        #     for idx, imp in enumerate(s.improvements):
-                        #         # Do another direct conversion for improvements.
-                        #         s.improvements[idx] = get_improvement(imp.name)
-                        #     # Also convert all units in garrisons to Unit objects.
-                        #     for idx, u in enumerate(s.garrison):
-                        #         s.garrison[idx] = migrate_unit(u)
-                        #     migrate_settlement(s)
-                        # # We also do direct conversions to Blessing objects for the ongoing one, if there is one,
-                        # # as well as any previously-completed ones.
-                        # if p.ongoing_blessing:
-                        #     p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
-                        # for idx, bls in enumerate(p.blessings):
-                        #     p.blessings[idx] = get_blessing(bls.name)
-                        # migrate_player(p)
+                        gsrs["local"].players[evt.player_chunk_idx] = \
+                            inflate_player(evt.player_chunk, gsrs["local"].board.quads)
                     state_populated: bool = True
                     for i in range(90):
                         for j in range(100):
@@ -638,6 +623,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         if not state_populated:
                             break
                     for p in gsrs["local"].players:
+                        # TODO this is not a good measure
                         if not p.accumulated_wealth:
                             state_populated = False
                     if state_populated:
@@ -655,10 +641,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         gc.music_player.stop_menu_music()
                         gc.music_player.play_game_music()
             else:
-                gc.menu.multiplayer_lobby = LobbyDetails(evt.lobby_name,
-                                                         evt.lobby_details.current_players,
-                                                         evt.lobby_details.cfg,
-                                                         current_turn=None)
                 if gsrs["local"].player_idx is None:
                     for idx, player in enumerate(evt.lobby_details.current_players):
                         if player.faction == evt.player_faction:
@@ -695,10 +677,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gs.turn += 1
                 if gs.board.game_config.climatic_effects:
                     gs.process_climatic_effects(reseed_random=False)
-                existing_ai_settlement_names = []
-                for player in [p for p in gs.players if p.ai_playstyle]:
-                    for settlement in player.settlements:
-                        existing_ai_settlement_names.append(settlement.name)
                 gs.process_heathens()
                 gs.process_ais(self.server.move_makers_ref[evt.game_name])
                 for p in self.server.game_clients_ref[evt.game_name]:

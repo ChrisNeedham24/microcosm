@@ -1,12 +1,14 @@
-from typing import List, Optional
+from typing import List, Optional, Set, Tuple
 
-from source.foundation.catalogue import get_unit_plan, get_improvement
-from source.foundation.models import Quad, Biome, ResourceCollection, Player, Settlement, Unit, UnitPlan, Improvement
+from source.foundation.catalogue import get_unit_plan, get_improvement, get_project, get_blessing, FACTION_COLOURS
+from source.foundation.models import Quad, Biome, ResourceCollection, Player, Settlement, Unit, UnitPlan, Improvement, \
+    Construction, HarvestStatus, EconomicStatus, Blessing, Faction, VictoryType, OngoingBlessing, AIPlaystyle, \
+    AttackPlaystyle, ExpansionPlaystyle, Project
 
 
 def minify_resource_collection(rc: ResourceCollection) -> str:
     # TODO this may increase the packet size too much
-    return f"{rc.ore}-{rc.timber}-{rc.magma}-{rc.aurora}-{rc.bloodstone}-{rc.obsidian}-{rc.sunstone}-{rc.aquamarine}"
+    return f"{rc.ore}+{rc.timber}+{rc.magma}+{rc.aurora}+{rc.bloodstone}+{rc.obsidian}+{rc.sunstone}+{rc.aquamarine}"
 
 
 def minify_quad(quad: Quad) -> str:
@@ -23,42 +25,55 @@ def minify_unit_plan(unit_plan: UnitPlan) -> str:
 
 
 def minify_unit(unit: Unit) -> str:
-    unit_str: str = f"{unit.health}/{unit.remaining_stamina}/{unit.location[0]}-{unit.location[1]}/"
-    unit_str += minify_unit_plan(unit.plan) + "/"
-    unit_str += f"{unit.has_acted}/{unit.besieging}"
-    return f"{len(unit_str)}:{unit_str}"
+    unit_str: str = f"{unit.health}|{unit.remaining_stamina}|{unit.location[0]}-{unit.location[1]}|"
+    unit_str += minify_unit_plan(unit.plan) + "|"
+    unit_str += f"{unit.has_acted}|{unit.besieging}"
+    return unit_str
 
 
 def minify_settlement(settlement: Settlement) -> str:
-    settlement_str: str = f"{settlement.name}/{settlement.location[0]}-{settlement.location[1]}/"
-    for improvement in settlement.improvements:
-        settlement_str += improvement.name + "-"
-    settlement_str += "/"
-    for quad in settlement.quads:
-        settlement_str += f"{quad.location[0]}-{quad.location[1]},"
-    settlement_str += "/"
-    settlement_str += minify_resource_collection(settlement.resources) + "/"
-    units_str: str = ""
-    for unit in settlement.garrison:
-        units_str += minify_unit(unit) + ","
-    settlement_str += f"{len(units_str)}:{units_str}/"
-    settlement_str += f"{settlement.strength}/{settlement.max_strength}/{settlement.satisfaction}/"
-    if settlement.current_work:
-        settlement_str += f"{settlement.current_work.construction.name}-{settlement.current_work.zeal_consumed}"
-    settlement_str += "/"
-    settlement_str += (f"{settlement.level}/{settlement.harvest_reserves}/"
-                       f"{settlement.harvest_status}/{settlement.economic_status}/"
-                       f"{settlement.produced_settler}/{settlement.besieged}")
+    settlement_str: str = f"{settlement.name};{settlement.location[0]}-{settlement.location[1]};"
+    settlement_str += "$".join(imp.name for imp in settlement.improvements) + ";"
+    settlement_str += ",".join(f"{quad.location[0]}-{quad.location[1]}" for quad in settlement.quads) + ";"
+    settlement_str += minify_resource_collection(settlement.resources) + ";"
+    settlement_str += ",".join(minify_unit(unit) for unit in settlement.garrison) + ";"
+    settlement_str += f"{settlement.strength};{settlement.max_strength};{settlement.satisfaction};"
+    if cw := settlement.current_work:
+        match cw.construction:
+            case Improvement():
+                settlement_str += "Improvement-"
+            case Project():
+                settlement_str += "Project-"
+            case UnitPlan():
+                settlement_str += "UnitPlan-"
+        settlement_str += f"{cw.construction.name}-{cw.zeal_consumed}"
+    settlement_str += ";"
+    settlement_str += (f"{settlement.level};{settlement.harvest_reserves};"
+                       f"{settlement.harvest_status};{settlement.economic_status};"
+                       f"{settlement.produced_settler};{settlement.besieged}")
     return settlement_str
 
 
 def minify_player(player: Player) -> str:
-    player_str: str = f"{player.name}/{player.faction}/{player.wealth}/"
+    player_str: str = f"{player.name}~{player.faction}~{player.wealth}~"
+    player_str += "!".join(minify_settlement(setl) for setl in player.settlements) + "~"
+    player_str += "&".join(minify_unit(unit) for unit in player.units) + "~"
+    player_str += ",".join(blessing.name for blessing in player.blessings) + "~"
+    player_str += minify_resource_collection(player.resources) + "~"
+    player_str += ",".join(f"{quad_loc[0]}-{quad_loc[1]}" for quad_loc in player.quads_seen) + "~"
+    player_str += ",".join(str(vic) for vic in player.imminent_victories) + "~"
+    if bls := player.ongoing_blessing:
+        player_str += f"{bls.blessing.name}>{bls.fortune_consumed}"
+    player_str += "~"
+    if aip := player.ai_playstyle:
+        player_str += f"{aip.attacking}-{aip.expansion}"
+    player_str += "~"
+    player_str += f"{player.jubilation_ctr}~{player.accumulated_wealth}~{player.eliminated}"
     return player_str
 
 
 def inflate_resource_collection(rc_str: str) -> ResourceCollection:
-    return ResourceCollection(*[int(res) for res in rc_str.split("-")])
+    return ResourceCollection(*[int(res) for res in rc_str.split("+")])
 
 
 def inflate_quad(quad_str: str, location: (int, int)) -> Quad:
@@ -86,43 +101,95 @@ def inflate_quad(quad_str: str, location: (int, int)) -> Quad:
 def inflate_unit_plan(up_str: str) -> UnitPlan:
     split_up: List[str] = up_str.split("/")
     unit_plan: UnitPlan = get_unit_plan(split_up[-1])
-    unit_plan.power = split_up[0]
-    unit_plan.max_health = split_up[1]
-    unit_plan.total_stamina = split_up[2]
+    unit_plan.power = float(split_up[0])
+    unit_plan.max_health = float(split_up[1])
+    unit_plan.total_stamina = int(split_up[2])
     return unit_plan
 
 
 def inflate_unit(unit_str: str, garrisoned: bool) -> Unit:
-    split_unit: List[str] = unit_str.split("/")
-    unit_loc: (int, int) = tuple(split_unit[2].split("-"))
-    unit_plan_str: str = "".join(split_unit[3:7])
-    return Unit(float(split_unit[0]), int(split_unit[1]), unit_loc, garrisoned, inflate_unit_plan(unit_plan_str),
-                bool(split_unit[7]), bool(split_unit[8]))
+    split_unit: List[str] = unit_str.split("|")
+    unit_loc: (int, int) = int(split_unit[2].split("-")[0]), int(split_unit[2].split("-")[1])
+    return Unit(float(split_unit[0]), int(split_unit[1]), unit_loc, garrisoned, inflate_unit_plan(split_unit[3]),
+                split_unit[4] == "True", split_unit[5] == "True")
 
 
 def inflate_settlement(setl_str: str, quads: List[List[Quad]]) -> Settlement:
-    split_setl: List[str] = setl_str.split("/")
-    cursor: int = 0
+    split_setl: List[str] = setl_str.split(";")
     name: str = split_setl[0]
-    cursor += len(name)
-    loc: (int, int) = tuple(split_setl[1].split("-"))
-    cursor += len(split_setl[1])
+    loc: (int, int) = int(split_setl[1].split("-")[0]), int(split_setl[1].split("-")[1])
     improvements: List[Improvement] = []
-    for imp_name in split_setl[2].split("-")[:-1]:
-        improvements.append(get_improvement(imp_name))
-    cursor += len(split_setl[2])
-    quads: List[Quad] = []
-    for quad_loc in split_setl[3].split(",")[:-1]:
-        quads.append(quads[int(quad_loc.split("-")[1])][int(quad_loc.split("-")[0])])
-    cursor += len(split_setl[3])
+    if split_setl[2]:
+        for imp_name in split_setl[2].split("$"):
+            improvements.append(get_improvement(imp_name))
+    setl_quads: List[Quad] = []
+    for quad_loc in split_setl[3].split(","):
+        setl_quads.append(quads[int(quad_loc.split("-")[1])][int(quad_loc.split("-")[0])])
     resources: ResourceCollection = inflate_resource_collection(split_setl[4])
-    cursor += len(split_setl[4])
     garrison: List[Unit] = []
-    units_length: int = int(split_setl[5][0])
-    cursor += 2
-    units_str: str = setl_str[cursor:cursor + units_length]
-    for unit in units_str.split(",")[:-1]:
-        garrison.append(inflate_unit(unit, garrisoned=True))
-    cursor += units_length
+    if split_setl[5]:
+        for unit in split_setl[5].split(","):
+            garrison.append(inflate_unit(unit, garrisoned=True))
+    strength: float = float(split_setl[6])
+    max_strength: float = float(split_setl[7])
+    satisfaction: float = float(split_setl[8])
+    current_work: Optional[Construction] = None
+    if split_setl[9]:
+        work_details: List[str] = split_setl[9].split("-")
+        match work_details[0]:
+            case "Improvement":
+                current_work = Construction(get_improvement(work_details[1]), float(work_details[2]))
+            case "Project":
+                current_work = Construction(get_project(work_details[1]), float(work_details[2]))
+            case "UnitPlan":
+                current_work = Construction(get_unit_plan(work_details[1]), float(work_details[2]))
+    level: int = int(split_setl[10])
+    harvest_reserves: float = float(split_setl[11])
+    harvest_status: HarvestStatus = HarvestStatus(split_setl[12])
+    economic_status: EconomicStatus = EconomicStatus(split_setl[13])
+    produced_settler: bool = split_setl[14] == "True"
+    besieged: bool = split_setl[15] == "True"
+    return Settlement(name, loc, improvements, setl_quads, resources, garrison, strength, max_strength, satisfaction,
+                      current_work, level, harvest_reserves, harvest_status, economic_status, produced_settler,
+                      besieged)
 
-    return Settlement()
+
+def inflate_player(player_str: str, quads: List[List[Quad]]) -> Player:
+    split_pl: List[str] = player_str.split("~")
+    name: str = split_pl[0]
+    faction: Faction = Faction(split_pl[1])
+    wealth: float = float(split_pl[2])
+    settlements: List[Settlement] = []
+    if split_pl[3]:
+        for mini_setl in split_pl[3].split("!"):
+            settlements.append(inflate_settlement(mini_setl, quads))
+    units: List[Unit] = []
+    if split_pl[4]:
+        for mini_unit in split_pl[4].split("&"):
+            units.append(inflate_unit(mini_unit, garrisoned=False))
+    blessings: List[Blessing] = []
+    if split_pl[5]:
+        for bls in split_pl[5].split(","):
+            blessings.append(get_blessing(bls))
+    resources: ResourceCollection = inflate_resource_collection(split_pl[6])
+    # TODO need AIs to accumulate quads_seen too
+    quads_seen: Set[Tuple[int, int]] = set()
+    if split_pl[7]:
+        for quad_loc in split_pl[7].split(","):
+            quads_seen.add((int(quad_loc.split("-")[0]), int(quad_loc.split("-")[1])))
+    imminent_victories: Set[VictoryType] = set()
+    if split_pl[8]:
+        for vic in split_pl[8].split(","):
+            imminent_victories.add(VictoryType(vic))
+    ongoing_blessing: Optional[OngoingBlessing] = None
+    if split_pl[9]:
+        ongoing_blessing = OngoingBlessing(get_blessing(split_pl[9].split(">")[0]), float(split_pl[9].split(">")[1]))
+    ai_playstyle: Optional[AIPlaystyle] = None
+    if split_pl[10]:
+        ai_playstyle = AIPlaystyle(AttackPlaystyle(split_pl[10].split("-")[0]),
+                                   ExpansionPlaystyle(split_pl[10].split("-")[1]))
+    jubilation_ctr: int = int(split_pl[11])
+    accumulated_wealth: float = float(split_pl[12])
+    eliminated: bool = split_pl[13] == "True"
+    return Player(name, faction, FACTION_COLOURS[faction], wealth, settlements, units, blessings, resources, quads_seen,
+                  imminent_victories, ongoing_blessing, ai_playstyle, jubilation_ctr, accumulated_wealth, eliminated)
