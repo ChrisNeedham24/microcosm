@@ -348,6 +348,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     # settlements simply disappear.
                     if game_state.players[game_state.player_idx].faction != Faction.CONCENTRATED:
                         game_state.players[game_state.player_idx].settlements.append(data.settlement)
+                        for i in range(data.settlement.location[1] - 5, data.settlement.location[1] + 6):
+                            for j in range(data.settlement.location[0] - 5, data.settlement.location[0] + 6):
+                                game_state.players[game_state.player_idx].quads_seen.add((j, i))
                     for idx, p in enumerate(game_state.players):
                         if data.settlement in p.settlements and idx != 0:
                             p.settlements.remove(data.settlement)

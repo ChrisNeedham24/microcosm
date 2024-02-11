@@ -3,11 +3,10 @@ from typing import List, Optional, Set, Tuple
 from source.foundation.catalogue import get_unit_plan, get_improvement, get_project, get_blessing, FACTION_COLOURS
 from source.foundation.models import Quad, Biome, ResourceCollection, Player, Settlement, Unit, UnitPlan, Improvement, \
     Construction, HarvestStatus, EconomicStatus, Blessing, Faction, VictoryType, OngoingBlessing, AIPlaystyle, \
-    AttackPlaystyle, ExpansionPlaystyle, Project
+    AttackPlaystyle, ExpansionPlaystyle, Project, Heathen
 
 
 def minify_resource_collection(rc: ResourceCollection) -> str:
-    # TODO this may increase the packet size too much
     return f"{rc.ore}+{rc.timber}+{rc.magma}+{rc.aurora}+{rc.bloodstone}+{rc.obsidian}+{rc.sunstone}+{rc.aquamarine}"
 
 
@@ -60,8 +59,7 @@ def minify_player(player: Player) -> str:
     player_str += "&".join(minify_unit(unit) for unit in player.units) + "~"
     player_str += ",".join(blessing.name for blessing in player.blessings) + "~"
     player_str += minify_resource_collection(player.resources) + "~"
-    player_str += ",".join(f"{quad_loc[0]}-{quad_loc[1]}" for quad_loc in player.quads_seen) + "~"
-    player_str += ",".join(str(vic) for vic in player.imminent_victories) + "~"
+    player_str += ",".join(player.imminent_victories) + "~"
     if bls := player.ongoing_blessing:
         player_str += f"{bls.blessing.name}>{bls.fortune_consumed}"
     player_str += "~"
@@ -70,6 +68,19 @@ def minify_player(player: Player) -> str:
     player_str += "~"
     player_str += f"{player.jubilation_ctr}~{player.accumulated_wealth}~{player.eliminated}"
     return player_str
+
+
+def minify_quads_seen(quads_seen: Set[Tuple[int, int]]) -> str:
+    return ",".join(f"{quad_loc[0]}-{quad_loc[1]}" for quad_loc in quads_seen if quad_loc[0] >= 0 and quad_loc[1] >= 0)
+
+
+def minify_heathens(heathens: List[Heathen]) -> str:
+    heathens_str: str = ""
+    for heathen in heathens:
+        hp: UnitPlan = heathen.plan
+        heathens_str += f"{heathen.health}*{heathen.remaining_stamina}*{heathen.location[0]}-{heathen.location[1]}*"
+        heathens_str += f"{hp.power}*{hp.max_health}*{hp.total_stamina}*{hp.name}*{heathen.has_attacked},"
+    return heathens_str
 
 
 def inflate_resource_collection(rc_str: str) -> ResourceCollection:
@@ -172,24 +183,41 @@ def inflate_player(player_str: str, quads: List[List[Quad]]) -> Player:
         for bls in split_pl[5].split(","):
             blessings.append(get_blessing(bls))
     resources: ResourceCollection = inflate_resource_collection(split_pl[6])
-    # TODO need AIs to accumulate quads_seen too
-    quads_seen: Set[Tuple[int, int]] = set()
-    if split_pl[7]:
-        for quad_loc in split_pl[7].split(","):
-            quads_seen.add((int(quad_loc.split("-")[0]), int(quad_loc.split("-")[1])))
     imminent_victories: Set[VictoryType] = set()
-    if split_pl[8]:
-        for vic in split_pl[8].split(","):
+    if split_pl[7]:
+        for vic in split_pl[7].split(","):
             imminent_victories.add(VictoryType(vic))
     ongoing_blessing: Optional[OngoingBlessing] = None
-    if split_pl[9]:
-        ongoing_blessing = OngoingBlessing(get_blessing(split_pl[9].split(">")[0]), float(split_pl[9].split(">")[1]))
+    if split_pl[8]:
+        ongoing_blessing = OngoingBlessing(get_blessing(split_pl[8].split(">")[0]), float(split_pl[8].split(">")[1]))
     ai_playstyle: Optional[AIPlaystyle] = None
-    if split_pl[10]:
-        ai_playstyle = AIPlaystyle(AttackPlaystyle(split_pl[10].split("-")[0]),
-                                   ExpansionPlaystyle(split_pl[10].split("-")[1]))
-    jubilation_ctr: int = int(split_pl[11])
-    accumulated_wealth: float = float(split_pl[12])
-    eliminated: bool = split_pl[13] == "True"
-    return Player(name, faction, FACTION_COLOURS[faction], wealth, settlements, units, blessings, resources, quads_seen,
+    if split_pl[9]:
+        ai_playstyle = AIPlaystyle(AttackPlaystyle(split_pl[9].split("-")[0]),
+                                   ExpansionPlaystyle(split_pl[9].split("-")[1]))
+    jubilation_ctr: int = int(split_pl[10])
+    accumulated_wealth: float = float(split_pl[11])
+    eliminated: bool = split_pl[12] == "True"
+    return Player(name, faction, FACTION_COLOURS[faction], wealth, settlements, units, blessings, resources, set(),
                   imminent_victories, ongoing_blessing, ai_playstyle, jubilation_ctr, accumulated_wealth, eliminated)
+
+
+def inflate_quads_seen(qs_str: str) -> Set[Tuple[int, int]]:
+    quads_seen: Set[Tuple[int, int]] = set()
+    for quad_loc in qs_str.split(","):
+        quads_seen.add((int(quad_loc.split("-")[0]), int(quad_loc.split("-")[1])))
+    return quads_seen
+
+
+def inflate_heathens(heathens_str: str) -> List[Heathen]:
+    heathens: List[Heathen] = []
+    mini_heathens: List[str] = heathens_str.split(",")[:-1]
+    for heathen in mini_heathens:
+        split_heathen: List[str] = heathen.split("*")
+        health: float = float(split_heathen[0])
+        remaining_stamina: int = int(split_heathen[1])
+        location: (int, int) = int(split_heathen[2].split("-")[0]), int(split_heathen[2].split("-")[1])
+        unit_plan: UnitPlan = UnitPlan(float(split_heathen[3]), float(split_heathen[4]), int(split_heathen[5]),
+                                       split_heathen[6], None, 0)
+        has_attacked: bool = split_heathen[7] == "True"
+        heathens.append(Heathen(health, remaining_stamina, location, unit_plan, has_attacked))
+    return heathens

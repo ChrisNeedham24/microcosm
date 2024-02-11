@@ -936,6 +936,9 @@ class Board:
                 new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
                 new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
             player.settlements.append(new_settl)
+            for i in range(new_settl.location[1] - 5, new_settl.location[1] + 6):
+                for j in range(new_settl.location[0] - 5, new_settl.location[0] + 6):
+                    player.quads_seen.add((j, i))
             # Destroy the settler unit and select the new settlement.
             player.units.remove(self.selected_unit)
             if self.game_config.multiplayer:

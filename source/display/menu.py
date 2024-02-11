@@ -711,16 +711,19 @@ class Menu:
             pyxel.rectb(30, 30, 140, 100, pyxel.COLOR_WHITE)
             pyxel.rect(31, 31, 138, 98, pyxel.COLOR_BLACK)
             pyxel.text(72, 35, f"Joining {self.multiplayer_lobbies[self.lobby_index].name}", pyxel.COLOR_WHITE)
-            pyxel.text(62, 60, "Choose your faction", pyxel.COLOR_GREEN)
             current_faction: (Faction, int) = self.available_multiplayer_factions[self.faction_idx]
             faction_offset = 50 - pow(len(current_faction[0]), 1.4)
-            # TODO arrows could use some work when joining games with only one available faction
-            if self.faction_idx == 0:
-                pyxel.text(60 + faction_offset, 70, f"{current_faction[0].value} ->", current_faction[1])
-            elif self.faction_idx == len(self.available_multiplayer_factions) - 1:
-                pyxel.text(55 + faction_offset, 70, f"<- {current_faction[0].value}", current_faction[1])
+            if len(self.available_multiplayer_factions) == 1:
+                pyxel.text(55, 60, "You will be joining as", pyxel.COLOR_WHITE)
+                pyxel.text(58 + faction_offset, 70, f"{current_faction[0].value}", current_faction[1])
             else:
-                pyxel.text(48 + faction_offset, 70, f"<- {current_faction[0].value} ->", current_faction[1])
+                pyxel.text(62, 60, "Choose your faction", pyxel.COLOR_GREEN)
+                if self.faction_idx == 0:
+                    pyxel.text(60 + faction_offset, 70, f"{current_faction[0].value} ->", current_faction[1])
+                elif self.faction_idx == len(self.available_multiplayer_factions) - 1:
+                    pyxel.text(55 + faction_offset, 70, f"<- {current_faction[0].value}", current_faction[1])
+                else:
+                    pyxel.text(48 + faction_offset, 70, f"<- {current_faction[0].value} ->", current_faction[1])
             pyxel.text(40, 80, "(Press F to show more details)", pyxel.COLOR_WHITE)
             pyxel.text(58, 105, "Press ENTER to continue", pyxel.COLOR_WHITE)
             pyxel.text(60, 115, "Press SPACE to go back", pyxel.COLOR_WHITE)
@@ -746,13 +749,14 @@ class Menu:
                     pyxel.text(35, 140, "<-", pyxel.COLOR_WHITE)
                     pyxel.blt(45, 138, 0, (total_faction_idx - 1) * 8, 92, 8, 8)
                 pyxel.text(65, 140, "Press F to go back", pyxel.COLOR_WHITE)
-                if self.faction_idx != len(self.faction_colours) - 1:
+                if self.faction_idx != len(self.available_multiplayer_factions) - 1:
                     pyxel.blt(148, 138, 0, (total_faction_idx + 1) * 8, 92, 8, 8)
                     pyxel.text(158, 140, "->", pyxel.COLOR_WHITE)
         elif self.viewing_lobbies:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
-            # TODO joining mid-game
+            # TODO test joining after 100 turns with 13 AIs for accuracy - NOT ACCURATE UNITS AND SETTLEMENTS ARE WRONG
+            # TODO test joining after 100 turns with 13 AIs for quads seen - still a little bit cooked
             pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
             for idx, lobby in enumerate(self.multiplayer_lobbies):
                 human_players: typing.List[PlayerDetails] = [p for p in lobby.current_players if not p.is_ai]

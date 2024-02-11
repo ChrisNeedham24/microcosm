@@ -182,11 +182,14 @@ class JoinEvent(Event):
     player_faction: Faction
     lobby_details: Optional[LobbyDetails] = None
     until_night: Optional[int] = None
+    nighttime_left: Optional[int] = None
     cfg: Optional[GameConfig] = None
     quad_chunk: Optional[str] = None
     quad_chunk_idx: Optional[int] = None
     player_chunk: Optional[str] = None
     player_chunk_idx: Optional[int] = None
+    quads_seen_chunk: Optional[str] = None
+    heathens_chunk: Optional[str] = None
 
 
 @dataclass

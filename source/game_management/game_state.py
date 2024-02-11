@@ -221,13 +221,11 @@ class GameState:
                     setl.quads.append(best_quad_with_yield[0])
                     setl.resources = \
                         get_resources_for_settlement([quad.location for quad in setl.quads], self.board.quads)
-                    # If the player playing as The Concentrated faction is the human player, update the quads seen list.
-                    if is_current_player:
-                        for i in range(best_quad_with_yield[0].location[1] - 5,
-                                       best_quad_with_yield[0].location[1] + 6):
-                            for j in range(best_quad_with_yield[0].location[0] - 5,
-                                           best_quad_with_yield[0].location[0] + 6):
-                                player.quads_seen.add((j, i))
+                    for i in range(best_quad_with_yield[0].location[1] - 5,
+                                   best_quad_with_yield[0].location[1] + 6):
+                        for j in range(best_quad_with_yield[0].location[0] - 5,
+                                       best_quad_with_yield[0].location[0] + 6):
+                            player.quads_seen.add((j, i))
 
             if setl.resources:
                 # Only core resources accumulate.
@@ -445,7 +443,7 @@ class GameState:
                     return Victory(p, VictoryType.VIGOUR)
             # The player has a special advantage over the AIs - if they have a settler unit despite losing all of their
             # settlements, they are considered to still be in the game.
-            elif not (p == self.players[self.player_idx] and any(unit.plan.can_settle for unit in p.units)) and not p.eliminated:
+            elif not (self.player_idx is not None and p == self.players[self.player_idx] and any(unit.plan.can_settle for unit in p.units)) and not p.eliminated:
                 p.eliminated = True
                 self.board.overlay.toggle_elimination(p)
                 # Update the defeats stat if the eliminated player is the human player.
@@ -478,7 +476,7 @@ class GameState:
                 p.imminent_victories.add(VictoryType.SERENDIPITY)
 
         if players_with_setls == 1 and \
-                not (not self.players[self.player_idx].settlements and any(unit.plan.can_settle for unit in self.players[self.player_idx].units)):
+                not (self.player_idx is not None and not self.players[self.player_idx].settlements and any(unit.plan.can_settle for unit in self.players[self.player_idx].units)):
             # If there is only one player with settlements (and the human player doesn't have a settler), they have
             # achieved an ELIMINATION victory.
             return Victory(next(player for player in self.players if len(player.settlements) > 0),
@@ -563,10 +561,12 @@ class GameState:
                     self.heathens.remove(heathen)
 
             # Players of the Infidels faction share vision with Heathen units.
-            if self.player_idx and self.players[self.player_idx].faction == Faction.INFIDELS:
-                for i in range(heathen.location[1] - 5, heathen.location[1] + 6):
-                    for j in range(heathen.location[0] - 5, heathen.location[0] + 6):
-                        self.players[self.player_idx].quads_seen.add((j, i))
+            for player in self.players:
+                if player.faction == Faction.INFIDELS:
+                    for i in range(heathen.location[1] - 5, heathen.location[1] + 6):
+                        for j in range(heathen.location[0] - 5, heathen.location[0] + 6):
+                            player.quads_seen.add((j, i))
+                    break
 
     def initialise_ais(self, namer: Namer):
         """
@@ -596,6 +596,9 @@ class GameState:
                     new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
 
                 player.settlements.append(new_settl)
+                for i in range(new_settl.location[1] - 5, new_settl.location[1] + 6):
+                    for j in range(new_settl.location[0] - 5, new_settl.location[0] + 6):
+                        player.quads_seen.add((j, i))
 
     def process_ais(self, move_maker: MoveMaker):
         """

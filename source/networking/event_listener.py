@@ -31,7 +31,8 @@ from source.networking.events import Event, EventType, CreateEvent, InitEvent, U
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_quad, migrate_unit, migrate_player
 from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp
-from source.util.minifier import minify_quad, inflate_quad, minify_player, inflate_player
+from source.util.minifier import minify_quad, inflate_quad, minify_player, inflate_player, minify_heathens, \
+    inflate_heathens, minify_quads_seen, inflate_quads_seen
 
 
 class RequestHandler(socketserver.BaseRequestHandler):
@@ -201,6 +202,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
             evt.settlement.garrison[idx] = migrate_unit(u)
         player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
         player.settlements.append(evt.settlement)
+        for i in range(evt.settlement.location[1] - 5, evt.settlement.location[1] + 6):
+            for j in range(evt.settlement.location[0] - 5, evt.settlement.location[0] + 6):
+                player.quads_seen.add((j, i))
         if evt.from_settler:
             settler_unit = next(u for u in player.units if u.location == evt.settlement.location)
             player.units.remove(settler_unit)
@@ -251,6 +255,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                       if pl.faction == evt.player_faction)
         unit = next(u for u in player.units if u.location == (evt.initial_loc[0], evt.initial_loc[1]))
         unit.location = (evt.new_loc[0], evt.new_loc[1])
+        for i in range(unit.location[1] - 5, unit.location[1] + 6):
+            for j in range(unit.location[0] - 5, unit.location[0] + 6):
+                player.quads_seen.add((j, i))
         unit.remaining_stamina = evt.new_stamina
         unit.besieging = evt.besieging
         if self.server.is_server:
@@ -267,6 +274,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
         deployed = setl.garrison.pop()
         deployed.garrisoned = False
         deployed.location = (evt.location[0], evt.location[1])
+        for i in range(deployed.location[1] - 5, deployed.location[1] + 6):
+            for j in range(deployed.location[0] - 5, deployed.location[0] + 6):
+                player.quads_seen.add((j, i))
         player.units.append(deployed)
         if self.server.is_server:
             for p in self.server.game_clients_ref[evt.game_name]:
@@ -295,12 +305,16 @@ class RequestHandler(socketserver.BaseRequestHandler):
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
         unit = next(u for u in player.units if u.location == (evt.unit_loc[0], evt.unit_loc[1]))
-        # TODO Loading from saves (going to be a problem because we're ignoring quads_seen)
+        # TODO Loading from saves
         match evt.result:
             case InvestigationResult.FORTUNE:
                 player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.cost / 5
             case InvestigationResult.WEALTH:
                 player.wealth += 25
+            case InvestigationResult.VISION:
+                for i in range(evt.relic_loc[1] - 10, evt.relic_loc[1] + 11):
+                    for j in range(evt.relic_loc[0] - 10, evt.relic_loc[0] + 11):
+                        player.quads_seen.add((j, i))
             case InvestigationResult.HEALTH:
                 unit.plan.max_health += 5
                 unit.health += 5
@@ -431,6 +445,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         break
             if player.faction != Faction.CONCENTRATED:
                 player.settlements.append(setl[0])
+                for i in range(setl[0].location[1] - 5, setl[0].location[1] + 6):
+                    for j in range(setl[0].location[0] - 5, setl[0].location[0] + 6):
+                        player.quads_seen.add((j, i))
             setl[1].settlements.remove(setl[0])
         if self.server.is_server:
             for p in self.server.game_clients_ref[evt.game_name]:
@@ -484,6 +501,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
         deployed.location = (evt.deployed_loc[0], evt.deployed_loc[1])
         deployer.passengers[evt.passenger_idx:evt.passenger_idx + 1] = []
         player.units.append(deployed)
+        for i in range(deployed.location[1] - 5, deployed.location[1] + 6):
+            for j in range(deployed.location[0] - 5, deployed.location[0] + 6):
+                player.quads_seen.add((j, i))
         if self.server.is_server:
             for p in self.server.game_clients_ref[evt.game_name]:
                 if p.faction != evt.player_faction:
@@ -544,8 +564,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
     def process_join_event(self, evt: JoinEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
         gc: GameController = self.server.game_controller_ref
+        gs: GameState = gsrs[evt.lobby_name if self.server.is_server else "local"]
         if self.server.is_server:
-            gs: GameState = gsrs[evt.lobby_name]
             player_name: str
             if gs.game_started:
                 replaced_player: Player = next(p for p in gs.players if p.faction == evt.player_faction)
@@ -558,8 +578,17 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gs.players.append(Player(player_name, evt.player_faction, FACTION_COLOURS[evt.player_faction]))
             self.server.game_clients_ref[evt.lobby_name].append(PlayerDetails(player_name, evt.player_faction,
                                                                               evt.identifier, self.client_address[0]))
+            # We can't just combine the player details from game_clients_ref and manually make the AI players' ones
+            # because order matters for this - the player joining needs to get their player index right.
+            player_details: typing.List[PlayerDetails] = []
+            for player in gs.players:
+                if player.ai_playstyle:
+                    player_details.append(PlayerDetails(player.name, player.faction, 0, "", is_ai=True))
+                else:
+                    player_details.append(next(pd for pd in self.server.game_clients_ref[evt.lobby_name]
+                                               if pd.faction == player.faction))
             lobby_details: LobbyDetails = LobbyDetails(evt.lobby_name,
-                                                       self.server.game_clients_ref[evt.lobby_name],
+                                                       player_details,
                                                        self.server.lobbies_ref[evt.lobby_name],
                                                        current_turn=None if not gs.game_started else gs.turn)
             evt.lobby_details = lobby_details
@@ -573,86 +602,112 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         quad_str: str = minify_quad(quad)
                         minified_quads += quad_str + ","
                     evt.until_night = gs.until_night
+                    evt.nighttime_left = gs.nighttime_left
                     evt.cfg = self.server.lobbies_ref[evt.lobby_name]
                     evt.quad_chunk = minified_quads
                     evt.quad_chunk_idx = idx
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[evt.identifier])
                 for idx, player in enumerate(gs.players):
-                    print(idx, player)
+                    evt.until_night = None
+                    evt.nighttime_left = None
+                    evt.cfg = None
+                    evt.quad_chunk = None
+                    evt.quad_chunk_idx = None
                     evt.player_chunk = minify_player(player)
                     evt.player_chunk_idx = idx
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[evt.identifier])
+                    evt.player_chunk = None
+                    for qs_chunk in split_list_into_chunks(list(player.quads_seen), 100):
+                        evt.quads_seen_chunk = minify_quads_seen(set(qs_chunk))
+                        sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                    self.server.clients_ref[evt.identifier])
+                evt.player_chunk_idx = None
+                evt.total_quads_seen = None
+                evt.quads_seen_chunk = None
+                evt.heathens_chunk = minify_heathens(gs.heathens)
+                sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                            self.server.clients_ref[evt.identifier])
         else:
             gc.namer.reset()
             gc.menu.multiplayer_lobby = LobbyDetails(evt.lobby_name,
                                                      evt.lobby_details.current_players,
                                                      evt.lobby_details.cfg,
-                                                     current_turn=None)
+                                                     evt.lobby_details.current_turn)
             if evt.lobby_details.current_turn:
-                if gsrs["local"].game_started:
-                    replaced_player: Player = next(p for p in gsrs["local"].players if p.faction == evt.player_faction)
+                if gs.game_started and not evt.quads_seen_chunk:
+                    replaced_player: Player = next(p for p in gs.players if p.faction == evt.player_faction)
                     replaced_player.ai_playstyle = None
+                    if gs.players[gs.player_idx].faction != evt.player_faction:
+                        gs.board.overlay.toggle_player_change(replaced_player,
+                                                              changed_player_is_leaving=False)
                 else:
-                    if gsrs["local"].player_idx is None:
+                    if gs.player_idx is None:
                         for idx, player in enumerate(evt.lobby_details.current_players):
                             if player.faction == evt.player_faction:
-                                gsrs["local"].player_idx = idx
-                            gsrs["local"].players.append(Player(player.name, player.faction,
+                                gs.player_idx = idx
+                            gs.players.append(Player(player.name, player.faction,
                                                                 FACTION_COLOURS[player.faction]))
-                    if not gsrs["local"].board:
-                        gsrs["local"].until_night = evt.until_night
-                        gsrs["local"].board = Board(evt.cfg, gc.namer, [[None] * 100 for _ in range(90)],
-                                                    player_idx=gsrs["local"].player_idx, game_name=evt.lobby_name)
-                        gc.move_maker.board_ref = gsrs["local"].board
+                    if not gs.board:
+                        gs.until_night = evt.until_night
+                        gs.nighttime_left = evt.nighttime_left
+                        gs.board = Board(evt.cfg, gc.namer, [[None] * 100 for _ in range(90)],
+                                                    player_idx=gs.player_idx, game_name=evt.lobby_name)
+                        gc.move_maker.board_ref = gs.board
                     if evt.quad_chunk:
                         split_quads: typing.List[str] = evt.quad_chunk.split(",")[:-1]
                         for j in range(100):
                             inflated_quad: Quad = inflate_quad(split_quads[j], location=(j, evt.quad_chunk_idx))
-                            gsrs["local"].board.quads[evt.quad_chunk_idx][j] = inflated_quad
+                            gs.board.quads[evt.quad_chunk_idx][j] = inflated_quad
                     if evt.player_chunk:
-                        gsrs["local"].players[evt.player_chunk_idx] = \
-                            inflate_player(evt.player_chunk, gsrs["local"].board.quads)
+                        gs.players[evt.player_chunk_idx] = \
+                            inflate_player(evt.player_chunk, gs.board.quads)
+                    if evt.quads_seen_chunk:
+                        gs.players[evt.player_chunk_idx].quads_seen.update(inflate_quads_seen(evt.quads_seen_chunk))
+                    if evt.heathens_chunk:
+                        gs.heathens = inflate_heathens(evt.heathens_chunk)
+                    gs.turn = evt.lobby_details.current_turn
                     state_populated: bool = True
                     for i in range(90):
                         for j in range(100):
-                            if not gsrs["local"].board or gsrs["local"].board.quads[i][j] is None:
+                            if not gs.board or gs.board.quads[i][j] is None:
                                 state_populated = False
                                 break
                         if not state_populated:
                             break
-                    for p in gsrs["local"].players:
-                        # TODO this is not a good measure
-                        if not p.accumulated_wealth:
+                    for p in gs.players:
+                        if not p.quads_seen:
                             state_populated = False
+                    if gs.turn > 5 and not gs.heathens:
+                        state_populated = False
                     if state_populated:
                         pyxel.mouse(visible=True)
                         gc.last_turn_time = time.time()
-                        gsrs["local"].game_started = True
-                        gsrs["local"].on_menu = False
+                        gs.game_started = True
+                        gs.on_menu = False
                         # TODO add stats/achs later
                         # Initialise the map position to the player's first settlement.
-                        gsrs["local"].map_pos = (clamp(gsrs["local"].players[gsrs["local"].player_idx].settlements[0].location[0] - 12, -1, 77),
-                                              clamp(gsrs["local"].players[gsrs["local"].player_idx].settlements[0].location[1] - 11, -1, 69))
-                        gsrs["local"].board.overlay.current_player = gsrs["local"].players[gsrs["local"].player_idx]
-                        gsrs["local"].board.overlay.total_settlement_count = \
-                            sum(len(p.settlements) for p in gsrs["local"].players) + 1
+                        gs.map_pos = (clamp(gs.players[gs.player_idx].settlements[0].location[0] - 12, -1, 77),
+                                              clamp(gs.players[gs.player_idx].settlements[0].location[1] - 11, -1, 69))
+                        gs.board.overlay.current_player = gs.players[gs.player_idx]
+                        gs.board.overlay.total_settlement_count = \
+                            sum(len(p.settlements) for p in gs.players) + 1
                         gc.music_player.stop_menu_music()
                         gc.music_player.play_game_music()
             else:
-                if gsrs["local"].player_idx is None:
+                if gs.player_idx is None:
                     for idx, player in enumerate(evt.lobby_details.current_players):
                         if player.faction == evt.player_faction:
-                            gsrs["local"].player_idx = idx
-                        gsrs["local"].players.append(Player(player.name, player.faction, FACTION_COLOURS[player.faction]))
+                            gs.player_idx = idx
+                        gs.players.append(Player(player.name, player.faction, FACTION_COLOURS[player.faction]))
                     gc.menu.joining_game = False
                     gc.menu.viewing_lobbies = False
                     gc.menu.in_multiplayer_lobby = True
                     gc.menu.setup_option = SetupOption.START_GAME
                 else:
                     new_player: PlayerDetails = evt.lobby_details.current_players[-1]
-                    gsrs["local"].players.append(Player(new_player.name, new_player.faction,
+                    gs.players.append(Player(new_player.name, new_player.faction,
                                                         FACTION_COLOURS[new_player.faction]))
 
     def process_register_event(self, evt: RegisterEvent):
@@ -677,6 +732,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gs.turn += 1
                 if gs.board.game_config.climatic_effects:
                     gs.process_climatic_effects(reseed_random=False)
+                # We need to check for victories on the server as well so each player's imminent victories are
+                # populated - this affects how units will move.
+                gs.check_for_victory()
                 gs.process_heathens()
                 gs.process_ais(self.server.move_makers_ref[evt.game_name])
                 for p in self.server.game_clients_ref[evt.game_name]:

@@ -256,7 +256,7 @@ def load_game(game_state, game_controller: GameController):
             for h in save.heathens:
                 # Do another direct conversion for the heathens.
                 game_state.heathens.append(Heathen(h.health, h.remaining_stamina, (h.location[0], h.location[1]),
-                                                   UnitPlan(h.plan.power, h.plan.max_health, 2, h.plan.name, None, 0),
+                                                   UnitPlan(h.plan.power, h.plan.max_health, h.total_stamina, h.plan.name, None, 0),
                                                    h.has_attacked))
 
             game_state.turn = save.turn

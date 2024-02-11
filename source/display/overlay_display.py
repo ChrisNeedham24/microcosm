@@ -294,8 +294,12 @@ def display_overlay(overlay: Overlay, is_night: bool):
         if OverlayType.PLAYER_CHANGE in overlay.showing:
             pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
             pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
-            pyxel.text(22, 15, f"{overlay.player_changing.name} has left the game, replaced by AI",
-                       FACTION_COLOURS[overlay.player_changing.faction])
+            if overlay.changed_player_is_leaving:
+                pyxel.text(22, 15, f"{overlay.player_changing.name} has left the game, replaced by AI",
+                           FACTION_COLOURS[overlay.player_changing.faction])
+            else:
+                pyxel.text(46, 15, f"{overlay.player_changing.name} has joined the game",
+                           FACTION_COLOURS[overlay.player_changing.faction])
         # The settlement overlay displays the currently-selected settlements name, statistics, current construction,
         # garrison, and resources.
         if OverlayType.SETTLEMENT in overlay.showing:

@@ -366,6 +366,7 @@ def search_for_relics_or_move(unit: Unit,
     """
     # The range in which a unit can investigate is actually further than its remaining stamina, as you only
     # have to be next to a relic to investigate it.
+    # TODO I have a feeling something is wrong with the locations here - relics are just disappearing
     investigate_range = unit.remaining_stamina + 1
     for i in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
         for j in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
@@ -383,6 +384,9 @@ def search_for_relics_or_move(unit: Unit,
                             not any(other_u.location == loc for other_u in other_units) and \
                             not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
                         unit.location = loc
+                        for a in range(loc[1] - 5, loc[1] + 6):
+                            for b in range(loc[0] - 5, loc[0] + 6):
+                                player.quads_seen.add((b, a))
                         found_valid_loc = True
                         unit.remaining_stamina = 0
                         break
@@ -402,6 +406,9 @@ def search_for_relics_or_move(unit: Unit,
                 not any(other_u.location == loc for other_u in other_units) and \
                 not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
             unit.location = loc
+            for a in range(loc[1] - 5, loc[1] + 6):
+                for b in range(loc[0] - 5, loc[0] + 6):
+                    player.quads_seen.add((b, a))
             found_valid_loc = True
             unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
@@ -444,6 +451,9 @@ def move_healer_unit(player: Player, unit: Unit, other_units: List[Unit],
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
                 unit.location = loc
+                for a in range(loc[1] - 5, loc[1] + 6):
+                    for b in range(loc[0] - 5, loc[0] + 6):
+                        player.quads_seen.add((b, a))
                 found_valid_loc = True
                 unit.remaining_stamina = 0
                 break
@@ -523,6 +533,9 @@ class MoveMaker:
                                             if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                             0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                     player.units.append(settler)
+                    for i in range(settler.location[1] - 5, settler.location[1] + 6):
+                        for j in range(settler.location[0] - 5, settler.location[0] + 6):
+                            player.quads_seen.add((j, i))
                     setl.garrison.remove(settler)
             # Deploy a unit from the garrison if the AI is not defensive, or the settlement is under siege or attack, or
             # there are too many units garrisoned.
@@ -535,6 +548,9 @@ class MoveMaker:
                                          if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                          0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                 player.units.append(deployed)
+                for i in range(deployed.location[1] - 5, deployed.location[1] + 6):
+                    for j in range(deployed.location[0] - 5, deployed.location[0] + 6):
+                        player.quads_seen.add((j, i))
             # If another player is close to a victory, and there are deployer units in the garrison, deploy all of them.
             if other_player_vics and \
                     len(deployers := [unit for unit in setl.garrison if isinstance(unit, DeployerUnit)]) > 0:
@@ -544,6 +560,9 @@ class MoveMaker:
                                              if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                              0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                     player.units.append(deployer)
+                    for i in range(deployer.location[1] - 5, deployer.location[1] + 6):
+                        for j in range(deployer.location[0] - 5, deployer.location[0] + 6):
+                            player.quads_seen.add((j, i))
                     setl.garrison.remove(deployer)
         all_units = []
         for p in all_players:
@@ -583,6 +602,9 @@ class MoveMaker:
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
                 unit.location = loc
+                for a in range(loc[1] - 5, loc[1] + 6):
+                    for b in range(loc[0] - 5, loc[0] + 6):
+                        player.quads_seen.add((b, a))
                 found_valid_loc = True
                 unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
 
@@ -613,6 +635,9 @@ class MoveMaker:
                 new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
                 new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
             player.settlements.append(new_settl)
+            for i in range(new_settl.location[1] - 5, new_settl.location[1] + 6):
+                for j in range(new_settl.location[0] - 5, new_settl.location[0] + 6):
+                    player.quads_seen.add((j, i))
             player.units.remove(unit)
 
     def move_unit(self, player: Player, unit: Unit, other_units: List[Unit], all_players: List[Player],
@@ -661,6 +686,9 @@ class MoveMaker:
                                    nearest_settlement[3] / nearest_settlement[1])
                         unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                          int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                        for a in range(unit.location[1] - 5, unit.location[1] + 6):
+                            for b in range(unit.location[0] - 5, unit.location[0] + 6):
+                                player.quads_seen.add((b, a))
                         unit.remaining_stamina = 0
                 # Deployer units at max capacity move towards the weakest settlement belonging to the player with the
                 # most imminent victories.
@@ -682,10 +710,16 @@ class MoveMaker:
                                                          for setl in all_setls) and
                                                  0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                         player.units.append(deployed)
+                        for i in range(deployed.location[1] - 5, deployed.location[1] + 6):
+                            for j in range(deployed.location[0] - 5, deployed.location[0] + 6):
+                                player.quads_seen.add((j, i))
                     elif len(unit.passengers) == unit.plan.max_capacity:
                         dir_vec = (x_diff / distance, y_diff / distance)
                         unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                          int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                        for a in range(unit.location[1] - 5, unit.location[1] + 6):
+                            for b in range(unit.location[0] - 5, unit.location[0] + 6):
+                                player.quads_seen.add((b, a))
                         unit.remaining_stamina = 0
             # If there are no other players with imminent victories, deployer units can just explore.
             else:
@@ -781,6 +815,9 @@ class MoveMaker:
                                 not any(any(setl_quad.location == loc for setl_quad in setl.quads)
                                         for setl in all_setls):
                             unit.location = loc
+                            for a in range(unit.location[1] - 5, unit.location[1] + 6):
+                                for b in range(unit.location[0] - 5, unit.location[0] + 6):
+                                    player.quads_seen.add((b, a))
                             unit.remaining_stamina = 0
                             found_valid_loc = True
                             break
@@ -830,6 +867,9 @@ class MoveMaker:
                                             u.besieging = False
                                     if player.faction != Faction.CONCENTRATED:
                                         player.settlements.append(data.settlement)
+                                        for i in range(data.settlement.location[1] - 5, data.settlement.location[1] + 6):
+                                            for j in range(data.settlement.location[0] - 5, data.settlement.location[0] + 6):
+                                                player.quads_seen.add((j, i))
                                     setl_owner.settlements.remove(data.settlement)
                     # If we have chosen to place a settlement under siege, and the unit is not already besieging another
                     # settlement, do so.
@@ -867,6 +907,9 @@ class MoveMaker:
                     dir_vec = (x_diff / distance, y_diff / distance)
                     unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                      int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                    for a in range(unit.location[1] - 5, unit.location[1] + 6):
+                        for b in range(unit.location[0] - 5, unit.location[0] + 6):
+                            player.quads_seen.add((b, a))
                     unit.remaining_stamina = 0
             # If there's nothing within range, look for relics or just move randomly.
             else:
