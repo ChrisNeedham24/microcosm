@@ -447,7 +447,7 @@ class GameState:
                 p.eliminated = True
                 self.board.overlay.toggle_elimination(p)
                 # Update the defeats stat if the eliminated player is the human player.
-                if p == self.players[self.player_idx]:
+                if self.player_idx is not None and p == self.players[self.player_idx]:
                     # We ignore any returned achievements here for a couple of reasons - mainly because once eliminated,
                     # the player can't actually view them anyway, because they're taken back to the menu, but also
                     # because it is exceedingly unlikely that the player will have achieved one in the same turn that

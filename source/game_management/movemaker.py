@@ -366,18 +366,17 @@ def search_for_relics_or_move(unit: Unit,
     """
     # The range in which a unit can investigate is actually further than its remaining stamina, as you only
     # have to be next to a relic to investigate it.
-    # TODO I have a feeling something is wrong with the locations here - relics are just disappearing
     investigate_range = unit.remaining_stamina + 1
-    for i in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
-        for j in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
+    for i in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
+        for j in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
             if 0 <= i <= 99 and 0 <= j <= 89 and quads[j][i].is_relic:
                 first_resort: (int, int)
-                second_resort = j, i + 1
-                third_resort = j, i - 1
-                if j - unit.location[0] < 0:
-                    first_resort = j + 1, i
+                second_resort = i, j + 1
+                third_resort = i, j - 1
+                if i - unit.location[0] < 0:
+                    first_resort = i + 1, j
                 else:
-                    first_resort = j - 1, i
+                    first_resort = i - 1, j
                 found_valid_loc = False
                 for loc in [first_resort, second_resort, third_resort]:
                     if not any(u.location == loc for u in player.units) and \

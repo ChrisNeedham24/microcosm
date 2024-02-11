@@ -565,4 +565,9 @@ class LobbyDetails:
 
 @dataclass
 class LoadedMultiplayerState:
-    quad_chunks_loaded: int
+    quad_chunks_loaded: int = 0
+    players_loaded: int = 0
+    total_quads_seen: int = 0
+    quads_seen_loaded: int = 0
+    total_heathens: int = 0
+    heathens_loaded: bool = False

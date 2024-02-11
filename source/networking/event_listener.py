@@ -18,7 +18,7 @@ from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAM
     get_unit_plan, get_blessing, get_heathen
 from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDetails, Quad, Biome, ResourceCollection, \
     OngoingBlessing, InvestigationResult, Settlement, Unit, Heathen, Faction, AIPlaystyle, AttackPlaystyle, \
-    ExpansionPlaystyle
+    ExpansionPlaystyle, LoadedMultiplayerState
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
@@ -608,6 +608,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     evt.quad_chunk_idx = idx
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[evt.identifier])
+                evt.total_quads_seen = sum(len(p.quads_seen) for p in gs.players)
                 for idx, player in enumerate(gs.players):
                     evt.until_night = None
                     evt.nighttime_left = None
@@ -627,6 +628,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 evt.total_quads_seen = None
                 evt.quads_seen_chunk = None
                 evt.heathens_chunk = minify_heathens(gs.heathens)
+                evt.total_heathens = len(gs.heathens)
                 sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                             self.server.clients_ref[evt.identifier])
         else:
@@ -649,6 +651,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                 gs.player_idx = idx
                             gs.players.append(Player(player.name, player.faction,
                                                                 FACTION_COLOURS[player.faction]))
+                        gc.menu.multiplayer_game_being_loaded = LoadedMultiplayerState()
                     if not gs.board:
                         gs.until_night = evt.until_night
                         gs.nighttime_left = evt.nighttime_left
@@ -660,13 +663,21 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         for j in range(100):
                             inflated_quad: Quad = inflate_quad(split_quads[j], location=(j, evt.quad_chunk_idx))
                             gs.board.quads[evt.quad_chunk_idx][j] = inflated_quad
+                        gc.menu.multiplayer_game_being_loaded.quad_chunks_loaded += 1
                     if evt.player_chunk:
                         gs.players[evt.player_chunk_idx] = \
                             inflate_player(evt.player_chunk, gs.board.quads)
+                        gc.menu.multiplayer_game_being_loaded.players_loaded += 1
                     if evt.quads_seen_chunk:
-                        gs.players[evt.player_chunk_idx].quads_seen.update(inflate_quads_seen(evt.quads_seen_chunk))
+                        gc.menu.multiplayer_game_being_loaded.total_quads_seen = evt.total_quads_seen
+                        inflated_quads_seen: typing.Set[typing.Tuple[int, int]] = \
+                            inflate_quads_seen(evt.quads_seen_chunk)
+                        gs.players[evt.player_chunk_idx].quads_seen.update(inflated_quads_seen)
+                        gc.menu.multiplayer_game_being_loaded.quads_seen_loaded += len(inflated_quads_seen)
                     if evt.heathens_chunk:
+                        gc.menu.multiplayer_game_being_loaded.total_heathens = evt.total_heathens
                         gs.heathens = inflate_heathens(evt.heathens_chunk)
+                        gc.menu.multiplayer_game_being_loaded.heathens_loaded = True
                     gs.turn = evt.lobby_details.current_turn
                     state_populated: bool = True
                     for i in range(90):
@@ -695,6 +706,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                             sum(len(p.settlements) for p in gs.players) + 1
                         gc.music_player.stop_menu_music()
                         gc.music_player.play_game_music()
+                        gc.menu.multiplayer_game_being_loaded = None
             else:
                 if gs.player_idx is None:
                     for idx, player in enumerate(evt.lobby_details.current_players):

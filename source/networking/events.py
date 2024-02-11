@@ -189,7 +189,9 @@ class JoinEvent(Event):
     player_chunk: Optional[str] = None
     player_chunk_idx: Optional[int] = None
     quads_seen_chunk: Optional[str] = None
+    total_quads_seen: Optional[int] = None
     heathens_chunk: Optional[str] = None
+    total_heathens: Optional[int] = None
 
 
 @dataclass

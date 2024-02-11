@@ -40,12 +40,12 @@ def minify_settlement(settlement: Settlement) -> str:
     if cw := settlement.current_work:
         match cw.construction:
             case Improvement():
-                settlement_str += "Improvement-"
+                settlement_str += "Improvement%"
             case Project():
-                settlement_str += "Project-"
+                settlement_str += "Project%"
             case UnitPlan():
-                settlement_str += "UnitPlan-"
-        settlement_str += f"{cw.construction.name}-{cw.zeal_consumed}"
+                settlement_str += "UnitPlan%"
+        settlement_str += f"{cw.construction.name}%{cw.zeal_consumed}"
     settlement_str += ";"
     settlement_str += (f"{settlement.level};{settlement.harvest_reserves};"
                        f"{settlement.harvest_status};{settlement.economic_status};"
@@ -146,7 +146,7 @@ def inflate_settlement(setl_str: str, quads: List[List[Quad]]) -> Settlement:
     satisfaction: float = float(split_setl[8])
     current_work: Optional[Construction] = None
     if split_setl[9]:
-        work_details: List[str] = split_setl[9].split("-")
+        work_details: List[str] = split_setl[9].split("%")
         match work_details[0]:
             case "Improvement":
                 current_work = Construction(get_improvement(work_details[1]), float(work_details[2]))

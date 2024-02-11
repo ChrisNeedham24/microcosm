@@ -134,17 +134,29 @@ class Menu:
         pyxel.load(background_path)
         pyxel.blt(0, 0, self.image_bank % 3, 0, 0, 200, 200)
 
-        # TODO it may turn out that we don't need this
         if m_game := self.multiplayer_game_being_loaded:
             pyxel.rectb(30, 30, 140, 100, pyxel.COLOR_WHITE)
             pyxel.rect(31, 31, 138, 98, pyxel.COLOR_BLACK)
-            lobby_name: str = self.multiplayer_lobby.name if self.multiplayer_lobby \
-                else self.multiplayer_lobbies[self.lobby_index].name
-            pyxel.text(72, 35, f"Loading {lobby_name}...", pyxel.COLOR_WHITE)
+            pyxel.text(72, 35, f"Loading {self.multiplayer_lobby.name}...", pyxel.COLOR_WHITE)
             pyxel.text(35, 50, "Quads",
-                       pyxel.COLOR_GREEN if m_game.quad_chunks_loaded == 10 else pyxel.COLOR_WHITE)
-            pyxel.text(160, 50, f"{m_game.quad_chunks_loaded}/10",
-                       pyxel.COLOR_GREEN if m_game.quad_chunks_loaded == 10 else pyxel.COLOR_WHITE)
+                       pyxel.COLOR_GREEN if m_game.quad_chunks_loaded == 90 else pyxel.COLOR_WHITE)
+            pyxel.text(140, 50, f"{m_game.quad_chunks_loaded}/90",
+                       pyxel.COLOR_GREEN if m_game.quad_chunks_loaded == 90 else pyxel.COLOR_WHITE)
+            pyxel.text(35, 60, "Players",
+                       pyxel.COLOR_GREEN if m_game.players_loaded == self.multiplayer_lobby.cfg.player_count
+                       else pyxel.COLOR_WHITE)
+            pyxel.text(140, 60, f"{m_game.players_loaded}/{self.multiplayer_lobby.cfg.player_count}",
+                       pyxel.COLOR_GREEN if m_game.players_loaded == self.multiplayer_lobby.cfg.player_count
+                       else pyxel.COLOR_WHITE)
+            pyxel.text(35, 70, "Quads seen",
+                       pyxel.COLOR_GREEN if m_game.quads_seen_loaded == m_game.total_quads_seen else pyxel.COLOR_WHITE)
+            pyxel.text(130, 70, f"{m_game.quads_seen_loaded}/{m_game.total_quads_seen}",
+                       pyxel.COLOR_GREEN if m_game.quads_seen_loaded == m_game.total_quads_seen else pyxel.COLOR_WHITE)
+            pyxel.text(35, 80, "Heathens", pyxel.COLOR_GREEN if m_game.heathens_loaded else pyxel.COLOR_WHITE)
+            pyxel.text(140, 80,
+                       f"{m_game.total_heathens}/{m_game.total_heathens}" if m_game.heathens_loaded
+                       else f"0/{m_game.total_heathens}",
+                       pyxel.COLOR_GREEN if m_game.heathens_loaded else pyxel.COLOR_WHITE)
         elif self.in_multiplayer_lobby and (lob := self.multiplayer_lobby):
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
@@ -153,7 +165,6 @@ class Menu:
             pyxel.text(28, 40, "Lobby Name", pyxel.COLOR_WHITE)
             lobby_offset = 50 - pow(len(lob.name), 1.4)
             pyxel.text(100 + lobby_offset, 40, lob.name, pyxel.COLOR_GREEN)
-            # TODO Turn timers? Would need like a game settings page
             pyxel.text(80, 50, f"{len(lob.current_players)}/{lob.cfg.player_count} players", pyxel.COLOR_WHITE)
 
             pyxel.line(24, 58, 175, 58, pyxel.COLOR_GRAY)
