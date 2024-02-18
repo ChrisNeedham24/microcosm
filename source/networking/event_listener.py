@@ -692,6 +692,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                             state_populated = False
                     if gs.turn > 5 and not gs.heathens:
                         state_populated = False
+                    # TODO there may be something weird going on with joining games later on - not all players/quads
+                    #  seen being sent/received?
                     if state_populated:
                         pyxel.mouse(visible=True)
                         gc.last_turn_time = time.time()
@@ -748,12 +750,14 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 # populated - this affects how units will move.
                 gs.check_for_victory()
                 gs.process_heathens()
+                # TODO Something weird going on with settlement names? Noticed a duplicate
                 gs.process_ais(self.server.move_makers_ref[evt.game_name])
                 for p in self.server.game_clients_ref[evt.game_name]:
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[p.id])
                 gs.ready_players.clear()
         else:
+            gs.processing_turn = True
             for idx, player in enumerate(gs.players):
                 gs.process_player(player, idx == gs.player_idx)
             if gs.turn % 5 == 0:
@@ -771,11 +775,12 @@ class RequestHandler(socketserver.BaseRequestHandler):
             if possible_vic is not None:
                 gs.board.overlay.toggle_victory(possible_vic)
                 # TODO handle victory/defeat stats/achs in here later
-            gs.board.waiting_for_other_players = False
             # TODO handle playtime stats/achs
             gs.board.overlay.total_settlement_count = sum(len(p.settlements) for p in gs.players)
             gs.process_heathens()
             gs.process_ais(self.server.game_controller_ref.move_maker)
+            gs.board.waiting_for_other_players = False
+            gs.processing_turn = False
 
     def process_unready_event(self, evt: UnreadyEvent):
         self.server.game_states_ref[evt.game_name].ready_players.remove(evt.identifier)

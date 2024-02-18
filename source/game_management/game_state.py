@@ -43,6 +43,7 @@ class GameState:
 
         self.player_idx: typing.Optional[int] = None
         self.ready_players: typing.Set[int] = set()
+        self.processing_turn: bool = False
 
     def reset_state(self):
         self.board = None
@@ -55,6 +56,7 @@ class GameState:
         self.nighttime_left = 0
         self.player_idx = None
         self.ready_players = set()
+        self.processing_turn = False
 
     def gen_players(self, cfg: GameConfig):
         """

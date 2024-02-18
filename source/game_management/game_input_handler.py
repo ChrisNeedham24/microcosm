@@ -413,7 +413,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.overlay.is_investigation() or game_state.board.overlay.is_night() or
             game_state.board.overlay.is_ach_notif() or game_state.board.overlay.is_elimination()):
         if game_state.board.game_config.multiplayer:
-            if not game_state.check_for_warnings():
+            if not game_state.processing_turn and not game_state.check_for_warnings():
                 game_state.board.waiting_for_other_players = not game_state.board.waiting_for_other_players
                 if game_state.board.waiting_for_other_players:
                     et_evt: EndTurnEvent = EndTurnEvent(EventType.END_TURN, datetime.datetime.now(),

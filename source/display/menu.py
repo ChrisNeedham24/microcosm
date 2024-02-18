@@ -766,7 +766,9 @@ class Menu:
         elif self.viewing_lobbies:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
-            # TODO test joining after 100 turns with 13 AIs for accuracy - NOT ACCURATE UNITS AND SETTLEMENTS ARE WRONG
+            # TODO test joining after 100 turns with 13 AIs for accuracy - some cases where things are out of sync
+            #  Hard to replicate, but have had some success when ending turns VERY QUICKLY
+            #  Have not been able to replicate when taking at least a second on a turn
             # TODO test joining after 100 turns with 13 AIs for quads seen - still a little bit cooked
             pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
             for idx, lobby in enumerate(self.multiplayer_lobbies):

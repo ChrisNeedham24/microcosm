@@ -382,6 +382,7 @@ def search_for_relics_or_move(unit: Unit,
                     if not any(u.location == loc for u in player.units) and \
                             not any(other_u.location == loc for other_u in other_units) and \
                             not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
+                        print("INV", unit.plan.name, loc)
                         unit.location = loc
                         for a in range(loc[1] - 5, loc[1] + 6):
                             for b in range(loc[0] - 5, loc[0] + 6):
@@ -404,6 +405,7 @@ def search_for_relics_or_move(unit: Unit,
         if not any(u.location == loc and u != unit for u in player.units) and \
                 not any(other_u.location == loc for other_u in other_units) and \
                 not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
+            print("MOVE", unit.plan.name, loc)
             unit.location = loc
             for a in range(loc[1] - 5, loc[1] + 6):
                 for b in range(loc[0] - 5, loc[0] + 6):
@@ -449,6 +451,7 @@ def move_healer_unit(player: Player, unit: Unit, other_units: List[Unit],
             if not any(u.location == loc for u in player.units) and \
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
+                print("HEAL", unit.plan.name, loc)
                 unit.location = loc
                 for a in range(loc[1] - 5, loc[1] + 6):
                     for b in range(loc[0] - 5, loc[0] + 6):
@@ -600,6 +603,7 @@ class MoveMaker:
             if not any(u.location == loc and u != unit for u in player.units) and \
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
+                print("SETMOVE", unit.plan.name, loc)
                 unit.location = loc
                 for a in range(loc[1] - 5, loc[1] + 6):
                     for b in range(loc[0] - 5, loc[0] + 6):
@@ -685,6 +689,7 @@ class MoveMaker:
                                    nearest_settlement[3] / nearest_settlement[1])
                         unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                          int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                        print("REVBEELINE", unit.plan.name, unit.location)
                         for a in range(unit.location[1] - 5, unit.location[1] + 6):
                             for b in range(unit.location[0] - 5, unit.location[0] + 6):
                                 player.quads_seen.add((b, a))
@@ -716,6 +721,7 @@ class MoveMaker:
                         dir_vec = (x_diff / distance, y_diff / distance)
                         unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                          int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                        print("REVBEELINE", unit.plan.name, unit.location)
                         for a in range(unit.location[1] - 5, unit.location[1] + 6):
                             for b in range(unit.location[0] - 5, unit.location[0] + 6):
                                 player.quads_seen.add((b, a))
@@ -813,6 +819,7 @@ class MoveMaker:
                                 not any(other_u.location == loc for other_u in other_units) and \
                                 not any(any(setl_quad.location == loc for setl_quad in setl.quads)
                                         for setl in all_setls):
+                            print("ATTACK", unit.plan.name, loc)
                             unit.location = loc
                             for a in range(unit.location[1] - 5, unit.location[1] + 6):
                                 for b in range(unit.location[0] - 5, unit.location[0] + 6):
@@ -906,6 +913,7 @@ class MoveMaker:
                     dir_vec = (x_diff / distance, y_diff / distance)
                     unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                      int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                    print("BEELINE", unit.plan.name, unit.location)
                     for a in range(unit.location[1] - 5, unit.location[1] + 6):
                         for b in range(unit.location[0] - 5, unit.location[0] + 6):
                             player.quads_seen.add((b, a))
