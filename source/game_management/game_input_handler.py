@@ -14,7 +14,7 @@ from source.networking.events import CreateEvent, EventType, QueryEvent, LeaveEv
     SetConstructionEvent, UpdateAction, SetBlessingEvent, BesiegeSettlementEvent, BuyoutConstructionEvent, \
     DisbandUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, AutofillEvent
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
-    subtract_player_resources_for_improvement
+    subtract_player_resources_for_improvement, update_player_quads_seen_around_point
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
     PROJECTS, FACTION_COLOURS
 from source.game_management.game_controller import GameController
@@ -348,9 +348,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     # settlements simply disappear.
                     if game_state.players[game_state.player_idx].faction != Faction.CONCENTRATED:
                         game_state.players[game_state.player_idx].settlements.append(data.settlement)
-                        for i in range(data.settlement.location[1] - 5, data.settlement.location[1] + 6):
-                            for j in range(data.settlement.location[0] - 5, data.settlement.location[0] + 6):
-                                game_state.players[game_state.player_idx].quads_seen.add((j, i))
+                        update_player_quads_seen_around_point(game_state.players[game_state.player_idx],
+                                                              data.settlement.location)
                     for idx, p in enumerate(game_state.players):
                         if data.settlement in p.settlements and idx != 0:
                             p.settlements.remove(data.settlement)

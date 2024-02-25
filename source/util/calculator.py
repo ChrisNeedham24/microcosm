@@ -275,9 +275,7 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
             player.wealth += 25
             return InvestigationResult.WEALTH
         if random_chance < 30 and cfg.fog_of_war:
-            for i in range(relic_loc[1] - 10, relic_loc[1] + 11):
-                for j in range(relic_loc[0] - 10, relic_loc[0] + 11):
-                    player.quads_seen.add((j, i))
+            update_player_quads_seen_around_point(player, relic_loc, vision_range=10)
             return InvestigationResult.VISION
         if random_chance < 40:
             unit.plan.max_health += 5
@@ -399,3 +397,9 @@ def subtract_player_resources_for_improvement(player: Player, improvement: Impro
 def split_list_into_chunks(list_to_split: list, chunk_length: int) -> typing.Generator[list, None, None]:
     for i in range(0, len(list_to_split), chunk_length):
         yield list_to_split[i:i + chunk_length]
+
+
+def update_player_quads_seen_around_point(player: Player, point: (int, int), vision_range: int = 5):
+    for i in range(point[1] - vision_range, point[1] + vision_range + 1):
+        for j in range(point[0] - vision_range, point[0] + vision_range + 1):
+            player.quads_seen.add((clamp(j, 0, 99), clamp(i, 0, 89)))

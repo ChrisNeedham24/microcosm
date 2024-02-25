@@ -3,7 +3,8 @@ import typing
 
 from source.display.board import Board
 from source.saving.game_save_manager import save_stats_achievements
-from source.util.calculator import clamp, attack, get_setl_totals, complete_construction, get_resources_for_settlement
+from source.util.calculator import clamp, attack, get_setl_totals, complete_construction, get_resources_for_settlement, \
+    update_player_quads_seen_around_point
 from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
 from source.foundation.models import Heathen, Quad
 from source.foundation.models import Player, Settlement, CompletedConstruction, Unit, HarvestStatus, EconomicStatus, \
@@ -223,11 +224,7 @@ class GameState:
                     setl.quads.append(best_quad_with_yield[0])
                     setl.resources = \
                         get_resources_for_settlement([quad.location for quad in setl.quads], self.board.quads)
-                    for i in range(best_quad_with_yield[0].location[1] - 5,
-                                   best_quad_with_yield[0].location[1] + 6):
-                        for j in range(best_quad_with_yield[0].location[0] - 5,
-                                       best_quad_with_yield[0].location[0] + 6):
-                            player.quads_seen.add((j, i))
+                    update_player_quads_seen_around_point(player, best_quad_with_yield[0].location)
 
             if setl.resources:
                 # Only core resources accumulate.
@@ -275,6 +272,7 @@ class GameState:
         # Update the player's wealth.
         player.wealth = max(player.wealth + overall_wealth, 0)
         player.accumulated_wealth += overall_wealth
+        # print(player.faction, len(player.units))
 
     def process_climatic_effects(self, reseed_random: bool = True):
         """
@@ -565,9 +563,7 @@ class GameState:
             # Players of the Infidels faction share vision with Heathen units.
             for player in self.players:
                 if player.faction == Faction.INFIDELS:
-                    for i in range(heathen.location[1] - 5, heathen.location[1] + 6):
-                        for j in range(heathen.location[0] - 5, heathen.location[0] + 6):
-                            player.quads_seen.add((j, i))
+                    update_player_quads_seen_around_point(player, heathen.location)
                     break
 
     def initialise_ais(self, namer: Namer):
@@ -598,9 +594,7 @@ class GameState:
                     new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
 
                 player.settlements.append(new_settl)
-                for i in range(new_settl.location[1] - 5, new_settl.location[1] + 6):
-                    for j in range(new_settl.location[0] - 5, new_settl.location[0] + 6):
-                        player.quads_seen.add((j, i))
+                update_player_quads_seen_around_point(player, new_settl.location)
 
     def process_ais(self, move_maker: MoveMaker):
         """

@@ -767,9 +767,10 @@ class Menu:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
             # TODO test joining after 100 turns with 13 AIs for accuracy - some cases where things are out of sync
-            #  Hard to replicate, but have had some success when ending turns VERY QUICKLY
-            #  Have not been able to replicate when taking at least a second on a turn
+            #  The actual unit counts for AI players is different in these cases - look into that
             # TODO test joining after 100 turns with 13 AIs for quads seen - still a little bit cooked
+            #  The edges aren't hard in every case, and there are just random quads added to the set - maybe
+            #  minification-related?
             pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
             for idx, lobby in enumerate(self.multiplayer_lobbies):
                 human_players: typing.List[PlayerDetails] = [p for p in lobby.current_players if not p.is_ai]

@@ -12,7 +12,7 @@ from source.networking.client import dispatch_event
 from source.networking.events import FoundSettlementEvent, EventType, UpdateAction, MoveUnitEvent, DeployUnitEvent, \
     GarrisonUnitEvent, InvestigateEvent, AttackUnitEvent, HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent
 from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal, \
-    get_resources_for_settlement
+    get_resources_for_settlement, update_player_quads_seen_around_point
 from source.foundation.catalogue import get_default_unit, Namer
 from source.foundation.models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, \
     Faction, DeployerUnit, ResourceCollection
@@ -610,9 +610,7 @@ class Board:
                         new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
                     player.settlements.append(new_settl)
                     # Automatically add 5 quads in either direction to the player's seen.
-                    for i in range(adj_y - 5, adj_y + 6):
-                        for j in range(adj_x - 5, adj_x + 6):
-                            player.quads_seen.add((j, i))
+                    update_player_quads_seen_around_point(player, (adj_x, adj_y))
                     self.overlay.toggle_tutorial()
                     # Select the new settlement.
                     self.selected_settlement = new_settl
@@ -712,9 +710,7 @@ class Board:
                         deployed.location = adj_x, adj_y
                         player.units.append(deployed)
                         # Add the surrounding quads to the player's seen.
-                        for i in range(adj_y - 5, adj_y + 6):
-                            for j in range(adj_x - 5, adj_x + 6):
-                                player.quads_seen.add((j, i))
+                        update_player_quads_seen_around_point(player, (adj_x, adj_y))
                         if self.game_config.multiplayer:
                             du_evt: DeployUnitEvent = DeployUnitEvent(EventType.UPDATE, datetime.datetime.now(),
                                                                       hash((uuid.getnode(), os.getpid())),
@@ -745,9 +741,7 @@ class Board:
                         self.selected_unit.passengers[unit_idx:unit_idx + 1] = []
                         player.units.append(deployed)
                         # Add the surrounding quads to the player's seen.
-                        for i in range(adj_y - 5, adj_y + 6):
-                            for j in range(adj_x - 5, adj_x + 6):
-                                player.quads_seen.add((j, i))
+                        update_player_quads_seen_around_point(player, (adj_x, adj_y))
                         if self.game_config.multiplayer:
                             dd_evt: DeployerDeployEvent = DeployerDeployEvent(EventType.UPDATE, datetime.datetime.now(),
                                                                               hash((uuid.getnode(), os.getpid())),
@@ -870,9 +864,7 @@ class Board:
                                 found_besieged_setl = True
                         self.selected_unit.besieging = found_besieged_setl
                         # Update the player's seen quads.
-                        for i in range(adj_y - 5, adj_y + 6):
-                            for j in range(adj_x - 5, adj_x + 6):
-                                player.quads_seen.add((j, i))
+                        update_player_quads_seen_around_point(player, (adj_x, adj_y))
                         if self.game_config.multiplayer:
                             mu_evt: MoveUnitEvent = MoveUnitEvent(EventType.UPDATE, datetime.datetime.now(),
                                                                   hash((uuid.getnode(), os.getpid())),
@@ -936,9 +928,7 @@ class Board:
                 new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
                 new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
             player.settlements.append(new_settl)
-            for i in range(new_settl.location[1] - 5, new_settl.location[1] + 6):
-                for j in range(new_settl.location[0] - 5, new_settl.location[0] + 6):
-                    player.quads_seen.add((j, i))
+            update_player_quads_seen_around_point(player, new_settl.location)
             # Destroy the settler unit and select the new settlement.
             player.units.remove(self.selected_unit)
             if self.game_config.multiplayer:

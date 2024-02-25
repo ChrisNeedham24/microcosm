@@ -30,7 +30,8 @@ from source.networking.events import Event, EventType, CreateEvent, InitEvent, U
     HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent, AutofillEvent
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_quad, migrate_unit, migrate_player
-from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp
+from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp, \
+    update_player_quads_seen_around_point
 from source.util.minifier import minify_quad, inflate_quad, minify_player, inflate_player, minify_heathens, \
     inflate_heathens, minify_quads_seen, inflate_quads_seen
 
@@ -202,9 +203,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             evt.settlement.garrison[idx] = migrate_unit(u)
         player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
         player.settlements.append(evt.settlement)
-        for i in range(evt.settlement.location[1] - 5, evt.settlement.location[1] + 6):
-            for j in range(evt.settlement.location[0] - 5, evt.settlement.location[0] + 6):
-                player.quads_seen.add((j, i))
+        update_player_quads_seen_around_point(player, evt.settlement.location)
         if evt.from_settler:
             settler_unit = next(u for u in player.units if u.location == evt.settlement.location)
             player.units.remove(settler_unit)
@@ -255,9 +254,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                       if pl.faction == evt.player_faction)
         unit = next(u for u in player.units if u.location == (evt.initial_loc[0], evt.initial_loc[1]))
         unit.location = (evt.new_loc[0], evt.new_loc[1])
-        for i in range(unit.location[1] - 5, unit.location[1] + 6):
-            for j in range(unit.location[0] - 5, unit.location[0] + 6):
-                player.quads_seen.add((j, i))
+        update_player_quads_seen_around_point(player, unit.location)
         unit.remaining_stamina = evt.new_stamina
         unit.besieging = evt.besieging
         if self.server.is_server:
@@ -274,9 +271,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         deployed = setl.garrison.pop()
         deployed.garrisoned = False
         deployed.location = (evt.location[0], evt.location[1])
-        for i in range(deployed.location[1] - 5, deployed.location[1] + 6):
-            for j in range(deployed.location[0] - 5, deployed.location[0] + 6):
-                player.quads_seen.add((j, i))
+        update_player_quads_seen_around_point(player, deployed.location)
         player.units.append(deployed)
         if self.server.is_server:
             for p in self.server.game_clients_ref[evt.game_name]:
@@ -312,9 +307,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             case InvestigationResult.WEALTH:
                 player.wealth += 25
             case InvestigationResult.VISION:
-                for i in range(evt.relic_loc[1] - 10, evt.relic_loc[1] + 11):
-                    for j in range(evt.relic_loc[0] - 10, evt.relic_loc[0] + 11):
-                        player.quads_seen.add((j, i))
+                update_player_quads_seen_around_point(player, evt.relic_loc, vision_range=10)
             case InvestigationResult.HEALTH:
                 unit.plan.max_health += 5
                 unit.health += 5
@@ -445,9 +438,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         break
             if player.faction != Faction.CONCENTRATED:
                 player.settlements.append(setl[0])
-                for i in range(setl[0].location[1] - 5, setl[0].location[1] + 6):
-                    for j in range(setl[0].location[0] - 5, setl[0].location[0] + 6):
-                        player.quads_seen.add((j, i))
+                update_player_quads_seen_around_point(player, setl[0].location)
             setl[1].settlements.remove(setl[0])
         if self.server.is_server:
             for p in self.server.game_clients_ref[evt.game_name]:
@@ -501,9 +492,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         deployed.location = (evt.deployed_loc[0], evt.deployed_loc[1])
         deployer.passengers[evt.passenger_idx:evt.passenger_idx + 1] = []
         player.units.append(deployed)
-        for i in range(deployed.location[1] - 5, deployed.location[1] + 6):
-            for j in range(deployed.location[0] - 5, deployed.location[0] + 6):
-                player.quads_seen.add((j, i))
+        update_player_quads_seen_around_point(player, deployed.location)
         if self.server.is_server:
             for p in self.server.game_clients_ref[evt.game_name]:
                 if p.faction != evt.player_faction:
