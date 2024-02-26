@@ -604,6 +604,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     evt.cfg = None
                     evt.quad_chunk = None
                     evt.quad_chunk_idx = None
+                    evt.quads_seen_chunk = None
                     evt.player_chunk = minify_player(player)
                     evt.player_chunk_idx = idx
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),

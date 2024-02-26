@@ -272,7 +272,6 @@ class GameState:
         # Update the player's wealth.
         player.wealth = max(player.wealth + overall_wealth, 0)
         player.accumulated_wealth += overall_wealth
-        # print(player.faction, len(player.units))
 
     def process_climatic_effects(self, reseed_random: bool = True):
         """

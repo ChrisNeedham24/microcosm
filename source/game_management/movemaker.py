@@ -529,10 +529,12 @@ class MoveMaker:
                                             if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                             0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                     player.units.append(settler)
+                    print("SETAPP", settler.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction)
                     update_player_quads_seen_around_point(player, settler.location)
                     setl.garrison.remove(settler)
             # Deploy a unit from the garrison if the AI is not defensive, or the settlement is under siege or attack, or
             # there are too many units garrisoned.
+            print(len(setl.garrison), player.ai_playstyle.attacking.value if isinstance(player.ai_playstyle.attacking, AttackPlaystyle) else player.ai_playstyle.attacking, setl.besieged, setl.strength, setl.max_strength)
             if (len(setl.garrison) > 0 and
                 (player.ai_playstyle.attacking != AttackPlaystyle.DEFENSIVE or setl.besieged
                  or setl.strength < setl.max_strength / 2)) or len(setl.garrison) > 3:
@@ -542,6 +544,7 @@ class MoveMaker:
                                          if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                          0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                 player.units.append(deployed)
+                print("UNITAPP", deployed.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction)
                 update_player_quads_seen_around_point(player, deployed.location)
             # If another player is close to a victory, and there are deployer units in the garrison, deploy all of them.
             if other_player_vics and \
@@ -552,6 +555,7 @@ class MoveMaker:
                                              if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                              0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                     player.units.append(deployer)
+                    print("DEPAPP", deployer.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction)
                     update_player_quads_seen_around_point(player, deployer.location)
                     setl.garrison.remove(deployer)
         all_units = []
@@ -696,6 +700,7 @@ class MoveMaker:
                                                          for setl in all_setls) and
                                                  0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                         player.units.append(deployed)
+                        print("BEEAPP", deployed.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction)
                         update_player_quads_seen_around_point(player, deployed.location)
                     elif len(unit.passengers) == unit.plan.max_capacity:
                         dir_vec = (x_diff / distance, y_diff / distance)
