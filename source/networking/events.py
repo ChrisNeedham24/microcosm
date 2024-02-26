@@ -202,8 +202,6 @@ class RegisterEvent(Event):
 @dataclass
 class EndTurnEvent(Event):
     game_name: str
-    player_faction: Faction
-    ai_random_seed: Optional[int] = None
 
 
 @dataclass

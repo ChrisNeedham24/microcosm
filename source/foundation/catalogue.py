@@ -476,6 +476,7 @@ ACHIEVEMENTS: typing.List[Achievement] = [
                 lambda gs, _: ((res := gs.players[0].resources).aurora and
                                res.bloodstone and res.obsidian and res.sunstone and res.aquamarine))
 ]
+# TODO add multiplayer achievements
 
 
 def get_heathen_plan(turn: int) -> UnitPlan:

@@ -28,6 +28,7 @@ from source.networking.events import Event, EventType, CreateEvent, InitEvent, U
     MoveUnitEvent, DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent, \
     BuyoutConstructionEvent, DisbandUnitEvent, AttackUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, \
     HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent, AutofillEvent
+from source.saving.game_save_manager import save_stats_achievements
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_quad, migrate_unit, migrate_player
 from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp, \
@@ -153,7 +154,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gc.last_turn_time = time.time()
                 gsrs["local"].game_started = True
                 gsrs["local"].on_menu = False
-                # TODO add stats/achs later
+                # Update stats to include the newly-selected faction.
+                save_stats_achievements(gsrs["local"],
+                                        faction_to_add=gsrs["local"].players[gsrs["local"].player_idx].faction)
                 gsrs["local"].board.overlay.toggle_tutorial()
                 gsrs["local"].board.overlay.total_settlement_count = \
                     sum(len(p.settlements) for p in gsrs["local"].players) + 1
@@ -506,7 +509,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gs: GameState = self.server.game_states_ref[name]
                 player_details: typing.List[PlayerDetails] = []
                 player_details.extend(self.server.game_clients_ref[name])
-                for player in [p for p in gs.players if p.ai_playstyle]:
+                for player in [p for p in gs.players if p.ai_playstyle and not p.eliminated]:
                     player_details.append(PlayerDetails(player.name, player.faction, 0, "", is_ai=True))
                 lobbies.append(LobbyDetails(name, player_details, cfg, None if not gs.game_started else gs.turn))
             resp_evt: QueryEvent = QueryEvent(EventType.QUERY, datetime.datetime.now(), None, lobbies)
@@ -527,9 +530,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 self.server.lobbies_ref.pop(evt.lobby_name)
                 self.server.game_states_ref.pop(evt.lobby_name)
             else:
-                player = next(p for p in self.server.game_states_ref[evt.lobby_name].players
-                              if p.faction == client_to_remove.faction)
-                if self.server.game_states_ref[evt.lobby_name].game_started:
+                gs: GameState = self.server.game_states_ref[evt.lobby_name]
+                player = next(p for p in gs.players if p.faction == client_to_remove.faction)
+                if gs.game_started:
                     player.ai_playstyle = AIPlaystyle(random.choice(list(AttackPlaystyle)),
                                                       random.choice(list(ExpansionPlaystyle)))
                     evt.player_ai_playstyle = player.ai_playstyle
@@ -537,7 +540,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 for p in self.server.game_clients_ref[evt.lobby_name]:
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[p.id])
-                # TODO Can ping off an end turn event if everyone else left is ready
+                if len(gs.ready_players) == len(self.server.game_clients_ref[evt.lobby_name]):
+                    self._server_end_turn(gs, EndTurnEvent(EventType.END_TURN, datetime.datetime.now(),
+                                                           identifier=None, game_name=evt.lobby_name), sock)
         else:
             gs = self.server.game_states_ref["local"]
             player = next(p for p in gs.players if p.faction == evt.leaving_player_faction)
@@ -607,6 +612,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     evt.quads_seen_chunk = None
                     evt.player_chunk = minify_player(player)
                     evt.player_chunk_idx = idx
+                    # print(idx)
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[evt.identifier])
                     evt.player_chunk = None
@@ -655,15 +661,18 @@ class RequestHandler(socketserver.BaseRequestHandler):
                             gs.board.quads[evt.quad_chunk_idx][j] = inflated_quad
                         gc.menu.multiplayer_game_being_loaded.quad_chunks_loaded += 1
                     if evt.player_chunk:
+                        # print(evt.player_chunk_idx)
                         gs.players[evt.player_chunk_idx] = \
                             inflate_player(evt.player_chunk, gs.board.quads)
                         gc.menu.multiplayer_game_being_loaded.players_loaded += 1
                     if evt.quads_seen_chunk:
-                        gc.menu.multiplayer_game_being_loaded.total_quads_seen = evt.total_quads_seen
+                        if gc.menu.multiplayer_game_being_loaded:
+                            gc.menu.multiplayer_game_being_loaded.total_quads_seen = evt.total_quads_seen
                         inflated_quads_seen: typing.Set[typing.Tuple[int, int]] = \
                             inflate_quads_seen(evt.quads_seen_chunk)
                         gs.players[evt.player_chunk_idx].quads_seen.update(inflated_quads_seen)
-                        gc.menu.multiplayer_game_being_loaded.quads_seen_loaded += len(inflated_quads_seen)
+                        if gc.menu.multiplayer_game_being_loaded:
+                            gc.menu.multiplayer_game_being_loaded.quads_seen_loaded += len(inflated_quads_seen)
                     if evt.heathens_chunk:
                         gc.menu.multiplayer_game_being_loaded.total_heathens = evt.total_heathens
                         gs.heathens = inflate_heathens(evt.heathens_chunk)
@@ -683,13 +692,17 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     if gs.turn > 5 and not gs.heathens:
                         state_populated = False
                     # TODO there may be something weird going on with joining games later on - not all players/quads
-                    #  seen being sent/received?
+                    #  seen being received?
+                    #  Seen more often with 20k+ quads seen
+                    #  They're being sent - so probably is just packet loss - test with server - implement re-pinging
+                    #  after timeout
                     if state_populated:
                         pyxel.mouse(visible=True)
                         gc.last_turn_time = time.time()
                         gs.game_started = True
                         gs.on_menu = False
-                        # TODO add stats/achs later
+                        # Update stats to include the newly-selected faction.
+                        save_stats_achievements(gsrs["local"], faction_to_add=evt.player_faction)
                         # Initialise the map position to the player's first settlement.
                         gs.map_pos = (clamp(gs.players[gs.player_idx].settlements[0].location[0] - 12, -1, 77),
                                               clamp(gs.players[gs.player_idx].settlements[0].location[1] - 11, -1, 69))
@@ -717,6 +730,37 @@ class RequestHandler(socketserver.BaseRequestHandler):
     def process_register_event(self, evt: RegisterEvent):
         self.server.clients_ref[evt.identifier] = self.client_address[0], evt.port
 
+    def _server_end_turn(self, gs: GameState, evt: EndTurnEvent, sock: socket.socket):
+        for idx, player in enumerate(gs.players):
+            gs.process_player(player, idx == gs.player_idx)
+        if gs.turn % 5 == 0:
+            new_heathen_loc: (int, int) = random.randint(0, 89), random.randint(0, 99)
+            gs.heathens.append(get_heathen(new_heathen_loc, gs.turn))
+        for h in gs.heathens:
+            h.remaining_stamina = h.plan.total_stamina
+            if h.health < h.plan.max_health:
+                h.health = min(h.health + h.plan.max_health * 0.1, h.plan.max_health)
+        gs.turn += 1
+        if gs.board.game_config.climatic_effects:
+            gs.process_climatic_effects(reseed_random=False)
+        # We need to check for victories on the server as well so each player's imminent victories are
+        # populated - this affects how units will move.
+        gs.check_for_victory()
+        gs.process_heathens()
+        # TODO Something weird going on with settlement names? Noticed a duplicate
+        #  Yet to reproduce this
+        # setl_names = []
+        # for p in gs.players:
+        #     setl_names.extend([s.name for s in p.settlements])
+        # seen = set()
+        # dupes = [x for x in setl_names if x in seen or seen.add(x)]
+        # print(dupes)
+        gs.process_ais(self.server.move_makers_ref[evt.game_name])
+        for p in self.server.game_clients_ref[evt.game_name]:
+            sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                        self.server.clients_ref[p.id])
+        gs.ready_players.clear()
+
     def process_end_turn_event(self, evt: EndTurnEvent, sock: socket.socket):
         game_name: str = evt.game_name if self.server.is_server else "local"
         gs: GameState = self.server.game_states_ref[game_name]
@@ -724,28 +768,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         if self.server.is_server:
             gs.ready_players.add(evt.identifier)
             if len(gs.ready_players) == len(self.server.game_clients_ref[evt.game_name]):
-                for idx, player in enumerate(gs.players):
-                    gs.process_player(player, idx == gs.player_idx)
-                if gs.turn % 5 == 0:
-                    new_heathen_loc: (int, int) = random.randint(0, 89), random.randint(0, 99)
-                    gs.heathens.append(get_heathen(new_heathen_loc, gs.turn))
-                for h in gs.heathens:
-                    h.remaining_stamina = h.plan.total_stamina
-                    if h.health < h.plan.max_health:
-                        h.health = min(h.health + h.plan.max_health * 0.1, h.plan.max_health)
-                gs.turn += 1
-                if gs.board.game_config.climatic_effects:
-                    gs.process_climatic_effects(reseed_random=False)
-                # We need to check for victories on the server as well so each player's imminent victories are
-                # populated - this affects how units will move.
-                gs.check_for_victory()
-                gs.process_heathens()
-                # TODO Something weird going on with settlement names? Noticed a duplicate
-                gs.process_ais(self.server.move_makers_ref[evt.game_name])
-                for p in self.server.game_clients_ref[evt.game_name]:
-                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
-                                self.server.clients_ref[p.id])
-                gs.ready_players.clear()
+                self._server_end_turn(gs, evt, sock)
         else:
             gs.processing_turn = True
             for idx, player in enumerate(gs.players):

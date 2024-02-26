@@ -416,8 +416,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_state.board.waiting_for_other_players = not game_state.board.waiting_for_other_players
                 if game_state.board.waiting_for_other_players:
                     et_evt: EndTurnEvent = EndTurnEvent(EventType.END_TURN, datetime.datetime.now(),
-                                                        hash((uuid.getnode(), os.getpid())), game_state.board.game_name,
-                                                        game_state.players[game_state.player_idx].faction)
+                                                        hash((uuid.getnode(), os.getpid())), game_state.board.game_name)
                     dispatch_event(et_evt)
                 else:
                     u_evt: UnreadyEvent = UnreadyEvent(EventType.UNREADY, datetime.datetime.now(),
