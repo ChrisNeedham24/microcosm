@@ -767,7 +767,7 @@ class Menu:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
             # TODO test joining after 100 turns with 13 AIs for accuracy - some cases where things are out of sync
-            #  The actual unit counts for AI players is different in these cases - look into that
+            #  Incorrect quad migration was probably causing this issue - now fixed - run 10 tests or so
             pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
             for idx, lobby in enumerate(self.multiplayer_lobbies):
                 human_players: typing.List[PlayerDetails] = [p for p in lobby.current_players if not p.is_ai]

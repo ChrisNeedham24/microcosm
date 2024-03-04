@@ -139,7 +139,7 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
     :param location: The backup location to use for the quad if it is from an outdated save.
     :return: An optionally-migrated Quad representation.
     """
-    new_quad = quad
+    new_quad: Quad = quad
     # The biomes require special loading.
     new_quad.biome = Biome[new_quad.biome]
     new_quad.is_relic = new_quad.is_relic if hasattr(new_quad, "is_relic") else False
@@ -151,7 +151,8 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
                                                res.aurora, res.bloodstone, res.obsidian, res.sunstone, res.aquamarine)
     else:
         new_quad.resource = None
-    return new_quad
+    return Quad(new_quad.biome, new_quad.wealth, new_quad.harvest, new_quad.zeal, new_quad.fortune, new_quad.location,
+                new_quad.resource, is_relic=new_quad.is_relic)
 
 
 def migrate_settlement(settlement):

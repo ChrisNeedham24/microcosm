@@ -213,6 +213,7 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
         if len(avail_imps) > 0 and setl.satisfaction + avail_imps[0].effect.satisfaction >= 50 \
         else avail_units[0]
     totals = get_setl_totals(player, setl, is_night)
+    # print(player.faction.value if isinstance(player.faction, Faction) else player.faction, totals)
 
     # If the AI player has neither units on the board nor garrisoned, construct the first available.
     if len(player.units) == 0 and len(setl.garrison) == 0:
@@ -509,6 +510,7 @@ class MoveMaker:
         for setl in player.settlements:
             if setl.current_work is None:
                 set_ai_construction(player, setl, is_night, other_player_vics)
+                # print(setl.current_work)
             elif player.faction != Faction.FUNDAMENTALISTS:
                 cons = setl.current_work.construction
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out. In
