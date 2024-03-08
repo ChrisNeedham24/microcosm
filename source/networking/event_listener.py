@@ -747,14 +747,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
         # populated - this affects how units will move.
         gs.check_for_victory()
         gs.process_heathens()
-        # TODO Something weird going on with settlement names? Noticed a duplicate
-        #  Yet to reproduce this
-        # setl_names = []
-        # for p in gs.players:
-        #     setl_names.extend([s.name for s in p.settlements])
-        # seen = set()
-        # dupes = [x for x in setl_names if x in seen or seen.add(x)]
-        # print(dupes)
         gs.process_ais(self.server.move_makers_ref[evt.game_name])
         for p in self.server.game_clients_ref[evt.game_name]:
             sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
@@ -764,6 +756,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
     def process_end_turn_event(self, evt: EndTurnEvent, sock: socket.socket):
         game_name: str = evt.game_name if self.server.is_server else "local"
         gs: GameState = self.server.game_states_ref[game_name]
+        gc: GameController = self.server.game_controller_ref
         random.seed(gs.turn)
         if self.server.is_server:
             gs.ready_players.add(evt.identifier)
@@ -788,10 +781,13 @@ class RequestHandler(socketserver.BaseRequestHandler):
             if possible_vic is not None:
                 gs.board.overlay.toggle_victory(possible_vic)
                 # TODO handle victory/defeat stats/achs in here later
-            # TODO handle playtime stats/achs
+            time_elapsed = time.time() - gc.last_turn_time
+            gc.last_turn_time = time.time()
+            if new_achs := save_stats_achievements(gs, time_elapsed):
+                gs.board.overlay.toggle_ach_notif(new_achs)
             gs.board.overlay.total_settlement_count = sum(len(p.settlements) for p in gs.players)
             gs.process_heathens()
-            gs.process_ais(self.server.game_controller_ref.move_maker)
+            gs.process_ais(gc.move_maker)
             gs.board.waiting_for_other_players = False
             gs.processing_turn = False
 
@@ -842,6 +838,8 @@ class EventListener:
         self.clients: typing.Dict[int, typing.Tuple[str, int]] = {}  # Hash identifier to (host, port).
 
     def run(self):
+        # TODO Will need some sort of keepalive so that if players quit a game just by quitting the app, the game can
+        #  still continue
         # TODO eventually just have a static port for clients too - probably 20k range - do this last once all local
         #  testing is done (delete the upnp mappings for other ports when this is done)
         with socketserver.UDPServer(("0.0.0.0", 9999 if self.is_server else 0), RequestHandler) as server:

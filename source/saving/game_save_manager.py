@@ -94,7 +94,6 @@ def save_stats_achievements(game_state: GameState,
     existing_achievements: typing.List[str] = []
     new_achievements: typing.List[Achievement] = []
 
-    # TODO add multiplayer statistics
     stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
     # If the player already has statistics and achievements, get those to add our new ones to.
     if os.path.isfile(stats_file_name):

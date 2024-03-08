@@ -275,7 +275,6 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
             player.wealth += 25
             return InvestigationResult.WEALTH
         if random_chance < 30 and cfg.fog_of_war:
-            # TODO this might not be doing it in the right location
             update_player_quads_seen_around_point(player, relic_loc, vision_range=10)
             return InvestigationResult.VISION
         if random_chance < 40:

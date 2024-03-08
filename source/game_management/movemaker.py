@@ -213,7 +213,6 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
         if len(avail_imps) > 0 and setl.satisfaction + avail_imps[0].effect.satisfaction >= 50 \
         else avail_units[0]
     totals = get_setl_totals(player, setl, is_night)
-    # print(player.faction.value if isinstance(player.faction, Faction) else player.faction, totals)
 
     # If the AI player has neither units on the board nor garrisoned, construct the first available.
     if len(player.units) == 0 and len(setl.garrison) == 0:
@@ -383,14 +382,13 @@ def search_for_relics_or_move(unit: Unit,
                     if not any(u.location == loc for u in player.units) and \
                             not any(other_u.location == loc for other_u in other_units) and \
                             not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
-                        # print("INV", unit.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction, loc)
                         unit.location = loc
                         update_player_quads_seen_around_point(player, loc)
                         found_valid_loc = True
                         unit.remaining_stamina = 0
                         break
                 if found_valid_loc:
-                    investigate_relic(player, unit, (j, i), cfg)
+                    investigate_relic(player, unit, (i, j), cfg)
                     quads[j][i].is_relic = False
                     return
     # We only get to this point if a valid relic was not found. Make sure when moving randomly that the unit does not
@@ -404,7 +402,6 @@ def search_for_relics_or_move(unit: Unit,
         if not any(u.location == loc and u != unit for u in player.units) and \
                 not any(other_u.location == loc for other_u in other_units) and \
                 not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
-            # print("MOVE", unit.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction, loc)
             unit.location = loc
             update_player_quads_seen_around_point(player, loc)
             found_valid_loc = True
@@ -448,7 +445,6 @@ def move_healer_unit(player: Player, unit: Unit, other_units: List[Unit],
             if not any(u.location == loc for u in player.units) and \
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
-                # print("HEAL", unit.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction, loc)
                 unit.location = loc
                 update_player_quads_seen_around_point(player, loc)
                 found_valid_loc = True
@@ -510,7 +506,6 @@ class MoveMaker:
         for setl in player.settlements:
             if setl.current_work is None:
                 set_ai_construction(player, setl, is_night, other_player_vics)
-                # print(setl.current_work)
             elif player.faction != Faction.FUNDAMENTALISTS:
                 cons = setl.current_work.construction
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out. In
@@ -531,12 +526,10 @@ class MoveMaker:
                                             if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                             0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                     player.units.append(settler)
-                    # print("SETAPP", settler.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction)
                     update_player_quads_seen_around_point(player, settler.location)
                     setl.garrison.remove(settler)
             # Deploy a unit from the garrison if the AI is not defensive, or the settlement is under siege or attack, or
             # there are too many units garrisoned.
-            # print(len(setl.garrison), player.ai_playstyle.attacking.value if isinstance(player.ai_playstyle.attacking, AttackPlaystyle) else player.ai_playstyle.attacking, setl.besieged, setl.strength, setl.max_strength)
             if (len(setl.garrison) > 0 and
                 (player.ai_playstyle.attacking != AttackPlaystyle.DEFENSIVE or setl.besieged
                  or setl.strength < setl.max_strength / 2)) or len(setl.garrison) > 3:
@@ -546,7 +539,6 @@ class MoveMaker:
                                          if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                          0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                 player.units.append(deployed)
-                # print("UNITAPP", deployed.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction)
                 update_player_quads_seen_around_point(player, deployed.location)
             # If another player is close to a victory, and there are deployer units in the garrison, deploy all of them.
             if other_player_vics and \
@@ -557,7 +549,6 @@ class MoveMaker:
                                              if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                              0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                     player.units.append(deployer)
-                    # print("DEPAPP", deployer.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction)
                     update_player_quads_seen_around_point(player, deployer.location)
                     setl.garrison.remove(deployer)
         all_units = []
@@ -597,7 +588,6 @@ class MoveMaker:
             if not any(u.location == loc and u != unit for u in player.units) and \
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
-                # print("SETMOVE", unit.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction, loc)
                 unit.location = loc
                 update_player_quads_seen_around_point(player, loc)
                 found_valid_loc = True
@@ -679,7 +669,6 @@ class MoveMaker:
                                    nearest_settlement[3] / nearest_settlement[1])
                         unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                          int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
-                        # print("REVBEELINE", unit.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction, unit.location)
                         update_player_quads_seen_around_point(player, unit.location)
                         unit.remaining_stamina = 0
                 # Deployer units at max capacity move towards the weakest settlement belonging to the player with the
@@ -702,13 +691,11 @@ class MoveMaker:
                                                          for setl in all_setls) and
                                                  0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                         player.units.append(deployed)
-                        # print("BEEAPP", deployed.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction)
                         update_player_quads_seen_around_point(player, deployed.location)
                     elif len(unit.passengers) == unit.plan.max_capacity:
                         dir_vec = (x_diff / distance, y_diff / distance)
                         unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                          int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
-                        # print("REVBEELINE", unit.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction, unit.location)
                         update_player_quads_seen_around_point(player, unit.location)
                         unit.remaining_stamina = 0
             # If there are no other players with imminent victories, deployer units can just explore.
@@ -804,7 +791,6 @@ class MoveMaker:
                                 not any(other_u.location == loc for other_u in other_units) and \
                                 not any(any(setl_quad.location == loc for setl_quad in setl.quads)
                                         for setl in all_setls):
-                            # print("ATTACK", unit.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction, loc)
                             unit.location = loc
                             update_player_quads_seen_around_point(player, unit.location)
                             unit.remaining_stamina = 0
@@ -894,7 +880,6 @@ class MoveMaker:
                     dir_vec = (x_diff / distance, y_diff / distance)
                     unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                      int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
-                    # print("BEELINE", unit.plan.name, player.faction.value if isinstance(player.faction, Faction) else player.faction, unit.location)
                     update_player_quads_seen_around_point(player, unit.location)
                     unit.remaining_stamina = 0
             # If there's nothing within range, look for relics or just move randomly.
