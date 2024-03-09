@@ -847,14 +847,13 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 lobby_name = random.choice(LOBBY_NAMES)
             gsrs[lobby_name] = GameState()
             self.server.namers_ref[lobby_name] = Namer()
-            load_save_file(gsrs[lobby_name], self.server.namers_ref[lobby_name], evt.save_name)
+            cfg, _ = load_save_file(gsrs[lobby_name], self.server.namers_ref[lobby_name], evt.save_name)
             self.server.move_makers_ref[lobby_name] = MoveMaker(self.server.namers_ref[lobby_name])
-            self.server.lobbies_ref[lobby_name] = gsrs[lobby_name].board.game_config
+            self.server.lobbies_ref[lobby_name] = cfg
             player_details: typing.List[PlayerDetails] = []
             for player in [p for p in gsrs[lobby_name].players if not p.eliminated]:
                 player_details.append(PlayerDetails(player.name, player.faction, 0, ""))
-            evt.lobby = LobbyDetails(lobby_name, player_details, gsrs[lobby_name].board.game_config,
-                                     gsrs[lobby_name].turn)
+            evt.lobby = LobbyDetails(lobby_name, player_details, cfg, gsrs[lobby_name].turn)
             sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
         else:
             gc: GameController = self.server.game_controller_ref

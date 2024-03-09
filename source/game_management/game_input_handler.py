@@ -217,9 +217,13 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.music_player.play_game_music()
         elif game_controller.menu.loading_game:
             if game_controller.menu.loading_multiplayer_game:
+                save_name: str = game_controller.menu.saves[game_controller.menu.save_idx]
+                if save_name.endswith("(auto)"):
+                    save_name = "autosave-" + save_name[:-7].replace(" ", "T") + ".json"
+                else:
+                    save_name = "save-" + save_name.replace(" ", "T") + ".json"
                 l_evt: LoadEvent = LoadEvent(EventType.LOAD, datetime.datetime.now(),
-                                             hash((uuid.getnode(), os.getpid())),
-                                             game_controller.menu.saves[game_controller.menu.save_idx])
+                                             hash((uuid.getnode(), os.getpid())), save_name)
                 dispatch_event(l_evt)
             else:
                 load_game(game_state, game_controller)
