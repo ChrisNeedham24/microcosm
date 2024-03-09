@@ -631,6 +631,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         evt.quads_seen_chunk = minify_quads_seen(set(qs_chunk))
                         sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                     self.server.clients_ref[evt.identifier])
+                evt.player_chunk_idx = None
                 evt.total_quads_seen = None
                 evt.quads_seen_chunk = None
                 evt.heathens_chunk = minify_heathens(gs.heathens)
@@ -849,9 +850,16 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gsrs[lobby_name] = GameState()
             self.server.namers_ref[lobby_name] = Namer()
             cfg, _ = load_save_file(gsrs[lobby_name], self.server.namers_ref[lobby_name], evt.save_name)
+            # Do this so we can 'join' as any player.
+            for p in gsrs[lobby_name].players:
+                p.ai_playstyle = AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)
             self.server.game_clients_ref[lobby_name] = []
             self.server.move_makers_ref[lobby_name] = MoveMaker(self.server.namers_ref[lobby_name])
             self.server.lobbies_ref[lobby_name] = cfg
+            gsrs[lobby_name].game_started = True
+            gsrs[lobby_name].on_menu = False
+            gsrs[lobby_name].board = Board(self.server.lobbies_ref[lobby_name], self.server.namers_ref[lobby_name])
+            self.server.move_makers_ref[lobby_name].board_ref = gsrs[lobby_name].board
             player_details: typing.List[PlayerDetails] = []
             for player in [p for p in gsrs[lobby_name].players if not p.eliminated]:
                 player_details.append(PlayerDetails(player.name, player.faction, 0, ""))

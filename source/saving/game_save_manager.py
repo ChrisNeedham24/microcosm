@@ -14,7 +14,8 @@ from platformdirs import user_data_dir
 
 from source.display.board import Board
 from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement, ACHIEVEMENTS, Namer
-from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement, GameConfig, Quad
+from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement, GameConfig, Quad, \
+    HarvestStatus, EconomicStatus
 from source.game_management.game_controller import GameController
 if typing.TYPE_CHECKING:
     from source.game_management.game_state import GameState
@@ -191,13 +192,12 @@ def load_save_file(game_state: GameState,
                 quads[i][j] = migrate_quad(save.quads[i * 100 + j], (j, i))
         migrate_game_version(game_state, save)
         game_state.players = save.players
-        # The list of tuples that is quads_seen needs special loading, as do a few other of the same type,
-        # because tuples do not exist in JSON, so they are represented as arrays, which will clearly not work.
-        for i in range(len(game_state.players[0].quads_seen)):
-            game_state.players[0].quads_seen[i] = (
-                game_state.players[0].quads_seen[i][0], game_state.players[0].quads_seen[i][1])
-        game_state.players[0].quads_seen = set(game_state.players[0].quads_seen)
         for p in game_state.players:
+            # The list of tuples that is quads_seen needs special loading, as do a few other of the same type,
+            # because tuples do not exist in JSON, so they are represented as arrays, which will clearly not work.
+            for i in range(len(p.quads_seen)):
+                p.quads_seen[i] = (p.quads_seen[i][0], p.quads_seen[i][1])
+            p.quads_seen = set(p.quads_seen)
             for idx, u in enumerate(p.units):
                 # We can do a direct conversion to Unit and UnitPlan objects for units.
                 p.units[idx] = migrate_unit(u)
@@ -222,6 +222,8 @@ def load_save_file(game_state: GameState,
                 # Also convert all units in garrisons to Unit objects.
                 for idx, u in enumerate(s.garrison):
                     s.garrison[idx] = migrate_unit(u)
+                s.harvest_status = HarvestStatus(s.harvest_status)
+                s.economic_status = EconomicStatus(s.economic_status)
                 migrate_settlement(s)
             # We also do direct conversions to Blessing objects for the ongoing one, if there is one,
             # as well as any previously-completed ones.
@@ -229,17 +231,18 @@ def load_save_file(game_state: GameState,
                 p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
             for idx, bls in enumerate(p.blessings):
                 p.blessings[idx] = get_blessing(bls.name)
+            imminent_victories: typing.List[VictoryType] = []
+            for iv in p.imminent_victories:
+                imminent_victories.append(VictoryType(iv))
+            p.imminent_victories = set(imminent_victories)
             migrate_player(p)
-        # For the AI players, we can just make quads_seen an empty set, as it's not used.
-        for i in range(1, len(game_state.players)):
-            game_state.players[i].quads_seen = set()
 
         game_state.heathens = []
         for h in save.heathens:
             # Do another direct conversion for the heathens.
             game_state.heathens.append(Heathen(h.health, h.remaining_stamina, (h.location[0], h.location[1]),
-                                               UnitPlan(h.plan.power, h.plan.max_health, h.total_stamina, h.plan.name,
-                                                        None, 0),
+                                               UnitPlan(h.plan.power, h.plan.max_health, h.plan.total_stamina,
+                                                        h.plan.name, None, 0),
                                                h.has_attacked))
 
         game_state.turn = save.turn
