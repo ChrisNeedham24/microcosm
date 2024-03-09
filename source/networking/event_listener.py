@@ -793,7 +793,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gs.processing_turn = False
 
     def process_unready_event(self, evt: UnreadyEvent):
-        self.server.game_states_ref[evt.game_name].ready_players.remove(evt.identifier)
+        self.server.game_states_ref[evt.game_name].ready_players.discard(evt.identifier)
 
     def process_autofill_event(self, evt: AutofillEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref

@@ -48,23 +48,23 @@ def minify_settlement(settlement: Settlement) -> str:
         settlement_str += f"{cw.construction.name}%{cw.zeal_consumed}"
     settlement_str += ";"
     settlement_str += (f"{settlement.level};{settlement.harvest_reserves};"
-                       f"{settlement.harvest_status};{settlement.economic_status};"
+                       f"{settlement.harvest_status.value};{settlement.economic_status.value};"
                        f"{settlement.produced_settler};{settlement.besieged}")
     return settlement_str
 
 
 def minify_player(player: Player) -> str:
-    player_str: str = f"{player.name}~{player.faction}~{player.wealth}~"
+    player_str: str = f"{player.name}~{player.faction.value}~{player.wealth}~"
     player_str += "!".join(minify_settlement(setl) for setl in player.settlements) + "~"
     player_str += "&".join(minify_unit(unit) for unit in player.units) + "~"
     player_str += ",".join(blessing.name for blessing in player.blessings) + "~"
     player_str += minify_resource_collection(player.resources) + "~"
-    player_str += ",".join(player.imminent_victories) + "~"
+    player_str += ",".join([iv.value for iv in player.imminent_victories]) + "~"
     if bls := player.ongoing_blessing:
         player_str += f"{bls.blessing.name}>{bls.fortune_consumed}"
     player_str += "~"
     if aip := player.ai_playstyle:
-        player_str += f"{aip.attacking}-{aip.expansion}"
+        player_str += f"{aip.attacking.value}-{aip.expansion.value}"
     player_str += "~"
     player_str += f"{player.jubilation_ctr}~{player.accumulated_wealth}~{player.eliminated}"
     return player_str
