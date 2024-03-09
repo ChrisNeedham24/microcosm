@@ -12,7 +12,7 @@ from source.display.board import Board
 from source.networking.client import dispatch_event
 from source.networking.events import CreateEvent, EventType, QueryEvent, LeaveEvent, JoinEvent, InitEvent, \
     SetConstructionEvent, UpdateAction, SetBlessingEvent, BesiegeSettlementEvent, BuyoutConstructionEvent, \
-    DisbandUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, AutofillEvent
+    DisbandUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, AutofillEvent, SaveEvent, QuerySavesEvent
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
     subtract_player_resources_for_improvement, update_player_quads_seen_around_point
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
@@ -105,6 +105,8 @@ def on_key_arrow_left(game_controller: GameController, game_state: GameState, is
     """
     if game_state.on_menu:
         game_controller.menu.navigate(left=True)
+        if game_controller.menu.loading_game:
+            game_controller.menu.saves = get_saves()
     elif game_state.game_started:
         if game_state.board.overlay.is_constructing():
             if game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS and \
@@ -138,6 +140,11 @@ def on_key_arrow_right(game_controller: GameController, game_state: GameState, i
     """
     if game_state.on_menu:
         game_controller.menu.navigate(right=True)
+        if game_controller.menu.loading_game:
+            game_controller.menu.loading_multiplayer_game = True
+            qs_evt: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, datetime.datetime.now(),
+                                                      hash((uuid.getnode(), os.getpid())))
+            dispatch_event(qs_evt)
     elif game_state.game_started:
         if game_state.board.overlay.is_constructing():
             if game_state.board.overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
@@ -243,7 +250,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.menu.in_game_setup = True
                 case MainMenuOption.LOAD_GAME:
                     game_controller.menu.loading_game = True
-                    get_saves(game_controller)
+                    game_controller.menu.saves = get_saves()
                 case MainMenuOption.JOIN_GAME:
                     lobbies_query_event: QueryEvent = \
                         QueryEvent(EventType.QUERY, datetime.datetime.now(), hash((uuid.getnode(), os.getpid())))
@@ -377,7 +384,12 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             case PauseOption.RESUME:
                 game_state.board.overlay.toggle_pause()
             case PauseOption.SAVE:
-                save_game(game_state)
+                if game_state.board.game_config.multiplayer:
+                    s_evt: SaveEvent = SaveEvent(EventType.SAVE, datetime.datetime.now(),
+                                                 hash((uuid.getnode(), os.getpid())), game_state.board.game_name)
+                    dispatch_event(s_evt)
+                else:
+                    save_game(game_state)
                 game_state.board.overlay.has_saved = True
             case PauseOption.CONTROLS:
                 game_state.board.overlay.show_additional_controls = False

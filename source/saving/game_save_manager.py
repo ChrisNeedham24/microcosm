@@ -41,13 +41,12 @@ def init_app_data():
         pathlib.Path(SAVES_DIR).mkdir(parents=True, exist_ok=True)
 
 
-def save_game(game_state, auto: bool = False):
+def save_game(game_state: GameState, auto: bool = False):
     """
     Saves the current game with the current timestamp as the file name.
     """
     # Only maintain 3 autosaves at a time, delete the oldest if we already have 3 before saving the next.
-    if auto and len(
-            autosaves := list(filter(lambda fn: fn.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))) == 3:
+    if auto and len(autosaves := list(filter(lambda fn: fn.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))) == 3:
         autosaves.sort()
         os.remove(os.path.join(SAVES_DIR, autosaves[0]))
     # The ':' characters in the datestring must be replaced to conform with Windows files supported characters.
@@ -177,7 +176,7 @@ def get_stats() -> Statistics:
         return Statistics(0, 0, {}, 0, {}, set())
 
 
-def load_game(game_state, game_controller: GameController):
+def load_game(game_state: GameState, game_controller: GameController):
     """
     Loads the game with the given index from the saves/ directory.
     :param game_controller: The current GameController object.
@@ -281,24 +280,19 @@ def load_game(game_state, game_controller: GameController):
         game_controller.menu.load_failed = True
 
 
-def get_saves(game_controller: GameController):
+def get_saves() -> typing.List[str]:
     """
     Get the prettified file names of each save file in the saves/ directory and pass them to the menu.
     """
-    game_controller.menu.saves = []
+    save_names: typing.List[str] = []
     autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
     saves = list(filter(lambda file_name: file_name.startswith("save-"),
                         [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
-    # Default to a fake option if there are no saves available.
-    if len(autosaves) + len(saves) == 0:
-        game_controller.menu.save_idx = -1
-    else:
-        autosaves.sort()
-        autosaves.reverse()
-        saves.sort()
-        saves.reverse()
-        for f in autosaves:
-            game_controller.menu.saves.append(f[9:-5].replace("T", " ") + " (auto)")
-        for f in saves:
-            # Just show the date and time.
-            game_controller.menu.saves.append(f[5:-5].replace("T", " "))
+    autosaves.sort(reverse=True)
+    saves.sort(reverse=True)
+    for f in autosaves:
+        save_names.append(f[9:-5].replace("T", " ") + " (auto)")
+    for f in saves:
+        # Just show the date and time.
+        save_names.append(f[5:-5].replace("T", " "))
+    return save_names

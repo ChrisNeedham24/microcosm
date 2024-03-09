@@ -124,6 +124,7 @@ class Menu:
         self.available_multiplayer_factions: typing.List[typing.Tuple[Faction, int]] = []
         self.lobby_player_boundaries = 0, 7
         self.multiplayer_game_being_loaded: typing.Optional[LoadedMultiplayerState] = None
+        self.loading_multiplayer_game = False
 
     def draw(self):
         """
@@ -277,7 +278,10 @@ class Menu:
             else:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
-                pyxel.text(81, 25, "Load Game", pyxel.COLOR_WHITE)
+                if self.loading_multiplayer_game:
+                    pyxel.text(60, 25, "Load Multiplayer Game", pyxel.COLOR_WHITE)
+                else:
+                    pyxel.text(81, 25, "Load Game", pyxel.COLOR_WHITE)
                 for idx, save in enumerate(self.saves):
                     if self.load_game_boundaries[0] <= idx <= self.load_game_boundaries[1]:
                         pyxel.text(25, 35 + (idx - self.load_game_boundaries[0]) * 10, save, pyxel.COLOR_WHITE)
@@ -287,6 +291,12 @@ class Menu:
                     draw_paragraph(147, 135, "More down!", 5)
                     pyxel.blt(167, 136, 0, 0, 76, 8, 8)
                 pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
+                if self.loading_multiplayer_game:
+                    pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
+                    pyxel.blt(35, 150, 0, 0, 140, 8, 8)
+                else:
+                    pyxel.blt(158, 150, 0, 8, 140, 8, 8)
+                    pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
         elif self.in_wiki:
             match self.wiki_showing:
                 case WikiOption.VICTORIES:
@@ -884,6 +894,8 @@ class Menu:
                         self.fog_of_war_enabled = False
                     case SetupOption.CLIMATIC_EFFECTS:
                         self.climatic_effects_enabled = False
+            elif self.loading_game:
+                self.loading_multiplayer_game = False
             elif self.joining_game:
                 self.faction_idx = clamp(self.faction_idx - 1, 0, len(self.available_multiplayer_factions) - 1)
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:
@@ -919,6 +931,8 @@ class Menu:
                         self.fog_of_war_enabled = True
                     case SetupOption.CLIMATIC_EFFECTS:
                         self.climatic_effects_enabled = True
+            elif self.loading_game:
+                self.loading_multiplayer_game = True
             elif self.joining_game:
                 self.faction_idx = clamp(self.faction_idx + 1, 0, len(self.available_multiplayer_factions) - 1)
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:

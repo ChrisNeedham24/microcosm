@@ -27,8 +27,8 @@ from source.networking.events import Event, EventType, CreateEvent, InitEvent, U
     FoundSettlementEvent, QueryEvent, LeaveEvent, JoinEvent, RegisterEvent, SetBlessingEvent, SetConstructionEvent, \
     MoveUnitEvent, DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent, \
     BuyoutConstructionEvent, DisbandUnitEvent, AttackUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, \
-    HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent, AutofillEvent
-from source.saving.game_save_manager import save_stats_achievements
+    HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent, AutofillEvent, SaveEvent, QuerySavesEvent
+from source.saving.game_save_manager import save_stats_achievements, save_game, get_saves
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_quad, migrate_unit, migrate_player
 from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp, \
@@ -67,6 +67,10 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.process_unready_event(evt)
         elif evt.type == EventType.AUTOFILL:
             self.process_autofill_event(evt, sock)
+        elif evt.type == EventType.SAVE:
+            self.process_save_event(evt)
+        elif evt.type == EventType.QUERY_SAVES:
+            self.process_query_saves_event(evt, sock)
 
     def process_create_event(self, evt: CreateEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
@@ -609,18 +613,20 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     evt.cfg = None
                     evt.quad_chunk = None
                     evt.quad_chunk_idx = None
-                    evt.quads_seen_chunk = None
                     evt.player_chunk = minify_player(player)
                     evt.player_chunk_idx = idx
-                    # print(idx)
                     sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[evt.identifier])
-                    evt.player_chunk = None
+                evt.player_chunk = None
+                evt.player_chunk_idx = None
+                for idx, player in enumerate(gs.players):
+                    evt.player_chunk_idx = idx
+                    evt.quads_seen_chunk = None
                     for qs_chunk in split_list_into_chunks(list(player.quads_seen), 100):
+                        time.sleep(0.01)
                         evt.quads_seen_chunk = minify_quads_seen(set(qs_chunk))
                         sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                     self.server.clients_ref[evt.identifier])
-                evt.player_chunk_idx = None
                 evt.total_quads_seen = None
                 evt.quads_seen_chunk = None
                 evt.heathens_chunk = minify_heathens(gs.heathens)
@@ -661,7 +667,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
                             gs.board.quads[evt.quad_chunk_idx][j] = inflated_quad
                         gc.menu.multiplayer_game_being_loaded.quad_chunks_loaded += 1
                     if evt.player_chunk:
-                        # print(evt.player_chunk_idx)
                         gs.players[evt.player_chunk_idx] = \
                             inflate_player(evt.player_chunk, gs.board.quads)
                         gc.menu.multiplayer_game_being_loaded.players_loaded += 1
@@ -691,11 +696,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
                             state_populated = False
                     if gs.turn > 5 and not gs.heathens:
                         state_populated = False
-                    # TODO there may be something weird going on with joining games later on - not all players/quads
-                    #  seen being received?
-                    #  Seen more often with 20k+ quads seen
-                    #  They're being sent - so probably is just packet loss - test with server - implement re-pinging
-                    #  after timeout
                     if state_populated:
                         pyxel.mouse(visible=True)
                         gc.last_turn_time = time.time()
@@ -745,7 +745,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gs.process_climatic_effects(reseed_random=False)
         # We need to check for victories on the server as well so each player's imminent victories are
         # populated - this affects how units will move.
-        gs.check_for_victory()
+        if gs.check_for_victory() is None:
+            save_game(gs, auto=True)
         gs.process_heathens()
         gs.process_ais(self.server.move_makers_ref[evt.game_name])
         for p in self.server.game_clients_ref[evt.game_name]:
@@ -823,6 +824,16 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 new_player_detail: PlayerDetails = PlayerDetails(player.name, player.faction, 0, "", is_ai=True)
                 gc.menu.multiplayer_lobby.current_players.append(new_player_detail)
                 gsrs["local"].players.append(player)
+
+    def process_save_event(self, evt: SaveEvent):
+        save_game(self.server.game_states_ref[evt.game_name])
+
+    def process_query_saves_event(self, evt: QuerySavesEvent, sock: socket.socket):
+        if self.server.is_server:
+            evt.saves = get_saves()
+            sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
+        else:
+            self.server.game_controller_ref.menu.saves = evt.saves
 
 
 class EventListener:

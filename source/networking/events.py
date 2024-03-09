@@ -18,6 +18,8 @@ class EventType(str, Enum):
     END_TURN = "END_TURN"
     UNREADY = "UNREADY"
     AUTOFILL = "AUTOFILL"
+    SAVE = "SAVE"
+    QUERY_SAVES = "QUERY_SAVES"
 
 
 class UpdateAction(str, Enum):
@@ -214,3 +216,13 @@ class UnreadyEvent(Event):
 class AutofillEvent(Event):
     lobby_name: str
     players: Optional[List[Player]] = None
+
+
+@dataclass
+class SaveEvent(Event):
+    game_name: str
+
+
+@dataclass
+class QuerySavesEvent(Event):
+    saves: Optional[List[str]] = None
