@@ -18,7 +18,7 @@ from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAM
     get_unit_plan, get_blessing, get_heathen
 from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDetails, Quad, Biome, ResourceCollection, \
     OngoingBlessing, InvestigationResult, Settlement, Unit, Heathen, Faction, AIPlaystyle, AttackPlaystyle, \
-    ExpansionPlaystyle, LoadedMultiplayerState
+    ExpansionPlaystyle, LoadedMultiplayerState, HarvestStatus, EconomicStatus
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
@@ -80,7 +80,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 lobby_name = random.choice(LOBBY_NAMES)
             player_name = random.choice(PLAYER_NAMES)
             gsrs[lobby_name] = GameState()
-            gsrs[lobby_name].players.append(Player(player_name, evt.cfg.player_faction,
+            gsrs[lobby_name].players.append(Player(player_name, Faction(evt.cfg.player_faction),
                                                    FACTION_COLOURS[evt.cfg.player_faction]))
             self.server.namers_ref[lobby_name] = Namer()
             self.server.move_makers_ref[lobby_name] = MoveMaker(self.server.namers_ref[lobby_name])
@@ -91,7 +91,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                                 self.server.game_clients_ref[lobby_name])
             sock.sendto(json.dumps(resp_evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
         else:
-            gsrs["local"].players.append(Player(evt.player_details[0].name, evt.cfg.player_faction,
+            gsrs["local"].players.append(Player(evt.player_details[0].name, Faction(evt.cfg.player_faction),
                                                 FACTION_COLOURS[evt.cfg.player_faction]))
             gsrs["local"].player_idx = 0
             gc: GameController = self.server.game_controller_ref
@@ -204,6 +204,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
         game_name: str = evt.game_name if self.server.is_server else "local"
         evt.settlement.location = (evt.settlement.location[0], evt.settlement.location[1])
+        evt.settlement.harvest_status = HarvestStatus(evt.settlement.harvest_status)
+        evt.settlement.economic_status = EconomicStatus(evt.settlement.economic_status)
         migrate_settlement(evt.settlement)
         # We need this for the initial settlements.
         for idx, u in enumerate(evt.settlement.garrison):
@@ -573,7 +575,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 player_name = random.choice(PLAYER_NAMES)
                 while any(player.name == player_name for player in self.server.game_clients_ref[evt.lobby_name]):
                     player_name = random.choice(PLAYER_NAMES)
-                gs.players.append(Player(player_name, evt.player_faction, FACTION_COLOURS[evt.player_faction]))
+                gs.players.append(Player(player_name, Faction(evt.player_faction), FACTION_COLOURS[evt.player_faction]))
             self.server.game_clients_ref[evt.lobby_name].append(PlayerDetails(player_name, evt.player_faction,
                                                                               evt.identifier, self.client_address[0]))
             # We can't just combine the player details from game_clients_ref and manually make the AI players' ones
@@ -651,8 +653,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         for idx, player in enumerate(evt.lobby_details.current_players):
                             if player.faction == evt.player_faction:
                                 gs.player_idx = idx
-                            gs.players.append(Player(player.name, player.faction,
-                                                                FACTION_COLOURS[player.faction]))
+                            gs.players.append(Player(player.name, Faction(player.faction),
+                                                     FACTION_COLOURS[player.faction]))
                         gc.menu.multiplayer_game_being_loaded = LoadedMultiplayerState()
                     if not gs.board:
                         gs.until_night = evt.until_night
@@ -717,15 +719,15 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     for idx, player in enumerate(evt.lobby_details.current_players):
                         if player.faction == evt.player_faction:
                             gs.player_idx = idx
-                        gs.players.append(Player(player.name, player.faction, FACTION_COLOURS[player.faction]))
+                        gs.players.append(Player(player.name, Faction(player.faction), FACTION_COLOURS[player.faction]))
                     gc.menu.joining_game = False
                     gc.menu.viewing_lobbies = False
                     gc.menu.in_multiplayer_lobby = True
                     gc.menu.setup_option = SetupOption.START_GAME
                 else:
                     new_player: PlayerDetails = evt.lobby_details.current_players[-1]
-                    gs.players.append(Player(new_player.name, new_player.faction,
-                                                        FACTION_COLOURS[new_player.faction]))
+                    gs.players.append(Player(new_player.name, Faction(new_player.faction),
+                                             FACTION_COLOURS[new_player.faction]))
 
     def process_register_event(self, evt: RegisterEvent):
         self.server.clients_ref[evt.identifier] = self.client_address[0], evt.port
