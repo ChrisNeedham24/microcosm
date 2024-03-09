@@ -142,7 +142,6 @@ def on_key_arrow_right(game_controller: GameController, game_state: GameState, i
     if game_state.on_menu:
         game_controller.menu.navigate(right=True)
         if game_controller.menu.loading_game:
-            game_controller.menu.loading_multiplayer_game = True
             qs_evt: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, datetime.datetime.now(),
                                                       hash((uuid.getnode(), os.getpid())))
             dispatch_event(qs_evt)

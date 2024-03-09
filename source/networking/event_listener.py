@@ -838,6 +838,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
         else:
             self.server.game_controller_ref.menu.saves = evt.saves
+            self.server.game_controller_ref.menu.loading_multiplayer_game = True
 
     def process_load_event(self, evt: LoadEvent, sock: socket.socket):
         if self.server.is_server:
@@ -848,6 +849,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gsrs[lobby_name] = GameState()
             self.server.namers_ref[lobby_name] = Namer()
             cfg, _ = load_save_file(gsrs[lobby_name], self.server.namers_ref[lobby_name], evt.save_name)
+            self.server.game_clients_ref[lobby_name] = []
             self.server.move_makers_ref[lobby_name] = MoveMaker(self.server.namers_ref[lobby_name])
             self.server.lobbies_ref[lobby_name] = cfg
             player_details: typing.List[PlayerDetails] = []
@@ -860,6 +862,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gc.menu.multiplayer_lobbies = [evt.lobby]
             gc.menu.available_multiplayer_factions = \
                 [(Faction(p.faction), FACTION_COLOURS[p.faction]) for p in evt.lobby.current_players]
+            gc.menu.loading_game = False
             gc.menu.joining_game = True
 
 
