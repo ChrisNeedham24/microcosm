@@ -12,7 +12,8 @@ from source.display.board import Board
 from source.networking.client import dispatch_event
 from source.networking.events import CreateEvent, EventType, QueryEvent, LeaveEvent, JoinEvent, InitEvent, \
     SetConstructionEvent, UpdateAction, SetBlessingEvent, BesiegeSettlementEvent, BuyoutConstructionEvent, \
-    DisbandUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, AutofillEvent, SaveEvent, QuerySavesEvent
+    DisbandUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, AutofillEvent, SaveEvent, QuerySavesEvent, \
+    LoadEvent
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
     subtract_player_resources_for_improvement, update_player_quads_seen_around_point
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
@@ -215,8 +216,11 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.music_player.stop_menu_music()
                     game_controller.music_player.play_game_music()
         elif game_controller.menu.loading_game:
-            if game_controller.menu.save_idx == -1:
-                game_controller.menu.loading_game = False
+            if game_controller.menu.loading_multiplayer_game:
+                l_evt: LoadEvent = LoadEvent(EventType.LOAD, datetime.datetime.now(),
+                                             hash((uuid.getnode(), os.getpid())),
+                                             game_controller.menu.saves[game_controller.menu.save_idx])
+                dispatch_event(l_evt)
             else:
                 load_game(game_state, game_controller)
         elif game_controller.menu.joining_game and not game_controller.menu.showing_faction_details:

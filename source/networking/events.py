@@ -20,6 +20,7 @@ class EventType(str, Enum):
     AUTOFILL = "AUTOFILL"
     SAVE = "SAVE"
     QUERY_SAVES = "QUERY_SAVES"
+    LOAD = "LOAD"
 
 
 class UpdateAction(str, Enum):
@@ -226,3 +227,9 @@ class SaveEvent(Event):
 @dataclass
 class QuerySavesEvent(Event):
     saves: Optional[List[str]] = None
+
+
+@dataclass
+class LoadEvent(Event):
+    save_name: str
+    lobby: Optional[LobbyDetails] = None

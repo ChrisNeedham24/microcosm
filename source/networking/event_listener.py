@@ -27,8 +27,8 @@ from source.networking.events import Event, EventType, CreateEvent, InitEvent, U
     FoundSettlementEvent, QueryEvent, LeaveEvent, JoinEvent, RegisterEvent, SetBlessingEvent, SetConstructionEvent, \
     MoveUnitEvent, DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent, \
     BuyoutConstructionEvent, DisbandUnitEvent, AttackUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, \
-    HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent, AutofillEvent, SaveEvent, QuerySavesEvent
-from source.saving.game_save_manager import save_stats_achievements, save_game, get_saves
+    HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent, AutofillEvent, SaveEvent, QuerySavesEvent, LoadEvent
+from source.saving.game_save_manager import save_stats_achievements, save_game, get_saves, load_save_file
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_quad, migrate_unit, migrate_player
 from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp, \
@@ -71,6 +71,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.process_save_event(evt)
         elif evt.type == EventType.QUERY_SAVES:
             self.process_query_saves_event(evt, sock)
+        elif evt.type == EventType.LOAD:
+            self.process_load_event(evt, sock)
 
     def process_create_event(self, evt: CreateEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
@@ -836,6 +838,30 @@ class RequestHandler(socketserver.BaseRequestHandler):
             sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
         else:
             self.server.game_controller_ref.menu.saves = evt.saves
+
+    def process_load_event(self, evt: LoadEvent, sock: socket.socket):
+        if self.server.is_server:
+            gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
+            lobby_name = random.choice(LOBBY_NAMES)
+            while lobby_name in gsrs:
+                lobby_name = random.choice(LOBBY_NAMES)
+            gsrs[lobby_name] = GameState()
+            self.server.namers_ref[lobby_name] = Namer()
+            load_save_file(gsrs[lobby_name], self.server.namers_ref[lobby_name], evt.save_name)
+            self.server.move_makers_ref[lobby_name] = MoveMaker(self.server.namers_ref[lobby_name])
+            self.server.lobbies_ref[lobby_name] = gsrs[lobby_name].board.game_config
+            player_details: typing.List[PlayerDetails] = []
+            for player in [p for p in gsrs[lobby_name].players if not p.eliminated]:
+                player_details.append(PlayerDetails(player.name, player.faction, 0, ""))
+            evt.lobby = LobbyDetails(lobby_name, player_details, gsrs[lobby_name].board.game_config,
+                                     gsrs[lobby_name].turn)
+            sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
+        else:
+            gc: GameController = self.server.game_controller_ref
+            gc.menu.multiplayer_lobbies = [evt.lobby]
+            gc.menu.available_multiplayer_factions = \
+                [(Faction(p.faction), FACTION_COLOURS[p.faction]) for p in evt.lobby.current_players]
+            gc.menu.joining_game = True
 
 
 class EventListener:
