@@ -926,16 +926,14 @@ class EventListener:
             else:
                 self.keepalive_ctrs[identifier] = 1
         for identifier in clients_to_remove:
-            self.clients.pop(identifier)
             for lobby_name, details in self.game_clients.items():
                 for player_detail in details:
                     if player_detail.id == identifier:
                         l_evt: LeaveEvent = LeaveEvent(EventType.LEAVE, datetime.datetime.now(), identifier, lobby_name)
                         sock.sendto(json.dumps(l_evt, cls=SaveEncoder).encode(), ("localhost", 9999))
+            self.clients.pop(identifier)
 
     def run(self):
-        # TODO Will need some sort of keepalive so that if players quit a game just by quitting the app, the game can
-        #  still continue
         # TODO eventually just have a static port for clients too - probably 20k range - do this last once all local
         #  testing is done (delete the upnp mappings for other ports when this is done)
         with socketserver.UDPServer(("0.0.0.0", 9999 if self.is_server else 0), RequestHandler) as server:

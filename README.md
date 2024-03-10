@@ -10,6 +10,10 @@ your favourite operating system can be found [here](https://www.videolan.org/vlc
 python-vlc (or something like that) as an optional dependency, it is advised that players also install that. Naturally,
 Python is also required, at version 3.10 or above.
 
+### Multiplayer
+In order to play games of Microcosm online, your router must have UPnP enabled, as it is required for communication
+between clients and the server.
+
 ## Play from release
 
 Begin by downloading the [latest release](https://github.com/ChrisNeedham24/microcosm/releases/latest) for your operating system.

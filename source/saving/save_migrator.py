@@ -139,6 +139,7 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
     :param location: The backup location to use for the quad if it is from an outdated save.
     :return: An optionally-migrated Quad representation.
     """
+    # TODO Migrate old float yields to ints
     new_quad: Quad = quad
     # The biomes require special loading.
     new_quad.biome = Biome[new_quad.biome]

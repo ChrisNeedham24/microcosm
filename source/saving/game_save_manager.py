@@ -97,7 +97,6 @@ def save_stats_achievements(game_state: GameState,
     stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
     # If the player already has statistics and achievements, get those to add our new ones to.
     if os.path.isfile(stats_file_name):
-        # TODO Failing on every turn end? Could have something to do with simultaneous access
         with open(stats_file_name, "r", encoding="utf-8") as stats_file:
             stats_json = json.loads(stats_file.read())
             playtime_to_write += stats_json["playtime"]
