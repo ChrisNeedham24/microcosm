@@ -287,6 +287,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         game_state.game_started = False
         game_state.on_menu = True
         game_controller.menu.loading_game = False
+        game_controller.menu.loading_multiplayer_game = False
         game_controller.menu.in_game_setup = False
         game_controller.menu.in_multiplayer_lobby = False
         game_controller.menu.joining_game = False
@@ -413,6 +414,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_state.game_started = False
                 game_state.on_menu = True
                 game_controller.menu.loading_game = False
+                game_controller.menu.loading_multiplayer_game = False
                 game_controller.menu.in_game_setup = False
                 game_controller.menu.in_multiplayer_lobby = False
                 game_controller.menu.joining_game = False
@@ -566,6 +568,7 @@ def on_key_space(game_controller: GameController, game_state: GameState):
         game_controller.menu.loading_game = False
     elif game_state.on_menu and game_controller.menu.joining_game:
         game_controller.menu.joining_game = False
+        game_controller.menu.loading_multiplayer_game = False
     elif game_state.on_menu and game_controller.menu.viewing_lobbies:
         game_controller.menu.viewing_lobbies = False
     elif game_state.on_menu and game_controller.menu.viewing_stats:

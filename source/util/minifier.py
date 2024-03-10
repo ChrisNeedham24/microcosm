@@ -1,6 +1,7 @@
 from typing import List, Optional, Set, Tuple
 
-from source.foundation.catalogue import get_unit_plan, get_improvement, get_project, get_blessing, FACTION_COLOURS
+from source.foundation.catalogue import get_unit_plan, get_improvement, get_project, get_blessing, FACTION_COLOURS, \
+    IMPROVEMENTS
 from source.foundation.models import Quad, Biome, ResourceCollection, Player, Settlement, Unit, UnitPlan, Improvement, \
     Construction, HarvestStatus, EconomicStatus, Blessing, Faction, VictoryType, OngoingBlessing, AIPlaystyle, \
     AttackPlaystyle, ExpansionPlaystyle, Project, Heathen
@@ -30,9 +31,13 @@ def minify_unit(unit: Unit) -> str:
     return unit_str
 
 
+def minify_improvement(improvement: Improvement) -> str:
+    return "".join(word[0] for word in improvement.name.split(" "))
+
+
 def minify_settlement(settlement: Settlement) -> str:
     settlement_str: str = f"{settlement.name};{settlement.location[0]}-{settlement.location[1]};"
-    settlement_str += "$".join(imp.name for imp in settlement.improvements) + ";"
+    settlement_str += "$".join(minify_improvement(imp) for imp in settlement.improvements) + ";"
     settlement_str += ",".join(f"{quad.location[0]}-{quad.location[1]}" for quad in settlement.quads) + ";"
     settlement_str += minify_resource_collection(settlement.resources) + ";"
     settlement_str += ",".join(minify_unit(unit) for unit in settlement.garrison) + ";"
@@ -125,6 +130,10 @@ def inflate_unit(unit_str: str, garrisoned: bool) -> Unit:
                 split_unit[4] == "True", split_unit[5] == "True")
 
 
+def inflate_improvement(improvement_str: str) -> Improvement:
+    return next(imp for imp in IMPROVEMENTS if minify_improvement(imp) == improvement_str)
+
+
 def inflate_settlement(setl_str: str, quads: List[List[Quad]]) -> Settlement:
     split_setl: List[str] = setl_str.split(";")
     name: str = split_setl[0]
@@ -132,7 +141,7 @@ def inflate_settlement(setl_str: str, quads: List[List[Quad]]) -> Settlement:
     improvements: List[Improvement] = []
     if split_setl[2]:
         for imp_name in split_setl[2].split("$"):
-            improvements.append(get_improvement(imp_name))
+            improvements.append(inflate_improvement(imp_name))
     setl_quads: List[Quad] = []
     for quad_loc in split_setl[3].split(","):
         setl_quads.append(quads[int(quad_loc.split("-")[1])][int(quad_loc.split("-")[0])])

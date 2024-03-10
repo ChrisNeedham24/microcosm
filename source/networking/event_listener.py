@@ -785,20 +785,20 @@ class RequestHandler(socketserver.BaseRequestHandler):
             possible_vic = gs.check_for_victory()
             if possible_vic is not None:
                 gs.board.overlay.toggle_victory(possible_vic)
-                # TODO handle victory/defeat stats/achs in here later
                 if possible_vic.player.faction == gs.players[gs.player_idx].faction:
                     if new_achs := save_stats_achievements(gs, victory_to_add=possible_vic.type):
                         gs.board.overlay.toggle_ach_notif(new_achs)
-                # elif not gs.players[gs.player_idx].eliminated:
-                #     if new_achs := save_stats_achievements(gs, increment_defeats=True):
-                #         gs.board.overlay.toggle_ach_notif(new_achs)
-            time_elapsed = time.time() - gc.last_turn_time
-            gc.last_turn_time = time.time()
-            if new_achs := save_stats_achievements(gs, time_elapsed):
-                gs.board.overlay.toggle_ach_notif(new_achs)
-            gs.board.overlay.total_settlement_count = sum(len(p.settlements) for p in gs.players)
-            gs.process_heathens()
-            gs.process_ais(gc.move_maker)
+                elif not gs.players[gs.player_idx].eliminated:
+                    if new_achs := save_stats_achievements(gs, increment_defeats=True):
+                        gs.board.overlay.toggle_ach_notif(new_achs)
+            else:
+                time_elapsed = time.time() - gc.last_turn_time
+                gc.last_turn_time = time.time()
+                if new_achs := save_stats_achievements(gs, time_elapsed):
+                    gs.board.overlay.toggle_ach_notif(new_achs)
+                gs.board.overlay.total_settlement_count = sum(len(p.settlements) for p in gs.players)
+                gs.process_heathens()
+                gs.process_ais(gc.move_maker)
             gs.board.waiting_for_other_players = False
             gs.processing_turn = False
 
@@ -847,7 +847,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.server.game_controller_ref.menu.loading_multiplayer_game = True
 
     def process_load_event(self, evt: LoadEvent, sock: socket.socket):
-        # TODO Quads are changing on every load? Very weird
         if self.server.is_server:
             gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
             lobby_name = random.choice(LOBBY_NAMES)
@@ -855,7 +854,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 lobby_name = random.choice(LOBBY_NAMES)
             gsrs[lobby_name] = GameState()
             self.server.namers_ref[lobby_name] = Namer()
-            cfg, _ = load_save_file(gsrs[lobby_name], self.server.namers_ref[lobby_name], evt.save_name)
+            cfg, quads = load_save_file(gsrs[lobby_name], self.server.namers_ref[lobby_name], evt.save_name)
             # Do this so we can 'join' as any player.
             for p in gsrs[lobby_name].players:
                 p.ai_playstyle = AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)
@@ -864,7 +863,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.server.lobbies_ref[lobby_name] = cfg
             gsrs[lobby_name].game_started = True
             gsrs[lobby_name].on_menu = False
-            gsrs[lobby_name].board = Board(self.server.lobbies_ref[lobby_name], self.server.namers_ref[lobby_name])
+            gsrs[lobby_name].board = Board(self.server.lobbies_ref[lobby_name], self.server.namers_ref[lobby_name],
+                                           quads)
             self.server.move_makers_ref[lobby_name].board_ref = gsrs[lobby_name].board
             player_details: typing.List[PlayerDetails] = []
             for player in [p for p in gsrs[lobby_name].players if not p.eliminated]:
