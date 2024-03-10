@@ -185,6 +185,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             else:
                 if game_controller.menu.in_multiplayer_lobby:
                     if len(game_controller.menu.multiplayer_lobby.current_players) > 1:
+                        # TODO Can't start a multiplayer game after starting a single player one?
                         game_init_event: InitEvent = InitEvent(EventType.INIT, datetime.datetime.now(),
                                                                hash((uuid.getnode(), os.getpid())),
                                                                game_controller.menu.multiplayer_lobby.name)

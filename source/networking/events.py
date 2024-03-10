@@ -21,6 +21,7 @@ class EventType(str, Enum):
     SAVE = "SAVE"
     QUERY_SAVES = "QUERY_SAVES"
     LOAD = "LOAD"
+    KEEPALIVE = "KEEPALIVE"
 
 
 class UpdateAction(str, Enum):

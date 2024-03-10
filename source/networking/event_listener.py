@@ -2,12 +2,14 @@ import datetime
 import json
 import os
 import random
+import sched
 import socket
 import socketserver
 import time
 import typing
 import uuid
 from itertools import chain
+from threading import Thread
 
 import pyxel
 from miniupnpc import UPnP
@@ -73,6 +75,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.process_query_saves_event(evt, sock)
         elif evt.type == EventType.LOAD:
             self.process_load_event(evt, sock)
+        elif evt.type == EventType.KEEPALIVE:
+            self.process_keepalive_event(evt)
 
     def process_create_event(self, evt: CreateEvent, sock: socket.socket):
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
@@ -879,6 +883,12 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gc.menu.loading_game = False
             gc.menu.joining_game = True
 
+    def process_keepalive_event(self, evt: Event):
+        if self.server.is_server:
+            self.server.keepalive_ctrs_ref[evt.identifier] = 0
+        else:
+            dispatch_event(Event(EventType.KEEPALIVE, datetime.datetime.now(), hash((uuid.getnode(), os.getpid()))))
+
 
 class EventListener:
     def __init__(self, is_server: bool = False):
@@ -891,6 +901,37 @@ class EventListener:
         self.game_clients: typing.Dict[str, typing.List[PlayerDetails]] = {}
         self.lobbies: typing.Dict[str, GameConfig] = {}
         self.clients: typing.Dict[int, typing.Tuple[str, int]] = {}  # Hash identifier to (host, port).
+        self.keepalive_ctrs: typing.Dict[int, int] = {}  # Hash identifier to number sent without response.
+
+        if self.is_server:
+            self.keepalive_scheduler: sched.scheduler = sched.scheduler(time.time, time.sleep)
+            keepalive_thread: Thread = Thread(target=self.run_keepalive_scheduler, daemon=True)
+            keepalive_thread.start()
+
+    def run_keepalive_scheduler(self):
+        self.keepalive_scheduler.enter(5, 1, self.run_keepalive, (self.keepalive_scheduler,))
+        self.keepalive_scheduler.run()
+
+    def run_keepalive(self, scheduler: sched.scheduler):
+        scheduler.enter(5, 1, self.run_keepalive, (scheduler,))
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        evt = Event(EventType.KEEPALIVE, datetime.datetime.now(), hash((uuid.getnode(), os.getpid())))
+        clients_to_remove: typing.List[int] = []
+        for identifier, client in self.clients.items():
+            sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), client)
+            if identifier in self.keepalive_ctrs:
+                self.keepalive_ctrs[identifier] += 1
+                if self.keepalive_ctrs[identifier] == 3:
+                    clients_to_remove.append(identifier)
+            else:
+                self.keepalive_ctrs[identifier] = 1
+        for identifier in clients_to_remove:
+            self.clients.pop(identifier)
+            for lobby_name, details in self.game_clients.items():
+                for player_detail in details:
+                    if player_detail.id == identifier:
+                        l_evt: LeaveEvent = LeaveEvent(EventType.LEAVE, datetime.datetime.now(), identifier, lobby_name)
+                        sock.sendto(json.dumps(l_evt, cls=SaveEncoder).encode(), ("localhost", 9999))
 
     def run(self):
         # TODO Will need some sort of keepalive so that if players quit a game just by quitting the app, the game can
@@ -917,6 +958,7 @@ class EventListener:
             server.game_clients_ref = self.game_clients
             server.lobbies_ref = self.lobbies
             server.clients_ref = self.clients
+            server.keepalive_ctrs_ref = self.keepalive_ctrs
             server.serve_forever()
 
 
