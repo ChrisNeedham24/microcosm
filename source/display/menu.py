@@ -931,8 +931,6 @@ class Menu:
                         self.fog_of_war_enabled = True
                     case SetupOption.CLIMATIC_EFFECTS:
                         self.climatic_effects_enabled = True
-            elif self.loading_game:
-                self.loading_multiplayer_game = True
             elif self.joining_game:
                 self.faction_idx = clamp(self.faction_idx + 1, 0, len(self.available_multiplayer_factions) - 1)
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:

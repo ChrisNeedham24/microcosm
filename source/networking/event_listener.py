@@ -311,7 +311,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
         unit = next(u for u in player.units if u.location == (evt.unit_loc[0], evt.unit_loc[1]))
-        # TODO Loading from saves
         match evt.result:
             case InvestigationResult.FORTUNE:
                 player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.cost / 5
@@ -752,8 +751,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
         # populated - this affects how units will move.
         if gs.check_for_victory() is None:
             save_game(gs, auto=True)
-        gs.process_heathens()
-        gs.process_ais(self.server.move_makers_ref[evt.game_name])
+            gs.process_heathens()
+            gs.process_ais(self.server.move_makers_ref[evt.game_name])
         for p in self.server.game_clients_ref[evt.game_name]:
             sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                         self.server.clients_ref[p.id])
@@ -787,6 +786,12 @@ class RequestHandler(socketserver.BaseRequestHandler):
             if possible_vic is not None:
                 gs.board.overlay.toggle_victory(possible_vic)
                 # TODO handle victory/defeat stats/achs in here later
+                if possible_vic.player.faction == gs.players[gs.player_idx].faction:
+                    if new_achs := save_stats_achievements(gs, victory_to_add=possible_vic.type):
+                        gs.board.overlay.toggle_ach_notif(new_achs)
+                # elif not gs.players[gs.player_idx].eliminated:
+                #     if new_achs := save_stats_achievements(gs, increment_defeats=True):
+                #         gs.board.overlay.toggle_ach_notif(new_achs)
             time_elapsed = time.time() - gc.last_turn_time
             gc.last_turn_time = time.time()
             if new_achs := save_stats_achievements(gs, time_elapsed):
@@ -842,6 +847,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.server.game_controller_ref.menu.loading_multiplayer_game = True
 
     def process_load_event(self, evt: LoadEvent, sock: socket.socket):
+        # TODO Quads are changing on every load? Very weird
         if self.server.is_server:
             gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
             lobby_name = random.choice(LOBBY_NAMES)

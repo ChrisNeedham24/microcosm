@@ -527,6 +527,7 @@ class GameState:
                     heathen.location = within_range.location[0] - 1, within_range.location[1]
                 heathen.remaining_stamina = 0
                 data = attack(heathen, within_range)
+                # TODO Attack overlay not showing for heathen attacks?
                 # Only show the attack overlay if the unit attacked was the non-AI player's.
                 if self.player_idx and within_range in self.players[self.player_idx].units:
                     self.board.overlay.toggle_attack(data)
