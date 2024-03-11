@@ -139,7 +139,6 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
     :param location: The backup location to use for the quad if it is from an outdated save.
     :return: An optionally-migrated Quad representation.
     """
-    # TODO Migrate old float yields to ints
     new_quad: Quad = quad
     # The biomes require special loading.
     new_quad.biome = Biome[new_quad.biome]
@@ -152,6 +151,10 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
                                                res.aurora, res.bloodstone, res.obsidian, res.sunstone, res.aquamarine)
     else:
         new_quad.resource = None
+    new_quad.wealth = round(new_quad.wealth)
+    new_quad.harvest = round(new_quad.harvest)
+    new_quad.zeal = round(new_quad.zeal)
+    new_quad.fortune = round(new_quad.fortune)
     return Quad(new_quad.biome, new_quad.wealth, new_quad.harvest, new_quad.zeal, new_quad.fortune, new_quad.location,
                 new_quad.resource, is_relic=new_quad.is_relic)
 
@@ -192,6 +195,8 @@ def migrate_game_config(config) -> GameConfig:
         config.player_faction = get_faction_for_colour(config.player_colour)
         # We now delete the old attribute so that it does not pollute future saves.
         delattr(config, "player_colour")
+    if not hasattr(config, "multiplayer"):
+        config.multiplayer = False
     return config
 
 

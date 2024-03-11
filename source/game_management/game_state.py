@@ -40,7 +40,7 @@ class GameState:
 
         # We can hard-code the version here and update it when required. This was introduced so that saves with
         # resources can be distinguished from those without.
-        self.game_version: float = 3.0
+        self.game_version: float = 4.0
 
         self.player_idx: typing.Optional[int] = None
         self.ready_players: typing.Set[int] = set()

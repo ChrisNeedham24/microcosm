@@ -275,6 +275,7 @@ def load_game(game_state: GameState, game_controller: GameController):
         # Now do all the same logic we do when starting a game.
         pyxel.mouse(visible=True)
         game_controller.last_turn_time = time.time()
+        game_state.player_idx = 0
         game_state.game_started = True
         game_state.on_menu = False
         game_state.board = Board(game_cfg, game_controller.namer, quads)
