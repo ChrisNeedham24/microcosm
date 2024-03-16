@@ -207,6 +207,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 self.process_deployer_deploy_event(evt, sock)
 
     def process_found_settlement_event(self, evt: FoundSettlementEvent, sock: socket.socket):
+        # TODO The duplicate naming is back - perhaps it's only between player and AI settlements.
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
         game_name: str = evt.game_name if self.server.is_server else "local"
         evt.settlement.location = (evt.settlement.location[0], evt.settlement.location[1])
@@ -264,6 +265,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                 self.server.clients_ref[p.id])
 
     def process_move_unit_event(self, evt: MoveUnitEvent, sock: socket.socket):
+        # TODO Had an instance where the unit I was trying to move wasn't found - it was a settler that I had just
+        #  deployed, and moved in small chunks.
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
@@ -851,6 +854,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.server.game_controller_ref.menu.loading_multiplayer_game = True
 
     def process_load_event(self, evt: LoadEvent, sock: socket.socket):
+        # TODO Just had a crazy one where a warrior inflicted thousands of damage and sacked the
+        #  settlement - could have been loaded in incorrectly?
+        # TODO Warriors loaded in with 2 attack???
         if self.server.is_server:
             gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
             lobby_name = random.choice(LOBBY_NAMES)
@@ -913,6 +919,7 @@ class EventListener:
         self.keepalive_scheduler.run()
 
     def run_keepalive(self, scheduler: sched.scheduler):
+        # TODO The scheduling for this might be too strict, had a few instances where I was removed from the game.
         scheduler.enter(5, 1, self.run_keepalive, (scheduler,))
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         evt = Event(EventType.KEEPALIVE, datetime.datetime.now(), hash((uuid.getnode(), os.getpid())))
@@ -921,7 +928,7 @@ class EventListener:
             sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), client)
             if identifier in self.keepalive_ctrs:
                 self.keepalive_ctrs[identifier] += 1
-                if self.keepalive_ctrs[identifier] == 3:
+                if self.keepalive_ctrs[identifier] == 6:
                     clients_to_remove.append(identifier)
             else:
                 self.keepalive_ctrs[identifier] = 1

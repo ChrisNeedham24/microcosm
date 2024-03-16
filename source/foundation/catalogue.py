@@ -491,7 +491,6 @@ ACHIEVEMENTS: typing.List[Achievement] = [
     Achievement("50 Hours Later", "Play 200 turns in a single multiplayer game.",
                 lambda gs, _: gs.board.game_config.multiplayer and gs.turn >= 200)
 ]
-# TODO verify that Big Game Hunter and Focus Victim work
 
 
 def get_heathen_plan(turn: int) -> UnitPlan:

@@ -273,8 +273,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.menu.in_wiki = True
                 case MainMenuOption.EXIT:
                     pyxel.quit()
-    elif game_state.game_started and (game_state.board.overlay.is_victory() or
-                                      game_state.board.overlay.is_elimination() and game_state.players[game_state.player_idx].eliminated):
+    elif game_state.game_started and not game_state.board.overlay.is_ach_notif() and \
+            (game_state.board.overlay.is_victory() or
+             game_state.board.overlay.is_elimination() and game_state.players[game_state.player_idx].eliminated):
         if game_state.board.game_config.multiplayer:
             leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, datetime.datetime.now(),
                                                        hash((uuid.getnode(), os.getpid())),
@@ -282,11 +283,11 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             dispatch_event(leave_lobby_event)
             game_controller.menu.in_multiplayer_lobby = False
             game_controller.menu.multiplayer_lobby = None
-            game_state.reset_state()
         # If the player has won the game, or they've just been eliminated themselves, enter will take them back
         # to the menu.
         game_state.game_started = False
         game_state.on_menu = True
+        game_state.reset_state()
         game_controller.menu.loading_game = False
         game_controller.menu.loading_multiplayer_game = False
         game_controller.menu.in_game_setup = False
@@ -411,9 +412,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     dispatch_event(leave_lobby_event)
                     game_controller.menu.in_multiplayer_lobby = False
                     game_controller.menu.multiplayer_lobby = None
-                    game_state.reset_state()
                 game_state.game_started = False
                 game_state.on_menu = True
+                game_state.reset_state()
                 game_controller.menu.loading_game = False
                 game_controller.menu.loading_multiplayer_game = False
                 game_controller.menu.in_game_setup = False
