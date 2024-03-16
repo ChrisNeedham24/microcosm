@@ -393,8 +393,7 @@ def search_for_relics_or_move(unit: Unit,
                     return
     # We only get to this point if a valid relic was not found. Make sure when moving randomly that the unit does not
     # collide with other units or settlements.
-    found_valid_loc = False
-    while not found_valid_loc:
+    for _ in range(5):
         x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
         rem_movement = unit.remaining_stamina - abs(x_movement)
         y_movement = random.choice([-rem_movement, rem_movement])
@@ -404,8 +403,8 @@ def search_for_relics_or_move(unit: Unit,
                 not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
             unit.location = loc
             update_player_quads_seen_around_point(player, loc)
-            found_valid_loc = True
             unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
+            break
 
 
 def move_healer_unit(player: Player, unit: Unit, other_units: List[Unit],
@@ -579,8 +578,7 @@ class MoveMaker:
         :param all_setls: All of the settlements in the game. Used to make sure no collisions occur between the settler
         and settlements.
         """
-        found_valid_loc = False
-        while not found_valid_loc:
+        for _ in range(5):
             x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
             rem_movement = unit.remaining_stamina - abs(x_movement)
             y_movement = random.choice([-rem_movement, rem_movement])
@@ -590,8 +588,8 @@ class MoveMaker:
                     not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
                 unit.location = loc
                 update_player_quads_seen_around_point(player, loc)
-                found_valid_loc = True
                 unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
+                break
 
         should_settle = True
         for setl in player.settlements:

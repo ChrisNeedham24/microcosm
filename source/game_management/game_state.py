@@ -491,22 +491,26 @@ class GameState:
         all_units: typing.List[Unit] = []
         banned_quads: typing.Set[typing.Tuple[int, int]] = set()
         for player in self.players:
-            # Heathens will not attack Infidel units.
-            if player.faction != Faction.INFIDELS:
-                for unit in player.units:
+            for unit in player.units:
+                # Heathens will not attack Infidel units.
+                if player.faction != Faction.INFIDELS:
                     all_units.append(unit)
+                else:
+                    banned_quads.add(unit.location)
             # During nighttime, heathens cannot be within a certain number of quads of settlements with sunstone
             # resources. For example, heathens cannot be within 6 quads of a settlement with 1 sunstone resource, and
             # they cannot be within 9 quads of a settlement with 2 sunstone resources.
             for setl in player.settlements:
-                if self.nighttime_left > 0 and setl.resources.sunstone:
-                    exclusion_range = 3 * (1 + setl.resources.sunstone)
-                    for setl_quad in setl.quads:
+                for setl_quad in setl.quads:
+                    if self.nighttime_left > 0 and setl.resources.sunstone:
+                        exclusion_range = 3 * (1 + setl.resources.sunstone)
                         for i in range(setl_quad.location[0] - exclusion_range,
                                        setl_quad.location[0] + exclusion_range + 1):
                             for j in range(setl_quad.location[1] - exclusion_range,
                                            setl_quad.location[1] + exclusion_range + 1):
                                 banned_quads.add((i, j))
+                    else:
+                        banned_quads.add(setl_quad.location)
         for heathen in self.heathens:
             within_range: typing.Optional[Unit] = None
             # Check if any player unit is within range of the heathen.
@@ -542,7 +546,7 @@ class GameState:
                 # location (i.e. one away from the influence of a settlement with one or more sunstones) is not found,
                 # the heathen dies.
                 found_valid_loc = False
-                for i in range(5):
+                for _ in range(5):
                     x_movement = random.randint(-heathen.remaining_stamina, heathen.remaining_stamina)
                     rem_movement = heathen.remaining_stamina - abs(x_movement)
                     y_movement = random.choice([-rem_movement, rem_movement])
