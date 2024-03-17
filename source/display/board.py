@@ -760,7 +760,7 @@ class Board:
                         self.overlay.update_unit(deployed)
                     # If the player has not selected a unit and they've clicked on a heathen, select it.
                     elif self.selected_unit is None and \
-                            (adj_x, adj_y) in player.quads_seen and \
+                            ((adj_x, adj_y) in player.quads_seen or not self.game_config.fog_of_war) and \
                             any((to_select := heathen).location == (adj_x, adj_y) for heathen in heathens):
                         self.selected_unit = to_select
                         self.overlay.toggle_unit(to_select)
@@ -836,7 +836,7 @@ class Board:
                                     self.overlay.toggle_setl_click(to_attack, p)
                     # If the player has not selected a unit and they click on one, select it.
                     elif self.selected_unit is None and \
-                            (adj_x, adj_y) in player.quads_seen and \
+                            ((adj_x, adj_y) in player.quads_seen or not self.game_config.fog_of_war) and \
                             any((to_select := unit).location == (adj_x, adj_y) for unit in all_units):
                         self.selected_unit = to_select
                         self.overlay.toggle_unit(to_select)

@@ -207,7 +207,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 self.process_deployer_deploy_event(evt, sock)
 
     def process_found_settlement_event(self, evt: FoundSettlementEvent, sock: socket.socket):
-        # TODO The duplicate naming is back - perhaps it's only between player and AI settlements.
         gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
         game_name: str = evt.game_name if self.server.is_server else "local"
         evt.settlement.location = (evt.settlement.location[0], evt.settlement.location[1])
@@ -265,8 +264,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                 self.server.clients_ref[p.id])
 
     def process_move_unit_event(self, evt: MoveUnitEvent, sock: socket.socket):
-        # TODO Had an instance where the unit I was trying to move wasn't found - it was a settler that I had just
-        #  deployed, and moved in small chunks.
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
@@ -645,7 +642,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                             self.server.clients_ref[evt.identifier])
         else:
-            gc.namer.reset()
             gc.menu.multiplayer_lobby = LobbyDetails(evt.lobby_name,
                                                      evt.lobby_details.current_players,
                                                      evt.lobby_details.cfg,
@@ -680,6 +676,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     if evt.player_chunk:
                         gs.players[evt.player_chunk_idx] = \
                             inflate_player(evt.player_chunk, gs.board.quads)
+                        for s in gs.players[evt.player_chunk_idx].settlements:
+                            gc.namer.remove_settlement_name(s.name, s.quads[0].biome)
                         gc.menu.multiplayer_game_being_loaded.players_loaded += 1
                     if evt.quads_seen_chunk:
                         if gc.menu.multiplayer_game_being_loaded:
@@ -836,6 +834,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gc: GameController = self.server.game_controller_ref
             previous_player_count = len(gc.menu.multiplayer_lobby.current_players)
             for player in evt.players[previous_player_count:]:
+                player.faction = Faction(player.faction)
                 player.imminent_victories = set(player.imminent_victories)
                 player.quads_seen = set(player.quads_seen)
                 new_player_detail: PlayerDetails = PlayerDetails(player.name, player.faction, 0, "", is_ai=True)
@@ -854,10 +853,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.server.game_controller_ref.menu.loading_multiplayer_game = True
 
     def process_load_event(self, evt: LoadEvent, sock: socket.socket):
-        # TODO Just had a crazy one where a warrior inflicted thousands of damage and sacked the
-        #  settlement - could have been loaded in incorrectly?
-        # TODO Settlements not being saved? The 2024-03-16T16.04.43 save has two settlements created on the client that
-        #  aren't there when loaded in
         if self.server.is_server:
             gsrs: typing.Dict[str, GameState] = self.server.game_states_ref
             lobby_name = random.choice(LOBBY_NAMES)
@@ -884,6 +879,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
         else:
             gc: GameController = self.server.game_controller_ref
+            gc.namer.reset()
             gc.menu.multiplayer_lobbies = [evt.lobby]
             gc.menu.available_multiplayer_factions = \
                 [(Faction(p.faction), FACTION_COLOURS[p.faction]) for p in evt.lobby.current_players]

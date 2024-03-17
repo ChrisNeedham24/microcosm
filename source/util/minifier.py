@@ -117,8 +117,7 @@ def inflate_quad(quad_str: str, location: (int, int)) -> Quad:
 
 def inflate_unit_plan(up_str: str) -> UnitPlan:
     split_up: List[str] = up_str.split("/")
-    # We need to deepcopy so that changes to one UnitPlan don't affect all the others as well.
-    unit_plan: UnitPlan = deepcopy(get_unit_plan(split_up[-1]))
+    unit_plan: UnitPlan = get_unit_plan(split_up[-1])
     unit_plan.power = float(split_up[0])
     unit_plan.max_health = float(split_up[1])
     unit_plan.total_stamina = int(split_up[2])

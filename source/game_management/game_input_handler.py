@@ -234,6 +234,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                                     menu.multiplayer_lobbies[menu.lobby_index].name,
                                                     menu.available_multiplayer_factions[menu.faction_idx][0])
             dispatch_event(lobby_join_event)
+            game_controller.namer.reset()
         elif game_controller.menu.viewing_lobbies:
             current_lobby: LobbyDetails = game_controller.menu.multiplayer_lobbies[game_controller.menu.lobby_index]
             human_players: typing.List[PlayerDetails] = [p for p in current_lobby.current_players if not p.is_ai]
@@ -762,6 +763,7 @@ def on_key_j(game_state: GameState):
     :param game_state: The current GameState object.
     """
     if game_state.game_started and game_state.board.overlay.can_jump_to_setl():
+        game_state.board.overlay.remove_warning_if_possible()
         # Pressing the J key will jump to an idle settlement, if such a settlement exists.
         idle_settlements = [setl for setl in game_state.players[game_state.player_idx].settlements if setl.current_work is None]
         if idle_settlements:

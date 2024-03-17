@@ -672,4 +672,5 @@ def get_unit_plan(name: str) -> UnitPlan:
     :param name: The name of the unit plan.
     :return: The UnitPlan with the given name.
     """
-    return next(up for up in UNIT_PLANS if up.name == name)
+    # We need to deepcopy so that changes to one UnitPlan don't affect all the others as well.
+    return deepcopy(next(up for up in UNIT_PLANS if up.name == name))
