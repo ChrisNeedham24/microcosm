@@ -317,7 +317,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         unit = next(u for u in player.units if u.location == (evt.unit_loc[0], evt.unit_loc[1]))
         match evt.result:
             case InvestigationResult.FORTUNE:
-                player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.cost / 5
+                player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.blessing.cost / 5
             case InvestigationResult.WEALTH:
                 player.wealth += 25
             case InvestigationResult.VISION:
