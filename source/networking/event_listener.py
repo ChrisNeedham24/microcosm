@@ -926,7 +926,7 @@ class EventListener:
             sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), client)
             if identifier in self.keepalive_ctrs:
                 self.keepalive_ctrs[identifier] += 1
-                if self.keepalive_ctrs[identifier] == 3:
+                if self.keepalive_ctrs[identifier] == 6:
                     clients_to_remove.append(identifier)
             else:
                 self.keepalive_ctrs[identifier] = 1
