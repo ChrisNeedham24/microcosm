@@ -140,7 +140,7 @@ def inflate_unit(unit_str: str, garrisoned: bool) -> Unit:
         return Unit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3]),
                     unit_has_acted, unit_is_besieging)
     else:
-        passengers_str: str = "".join(split_unit[6:])
+        passengers_str: str = "|".join(split_unit[6:])
         split_passengers: List[str] = passengers_str.split("^")[:-1]
         passengers: List[Unit] = [inflate_unit(sp, garrisoned=False) for sp in split_passengers]
         return DeployerUnit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3]),
