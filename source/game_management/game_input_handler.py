@@ -370,7 +370,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                         update_player_quads_seen_around_point(game_state.players[game_state.player_idx],
                                                               data.settlement.location)
                     for idx, p in enumerate(game_state.players):
-                        if data.settlement in p.settlements and idx != 0:
+                        if data.settlement in p.settlements and idx != game_state.player_idx:
                             p.settlements.remove(data.settlement)
                             break
                 game_state.board.overlay.toggle_setl_attack(data)
