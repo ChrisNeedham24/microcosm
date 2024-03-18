@@ -1,3 +1,4 @@
+import atexit
 import datetime
 import json
 import os
@@ -939,8 +940,6 @@ class EventListener:
             self.clients.pop(identifier)
 
     def run(self):
-        # TODO eventually just have a static port for clients too - probably 20k range - do this last once all local
-        #  testing is done (delete the upnp mappings for other ports when this is done)
         with socketserver.UDPServer(("0.0.0.0", 9999 if self.is_server else 0), RequestHandler) as server:
             if not self.is_server:
                 dispatch_event(RegisterEvent(EventType.REGISTER, datetime.datetime.now(),
@@ -948,6 +947,8 @@ class EventListener:
                 upnp = UPnP()
                 upnp.discover()
                 upnp.selectigd()
+                while (port_mapping := upnp.getgenericportmapping(0)) is not None:
+                    upnp.deleteportmapping(port_mapping[0], "UDP")
                 ip_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 ip_sock.connect(("8.8.8.8", 80))
                 private_ip: str = ip_sock.getsockname()[0]
