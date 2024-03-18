@@ -5,7 +5,7 @@ from source.foundation.catalogue import get_unit_plan, get_improvement, get_proj
     IMPROVEMENTS
 from source.foundation.models import Quad, Biome, ResourceCollection, Player, Settlement, Unit, UnitPlan, Improvement, \
     Construction, HarvestStatus, EconomicStatus, Blessing, Faction, VictoryType, OngoingBlessing, AIPlaystyle, \
-    AttackPlaystyle, ExpansionPlaystyle, Project, Heathen
+    AttackPlaystyle, ExpansionPlaystyle, Project, Heathen, DeployerUnit
 
 
 def minify_resource_collection(rc: ResourceCollection) -> str:
@@ -29,6 +29,11 @@ def minify_unit(unit: Unit) -> str:
     unit_str: str = f"{unit.health}|{unit.remaining_stamina}|{unit.location[0]}-{unit.location[1]}|"
     unit_str += minify_unit_plan(unit.plan) + "|"
     unit_str += f"{unit.has_acted}|{unit.besieging}"
+    # TODO support deployer units
+    if isinstance(unit, DeployerUnit):
+        unit_str += "|"
+        for passenger in unit.passengers:
+            unit_str += minify_unit(passenger) + "^"
     return unit_str
 
 
@@ -126,9 +131,20 @@ def inflate_unit_plan(up_str: str) -> UnitPlan:
 
 def inflate_unit(unit_str: str, garrisoned: bool) -> Unit:
     split_unit: List[str] = unit_str.split("|")
+    unit_health: float = float(split_unit[0])
+    unit_rem_stamina: int = int(split_unit[1])
+    unit_has_acted: bool = split_unit[4] == "True"
+    unit_is_besieging: bool = split_unit[5] == "True"
     unit_loc: (int, int) = int(split_unit[2].split("-")[0]), int(split_unit[2].split("-")[1])
-    return Unit(float(split_unit[0]), int(split_unit[1]), unit_loc, garrisoned, inflate_unit_plan(split_unit[3]),
-                split_unit[4] == "True", split_unit[5] == "True")
+    if len(split_unit) == 6:
+        return Unit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3]),
+                    unit_has_acted, unit_is_besieging)
+    else:
+        passengers_str: str = "".join(split_unit[6:])
+        split_passengers: List[str] = passengers_str.split("^")[:-1]
+        passengers: List[Unit] = [inflate_unit(sp, garrisoned=False) for sp in split_passengers]
+        return DeployerUnit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3]),
+                            unit_has_acted, unit_is_besieging, passengers)
 
 
 def inflate_improvement(improvement_str: str) -> Improvement:
