@@ -29,7 +29,6 @@ def minify_unit(unit: Unit) -> str:
     unit_str: str = f"{unit.health}|{unit.remaining_stamina}|{unit.location[0]}-{unit.location[1]}|"
     unit_str += minify_unit_plan(unit.plan) + "|"
     unit_str += f"{unit.has_acted}|{unit.besieging}"
-    # TODO support deployer units
     if isinstance(unit, DeployerUnit):
         unit_str += "|"
         for passenger in unit.passengers:

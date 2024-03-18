@@ -549,8 +549,10 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     evt.player_ai_playstyle = player.ai_playstyle
                 evt.leaving_player_faction = player.faction
                 for p in self.server.game_clients_ref[evt.lobby_name]:
-                    sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
-                                self.server.clients_ref[p.id])
+                    # We need this check because multiple players may have left at the same time.
+                    if p.id in self.server.clients_ref:
+                        sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                                    self.server.clients_ref[p.id])
                 if len(gs.ready_players) == len(self.server.game_clients_ref[evt.lobby_name]):
                     self._server_end_turn(gs, EndTurnEvent(EventType.END_TURN, datetime.datetime.now(),
                                                            identifier=None, game_name=evt.lobby_name), sock)
