@@ -1,7 +1,6 @@
-import datetime
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List, Tuple
+from typing import Optional, List
 
 from source.foundation.models import GameConfig, PlayerDetails, Faction, Settlement, LobbyDetails, \
     ResourceCollection, Construction, OngoingBlessing, InvestigationResult, Player, AIPlaystyle
@@ -45,8 +44,8 @@ class UpdateAction(str, Enum):
 @dataclass
 class Event:
     type: EventType
-    timestamp: datetime.datetime
-    # A hash of the client's hardware address and PID, identifying the running instance.
+    # A hash of the client's hardware address and PID, identifying the running instance. None when the server is
+    # generating and sending events to clients.
     identifier: Optional[int]
 
 

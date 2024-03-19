@@ -24,7 +24,7 @@ from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDet
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
-from source.networking.client import dispatch_event
+from source.networking.client import dispatch_event, get_identifier
 from source.networking.events import Event, EventType, CreateEvent, InitEvent, UpdateEvent, UpdateAction, \
     FoundSettlementEvent, QueryEvent, LeaveEvent, JoinEvent, RegisterEvent, SetBlessingEvent, SetConstructionEvent, \
     MoveUnitEvent, DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent, \
@@ -93,16 +93,15 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.server.game_clients_ref[lobby_name] = \
                 [PlayerDetails(player_name, evt.cfg.player_faction, evt.identifier, self.client_address[0])]
             self.server.lobbies_ref[lobby_name] = evt.cfg
-            resp_evt: CreateEvent = CreateEvent(evt.type, evt.timestamp, None, evt.cfg, lobby_name,
-                                                self.server.game_clients_ref[lobby_name])
-            sock.sendto(json.dumps(resp_evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
+            evt.lobby_name = lobby_name
+            evt.player_details = self.server.game_clients_ref[lobby_name]
+            sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
         else:
             gsrs["local"].players.append(Player(evt.player_details[0].name, Faction(evt.cfg.player_faction),
                                                 FACTION_COLOURS[evt.cfg.player_faction]))
             gsrs["local"].player_idx = 0
             gc: GameController = self.server.game_controller_ref
             gc.menu.multiplayer_lobby = LobbyDetails(evt.lobby_name, evt.player_details, evt.cfg, current_turn=None)
-            gc.menu.in_multiplayer_lobby = True
             gc.namer.reset()
 
     def process_init_event(self, evt: InitEvent, sock: socket.socket):
@@ -123,9 +122,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 if player.ai_playstyle:
                     for client in self.server.game_clients_ref[evt.game_name]:
                         ai_evt: FoundSettlementEvent = \
-                            FoundSettlementEvent(EventType.UPDATE, datetime.datetime.now(), None,
-                                                 UpdateAction.FOUND_SETTLEMENT, evt.game_name, player.faction,
-                                                 player.settlements[0], from_settler=False)
+                            FoundSettlementEvent(EventType.UPDATE, None, UpdateAction.FOUND_SETTLEMENT, evt.game_name,
+                                                 player.faction, player.settlements[0], from_settler=False)
                         sock.sendto(json.dumps(ai_evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                     self.server.clients_ref[client.id])
             quads_list: typing.List[Quad] = list(chain.from_iterable(gsr.board.quads))
@@ -134,10 +132,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 for quad in quads_chunk:
                     quad_str: str = minify_quad(quad)
                     minified_quads += quad_str + ","
+                resp_evt: InitEvent = InitEvent(evt.type, None, evt.game_name, gsr.until_night,
+                                                self.server.lobbies_ref[evt.game_name], minified_quads, idx)
                 for player in self.server.game_clients_ref[evt.game_name]:
-                    resp_evt: InitEvent = InitEvent(evt.type, datetime.datetime.now(), None, evt.game_name,
-                                                    gsr.until_night, self.server.lobbies_ref[evt.game_name],
-                                                    minified_quads, idx)
                     sock.sendto(json.dumps(resp_evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                 self.server.clients_ref[player.id])
         else:
@@ -523,8 +520,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 for player in [p for p in gs.players if p.ai_playstyle and not p.eliminated]:
                     player_details.append(PlayerDetails(player.name, player.faction, 0, "", is_ai=True))
                 lobbies.append(LobbyDetails(name, player_details, cfg, None if not gs.game_started else gs.turn))
-            resp_evt: QueryEvent = QueryEvent(EventType.QUERY, datetime.datetime.now(), None, lobbies)
-            sock.sendto(json.dumps(resp_evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
+            evt.lobbies = lobbies
+            sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
         else:
             gc: GameController = self.server.game_controller_ref
             gc.menu.multiplayer_lobbies = evt.lobbies
@@ -554,8 +551,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                                     self.server.clients_ref[p.id])
                 if len(gs.ready_players) == len(self.server.game_clients_ref[evt.lobby_name]):
-                    self._server_end_turn(gs, EndTurnEvent(EventType.END_TURN, datetime.datetime.now(),
-                                                           identifier=None, game_name=evt.lobby_name), sock)
+                    self._server_end_turn(gs, EndTurnEvent(EventType.END_TURN, identifier=None,
+                                                           game_name=evt.lobby_name), sock)
         else:
             gs = self.server.game_states_ref["local"]
             player = next(p for p in gs.players if p.faction == evt.leaving_player_faction)
@@ -731,7 +728,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         gs.players.append(Player(player.name, Faction(player.faction), FACTION_COLOURS[player.faction]))
                     gc.menu.joining_game = False
                     gc.menu.viewing_lobbies = False
-                    gc.menu.in_multiplayer_lobby = True
                     gc.menu.setup_option = SetupOption.START_GAME
                 else:
                     new_player: PlayerDetails = evt.lobby_details.current_players[-1]
@@ -829,8 +825,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                                             random.choice(list(ExpansionPlaystyle))))
                 gsrs[evt.lobby_name].players.append(ai_player)
             for player in self.server.game_clients_ref[evt.lobby_name]:
-                update_evt: AutofillEvent = AutofillEvent(EventType.AUTOFILL, datetime.datetime.now(), None,
-                                                          evt.lobby_name, gsrs[evt.lobby_name].players)
+                update_evt: AutofillEvent = AutofillEvent(EventType.AUTOFILL, None, evt.lobby_name,
+                                                          gsrs[evt.lobby_name].players)
                 sock.sendto(json.dumps(update_evt, cls=SaveEncoder).encode(), self.server.clients_ref[player.id])
         else:
             gc: GameController = self.server.game_controller_ref
@@ -892,7 +888,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         if self.server.is_server:
             self.server.keepalive_ctrs_ref[evt.identifier] = 0
         else:
-            dispatch_event(Event(EventType.KEEPALIVE, datetime.datetime.now(), hash((uuid.getnode(), os.getpid()))))
+            dispatch_event(Event(EventType.KEEPALIVE, get_identifier()))
 
 
 class EventListener:
@@ -920,7 +916,7 @@ class EventListener:
     def run_keepalive(self, scheduler: sched.scheduler):
         scheduler.enter(5, 1, self.run_keepalive, (scheduler,))
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        evt = Event(EventType.KEEPALIVE, datetime.datetime.now(), hash((uuid.getnode(), os.getpid())))
+        evt = Event(EventType.KEEPALIVE, None)
         clients_to_remove: typing.List[int] = []
         for identifier, client in self.clients.items():
             sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), client)
@@ -934,15 +930,14 @@ class EventListener:
             for lobby_name, details in self.game_clients.items():
                 for player_detail in details:
                     if player_detail.id == identifier:
-                        l_evt: LeaveEvent = LeaveEvent(EventType.LEAVE, datetime.datetime.now(), identifier, lobby_name)
+                        l_evt: LeaveEvent = LeaveEvent(EventType.LEAVE, identifier, lobby_name)
                         sock.sendto(json.dumps(l_evt, cls=SaveEncoder).encode(), ("localhost", 9999))
             self.clients.pop(identifier)
 
     def run(self):
         with socketserver.UDPServer(("0.0.0.0", 9999 if self.is_server else 0), RequestHandler) as server:
             if not self.is_server:
-                dispatch_event(RegisterEvent(EventType.REGISTER, datetime.datetime.now(),
-                                             hash((uuid.getnode(), os.getpid())), server.server_address[1]))
+                dispatch_event(RegisterEvent(EventType.REGISTER, get_identifier(), server.server_address[1]))
                 upnp = UPnP()
                 upnp.discover()
                 upnp.selectigd()

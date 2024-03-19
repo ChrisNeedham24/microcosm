@@ -8,7 +8,7 @@ from enum import Enum
 
 import pyxel
 
-from source.networking.client import dispatch_event
+from source.networking.client import dispatch_event, get_identifier
 from source.networking.events import FoundSettlementEvent, EventType, UpdateAction, MoveUnitEvent, DeployUnitEvent, \
     GarrisonUnitEvent, InvestigateEvent, AttackUnitEvent, HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent
 from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal, \
@@ -116,15 +116,16 @@ class Board:
         else:
             quads_to_show = players[self.player_idx].quads_seen
         fog_of_war_impacts: bool = self.game_config.fog_of_war or \
-                                   (is_night and players[self.player_idx].faction != Faction.NOCTURNE)
+            (is_night and players[self.player_idx].faction != Faction.NOCTURNE)
         # Draw the quads.
         for i in range(map_pos[0], map_pos[0] + 24):
             for j in range(map_pos[1], map_pos[1] + 22):
                 if 0 <= i <= 99 and 0 <= j <= 89:
                     # Draw the quad if fog of war is off, or if the player has seen the quad, or we're in the tutorial.
                     # This same logic applies to all subsequent draws.
-                    if (i, j) in quads_to_show or len(
-                            players[self.player_idx].settlements) == 0 or not fog_of_war_impacts:
+                    if (i, j) in quads_to_show or \
+                            len(players[self.player_idx].settlements) == 0 or \
+                            not fog_of_war_impacts:
                         quad = self.quads[j][i]
                         match quad.biome:
                             case Biome.DESERT:
@@ -341,8 +342,8 @@ class Board:
                         pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_WHITE)
 
         # Also display the number of units the player can move at the bottom-right of the screen.
-        movable_units = [unit for unit in players[self.player_idx].units if
-                         unit.remaining_stamina > 0 and not unit.besieging]
+        movable_units = [unit for unit in players[self.player_idx].units
+                         if unit.remaining_stamina > 0 and not unit.besieging]
         if len(movable_units) > 0:
             pluralisation = "s" if len(movable_units) > 1 else ""
             pyxel.rectb(150, 147, 40, 20, pyxel.COLOR_WHITE)
@@ -536,11 +537,11 @@ class Board:
         # the map. For example, if the player is choosing a construction for a settlement, they should not be able to
         # click around on the map.
         obscured_by_overlay = self.overlay.is_standard() or self.overlay.is_constructing() or \
-                              self.overlay.is_blessing() or self.overlay.is_deployment() or self.overlay.is_warning() or \
-                              self.overlay.is_bless_notif() or self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or \
-                              self.overlay.is_setl_click() or self.overlay.is_pause() or self.overlay.is_controls() or \
-                              self.overlay.is_victory() or self.overlay.is_elimination() or self.overlay.is_close_to_vic() or \
-                              self.overlay.is_investigation() or self.overlay.is_ach_notif()
+            self.overlay.is_blessing() or self.overlay.is_deployment() or self.overlay.is_warning() or \
+            self.overlay.is_bless_notif() or self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or \
+            self.overlay.is_setl_click() or self.overlay.is_pause() or self.overlay.is_controls() or \
+            self.overlay.is_victory() or self.overlay.is_elimination() or self.overlay.is_close_to_vic() or \
+            self.overlay.is_investigation() or self.overlay.is_ach_notif()
         if not obscured_by_overlay and 4 <= mouse_x <= 196 and 4 <= mouse_y <= 180:
             # Work out which quad they've clicked, and select it.
             adj_x = int((mouse_x - 4) / 8) + map_pos[0]
@@ -574,11 +575,11 @@ class Board:
         # the map. For example, if the player is choosing a construction for a settlement, they should not be able to
         # click around on the map.
         obscured_by_overlay = self.overlay.is_standard() or self.overlay.is_constructing() or \
-                              self.overlay.is_blessing() or self.overlay.is_warning() or self.overlay.is_bless_notif() or \
-                              self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or self.overlay.is_setl_click() or \
-                              self.overlay.is_pause() or self.overlay.is_controls() or self.overlay.is_victory() or \
-                              self.overlay.is_elimination() or self.overlay.is_close_to_vic() or self.overlay.is_investigation() or \
-                              self.overlay.is_ach_notif()
+            self.overlay.is_blessing() or self.overlay.is_warning() or self.overlay.is_bless_notif() or \
+            self.overlay.is_constr_notif() or self.overlay.is_lvl_notif() or self.overlay.is_setl_click() or \
+            self.overlay.is_pause() or self.overlay.is_controls() or self.overlay.is_victory() or \
+            self.overlay.is_elimination() or self.overlay.is_close_to_vic() or self.overlay.is_investigation() or \
+            self.overlay.is_ach_notif()
         # Firstly, deselect the selected quad if there is one.
         if not obscured_by_overlay and self.quad_selected is not None:
             self.quad_selected.selected = False
@@ -616,8 +617,7 @@ class Board:
                     self.selected_settlement = new_settl
                     self.overlay.toggle_settlement(new_settl, player)
                     if self.game_config.multiplayer:
-                        fs_evt: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, datetime.datetime.now(),
-                                                                            hash((uuid.getnode(), os.getpid())),
+                        fs_evt: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, get_identifier(),
                                                                             UpdateAction.FOUND_SETTLEMENT,
                                                                             self.game_name, player.faction, new_settl,
                                                                             from_settler=False)
@@ -655,8 +655,7 @@ class Board:
                         to_select.garrison.append(self.selected_unit)
                         player.units.remove(self.selected_unit)
                         if self.game_config.multiplayer:
-                            gu_evt: GarrisonUnitEvent = GarrisonUnitEvent(EventType.UPDATE, datetime.datetime.now(),
-                                                                          hash((uuid.getnode(), os.getpid())),
+                            gu_evt: GarrisonUnitEvent = GarrisonUnitEvent(EventType.UPDATE, get_identifier(),
                                                                           UpdateAction.GARRISON_UNIT, self.game_name,
                                                                           player.faction, initial,
                                                                           self.selected_unit.remaining_stamina,
@@ -685,8 +684,7 @@ class Board:
                         to_select.passengers.append(self.selected_unit)
                         player.units.remove(self.selected_unit)
                         if self.game_config.multiplayer:
-                            bd_evt: BoardDeployerEvent = BoardDeployerEvent(EventType.UPDATE, datetime.datetime.now(),
-                                                                            hash((uuid.getnode(), os.getpid())),
+                            bd_evt: BoardDeployerEvent = BoardDeployerEvent(EventType.UPDATE, get_identifier(),
                                                                             UpdateAction.BOARD_DEPLOYER, self.game_name,
                                                                             player.faction, initial, to_select.location,
                                                                             self.selected_unit.remaining_stamina)
@@ -712,8 +710,7 @@ class Board:
                         # Add the surrounding quads to the player's seen.
                         update_player_quads_seen_around_point(player, (adj_x, adj_y))
                         if self.game_config.multiplayer:
-                            du_evt: DeployUnitEvent = DeployUnitEvent(EventType.UPDATE, datetime.datetime.now(),
-                                                                      hash((uuid.getnode(), os.getpid())),
+                            du_evt: DeployUnitEvent = DeployUnitEvent(EventType.UPDATE, get_identifier(),
                                                                       UpdateAction.DEPLOY_UNIT, self.game_name,
                                                                       player.faction, self.selected_settlement.name,
                                                                       deployed.location)
@@ -743,8 +740,7 @@ class Board:
                         # Add the surrounding quads to the player's seen.
                         update_player_quads_seen_around_point(player, (adj_x, adj_y))
                         if self.game_config.multiplayer:
-                            dd_evt: DeployerDeployEvent = DeployerDeployEvent(EventType.UPDATE, datetime.datetime.now(),
-                                                                              hash((uuid.getnode(), os.getpid())),
+                            dd_evt: DeployerDeployEvent = DeployerDeployEvent(EventType.UPDATE, get_identifier(),
                                                                               UpdateAction.DEPLOYER_DEPLOY,
                                                                               self.game_name, player.faction,
                                                                               self.selected_unit.location, unit_idx,
@@ -776,8 +772,7 @@ class Board:
                                 abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
                             data = attack(self.selected_unit, other_unit, ai=False)
                             if self.game_config.multiplayer:
-                                au_evt: AttackUnitEvent = AttackUnitEvent(EventType.UPDATE, datetime.datetime.now(),
-                                                                          hash((uuid.getnode(), os.getpid())),
+                                au_evt: AttackUnitEvent = AttackUnitEvent(EventType.UPDATE, get_identifier(),
                                                                           UpdateAction.ATTACK_UNIT,
                                                                           self.game_name, player.faction,
                                                                           self.selected_unit.location,
@@ -811,8 +806,7 @@ class Board:
                                     abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
                                 data = heal(self.selected_unit, other_unit, ai=False)
                                 if self.game_config.multiplayer:
-                                    hu_evt: HealUnitEvent = HealUnitEvent(EventType.UPDATE, datetime.datetime.now(),
-                                                                          hash((uuid.getnode(), os.getpid())),
+                                    hu_evt: HealUnitEvent = HealUnitEvent(EventType.UPDATE, get_identifier(),
                                                                           UpdateAction.HEAL_UNIT, self.game_name,
                                                                           player.faction, self.selected_unit.location,
                                                                           other_unit.location)
@@ -868,8 +862,7 @@ class Board:
                         # Update the player's seen quads.
                         update_player_quads_seen_around_point(player, (adj_x, adj_y))
                         if self.game_config.multiplayer:
-                            mu_evt: MoveUnitEvent = MoveUnitEvent(EventType.UPDATE, datetime.datetime.now(),
-                                                                  hash((uuid.getnode(), os.getpid())),
+                            mu_evt: MoveUnitEvent = MoveUnitEvent(EventType.UPDATE, get_identifier(),
                                                                   UpdateAction.MOVE_UNIT, self.game_name,
                                                                   player.faction, initial, self.selected_unit.location,
                                                                   self.selected_unit.remaining_stamina,
@@ -888,8 +881,7 @@ class Board:
                             # Relics cease to exist once investigated.
                             self.quads[adj_y][adj_x].is_relic = False
                             if result is not InvestigationResult.NONE:
-                                i_evt: InvestigateEvent = InvestigateEvent(EventType.UPDATE, datetime.datetime.now(),
-                                                                           hash((uuid.getnode(), os.getpid())),
+                                i_evt: InvestigateEvent = InvestigateEvent(EventType.UPDATE, get_identifier(),
                                                                            UpdateAction.INVESTIGATE, self.game_name,
                                                                            player.faction, self.selected_unit.location,
                                                                            (adj_x, adj_y), result)
@@ -934,8 +926,7 @@ class Board:
             # Destroy the settler unit and select the new settlement.
             player.units.remove(self.selected_unit)
             if self.game_config.multiplayer:
-                fs_evt: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, datetime.datetime.now(),
-                                                                    hash((uuid.getnode(), os.getpid())),
+                fs_evt: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, get_identifier(),
                                                                     UpdateAction.FOUND_SETTLEMENT,
                                                                     self.game_name, player.faction, new_settl)
                 dispatch_event(fs_evt)

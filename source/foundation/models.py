@@ -550,6 +550,7 @@ class Achievement:
 class PlayerDetails:
     name: str
     faction: Faction
+    # TODO Remove host and is_ai, just make id optional and use that to determine whether the player is an AI
     id: int
     host: str
     is_ai: bool = False

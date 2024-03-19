@@ -11,6 +11,7 @@ from typing import List, Optional, Tuple
 import pyxel
 
 from source.display.display_utils import draw_paragraph
+from source.networking.client import get_identifier
 from source.util.calculator import clamp
 from source.foundation.catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, \
     IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS, ACHIEVEMENTS
@@ -115,7 +116,6 @@ class Menu:
         self.viewing_achievements = False
         self.achievements_boundaries = 0, 3
         self.showing_rare_resources = False
-        self.in_multiplayer_lobby = False
         self.multiplayer_lobby: typing.Optional[LobbyDetails] = None
         self.viewing_lobbies = False
         self.multiplayer_lobbies: typing.List[LobbyDetails] = []
@@ -151,6 +151,7 @@ class Menu:
                        else pyxel.COLOR_WHITE)
             pyxel.text(35, 70, "Quads seen",
                        pyxel.COLOR_GREEN if m_game.quads_seen_loaded == m_game.total_quads_seen else pyxel.COLOR_WHITE)
+            # TODO Make this dynamically positioned based on the length of the quads seen string
             pyxel.text(130, 70, f"{m_game.quads_seen_loaded}/{m_game.total_quads_seen}",
                        pyxel.COLOR_GREEN if m_game.quads_seen_loaded == m_game.total_quads_seen else pyxel.COLOR_WHITE)
             pyxel.text(35, 80, "Heathens", pyxel.COLOR_GREEN if m_game.heathens_loaded else pyxel.COLOR_WHITE)
@@ -158,7 +159,7 @@ class Menu:
                        f"{m_game.total_heathens}/{m_game.total_heathens}" if m_game.heathens_loaded
                        else f"0/{m_game.total_heathens}",
                        pyxel.COLOR_GREEN if m_game.heathens_loaded else pyxel.COLOR_WHITE)
-        elif self.in_multiplayer_lobby and (lob := self.multiplayer_lobby):
+        elif lob := self.multiplayer_lobby:
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
             pyxel.text(70, 25, "Multiplayer Lobby", pyxel.COLOR_WHITE)
@@ -171,7 +172,7 @@ class Menu:
             pyxel.line(24, 58, 175, 58, pyxel.COLOR_GRAY)
 
             for idx, pl in enumerate(lob.current_players[self.lobby_player_boundaries[0]:self.lobby_player_boundaries[1]]):
-                player_is_client: bool = hash((uuid.getnode(), os.getpid())) == pl.id
+                player_is_client: bool = get_identifier() == pl.id
                 name = pl.name
                 if player_is_client:
                     name += " (you)"
@@ -749,6 +750,7 @@ class Menu:
             pyxel.text(58, 105, "Press ENTER to continue", pyxel.COLOR_WHITE)
             pyxel.text(60, 115, "Press SPACE to go back", pyxel.COLOR_WHITE)
 
+            # TODO Extract this into a function - it's got a basically identical usage when starting a game.
             if self.showing_faction_details:
                 pyxel.load("resources/sprites.pyxres")
                 pyxel.rectb(30, 30, 140, 124, pyxel.COLOR_WHITE)
@@ -814,14 +816,14 @@ class Menu:
         """
         if down:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
-            if self.in_game_setup and not self.showing_faction_details and not self.in_multiplayer_lobby:
+            if self.in_game_setup and not self.showing_faction_details and not self.multiplayer_lobby:
                 self.next_menu_option(self.setup_option, wrap_around=True)
             elif self.loading_game:
                 if self.save_idx == self.load_game_boundaries[1] and self.save_idx < len(self.saves) - 1:
                     self.load_game_boundaries = self.load_game_boundaries[0] + 1, self.load_game_boundaries[1] + 1
                 if 0 <= self.save_idx < len(self.saves) - 1:
                     self.save_idx += 1
-            elif self.in_multiplayer_lobby and \
+            elif self.multiplayer_lobby and \
                     self.lobby_player_boundaries[1] < len(self.multiplayer_lobby.current_players) - 1:
                 self.lobby_player_boundaries = self.lobby_player_boundaries[0] + 1, self.lobby_player_boundaries[1] + 1
             elif self.viewing_lobbies and self.lobby_index < len(self.multiplayer_lobbies) - 1:
@@ -848,14 +850,14 @@ class Menu:
                 self.next_menu_option(self.main_menu_option, wrap_around=True)
         if up:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
-            if self.in_game_setup and not self.showing_faction_details and not self.in_multiplayer_lobby:
+            if self.in_game_setup and not self.showing_faction_details and not self.multiplayer_lobby:
                 self.previous_menu_option(self.setup_option, wrap_around=True)
             elif self.loading_game:
                 if self.save_idx > 0 and self.save_idx == self.load_game_boundaries[0]:
                     self.load_game_boundaries = self.load_game_boundaries[0] - 1, self.load_game_boundaries[1] - 1
                 if self.save_idx > 0:
                     self.save_idx -= 1
-            elif self.in_multiplayer_lobby and self.lobby_player_boundaries[0] > 0:
+            elif self.multiplayer_lobby and self.lobby_player_boundaries[0] > 0:
                 self.lobby_player_boundaries = self.lobby_player_boundaries[0] - 1, self.lobby_player_boundaries[1] - 1
             elif self.viewing_lobbies and self.lobby_index > 0:
                 self.lobby_index -= 1
