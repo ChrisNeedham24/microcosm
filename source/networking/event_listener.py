@@ -946,8 +946,8 @@ class EventListener:
                 upnp = UPnP()
                 upnp.discover()
                 upnp.selectigd()
-                while (port_mapping := upnp.getgenericportmapping(0)) is not None:
-                    upnp.deleteportmapping(port_mapping[0], "UDP")
+                # while (port_mapping := upnp.getgenericportmapping(0)) is not None:
+                    # upnp.deleteportmapping(port_mapping[0], "UDP")
                 ip_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 ip_sock.connect(("8.8.8.8", 80))
                 private_ip: str = ip_sock.getsockname()[0]
