@@ -892,6 +892,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
 
 
 class EventListener:
+    # TODO Add optional game states and controller in constructor and update game.py
     def __init__(self, is_server: bool = False):
         self.game_states: typing.Dict[str, GameState] = {}
         self.namers: typing.Dict[str, Namer] = {}
