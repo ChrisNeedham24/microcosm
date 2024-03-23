@@ -938,10 +938,12 @@ class EventListener:
     def run(self):
         with socketserver.UDPServer(("0.0.0.0", 9999 if self.is_server else 0), RequestHandler) as server:
             if not self.is_server:
+                # TODO Some machines don't even dispatch this?
                 dispatch_event(RegisterEvent(EventType.REGISTER, get_identifier(), server.server_address[1]))
                 upnp = UPnP()
                 upnp.discover()
                 upnp.selectigd()
+                # TODO This means people can't play on the same WiFi network
                 while (port_mapping := upnp.getgenericportmapping(0)) is not None:
                     upnp.deleteportmapping(port_mapping[0], "UDP")
                 ip_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

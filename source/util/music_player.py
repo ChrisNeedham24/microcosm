@@ -13,6 +13,7 @@ class MusicPlayer:
         """
         Load in the menu and background in-game music, shuffling them and setting their volumes.
         """
+        # TODO Not working for Windows?
         self.menu_player: vlc.MediaPlayer = vlc.MediaPlayer("resources/audio/menu.ogg")
         self.menu_player.audio_set_volume(70)
         random.seed()

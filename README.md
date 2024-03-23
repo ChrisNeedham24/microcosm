@@ -11,8 +11,8 @@ python-vlc (or something like that) as an optional dependency, it is advised tha
 Python is also required, at version 3.10 or above.
 
 ### Multiplayer
-In order to play games of Microcosm online, your router must have UPnP enabled, as it is required for communication
-between clients and the server.
+In order to play games of Microcosm online, your computer and router must have UPnP enabled, as it is required for
+communication between clients and the server.
 
 Additionally, players on Windows must install a DLL so that the UPnP client can operate.
 For convenience’s sake, both the [32-bit variant](source/resources/dll/32/miniupnpc.dll) and the 
@@ -25,7 +25,7 @@ Begin by downloading the [latest release](https://github.com/ChrisNeedham24/micr
 
 ### macOS
 
-1. Extract the downloaded zip; double clicking it in Finder is the easiest way.
+1. Extract the downloaded zip; double-clicking it in Finder is the easiest way.
 2. An application will be extracted - right click it and select Open.
 3. In the displayed security-related dialog, press the Open button again to start the game.
 
