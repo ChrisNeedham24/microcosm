@@ -152,6 +152,7 @@ class Menu:
             pyxel.text(35, 70, "Quads seen",
                        pyxel.COLOR_GREEN if m_game.quads_seen_loaded == m_game.total_quads_seen else pyxel.COLOR_WHITE)
             # TODO Make this dynamically positioned based on the length of the quads seen string
+            #  Actually maybe these should be percentages?
             pyxel.text(130, 70, f"{m_game.quads_seen_loaded}/{m_game.total_quads_seen}",
                        pyxel.COLOR_GREEN if m_game.quads_seen_loaded == m_game.total_quads_seen else pyxel.COLOR_WHITE)
             pyxel.text(35, 80, "Heathens", pyxel.COLOR_GREEN if m_game.heathens_loaded else pyxel.COLOR_WHITE)
