@@ -125,6 +125,7 @@ class Menu:
         self.lobby_player_boundaries = 0, 7
         self.multiplayer_game_being_loaded: typing.Optional[LoadedMultiplayerState] = None
         self.loading_multiplayer_game = False
+        self.upnp_enabled: typing.Optional[bool] = None  # None before a connection has been attempted.
 
     def draw(self):
         """
@@ -135,7 +136,11 @@ class Menu:
         pyxel.load(background_path)
         pyxel.blt(0, 0, self.image_bank % 3, 0, 0, 200, 200)
 
-        if m_game := self.multiplayer_game_being_loaded:
+        if self.upnp_enabled is None:
+            pyxel.rectb(32, 80, 146, 26, pyxel.COLOR_WHITE)
+            pyxel.rect(33, 81, 144, 24, pyxel.COLOR_BLACK)
+            pyxel.text(60, 90, "Connecting to server...", pyxel.COLOR_WHITE)
+        elif m_game := self.multiplayer_game_being_loaded:
             pyxel.rectb(30, 30, 140, 100, pyxel.COLOR_WHITE)
             pyxel.rect(31, 31, 138, 98, pyxel.COLOR_BLACK)
             pyxel.text(72, 35, f"Loading {self.multiplayer_lobby.name}...", pyxel.COLOR_WHITE)
@@ -220,11 +225,15 @@ class Menu:
                 case _:
                     pyxel.text(130, 65, f"<- {self.player_count} ->", pyxel.COLOR_WHITE)
 
-            pyxel.text(28, 80, "Multiplayer", self.get_option_colour(SetupOption.MULTIPLAYER))
-            if self.multiplayer_enabled:
-                pyxel.text(125, 80, "<- Enabled", pyxel.COLOR_GREEN)
+            if self.upnp_enabled:
+                pyxel.text(28, 80, "Multiplayer", self.get_option_colour(SetupOption.MULTIPLAYER))
+                if self.multiplayer_enabled:
+                    pyxel.text(125, 80, "<- Enabled", pyxel.COLOR_GREEN)
+                else:
+                    pyxel.text(125, 80, "Disabled ->", pyxel.COLOR_RED)
             else:
-                pyxel.text(125, 80, "Disabled ->", pyxel.COLOR_RED)
+                pyxel.text(28, 80, "Multiplayer", pyxel.COLOR_GRAY)
+                pyxel.text(130, 80, "Disabled", pyxel.COLOR_GRAY)
             pyxel.text(28, 95, "Biome Clustering", self.get_option_colour(SetupOption.BIOME_CLUSTERING))
             if self.biome_clustering_enabled:
                 pyxel.text(125, 95, "<- Enabled", pyxel.COLOR_GREEN)
@@ -296,7 +305,7 @@ class Menu:
                 if self.loading_multiplayer_game:
                     pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                     pyxel.blt(35, 150, 0, 0, 140, 8, 8)
-                else:
+                elif self.upnp_enabled:
                     pyxel.blt(158, 150, 0, 8, 140, 8, 8)
                     pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
         elif self.in_wiki:
@@ -801,11 +810,18 @@ class Menu:
             pyxel.text(82, 100, "MICROCOSM", pyxel.COLOR_WHITE)
             pyxel.text(85, 115, "New Game", self.get_option_colour(MainMenuOption.NEW_GAME))
             pyxel.text(82, 125, "Load Game", self.get_option_colour(MainMenuOption.LOAD_GAME))
-            pyxel.text(82, 135, "Join Game", self.get_option_colour(MainMenuOption.JOIN_GAME))
+            pyxel.text(82, 135, "Join Game",
+                       pyxel.COLOR_GRAY if not self.upnp_enabled else self.get_option_colour(MainMenuOption.JOIN_GAME))
             pyxel.text(80, 145, "Statistics", self.get_option_colour(MainMenuOption.STATISTICS))
             pyxel.text(76, 155, "Achievements", self.get_option_colour(MainMenuOption.ACHIEVEMENTS))
             pyxel.text(92, 165, "Wiki", self.get_option_colour(MainMenuOption.WIKI))
             pyxel.text(92, 175, "Exit", self.get_option_colour(MainMenuOption.EXIT))
+
+            if not self.upnp_enabled:
+                pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
+                pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
+                pyxel.text(65, 15, "UPnP not available!", pyxel.COLOR_RED)
+                pyxel.text(48, 25, "Multiplayer will be disabled.", pyxel.COLOR_WHITE)
 
     def navigate(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
         """
@@ -818,7 +834,8 @@ class Menu:
         if down:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
             if self.in_game_setup and not self.showing_faction_details and not self.multiplayer_lobby:
-                self.next_menu_option(self.setup_option, wrap_around=True)
+                self.next_menu_option(self.setup_option, wrap_around=True,
+                                      skip=self.setup_option == SetupOption.PLAYER_COUNT and not self.upnp_enabled)
             elif self.loading_game:
                 if self.save_idx == self.load_game_boundaries[1] and self.save_idx < len(self.saves) - 1:
                     self.load_game_boundaries = self.load_game_boundaries[0] + 1, self.load_game_boundaries[1] + 1
@@ -848,11 +865,13 @@ class Menu:
                     case _:
                         self.next_menu_option(self.wiki_option, wrap_around=True)
             else:
-                self.next_menu_option(self.main_menu_option, wrap_around=True)
+                self.next_menu_option(self.main_menu_option, wrap_around=True,
+                                      skip=self.main_menu_option == MainMenuOption.LOAD_GAME and not self.upnp_enabled)
         if up:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
             if self.in_game_setup and not self.showing_faction_details and not self.multiplayer_lobby:
-                self.previous_menu_option(self.setup_option, wrap_around=True)
+                self.previous_menu_option(self.setup_option, wrap_around=True,
+                                          skip=self.setup_option == SetupOption.BIOME_CLUSTERING and not self.upnp_enabled)
             elif self.loading_game:
                 if self.save_idx > 0 and self.save_idx == self.load_game_boundaries[0]:
                     self.load_game_boundaries = self.load_game_boundaries[0] - 1, self.load_game_boundaries[1] - 1
@@ -881,7 +900,8 @@ class Menu:
                     case _:
                         self.previous_menu_option(self.wiki_option, wrap_around=True)
             else:
-                self.previous_menu_option(self.main_menu_option, wrap_around=True)
+                self.previous_menu_option(self.main_menu_option, wrap_around=True,
+                                          skip=self.main_menu_option == MainMenuOption.STATISTICS and not self.upnp_enabled)
         if left:
             if self.in_game_setup:
                 match self.setup_option:
@@ -963,7 +983,7 @@ class Menu:
         return GameConfig(self.player_count, self.faction_colours[self.faction_idx][0], self.biome_clustering_enabled,
                           self.fog_of_war_enabled, self.climatic_effects_enabled, self.multiplayer_enabled)
 
-    def next_menu_option(self, current_option: MenuOptions, wrap_around: bool = False) -> None:
+    def next_menu_option(self, current_option: MenuOptions, wrap_around: bool = False, skip: bool = False) -> None:
         """
         Given a menu option, go to the next item within the list of the option's enums.
         :param current_option: The currently selected option.
@@ -973,16 +993,16 @@ class Menu:
         current_option_idx = list(options_enum := type(current_option)).index(current_option)
 
         # Determine the index of the next option value.
-        target_option_idx = (current_option_idx + 1) % len(list(options_enum))
+        target_option_idx = (current_option_idx + (2 if skip else 1)) % len(list(options_enum))
         # If the currently selected option is the last option in the list and wrap-around is disabled, revert the index
         # to its original value. In other words, we're staying at the bottom of the list and not going back up.
-        if (current_option_idx + 1) == len(options_enum) and not wrap_around:
+        if (current_option_idx + (2 if skip else 1)) >= len(options_enum) and not wrap_around:
             target_option_idx = current_option_idx
 
         target_option = list(options_enum)[target_option_idx]
         self.change_menu_option(target_option)
 
-    def previous_menu_option(self, current_option: MenuOptions, wrap_around: bool = False) -> None:
+    def previous_menu_option(self, current_option: MenuOptions, wrap_around: bool = False, skip: bool = False) -> None:
         """
         Given a menu option, go to the previous item within the list of the option's enums.
         :param current_option: The currently selected option.
@@ -992,10 +1012,10 @@ class Menu:
         current_option_idx = list(options_enum := type(current_option)).index(current_option)
 
         # Determine the index of the previous option value.
-        target_option_idx = (current_option_idx - 1) % len(list(options_enum))
+        target_option_idx = (current_option_idx - (2 if skip else 1)) % len(list(options_enum))
         # If the currently selected option is the first option in the list and wrap-around is disabled, revert the
         # index to its original value. In other words, we're staying at the top of the list and not going back down.
-        if (current_option_idx - 1) < 0 and not wrap_around:
+        if (current_option_idx - (2 if skip else 1)) < 0 and not wrap_around:
             target_option_idx = current_option_idx
 
         target_option = list(options_enum)[target_option_idx]

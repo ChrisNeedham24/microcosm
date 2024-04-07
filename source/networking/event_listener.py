@@ -735,6 +735,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                              FACTION_COLOURS[new_player.faction]))
 
     def process_register_event(self, evt: RegisterEvent):
+        # TODO This should actually send some test packets, maybe 100 or so, and keep doing it with an increased delay
+        #  until all are responded to - use the results to assess a client speed and apply a delay to all packets sent
+        #  to them from then on based on this
         self.server.clients_ref[evt.identifier] = self.client_address[0], evt.port
 
     def _server_end_turn(self, gs: GameState, evt: EndTurnEvent, sock: socket.socket):
@@ -938,18 +941,30 @@ class EventListener:
     def run(self):
         with socketserver.UDPServer(("0.0.0.0", 9999 if self.is_server else 0), RequestHandler) as server:
             if not self.is_server:
-                # TODO Some machines don't even dispatch this?
-                dispatch_event(RegisterEvent(EventType.REGISTER, get_identifier(), server.server_address[1]))
-                upnp = UPnP()
-                upnp.discover()
-                upnp.selectigd()
-                # TODO This means people can't play on the same WiFi network
-                while (port_mapping := upnp.getgenericportmapping(0)) is not None:
-                    upnp.deleteportmapping(port_mapping[0], "UDP")
-                ip_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                ip_sock.connect(("8.8.8.8", 80))
-                private_ip: str = ip_sock.getsockname()[0]
-                upnp.addportmapping(server.server_address[1], "UDP", private_ip, server.server_address[1], "Microcosm", "")
+                try:
+                    upnp = UPnP()
+                    upnp.discover()
+                    upnp.selectigd()
+                    ip_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    ip_sock.connect(("8.8.8.8", 80))
+                    private_ip: str = ip_sock.getsockname()[0]
+                    mapping_idx: int = 0
+                    todays_date: datetime.date = datetime.date.today()
+                    while (port_mapping := upnp.getgenericportmapping(mapping_idx)) is not None:
+                        mapping_name: str = port_mapping[3]
+                        if mapping_name.startswith("Microcosm"):
+                            mapping_is_old: bool = mapping_name[10:] < str(todays_date)
+                            mapping_is_for_this_machine: bool = port_mapping[2][0] == private_ip
+                            if mapping_is_old or mapping_is_for_this_machine:
+                                upnp.deleteportmapping(port_mapping[0], "UDP")
+                        mapping_idx += 1
+                    upnp.addportmapping(server.server_address[1], "UDP", private_ip, server.server_address[1],
+                                        f"Microcosm {todays_date}", "")
+                    # TODO Some machines don't even dispatch this?
+                    dispatch_event(RegisterEvent(EventType.REGISTER, get_identifier(), server.server_address[1]))
+                    self.game_controller.menu.upnp_enabled = True
+                except Exception:
+                    self.game_controller.menu.upnp_enabled = False
             server.game_states_ref = self.game_states
             server.namers_ref = self.namers
             server.move_makers_ref = self.move_makers

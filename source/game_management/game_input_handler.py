@@ -141,7 +141,7 @@ def on_key_arrow_right(game_controller: GameController, game_state: GameState, i
     """
     if game_state.on_menu:
         game_controller.menu.navigate(right=True)
-        if game_controller.menu.loading_game:
+        if game_controller.menu.loading_game and game_controller.menu.upnp_enabled:
             qs_evt: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, get_identifier())
             dispatch_event(qs_evt)
     elif game_state.game_started:
