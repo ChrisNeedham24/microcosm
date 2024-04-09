@@ -601,6 +601,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             if gs.game_started:
                 quads_list: typing.List[Quad] = list(chain.from_iterable(gs.board.quads))
                 for idx, quads_chunk in enumerate(split_list_into_chunks(quads_list, 100)):
+                    time.sleep(0.01)
                     minified_quads: str = ""
                     for quad in quads_chunk:
                         quad_str: str = minify_quad(quad)
@@ -614,6 +615,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                 self.server.clients_ref[evt.identifier])
                 evt.total_quads_seen = sum(len(p.quads_seen) for p in gs.players)
                 for idx, player in enumerate(gs.players):
+                    time.sleep(0.01)
                     evt.until_night = None
                     evt.nighttime_left = None
                     evt.cfg = None
@@ -735,9 +737,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                              FACTION_COLOURS[new_player.faction]))
 
     def process_register_event(self, evt: RegisterEvent):
-        # TODO This should actually send some test packets, maybe 100 or so, and keep doing it with an increased delay
-        #  until all are responded to - use the results to assess a client speed and apply a delay to all packets sent
-        #  to them from then on based on this
         self.server.clients_ref[evt.identifier] = self.client_address[0], evt.port
 
     def _server_end_turn(self, gs: GameState, evt: EndTurnEvent, sock: socket.socket):
@@ -960,7 +959,6 @@ class EventListener:
                         mapping_idx += 1
                     upnp.addportmapping(server.server_address[1], "UDP", private_ip, server.server_address[1],
                                         f"Microcosm {todays_date}", "")
-                    # TODO Some machines don't even dispatch this?
                     dispatch_event(RegisterEvent(EventType.REGISTER, get_identifier(), server.server_address[1]))
                     self.game_controller.menu.upnp_enabled = True
                 except Exception:
