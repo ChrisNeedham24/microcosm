@@ -14,11 +14,6 @@ Python is also required, at version 3.10 or above.
 In order to play games of Microcosm online, your computer and router must have UPnP enabled, as it is required for
 communication between clients and the server.
 
-Additionally, players on Windows must install a DLL so that the UPnP client can operate.
-For convenience’s sake, both the [32-bit variant](source/resources/dll/32/miniupnpc.dll) and the 
-[64-bit variant](source/resources/dll/64/miniupnpc.dll) of this DLL have both been committed to this repository. Once
-downloaded, Windows players can simply copy the DLL to System32.
-
 ## Play from release
 
 Begin by downloading the [latest release](https://github.com/ChrisNeedham24/microcosm/releases/latest) for your operating system.
