@@ -34,7 +34,6 @@ jobs:
       - name: Bundle (Windows)
         run: |
           python -m site
-#          cp source/resources/dll/miniupnpc.dll
           python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --mingw64 --windows-icon-from-ico=source/resources/icon.png microcosm.py
         # TODO Bundle miniupnpc with Windows? Remove bit from readme if it works
         if: matrix.os == 'windows-latest'
