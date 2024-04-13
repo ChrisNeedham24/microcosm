@@ -1,0 +1,5 @@
+- module-name: "miniupnpc"
+  dlls:
+    - from_filenames:
+        prefixes:
+          - "miniupnpc"
