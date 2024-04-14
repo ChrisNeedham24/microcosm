@@ -1,9 +1,6 @@
-import datetime
-import os
 import random
 import time
 import typing
-import uuid
 from copy import deepcopy
 
 import pyxel
@@ -215,6 +212,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         elif game_controller.menu.loading_game:
             if game_controller.menu.loading_multiplayer_game:
                 save_name: str = game_controller.menu.saves[game_controller.menu.save_idx]
+                # We need to convert the save name back to the file name before we send it to the server.
                 if save_name.endswith("(auto)"):
                     save_name = "autosave-" + save_name[:-7].replace(" ", "T") + ".json"
                 else:
@@ -229,14 +227,22 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                                     menu.multiplayer_lobbies[menu.lobby_index].name,
                                                     menu.available_multiplayer_factions[menu.faction_idx][0])
             dispatch_event(lobby_join_event)
+            # Normally we would make changes to the game state or controller in the event listener, but because multiple
+            # packets are sent back to the client when joining a game, we can't reset the namer in there, otherwise it
+            # would be reset every time a new packet is received.
             game_controller.namer.reset()
         elif game_controller.menu.viewing_lobbies:
             current_lobby: LobbyDetails = game_controller.menu.multiplayer_lobbies[game_controller.menu.lobby_index]
-            human_players: typing.List[PlayerDetails] = [p for p in current_lobby.current_players if not p.id]
+            human_players: typing.List[PlayerDetails] = [p for p in current_lobby.current_players if p.id]
             if len(human_players) < current_lobby.cfg.player_count:
+                # If the game is in progress, then the player can join as any faction that is currently played by an AI
+                # player.
                 if current_lobby.current_turn:
                     game_controller.menu.available_multiplayer_factions = \
-                        [(Faction(p.faction), FACTION_COLOURS[p.faction]) for p in current_lobby.current_players if p.id]
+                        [(Faction(p.faction), FACTION_COLOURS[p.faction])
+                         for p in current_lobby.current_players if not p.id]
+                # If the game hasn't started yet, however, the player can join as any faction that is not currently
+                # chosen in the lobby.
                 else:
                     available_factions = deepcopy(FACTION_COLOURS)
                     for player in current_lobby.current_players:
@@ -271,6 +277,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
     elif game_state.game_started and not game_state.board.overlay.is_ach_notif() and \
             (game_state.board.overlay.is_victory() or
              game_state.board.overlay.is_elimination() and game_state.players[game_state.player_idx].eliminated):
+        # If the game was a multiplayer one, then dispatch a leave event so that the server knows that this client is no
+        # longer in the game. Once all players have returned to the main menu, the server will tear down all game state.
         if game_state.board.game_config.multiplayer:
             leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, get_identifier(),
                                                        game_controller.menu.multiplayer_lobby.name)
@@ -295,12 +303,14 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         cons = game_state.board.overlay.selected_construction
         # If the selected construction is an improvement with required resources that the player does not have, pressing
         # the enter key will do nothing.
-        if cons is not None and not (isinstance(cons, Improvement) and
-                                     not player_has_resources_for_improvement(game_state.players[game_state.player_idx], cons)):
+        if cons is not None and \
+                not (isinstance(cons, Improvement) and
+                     not player_has_resources_for_improvement(game_state.players[game_state.player_idx], cons)):
             if isinstance(cons, Improvement) and cons.req_resources:
                 subtract_player_resources_for_improvement(game_state.players[game_state.player_idx], cons)
             game_state.board.selected_settlement.current_work = \
                 Construction(game_state.board.overlay.selected_construction)
+            # If we're in a multiplayer game, alert the server, which will alert other players.
             if game_state.board.game_config.multiplayer:
                 sc_evt = SetConstructionEvent(EventType.UPDATE, get_identifier(),
                                               UpdateAction.SET_CONSTRUCTION, game_state.board.game_name,
@@ -315,6 +325,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         if game_state.board.overlay.selected_blessing is not None:
             game_state.players[game_state.player_idx].ongoing_blessing = \
                 OngoingBlessing(game_state.board.overlay.selected_blessing)
+            # If we're in a multiplayer game, alert the server, which will alert other players.
             if game_state.board.game_config.multiplayer:
                 sb_evt = SetBlessingEvent(EventType.UPDATE, get_identifier(), UpdateAction.SET_BLESSING,
                                           game_state.board.game_name, game_state.players[game_state.player_idx].faction,
@@ -328,6 +339,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_state.board.overlay.toggle_setl_click(None, None)
                 data = attack_setl(game_state.board.selected_unit, game_state.board.overlay.attacked_settlement,
                                    game_state.board.overlay.attacked_settlement_owner, False)
+                # If we're in a multiplayer game, alert the server, which will alert other players.
                 if game_state.board.game_config.multiplayer:
                     as_evt: AttackSettlementEvent = \
                         AttackSettlementEvent(EventType.UPDATE, get_identifier(), UpdateAction.ATTACK_SETTLEMENT,
@@ -367,6 +379,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 # Alternatively, begin a siege on the settlement.
                 game_state.board.selected_unit.besieging = True
                 game_state.board.overlay.attacked_settlement.besieged = True
+                # If we're in a multiplayer game, alert the server, which will alert other players.
                 if game_state.board.game_config.multiplayer:
                     bs_evt: BesiegeSettlementEvent = \
                         BesiegeSettlementEvent(EventType.UPDATE, get_identifier(), UpdateAction.BESIEGE_SETTLEMENT,
@@ -383,6 +396,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             case PauseOption.RESUME:
                 game_state.board.overlay.toggle_pause()
             case PauseOption.SAVE:
+                # Saving multiplayer games doesn't actually save a copy locally - rather it tells the server to save a
+                # copy.
                 if game_state.board.game_config.multiplayer:
                     s_evt: SaveEvent = SaveEvent(EventType.SAVE, get_identifier(), game_state.board.game_name)
                     dispatch_event(s_evt)
@@ -393,6 +408,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_state.board.overlay.show_additional_controls = False
                 game_state.board.overlay.toggle_controls()
             case PauseOption.QUIT:
+                # If we're in a multiplayer game, alert the server, which will alert other players.
                 if game_state.board.game_config.multiplayer:
                     leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, get_identifier(),
                                                                game_controller.menu.multiplayer_lobby.name)
@@ -421,9 +437,13 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_state.board.overlay.is_close_to_vic() or
             game_state.board.overlay.is_investigation() or game_state.board.overlay.is_night() or
             game_state.board.overlay.is_ach_notif() or game_state.board.overlay.is_elimination()):
+        # Multiplayer games don't just end the turn straight away, since we need to wait for all players to be ready.
         if game_state.board.game_config.multiplayer:
+            # The player can't end a turn while the previous one is still being processed.
             if not game_state.processing_turn and not game_state.check_for_warnings():
                 game_state.board.waiting_for_other_players = not game_state.board.waiting_for_other_players
+                # Depending on whether the player has ended their turn, or they're retracting their readiness, send a
+                # different event to the server.
                 if game_state.board.waiting_for_other_players:
                     et_evt: EndTurnEvent = EndTurnEvent(EventType.END_TURN, get_identifier(),
                                                         game_state.board.game_name)
@@ -510,7 +530,7 @@ def on_key_tab(game_state: GameState):
     Handles a Tab key event in the game loop.
     :param game_state: The current GameState object.
     """
-    # Pressing tab iterates through the player's settlements, centreing on each one.
+    # Pressing tab iterates through the player's settlements, centring on each one.
     if game_state.game_started and game_state.board.overlay.can_iter_settlements_units() and \
             len(game_state.players[game_state.player_idx].settlements) > 0:
         game_state.board.overlay.remove_warning_if_possible()
@@ -519,9 +539,11 @@ def on_key_tab(game_state: GameState):
             game_state.board.overlay.toggle_unit(None)
         if game_state.board.selected_settlement is None:
             game_state.board.selected_settlement = game_state.players[game_state.player_idx].settlements[0]
-            game_state.board.overlay.toggle_settlement(game_state.players[game_state.player_idx].settlements[0], game_state.players[game_state.player_idx])
+            game_state.board.overlay.toggle_settlement(game_state.players[game_state.player_idx].settlements[0],
+                                                       game_state.players[game_state.player_idx])
         elif len(game_state.players[game_state.player_idx].settlements) > 1:
-            current_idx = game_state.players[game_state.player_idx].settlements.index(game_state.board.selected_settlement)
+            current_idx = \
+                game_state.players[game_state.player_idx].settlements.index(game_state.board.selected_settlement)
             new_idx = 0
             if current_idx != len(game_state.players[game_state.player_idx].settlements) - 1:
                 new_idx = current_idx + 1
@@ -540,6 +562,7 @@ def on_key_space(game_controller: GameController, game_state: GameState):
     # Pressing space either dismisses the current overlay or iterates through the player's units.
     if game_state.on_menu and game_controller.menu.in_wiki and game_controller.menu.wiki_showing is not None:
         game_controller.menu.wiki_showing = None
+    # If we're in a multiplayer lobby, alert the server, which will alert other players.
     if game_state.on_menu and game_controller.menu.multiplayer_lobby:
         leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, get_identifier(),
                                                    game_controller.menu.multiplayer_lobby.name)
@@ -564,7 +587,9 @@ def on_key_space(game_controller: GameController, game_state: GameState):
     elif game_state.on_menu and game_controller.menu.viewing_achievements:
         game_controller.menu.viewing_achievements = False
     # You should only be able to toggle the elimination overlay if you're actually still in the game.
-    if game_state.game_started and game_state.board.overlay.is_elimination() and not game_state.players[game_state.player_idx].eliminated:
+    if game_state.game_started and \
+            game_state.board.overlay.is_elimination() and \
+            not game_state.players[game_state.player_idx].eliminated:
         game_state.board.overlay.toggle_elimination(None)
     elif game_state.game_started and game_state.board.overlay.is_ach_notif():
         game_state.board.overlay.toggle_ach_notif([])
@@ -626,9 +651,12 @@ def on_key_n(game_controller: GameController, game_state: GameState):
 def on_key_a(game_controller: GameController, game_state: GameState):
     """
     Handles an A key event in the game loop.
+    :param game_controller: The current GameController object.
     :param game_state: The current GameState object.
     """
     if game_state.on_menu and (lob := game_controller.menu.multiplayer_lobby):
+        # Pressing the A key while in a multiplayer lobby will fill the lobby with AI players, provided that the lobby
+        # isn't already full.
         if len(lob.current_players) < lob.cfg.player_count:
             af_evt: AutofillEvent = AutofillEvent(EventType.AUTOFILL, get_identifier(), lob.name)
             dispatch_event(af_evt)
@@ -639,6 +667,7 @@ def on_key_a(game_controller: GameController, game_state: GameState):
         # selected).
         set_player_construction(game_state.players[game_state.player_idx], game_state.board.selected_settlement,
                                 game_state.nighttime_left > 0)
+        # If we're in a multiplayer game, alert the server, which will alert other players.
         if game_state.board.game_config.multiplayer:
             sc_evt = SetConstructionEvent(EventType.UPDATE, get_identifier(), UpdateAction.SET_CONSTRUCTION,
                                           game_state.board.game_name, game_state.players[game_state.player_idx].faction,
@@ -692,6 +721,7 @@ def on_key_b(game_state: GameState):
             ])
             complete_construction(game_state.board.selected_settlement, game_state.players[game_state.player_idx])
             game_state.players[game_state.player_idx].wealth -= remaining_work
+            # If we're in a multiplayer game, alert the server, which will alert other players.
             if game_state.board.game_config.multiplayer:
                 bc_evt: BuyoutConstructionEvent = \
                     BuyoutConstructionEvent(EventType.UPDATE, get_identifier(), UpdateAction.BUYOUT_CONSTRUCTION,
@@ -742,14 +772,16 @@ def on_key_j(game_state: GameState):
     if game_state.game_started and game_state.board.overlay.can_jump_to_setl():
         game_state.board.overlay.remove_warning_if_possible()
         # Pressing the J key will jump to an idle settlement, if such a settlement exists.
-        idle_settlements = [setl for setl in game_state.players[game_state.player_idx].settlements if setl.current_work is None]
+        idle_settlements = [setl for setl in game_state.players[game_state.player_idx].settlements
+                            if setl.current_work is None]
         if idle_settlements:
             if game_state.board.overlay.is_unit():
                 game_state.board.selected_unit = None
                 game_state.board.overlay.toggle_unit(None)
             if game_state.board.selected_settlement is None:
                 game_state.board.selected_settlement = idle_settlements[0]
-                game_state.board.overlay.toggle_settlement(game_state.board.selected_settlement, game_state.players[game_state.player_idx])
+                game_state.board.overlay.toggle_settlement(game_state.board.selected_settlement,
+                                                           game_state.players[game_state.player_idx])
             elif game_state.board.selected_settlement not in idle_settlements:
                 # If the player has currently selected another non-idle settlement, when they press the J key,
                 # bring them back to the first idle settlement.
@@ -795,10 +827,15 @@ def on_mouse_button_left(game_state: GameState):
                 other_setls.extend(game_state.players[i].settlements)
         game_state.board.overlay.remove_warning_if_possible()
         game_state.board.process_left_click(pyxel.mouse_x, pyxel.mouse_y,
-                                            len(game_state.players[game_state.player_idx].settlements) > 0 or game_state.turn != 1,
-                                            game_state.players[game_state.player_idx], game_state.map_pos, game_state.heathens,
-                                            all_units,
-                                            game_state.players, other_setls)
+                                            # The player hasn't 'settled' until they have a settlement. Alternatively,
+                                            # if we're later in the game, even if they've just lost their last
+                                            # settlement, they're still 'settled' if they're still in the game. This is
+                                            # to avoid players with only settler units left being able to click anywhere
+                                            # to get a new settlement for free.
+                                            (len(game_state.players[game_state.player_idx].settlements) > 0 or
+                                             game_state.turn != 1),
+                                            game_state.players[game_state.player_idx], game_state.map_pos,
+                                            game_state.heathens, all_units, game_state.players, other_setls)
 
 
 def on_key_x(game_state: GameState):
@@ -811,6 +848,7 @@ def on_key_x(game_state: GameState):
         # If a unit is selected, pressing X disbands the army, destroying the unit and adding to the player's wealth.
         game_state.players[game_state.player_idx].wealth += game_state.board.selected_unit.plan.cost
         game_state.players[game_state.player_idx].units.remove(game_state.board.selected_unit)
+        # If we're in a multiplayer game, alert the server, which will alert other players.
         if game_state.board.game_config.multiplayer:
             du_evt: DisbandUnitEvent = DisbandUnitEvent(EventType.UPDATE, get_identifier(), UpdateAction.DISBAND_UNIT,
                                                         game_state.board.game_name,

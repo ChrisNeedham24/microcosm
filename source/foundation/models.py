@@ -548,6 +548,9 @@ class Achievement:
 
 @dataclass
 class PlayerDetails:
+    """
+    The details for a player in a multiplayer game. Used by the server and in menus prior to joining a multiplayer game.
+    """
     name: str
     faction: Faction
     id: Optional[int]  # None if the player is an AI.
@@ -555,6 +558,9 @@ class PlayerDetails:
 
 @dataclass
 class LobbyDetails:
+    """
+    The details for a multiplayer lobby for a prospective game or one currently in progress.
+    """
     name: str
     current_players: List[PlayerDetails]
     cfg: GameConfig
@@ -563,9 +569,12 @@ class LobbyDetails:
 
 @dataclass
 class LoadedMultiplayerState:
+    """
+    Keeps track of what game state has loaded in a multiplayer game. Used when loading or joining a multiplayer game.
+    """
     quad_chunks_loaded: int = 0
     players_loaded: int = 0
     total_quads_seen: int = 0
     quads_seen_loaded: int = 0
     total_heathens: int = 0
-    heathens_loaded: bool = False
+    heathens_loaded: bool = False  # Only a boolean because we load all heathens at once.

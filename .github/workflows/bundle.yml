@@ -32,6 +32,9 @@ jobs:
           tar -czvf microcosm.tar.gz microcosm
         if: matrix.os == 'ubuntu-latest'
       - name: Bundle (Windows)
+        # The Windows installation of miniupnpc does not include the DLL that it requires to run. As such, we need to
+        # copy the miniupnpc DLL to the Python site-packages directory first, so that it can be picked up by Nuitka
+        # during the bundle.
         run: |
           cp source/resources/dll/miniupnpc.dll C:\hostedtoolcache\windows\Python\3.10.11\x64\lib\site-packages\
           python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --mingw64 --windows-icon-from-ico=source/resources/icon.png --user-package-configuration-file=windows-nuitka-package.config.yml microcosm.py

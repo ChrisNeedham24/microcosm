@@ -35,6 +35,8 @@ class Game:
         self.game_controller = GameController()
         self.game_state = GameState()
 
+        # Start the multiplayer EventListener in another thread so that it doesn't block pyxel running. Since it is
+        # passed references to the game state and controller, it is still able to modify them while pyxel is running.
         client_listener: EventListener = EventListener(game_states={"local": self.game_state},
                                                        game_controller=self.game_controller)
         listener_thread: Thread = Thread(target=client_listener.run)

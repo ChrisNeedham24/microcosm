@@ -291,6 +291,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             att_name = overlay.sieger_of_settlement.name
             setl_name = overlay.sieged_settlement.name
             pyxel.text(22, 15, f"{setl_name} was placed under siege by {att_name}", pyxel.COLOR_RED)
+        # The player change overlay notifies the player when a player leaves or joins their multiplayer game.
         if OverlayType.PLAYER_CHANGE in overlay.showing:
             pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
             pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)

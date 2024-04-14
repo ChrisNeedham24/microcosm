@@ -1,9 +1,4 @@
-import os
 import random
-import socket
-import typing
-import uuid
-from copy import deepcopy
 from math import ceil
 from enum import Enum
 from typing import List, Optional, Tuple
@@ -140,24 +135,24 @@ class Menu:
             pyxel.rectb(32, 80, 146, 26, pyxel.COLOR_WHITE)
             pyxel.rect(33, 81, 144, 24, pyxel.COLOR_BLACK)
             pyxel.text(60, 90, "Connecting to server...", pyxel.COLOR_WHITE)
-        elif m_game := self.multiplayer_game_being_loaded:
+        elif game := self.multiplayer_game_being_loaded:
             pyxel.rectb(30, 30, 140, 100, pyxel.COLOR_WHITE)
             pyxel.rect(31, 31, 138, 98, pyxel.COLOR_BLACK)
             pyxel.text(72, 35, f"Loading {self.multiplayer_lobby.name}...", pyxel.COLOR_WHITE)
             pyxel.text(35, 50, "Quads", pyxel.COLOR_WHITE)
-            pyxel.text(140, 50, f"{int(m_game.quad_chunks_loaded / 90.0 * 100)}%",
-                       pyxel.COLOR_GREEN if m_game.quad_chunks_loaded == 90 else pyxel.COLOR_WHITE)
+            pyxel.text(140, 50, f"{int(game.quad_chunks_loaded / 90.0 * 100)}%",
+                       pyxel.COLOR_GREEN if game.quad_chunks_loaded == 90 else pyxel.COLOR_WHITE)
             pyxel.text(35, 60, "Players", pyxel.COLOR_WHITE)
-            pyxel.text(140, 60, f"{int(m_game.players_loaded / self.multiplayer_lobby.cfg.player_count * 100)}%",
-                       pyxel.COLOR_GREEN if m_game.players_loaded == self.multiplayer_lobby.cfg.player_count
+            pyxel.text(140, 60, f"{int(game.players_loaded / self.multiplayer_lobby.cfg.player_count * 100)}%",
+                       pyxel.COLOR_GREEN if game.players_loaded == self.multiplayer_lobby.cfg.player_count
                        else pyxel.COLOR_WHITE)
             pyxel.text(35, 70, "Quads seen", pyxel.COLOR_WHITE)
-            if m_game.total_quads_seen:
-                pyxel.text(140, 70, f"{int(m_game.quads_seen_loaded / m_game.total_quads_seen * 100)}%",
-                           pyxel.COLOR_GREEN if m_game.quads_seen_loaded == m_game.total_quads_seen else pyxel.COLOR_WHITE)
+            if game.total_quads_seen:
+                pyxel.text(140, 70, f"{int(game.quads_seen_loaded / game.total_quads_seen * 100)}%",
+                           pyxel.COLOR_GREEN if game.quads_seen_loaded == game.total_quads_seen else pyxel.COLOR_WHITE)
             pyxel.text(35, 80, "Heathens", pyxel.COLOR_WHITE)
-            pyxel.text(140, 80, "100%" if m_game.heathens_loaded else "0%",
-                       pyxel.COLOR_GREEN if m_game.heathens_loaded else pyxel.COLOR_WHITE)
+            pyxel.text(140, 80, "100%" if game.heathens_loaded else "0%",
+                       pyxel.COLOR_GREEN if game.heathens_loaded else pyxel.COLOR_WHITE)
         elif lob := self.multiplayer_lobby:
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
@@ -170,7 +165,8 @@ class Menu:
 
             pyxel.line(24, 58, 175, 58, pyxel.COLOR_GRAY)
 
-            for idx, pl in enumerate(lob.current_players[self.lobby_player_boundaries[0]:self.lobby_player_boundaries[1]]):
+            players_on_screen = lob.current_players[self.lobby_player_boundaries[0]:self.lobby_player_boundaries[1]]
+            for idx, pl in enumerate(players_on_screen):
                 player_is_client: bool = get_identifier() == pl.id
                 name = pl.name
                 if player_is_client:
@@ -782,7 +778,7 @@ class Menu:
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
             pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
             for idx, lobby in enumerate(self.multiplayer_lobbies):
-                human_players: List[PlayerDetails] = [p for p in lobby.current_players if not p.id]
+                human_players: List[PlayerDetails] = [p for p in lobby.current_players if p.id]
                 lobby_is_full: bool = len(human_players) == lobby.cfg.player_count
                 lobby_count_str: str = f"{len(human_players)}/{lobby.cfg.player_count}"
                 lobby_turn_str: str = "in lobby" if lobby.current_turn is None else f"turn {lobby.current_turn}"
@@ -825,8 +821,10 @@ class Menu:
         """
         if down:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
+            # Similarly ensure that they cannot navigate the menu while in a multiplayer lobby.
             if self.in_game_setup and not self.showing_faction_details and not self.multiplayer_lobby:
                 self.next_menu_option(self.setup_option, wrap_around=True,
+                                      # If UPnP isn't enabled, then we want to skip over the Multiplayer option.
                                       skip=self.setup_option == SetupOption.PLAYER_COUNT and not self.upnp_enabled)
             elif self.loading_game:
                 if self.save_idx == self.load_game_boundaries[1] and self.save_idx < len(self.saves) - 1:
@@ -858,12 +856,16 @@ class Menu:
                         self.next_menu_option(self.wiki_option, wrap_around=True)
             else:
                 self.next_menu_option(self.main_menu_option, wrap_around=True,
+                                      # If UPnP isn't enabled, then we want to skip over the Join Game option.
                                       skip=self.main_menu_option == MainMenuOption.LOAD_GAME and not self.upnp_enabled)
         if up:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
+            # Similarly ensure that they cannot navigate the menu while in a multiplayer lobby.
             if self.in_game_setup and not self.showing_faction_details and not self.multiplayer_lobby:
                 self.previous_menu_option(self.setup_option, wrap_around=True,
-                                          skip=self.setup_option == SetupOption.BIOME_CLUSTERING and not self.upnp_enabled)
+                                          # If UPnP isn't enabled, then we want to skip over the Multiplayer option.
+                                          skip=(self.setup_option == SetupOption.BIOME_CLUSTERING and
+                                                not self.upnp_enabled))
             elif self.loading_game:
                 if self.save_idx > 0 and self.save_idx == self.load_game_boundaries[0]:
                     self.load_game_boundaries = self.load_game_boundaries[0] - 1, self.load_game_boundaries[1] - 1
@@ -893,7 +895,9 @@ class Menu:
                         self.previous_menu_option(self.wiki_option, wrap_around=True)
             else:
                 self.previous_menu_option(self.main_menu_option, wrap_around=True,
-                                          skip=self.main_menu_option == MainMenuOption.STATISTICS and not self.upnp_enabled)
+                                          # If UPnP isn't enabled, then we want to skip over the Join Game option.
+                                          skip=(self.main_menu_option == MainMenuOption.STATISTICS and
+                                                not self.upnp_enabled))
         if left:
             if self.in_game_setup:
                 match self.setup_option:
@@ -981,6 +985,7 @@ class Menu:
         :param current_option: The currently selected option.
         :param wrap_around: If true, then choosing to go the next option when at the end of the list will wrap around
                             to the start of the list.
+        :param skip: If true, then skip the next option and go to the one after.
         """
         current_option_idx = list(options_enum := type(current_option)).index(current_option)
 
@@ -1000,6 +1005,7 @@ class Menu:
         :param current_option: The currently selected option.
         :param wrap_around: If true, then choosing to go the previous option when at the start of the list will wrap
                             around to the end of the list.
+        :param skip: If true, then skip the previous option and go to the one before.
         """
         current_option_idx = list(options_enum := type(current_option)).index(current_option)
 

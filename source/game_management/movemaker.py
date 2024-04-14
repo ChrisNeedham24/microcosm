@@ -25,7 +25,7 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
         # lacking in.
         match player_totals.index(min(player_totals)):
             case 0:
-                highest_wealth: (float, Blessing) = 0, avail_bless[0]
+                highest_wealth: Tuple[float, Blessing] = 0, avail_bless[0]
                 for bless in avail_bless:
                     cumulative_wealth: float = 0
                     for imp in get_unlockable_improvements(bless):
@@ -34,7 +34,7 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
                         highest_wealth = cumulative_wealth, bless
                 ideal = highest_wealth[1]
             case 1:
-                highest_harvest: (float, Blessing) = 0, avail_bless[0]
+                highest_harvest: Tuple[float, Blessing] = 0, avail_bless[0]
                 for bless in avail_bless:
                     cumulative_harvest: float = 0
                     for imp in get_unlockable_improvements(bless):
@@ -43,7 +43,7 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
                         highest_harvest = cumulative_harvest, bless
                 ideal = highest_harvest[1]
             case 2:
-                highest_zeal: (float, Blessing) = 0, avail_bless[0]
+                highest_zeal: Tuple[float, Blessing] = 0, avail_bless[0]
                 for bless in avail_bless:
                     cumulative_zeal: float = 0
                     for imp in get_unlockable_improvements(bless):
@@ -52,7 +52,7 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
                         highest_zeal = cumulative_zeal, bless
                 ideal = highest_zeal[1]
             case 3:
-                highest_fortune: (float, Blessing) = 0, avail_bless[0]
+                highest_fortune: Tuple[float, Blessing] = 0, avail_bless[0]
                 for bless in avail_bless:
                     cumulative_fortune: float = 0
                     for imp in get_unlockable_improvements(bless):
@@ -148,7 +148,7 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
             # The improvement with the lowest cost and the highest combined satisfaction and harvest is chosen.
             imps = sat_imps + harv_imps
             # Combined benefit, cost, Improvement.
-            most_beneficial: (int, float, Improvement) = \
+            most_beneficial: Tuple[float, float, Improvement] = \
                 imps[0].effect.satisfaction + imps[0].effect.harvest, imps[0].cost, imps[0]
             for i in imps:
                 # Pick the improvement that yields the highest combined benefit while also not costing more than the
@@ -266,7 +266,7 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
             # The improvement with the lowest cost and the highest combined satisfaction and harvest is chosen.
             imps = sat_imps + harv_imps
             # Combined benefit, cost, Improvement.
-            most_beneficial: (int, float, Improvement) = \
+            most_beneficial: Tuple[float, float, Improvement] = \
                 imps[0].effect.satisfaction + imps[0].effect.harvest, imps[0].cost, imps[0]
             for i in imps:
                 # Pick the improvement that yields the highest combined benefit while also not costing more than the
@@ -392,7 +392,8 @@ def search_for_relics_or_move(unit: Unit,
                     quads[j][i].is_relic = False
                     return
     # We only get to this point if a valid relic was not found. Make sure when moving randomly that the unit does not
-    # collide with other units or settlements.
+    # collide with other units or settlements. We only try to move five times because technically a unit could have
+    # nowhere to move and this could loop forever.
     for _ in range(5):
         x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
         rem_movement = unit.remaining_stamina - abs(x_movement)
@@ -492,6 +493,7 @@ class MoveMaker:
         :param quads: The 2D list of quads to use to search for relics.
         :param cfg: The game configuration.
         :param is_night: Whether it is night.
+        :param player_idx: The index of the player on this machine in the overall players list.
         """
         all_setls = []
         for pl in all_players:
@@ -555,7 +557,7 @@ class MoveMaker:
             if p is not player:
                 for unit in p.units:
                     all_units.append(unit)
-        min_pow_health: (float, Unit) = 9999, None  # 9999 is arbitrary, but no unit will ever have this.
+        min_pow_health: Tuple[float, Unit] = 9999, None  # 9999 is arbitrary, but no unit will ever have this.
         # Move each deployed unit, and also work out which of the player's units has the lowest combined power and
         # health. This is subsequently used if we need to sell units due to negative wealth.
         for unit in player.units:
@@ -578,6 +580,8 @@ class MoveMaker:
         :param all_setls: All of the settlements in the game. Used to make sure no collisions occur between the settler
         and settlements.
         """
+        # We only try to move five times because technically a unit could have nowhere to move and this could loop
+        # forever.
         for _ in range(5):
             x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
             rem_movement = unit.remaining_stamina - abs(x_movement)
@@ -635,6 +639,7 @@ class MoveMaker:
         :param cfg: The game configuration.
         :param other_player_vics: A list of tuples of players and the number of imminent victories they have. Note that
         players without any imminent victories are not included in this list.
+        :param player_idx: The index of the player on this machine in the overall players list.
         """
         # If the unit can settle, randomly move it until it is far enough away from any of the player's other
         # settlements, ensuring that it does not collide with any other units or settlements. Once this has been

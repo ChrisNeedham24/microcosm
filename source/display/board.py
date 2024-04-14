@@ -1,8 +1,5 @@
-import datetime
-import os
 import random
 import typing
-import uuid
 from collections import Counter
 from enum import Enum
 
@@ -43,6 +40,9 @@ class Board:
         :param cfg: The game config.
         :param namer: The Namer instance to use for settlement names.
         :param quads: The quads loaded in, if we are loading a game.
+        :param player_idx: The index of the player in the overall list of players. Will always be zero for single-player
+                           games, but will be variable for multiplayer ones.
+        :param game_name: The name of the current multiplayer game. Will be None for single-player games.
         """
         self.current_help = HelpOption.SETTLEMENT
         self.help_time_bank = 0
@@ -353,9 +353,11 @@ class Board:
             pyxel.text(161, 160, f"unit{pluralisation}", pyxel.COLOR_WHITE)
 
         pyxel.rect(0, 184, 200, 16, pyxel.COLOR_BLACK)
-        # If a unit is selected that can settle, override all other help text and alert the player as to the settle
-        # button. Alternatively, if a unit is selected that can heal other units, similarly alert the player as to how
-        # to heal other units.
+        # There are a few situations in which we override the default help text:
+        # - If the current game has multiplayer enabled, and the player is waiting for other players to finish their
+        #   turn.
+        # - If a unit is selected that can settle, alerting the player as to the settle button.
+        # - If a unit is selected that can heal other units, alerting the player as to how to heal other units.
         if self.game_config.multiplayer and self.waiting_for_other_players:
             pyxel.text(2, 189, "Waiting for other players...", pyxel.COLOR_WHITE)
         elif self.selected_unit is not None and self.selected_unit.plan.can_settle:
@@ -437,6 +439,8 @@ class Board:
             if self.heal_time_bank > 3:
                 self.overlay.toggle_heal(None)
                 self.heal_time_bank = 0
+        # If a player has left or joined the current multiplayer game, display who left/joined for three seconds before
+        # disappearing, like the above alerts.
         if self.overlay.is_player_change():
             self.player_change_time_bank += elapsed_time
             if self.player_change_time_bank > 3:
@@ -616,6 +620,7 @@ class Board:
                     # Select the new settlement.
                     self.selected_settlement = new_settl
                     self.overlay.toggle_settlement(new_settl, player)
+                    # If we're in a multiplayer game, alert the server, which will alert other players.
                     if self.game_config.multiplayer:
                         fs_evt: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, get_identifier(),
                                                                             UpdateAction.FOUND_SETTLEMENT,
@@ -629,7 +634,7 @@ class Board:
                             all(quad.location != (adj_x, adj_y) for quad in self.selected_settlement.quads):
                         self.selected_settlement = None
                         self.overlay.toggle_settlement(None, player)
-                    # If the player has selected neither a unit or settlement, and they have clicked on one of their
+                    # If the player has selected neither unit nor settlement, and they have clicked on one of their
                     # settlements, select it.
                     elif self.selected_unit is None and self.selected_settlement is None and \
                             any((to_select := setl) and any(setl_quad.location == (adj_x, adj_y)
@@ -654,6 +659,7 @@ class Board:
                         self.selected_unit.garrisoned = True
                         to_select.garrison.append(self.selected_unit)
                         player.units.remove(self.selected_unit)
+                        # If we're in a multiplayer game, alert the server, which will alert other players.
                         if self.game_config.multiplayer:
                             gu_evt: GarrisonUnitEvent = GarrisonUnitEvent(EventType.UPDATE, get_identifier(),
                                                                           UpdateAction.GARRISON_UNIT, self.game_name,
@@ -683,6 +689,7 @@ class Board:
                         self.selected_unit.remaining_stamina -= distance_travelled
                         to_select.passengers.append(self.selected_unit)
                         player.units.remove(self.selected_unit)
+                        # If we're in a multiplayer game, alert the server, which will alert other players.
                         if self.game_config.multiplayer:
                             bd_evt: BoardDeployerEvent = BoardDeployerEvent(EventType.UPDATE, get_identifier(),
                                                                             UpdateAction.BOARD_DEPLOYER, self.game_name,
@@ -709,6 +716,7 @@ class Board:
                         player.units.append(deployed)
                         # Add the surrounding quads to the player's seen.
                         update_player_quads_seen_around_point(player, (adj_x, adj_y))
+                        # If we're in a multiplayer game, alert the server, which will alert other players.
                         if self.game_config.multiplayer:
                             du_evt: DeployUnitEvent = DeployUnitEvent(EventType.UPDATE, get_identifier(),
                                                                       UpdateAction.DEPLOY_UNIT, self.game_name,
@@ -739,6 +747,7 @@ class Board:
                         player.units.append(deployed)
                         # Add the surrounding quads to the player's seen.
                         update_player_quads_seen_around_point(player, (adj_x, adj_y))
+                        # If we're in a multiplayer game, alert the server, which will alert other players.
                         if self.game_config.multiplayer:
                             dd_evt: DeployerDeployEvent = DeployerDeployEvent(EventType.UPDATE, get_identifier(),
                                                                               UpdateAction.DEPLOYER_DEPLOY,
@@ -754,7 +763,7 @@ class Board:
                         self.selected_unit = deployed
                         self.overlay.toggle_deployment()
                         self.overlay.update_unit(deployed)
-                    # If the player has not selected a unit and they've clicked on a heathen, select it.
+                    # If the player has not selected a unit and they've clicked on a visible heathen, select it.
                     elif self.selected_unit is None and \
                             ((adj_x, adj_y) in player.quads_seen or not self.game_config.fog_of_war) and \
                             any((to_select := heathen).location == (adj_x, adj_y) for heathen in heathens):
@@ -771,6 +780,7 @@ class Board:
                                 abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
                                 abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
                             data = attack(self.selected_unit, other_unit, ai=False)
+                            # If we're in a multiplayer game, alert the server, which will alert other players.
                             if self.game_config.multiplayer:
                                 au_evt: AttackUnitEvent = AttackUnitEvent(EventType.UPDATE, get_identifier(),
                                                                           UpdateAction.ATTACK_UNIT,
@@ -805,6 +815,7 @@ class Board:
                                     abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
                                     abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
                                 data = heal(self.selected_unit, other_unit, ai=False)
+                                # If we're in a multiplayer game, alert the server, which will alert other players.
                                 if self.game_config.multiplayer:
                                     hu_evt: HealUnitEvent = HealUnitEvent(EventType.UPDATE, get_identifier(),
                                                                           UpdateAction.HEAL_UNIT, self.game_name,
@@ -828,7 +839,7 @@ class Board:
                             for p in all_players:
                                 if to_attack in p.settlements:
                                     self.overlay.toggle_setl_click(to_attack, p)
-                    # If the player has not selected a unit and they click on one, select it.
+                    # If the player has not selected a unit and they click on a visible one, select it.
                     elif self.selected_unit is None and \
                             ((adj_x, adj_y) in player.quads_seen or not self.game_config.fog_of_war) and \
                             any((to_select := unit).location == (adj_x, adj_y) for unit in all_units):
@@ -861,6 +872,7 @@ class Board:
                         self.selected_unit.besieging = found_besieged_setl
                         # Update the player's seen quads.
                         update_player_quads_seen_around_point(player, (adj_x, adj_y))
+                        # If we're in a multiplayer game, alert the server, which will alert other players.
                         if self.game_config.multiplayer:
                             mu_evt: MoveUnitEvent = MoveUnitEvent(EventType.UPDATE, get_identifier(),
                                                                   UpdateAction.MOVE_UNIT, self.game_name,
@@ -880,7 +892,8 @@ class Board:
                                                                             self.game_config)
                             # Relics cease to exist once investigated.
                             self.quads[adj_y][adj_x].is_relic = False
-                            if result is not InvestigationResult.NONE:
+                            # If we're in a multiplayer game, alert the server, which will alert other players.
+                            if self.game_config.multiplayer:
                                 i_evt: InvestigateEvent = InvestigateEvent(EventType.UPDATE, get_identifier(),
                                                                            UpdateAction.INVESTIGATE, self.game_name,
                                                                            player.faction, self.selected_unit.location,
@@ -925,6 +938,7 @@ class Board:
             update_player_quads_seen_around_point(player, new_settl.location)
             # Destroy the settler unit and select the new settlement.
             player.units.remove(self.selected_unit)
+            # If we're in a multiplayer game, alert the server, which will alert other players.
             if self.game_config.multiplayer:
                 fs_evt: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, get_identifier(),
                                                                     UpdateAction.FOUND_SETTLEMENT,

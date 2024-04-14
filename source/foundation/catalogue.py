@@ -11,12 +11,14 @@ from source.foundation.models import FactionDetail, Player, Improvement, Improve
 from source.util.calculator import player_has_resources_for_improvement
 
 
+# The list of multiplayer lobby names.
 LOBBY_NAMES = [
     "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta", "Iota", "Kappa", "Lambda", "Mu", "Nu", "Xi",
     "Omicron", "Pi", "Rho", "Sigma", "Tau", "Upsilon", "Phi", "Chi", "Psi", "Omega"
 ]
 
 
+# The list of player names for multiplayer games.
 PLAYER_NAMES = [
     "Ace", "Buster", "Chief", "Dingo", "E.T.", "Fang", "Ghost", "Hawk", "Iris", "Judge", "Kanga", "Laser", "Meteor",
     "Neutron", "Ozone", "Pyro", "Quokka", "Reaper", "Snake", "Turbo", "Ultra", "Viper", "Wizard", "Xylo", "Yabby",

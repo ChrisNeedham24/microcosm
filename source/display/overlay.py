@@ -763,6 +763,11 @@ class Overlay:
     def toggle_player_change(self,
                              player_changing: typing.Optional[Player],
                              changed_player_is_leaving: typing.Optional[bool]):
+        """
+        Toggle the player change overlay.
+        :param player_changing: The player either leaving or joining the game.
+        :param changed_player_is_leaving: Whether the player is leaving.
+        """
         if OverlayType.PLAYER_CHANGE in self.showing:
             self.showing.remove(OverlayType.PLAYER_CHANGE)
         else:
@@ -771,6 +776,10 @@ class Overlay:
             self.changed_player_is_leaving = changed_player_is_leaving
 
     def is_player_change(self):
+        """
+        Returns whether the player change overlay is currently being displayed.
+        :return: Whether the player change overlay is currently being displayed.
+        """
         return OverlayType.PLAYER_CHANGE in self.showing
 
     def remove_layer(self) -> typing.Optional[OverlayType]:
