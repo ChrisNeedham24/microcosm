@@ -175,7 +175,7 @@ class Menu:
                 name = pl.name
                 if player_is_client:
                     name += " (you)"
-                elif pl.is_ai:
+                elif not pl.id:
                     name += " (AI)"
                 pyxel.text(28, 66 + idx * 10, name, pyxel.COLOR_GREEN if player_is_client else pyxel.COLOR_WHITE)
                 faction_offset = 50 - pow(len(pl.faction), 1.4)
@@ -753,7 +753,6 @@ class Menu:
             pyxel.text(58, 105, "Press ENTER to continue", pyxel.COLOR_WHITE)
             pyxel.text(60, 115, "Press SPACE to go back", pyxel.COLOR_WHITE)
 
-            # TODO Extract this into a function - it's got a basically identical usage when starting a game.
             if self.showing_faction_details:
                 pyxel.load("resources/sprites.pyxres")
                 pyxel.rectb(30, 30, 140, 124, pyxel.COLOR_WHITE)
@@ -783,7 +782,7 @@ class Menu:
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
             pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
             for idx, lobby in enumerate(self.multiplayer_lobbies):
-                human_players: typing.List[PlayerDetails] = [p for p in lobby.current_players if not p.is_ai]
+                human_players: typing.List[PlayerDetails] = [p for p in lobby.current_players if not p.id]
                 lobby_is_full: bool = len(human_players) == lobby.cfg.player_count
                 lobby_count_str: str = f"{len(human_players)}/{lobby.cfg.player_count}"
                 lobby_turn_str: str = "in lobby" if lobby.current_turn is None else f"turn {lobby.current_turn}"

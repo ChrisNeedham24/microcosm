@@ -35,9 +35,8 @@ class Game:
         self.game_controller = GameController()
         self.game_state = GameState()
 
-        client_listener: EventListener = EventListener()
-        client_listener.game_states = {"local": self.game_state}
-        client_listener.game_controller = self.game_controller
+        client_listener: EventListener = EventListener(game_states={"local": self.game_state},
+                                                       game_controller=self.game_controller)
         listener_thread: Thread = Thread(target=client_listener.run)
         listener_thread.start()
 

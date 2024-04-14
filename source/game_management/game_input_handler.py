@@ -232,11 +232,11 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_controller.namer.reset()
         elif game_controller.menu.viewing_lobbies:
             current_lobby: LobbyDetails = game_controller.menu.multiplayer_lobbies[game_controller.menu.lobby_index]
-            human_players: typing.List[PlayerDetails] = [p for p in current_lobby.current_players if not p.is_ai]
+            human_players: typing.List[PlayerDetails] = [p for p in current_lobby.current_players if not p.id]
             if len(human_players) < current_lobby.cfg.player_count:
                 if current_lobby.current_turn:
                     game_controller.menu.available_multiplayer_factions = \
-                        [(Faction(p.faction), FACTION_COLOURS[p.faction]) for p in current_lobby.current_players if p.is_ai]
+                        [(Faction(p.faction), FACTION_COLOURS[p.faction]) for p in current_lobby.current_players if p.id]
                 else:
                     available_factions = deepcopy(FACTION_COLOURS)
                     for player in current_lobby.current_players:
