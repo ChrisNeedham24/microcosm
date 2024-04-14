@@ -47,6 +47,11 @@ v3.0
   attribute to have empty ResourceCollections. In addition to these, the req_resources attribute was added to
   Improvements, which is migrated and removed for old saves, as they would have no way of obtaining the necessary
   resources.
+
+v4.0
+- Quad yields were adjusted to be integer values rather than float ones. Float values from previous versions are rounded
+  to the closest integer.
+- Multiplayer games were introduced; GameConfig objects from previous versions are naturally mapped to False.
 """
 
 

@@ -22,7 +22,7 @@ jobs:
           pip install -r dev_requirements.txt
       - name: Bundle (MacOS)
         run: |
-          python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --macos-create-app-bundle --macos-app-icon=source/resources/icon.png microcosm.py
+          python -m nuitka --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --macos-create-app-bundle --macos-app-icon=source/resources/icon.png microcosm.py
           ditto -c -k --sequesterRsrc --keepParent microcosm.app microcosm-osx.zip
         if: matrix.os == 'macos-latest'
       - name: Bundle (Ubuntu)

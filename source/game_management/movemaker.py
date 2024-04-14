@@ -851,7 +851,6 @@ class MoveMaker:
                             # Show the siege notification if we have placed one of the player's settlements under siege.
                             if player_idx is not None and within_range in all_players[player_idx].settlements:
                                 self.board_ref.overlay.toggle_siege_notif(within_range, player)
-                return None
             # If a suitable unit or settlement was not found to attack, but there is another player with an imminent
             # victory, either move into a deployer unit or move towards the weakest settlement belonging to the player
             # with the most imminent victories.

@@ -109,23 +109,23 @@ class Menu:
         self.load_game_boundaries = 0, 9
         self.load_failed = False
         self.viewing_stats = False
-        self.player_stats: typing.Optional[Statistics] = None
+        self.player_stats: Optional[Statistics] = None
         self.wiki_units_option: WikiUnitsOption = WikiUnitsOption.ATTACKING
-        self.unit_plans_to_render: typing.List[UnitPlan] = \
+        self.unit_plans_to_render: List[UnitPlan] = \
             [up for up in UNIT_PLANS if not up.heals and not isinstance(up, DeployerUnitPlan)]
         self.viewing_achievements = False
         self.achievements_boundaries = 0, 3
         self.showing_rare_resources = False
-        self.multiplayer_lobby: typing.Optional[LobbyDetails] = None
+        self.multiplayer_lobby: Optional[LobbyDetails] = None
         self.viewing_lobbies = False
-        self.multiplayer_lobbies: typing.List[LobbyDetails] = []
+        self.multiplayer_lobbies: List[LobbyDetails] = []
         self.lobby_index = 0
         self.joining_game = False
-        self.available_multiplayer_factions: typing.List[typing.Tuple[Faction, int]] = []
+        self.available_multiplayer_factions: List[Tuple[Faction, int]] = []
         self.lobby_player_boundaries = 0, 7
-        self.multiplayer_game_being_loaded: typing.Optional[LoadedMultiplayerState] = None
+        self.multiplayer_game_being_loaded: Optional[LoadedMultiplayerState] = None
         self.loading_multiplayer_game = False
-        self.upnp_enabled: typing.Optional[bool] = None  # None before a connection has been attempted.
+        self.upnp_enabled: Optional[bool] = None  # None before a connection has been attempted.
 
     def draw(self):
         """
@@ -782,7 +782,7 @@ class Menu:
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
             pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
             for idx, lobby in enumerate(self.multiplayer_lobbies):
-                human_players: typing.List[PlayerDetails] = [p for p in lobby.current_players if not p.id]
+                human_players: List[PlayerDetails] = [p for p in lobby.current_players if not p.id]
                 lobby_is_full: bool = len(human_players) == lobby.cfg.player_count
                 lobby_count_str: str = f"{len(human_players)}/{lobby.cfg.player_count}"
                 lobby_turn_str: str = "in lobby" if lobby.current_turn is None else f"turn {lobby.current_turn}"

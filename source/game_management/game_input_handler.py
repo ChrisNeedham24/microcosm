@@ -557,8 +557,6 @@ def on_key_space(game_controller: GameController, game_state: GameState):
         game_controller.menu.joining_game = False
         if game_controller.menu.loading_multiplayer_game:
             game_controller.menu.loading_game = True
-        else:
-            game_controller.menu.loading_multiplayer_game = False
     elif game_state.on_menu and game_controller.menu.viewing_lobbies:
         game_controller.menu.viewing_lobbies = False
     elif game_state.on_menu and game_controller.menu.viewing_stats:

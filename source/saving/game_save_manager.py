@@ -4,10 +4,10 @@ import json
 import os
 import pathlib
 import time
-import typing
 from datetime import datetime
 from itertools import chain
 from json import JSONDecodeError
+from typing import TYPE_CHECKING, Optional, List, Dict
 
 import pyxel
 from platformdirs import user_data_dir
@@ -17,7 +17,7 @@ from source.foundation.catalogue import get_blessing, get_project, get_unit_plan
 from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement, GameConfig, Quad, \
     HarvestStatus, EconomicStatus
 from source.game_management.game_controller import GameController
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from source.game_management.game_state import GameState
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
 from source.saving.save_migrator import migrate_unit, migrate_player, migrate_climatic_effects, \
@@ -72,9 +72,9 @@ def save_game(game_state: GameState, auto: bool = False):
 def save_stats_achievements(game_state: GameState,
                             playtime: float = 0,
                             increment_turn: bool = True,
-                            victory_to_add: typing.Optional[VictoryType] = None,
+                            victory_to_add: Optional[VictoryType] = None,
                             increment_defeats: bool = False,
-                            faction_to_add: typing.Optional[Faction] = None) -> typing.List[Achievement]:
+                            faction_to_add: Optional[Faction] = None) -> List[Achievement]:
     """
     Saves the supplied statistics to the statistics JSON file. Additionally, check if any achievements have been
     obtained. All parameters have default values so that they may be supplied at different times.
@@ -88,11 +88,11 @@ def save_stats_achievements(game_state: GameState,
     """
     playtime_to_write: float = playtime
     existing_turns: int = 0
-    existing_victories: typing.Dict[VictoryType, int] = {}
+    existing_victories: Dict[VictoryType, int] = {}
     existing_defeats: int = 0
-    existing_factions: typing.Dict[Faction, int] = {}
-    existing_achievements: typing.List[str] = []
-    new_achievements: typing.List[Achievement] = []
+    existing_factions: Dict[Faction, int] = {}
+    existing_achievements: List[str] = []
+    new_achievements: List[Achievement] = []
 
     stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
     # If the player already has statistics and achievements, get those to add our new ones to.
@@ -179,9 +179,9 @@ def get_stats() -> Statistics:
 
 def load_save_file(game_state: GameState,
                    namer: Namer,
-                   save_name: str) -> (GameConfig, typing.List[typing.List[Quad]]):
+                   save_name: str) -> (GameConfig, List[List[Quad]]):
     game_cfg: GameConfig
-    quads: typing.List[typing.List[Quad]]
+    quads: List[List[Quad]]
     with open(os.path.join(SAVES_DIR, save_name), "r", encoding="utf-8") as save_file:
         # Use a custom object hook when loading the JSON so that the resulting objects have attribute access.
         save = json.loads(save_file.read(), object_hook=ObjectConverter)
@@ -231,7 +231,7 @@ def load_save_file(game_state: GameState,
                 p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
             for idx, bls in enumerate(p.blessings):
                 p.blessings[idx] = get_blessing(bls.name)
-            imminent_victories: typing.List[VictoryType] = []
+            imminent_victories: List[VictoryType] = []
             for iv in p.imminent_victories:
                 imminent_victories.append(VictoryType(iv))
             p.imminent_victories = set(imminent_victories)
@@ -291,11 +291,11 @@ def load_game(game_state: GameState, game_controller: GameController):
         game_controller.menu.load_failed = True
 
 
-def get_saves() -> typing.List[str]:
+def get_saves() -> List[str]:
     """
     Get the prettified file names of each save file in the saves/ directory and pass them to the menu.
     """
-    save_names: typing.List[str] = []
+    save_names: List[str] = []
     autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
     saves = list(filter(lambda file_name: file_name.startswith("save-"),
                         [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
