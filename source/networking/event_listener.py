@@ -119,21 +119,21 @@ class RequestHandler(socketserver.BaseRequestHandler):
             case EventType.JOIN:
                 self.process_join_event(evt, sock)
             case EventType.REGISTER:
-                self.process_register_event(evt, sock)
+                self.process_register_event(evt)
             case EventType.END_TURN:
                 self.process_end_turn_event(evt, sock)
             case EventType.UNREADY:
-                self.process_unready_event(evt, sock)
+                self.process_unready_event(evt)
             case EventType.AUTOFILL:
                 self.process_autofill_event(evt, sock)
             case EventType.SAVE:
-                self.process_save_event(evt, sock)
+                self.process_save_event(evt)
             case EventType.QUERY_SAVES:
                 self.process_query_saves_event(evt, sock)
             case EventType.LOAD:
                 self.process_load_event(evt, sock)
             case EventType.KEEPALIVE:
-                self.process_keepalive_event(evt, sock)
+                self.process_keepalive_event(evt)
 
     def process_create_event(self, evt: CreateEvent, sock: socket.socket):
         """
@@ -250,6 +250,11 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gc.music_player.play_game_music()
 
     def process_update_event(self, evt: UpdateEvent, sock: socket.socket):
+        """
+        Process the given update-related event.
+        :param evt: The update-related event to process.
+        :param sock: The socket to use to respond, or send other packets out.
+        """
         match evt.action:
             case UpdateAction.FOUND_SETTLEMENT:
                 self.process_found_settlement_event(evt, sock)
@@ -283,13 +288,19 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 self.process_deployer_deploy_event(evt, sock)
 
     def process_found_settlement_event(self, evt: FoundSettlementEvent, sock: socket.socket):
+        """
+        Process an event to found a settlement.
+        :param evt: The FoundSettlementEvent to process.
+        :param sock: The socket to use to forward out settlement data to other players.
+        """
         gsrs: Dict[str, GameState] = self.server.game_states_ref
         game_name: str = evt.game_name if self.server.is_server else "local"
+        # We need to unpack the JSON array into a tuple and convert the two statuses into Enums.
         evt.settlement.location = (evt.settlement.location[0], evt.settlement.location[1])
         evt.settlement.harvest_status = HarvestStatus(evt.settlement.harvest_status)
         evt.settlement.economic_status = EconomicStatus(evt.settlement.economic_status)
         migrate_settlement(evt.settlement)
-        # We need this for the initial settlements.
+        # We need this for the initial settlements, which contain a unit in the garrison.
         for idx, u in enumerate(evt.settlement.garrison):
             evt.settlement.garrison[idx] = migrate_unit(u)
         player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
@@ -299,6 +310,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
             settler_unit = next(u for u in player.units if u.location == evt.settlement.location)
             player.units.remove(settler_unit)
         if self.server.is_server:
+            # Remove the settlement name from the server's namer too, so that any AI settlements that are founded don't
+            # end up having the same name.
             self.server.namers_ref[evt.game_name].remove_settlement_name(evt.settlement.name,
                                                                          evt.settlement.quads[0].biome)
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
@@ -307,6 +320,11 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                                                          evt.settlement.quads[0].biome)
 
     def process_set_blessing_event(self, evt: SetBlessingEvent, sock: socket.socket):
+        """
+        Process an event to set a player's blessing.
+        :param evt: The SetBlessingEvent to process.
+        :param sock: The socket to use to forward out blessing data to other players.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
@@ -315,9 +333,15 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
     def process_set_construction_event(self, evt: SetConstructionEvent, sock: socket.socket):
+        """
+        Process an event to set a settlement's construction.
+        :param evt: The SetConstructionEvent to process.
+        :param sock: The socket to use to forward out construction data to other players.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
+        # Since some constructions cost resources, we need to update the player's resources for all other players too.
         player.resources = evt.player_resources
         setl = next(setl for setl in player.settlements if setl.name == evt.settlement_name)
         setl.current_work = evt.construction
@@ -331,10 +355,16 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
     def process_move_unit_event(self, evt: MoveUnitEvent, sock: socket.socket):
+        """
+        Process an event to move a unit.
+        :param evt: The MoveUnitEvent to process.
+        :param sock: The socket to use to forward out movement data to other players.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
         unit = next(u for u in player.units if u.location == (evt.initial_loc[0], evt.initial_loc[1]))
+        # We need to unpack the JSON array into a tuple.
         unit.location = (evt.new_loc[0], evt.new_loc[1])
         update_player_quads_seen_around_point(player, unit.location)
         unit.remaining_stamina = evt.new_stamina
@@ -343,12 +373,18 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
     def process_deploy_unit_event(self, evt: DeployUnitEvent, sock: socket.socket):
+        """
+        Process an event to deploy a unit from a settlement.
+        :param evt: The DeployUnitEvent to process.
+        :param sock: The socket to use to forward out deployment data to other players.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
         setl = next(setl for setl in player.settlements if setl.name == evt.settlement_name)
         deployed = setl.garrison.pop()
         deployed.garrisoned = False
+        # We need to unpack the JSON array into a tuple.
         deployed.location = (evt.location[0], evt.location[1])
         update_player_quads_seen_around_point(player, deployed.location)
         player.units.append(deployed)
@@ -356,6 +392,11 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
     def process_garrison_unit_event(self, evt: GarrisonUnitEvent, sock: socket.socket):
+        """
+        Process an event to garrison a unit in a settlement.
+        :param evt: The GarrisonUnitEvent to process.
+        :param sock: The socket to use to forward out unit data to other players.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
@@ -369,6 +410,11 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
     def process_investigate_event(self, evt: InvestigateEvent, sock: socket.socket):
+        """
+        Process an event to investigate a relic.
+        :param evt: The InvestigateEvent to process.
+        :param sock: The socket to use to forward out investigation data to other players.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
@@ -403,10 +449,18 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
     def process_besiege_settlement_event(self, evt: BesiegeSettlementEvent, sock: socket.socket):
+        """
+        Process an event to place a settlement under siege.
+        :param evt: The BesiegeSettlementEvent to process.
+        :param sock: The socket to use to forward out siege data to other players.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
         unit = next(u for u in player.units if u.location == (evt.unit_loc[0], evt.unit_loc[1]))
+        # Technically by not initialising the settlement here, it could be undefined later when we attempt to set its
+        # besieged attribute. In practice however, the server will always have a settlement with the name from the
+        # event.
         setl: Settlement
         for p in self.server.game_states_ref[game_name].players:
             for s in p.settlements:
@@ -418,16 +472,29 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
     def process_buyout_construction_event(self, evt: BuyoutConstructionEvent, sock: socket.socket):
+        """
+        Process an event to buyout a settlement's construction.
+        :param evt: The BuyoutConstructionEvent to process.
+        :param sock: The socket to use to forward out construction data to other players.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
         setl = next(s for s in player.settlements if s.name == evt.settlement_name)
+        # Since we rely on the server having the same construction for the settlement as the client, and thus don't
+        # include any data about the construction being bought out in the event, we have to lower the player's wealth
+        # accordingly here too.
         complete_construction(setl, player)
         player.wealth = evt.player_wealth
         if self.server.is_server:
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
     def process_disband_unit_event(self, evt: DisbandUnitEvent, sock: socket.socket):
+        """
+        Process an event to disband a unit.
+        :param evt: The DisbandUnitEvent to process.
+        :param sock: The socket to use to forward out unit data to other players.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
@@ -438,10 +505,19 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
     def process_attack_unit_event(self, evt: AttackUnitEvent, sock: socket.socket):
+        """
+        Process an event to attack a unit.
+        :param evt: The AttackUnitEvent to process.
+        :param sock: The socket to use to forward out unit data to other players.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         gsrs: Dict[str, GameState] = self.server.game_states_ref
         player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
         attacker = next(u for u in player.units if u.location == (evt.attacker_loc[0], evt.attacker_loc[1]))
+        # Technically by not initialising the defending unit here, it could be undefined later when the attack takes
+        # place. In practice however, the server will always have a unit with the defending location from the event.
+        # Additionally, the second part of this tuple refers to the player that owns the unit being attacked. Naturally,
+        # this is optional because heathens don't belong to any player.
         defender: Tuple[Unit | Heathen, Optional[Player]]
         found_defender: bool = False
         for p in gsrs[game_name].players:
@@ -463,6 +539,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
         if self.server.is_server:
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
         else:
+            # When other players receive this attack event, we need to check if they were the player being attacked. If
+            # so, show the attack overlay. Also, if the unit that was attacked was killed, and currently-selected,
+            # deselect it.
             if defender[1] is not None and \
                     defender[1].faction == gsrs["local"].players[gsrs["local"].player_idx].faction:
                 data.player_attack = False
@@ -475,15 +554,24 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gsrs["local"].board.attack_time_bank = 0
 
     def process_attack_settlement_event(self, evt: AttackSettlementEvent, sock: socket.socket):
+        """
+        Process an event to attack a settlement.
+        :param evt: The AttackSettlementEvent to process.
+        :param sock: The socket to use to forward out settlement data.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         gsrs: Dict[str, GameState] = self.server.game_states_ref
         player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
         attacker = next(u for u in player.units if u.location == (evt.attacker_loc[0], evt.attacker_loc[1]))
+        # Technically by not initialising the settlement here, it could be undefined later when the attack takes place.
+        # In practice however, the server will always have a settlement with the name from the event.
         setl: Tuple[Settlement, Player]
         for p in gsrs[game_name].players:
             for s in p.settlements:
                 if s.name == evt.settlement_name:
                     setl = s, p
+        # Expand the settlement tuple into the Settlement and Player objects when passing it through to the attack
+        # function.
         data = attack_setl(attacker, *setl, ai=False)
         if data.attacker_was_killed:
             player.units.remove(attacker)
@@ -502,6 +590,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
         if self.server.is_server:
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
         else:
+            # When other players receive this attack event, we need to check if they own the settlement being attacked.
+            # If so, show the settlement attack overlay. Also, if the settlement that was attacked was taken, deselect
+            # it.
             if setl[1].faction == gsrs["local"].players[gsrs["local"].player_idx].faction:
                 data.player_attack = False
                 sel_s = gsrs["local"].board.selected_settlement
@@ -512,6 +603,11 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gsrs["local"].board.attack_time_bank = 0
 
     def process_heal_unit_event(self, evt: HealUnitEvent, sock: socket.socket):
+        """
+        Process an event to heal a unit.
+        :param evt: The HealUnitEvent to process.
+        :param sock: The socket to use to forward out unit data.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         gsrs: Dict[str, GameState] = self.server.game_states_ref
         player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
@@ -522,6 +618,11 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
     def process_board_deployer_event(self, evt: BoardDeployerEvent, sock: socket.socket):
+        """
+        Process an event to have a unit board a deployer unit.
+        :param evt: The BoardDeployerEvent to process.
+        :param sock: The socket to use to forward out unit data.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
@@ -534,11 +635,17 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
     def process_deployer_deploy_event(self, evt: DeployerDeployEvent, sock: socket.socket):
+        """
+        Process an event to have a deployer unit deploy a unit.
+        :param evt: The DeployerDeployEvent to process.
+        :param sock: The socket to use to forward out unit data.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
         deployer = next(u for u in player.units if u.location == (evt.deployer_loc[0], evt.deployer_loc[1]))
         deployed = deployer.passengers[evt.passenger_idx]
+        # We need to unpack the JSON array into a tuple.
         deployed.location = (evt.deployed_loc[0], evt.deployed_loc[1])
         deployer.passengers[evt.passenger_idx:evt.passenger_idx + 1] = []
         player.units.append(deployed)
@@ -547,12 +654,21 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
     def process_query_event(self, evt: QueryEvent, sock: socket.socket):
+        """
+        Process an event to query the ongoing multiplayer games on the server.
+        :param evt: The QueryEvent to process.
+        :param sock: The socket to use to respond to the client that sent the query.
+        """
         if self.server.is_server:
             lobbies: List[LobbyDetails] = []
             for name, cfg in self.server.lobbies_ref.items():
                 gs: GameState = self.server.game_states_ref[name]
                 player_details: List[PlayerDetails] = []
+                # We need to use extend here rather than just set player_details to be the game clients because if we do
+                # that, then we end up adding AI players to our game clients in the loop below, which we don't want.
                 player_details.extend(self.server.game_clients_ref[name])
+                # Because AI players aren't stored as game clients, we need to add them separately from the game state
+                # object. We can disregard eliminated players since nobody can join as them.
                 for player in [p for p in gs.players if p.ai_playstyle and not p.eliminated]:
                     player_details.append(PlayerDetails(player.name, player.faction, id=None))
                 lobbies.append(LobbyDetails(name, player_details, cfg, None if not gs.game_started else gs.turn))
@@ -564,11 +680,18 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gc.menu.viewing_lobbies = True
 
     def process_leave_event(self, evt: LeaveEvent, sock: socket.socket):
+        """
+        Process an event to leave a multiplayer game.
+        :param evt: The LeaveEvent to process.
+        :param sock: The socket to use to forward out player data.
+        """
         if self.server.is_server:
             old_clients = self.server.game_clients_ref[evt.lobby_name]
             client_to_remove: PlayerDetails = next(client for client in old_clients if client.id == evt.identifier)
             new_clients = [client for client in old_clients if client.id != evt.identifier]
             self.server.game_clients_ref[evt.lobby_name] = new_clients
+            # If there aren't any clients in the game anymore, then the game is over, and we can remove all related
+            # state.
             if not new_clients:
                 self.server.game_clients_ref.pop(evt.lobby_name)
                 self.server.lobbies_ref.pop(evt.lobby_name)
@@ -576,13 +699,16 @@ class RequestHandler(socketserver.BaseRequestHandler):
             else:
                 gs: GameState = self.server.game_states_ref[evt.lobby_name]
                 player = next(p for p in gs.players if p.faction == client_to_remove.faction)
+                # Since the player has left, we need to replace them with an AI.
                 if gs.game_started:
                     player.ai_playstyle = AIPlaystyle(random.choice(list(AttackPlaystyle)),
                                                       random.choice(list(ExpansionPlaystyle)))
                     evt.player_ai_playstyle = player.ai_playstyle
                 evt.leaving_player_faction = player.faction
-                # We need this gate because multiple players may have left at the same time.
+                # We need this gate because multiple players may have left at the same time, meaning that they aren't
+                # even in the game anymore to receive the packet.
                 self._forward_packet(evt, evt.lobby_name, sock, gate=lambda pd: pd.id in self.server.clients_ref)
+                # If every remaining player is ready for the turn to end, then end the turn.
                 if len(gs.ready_players) == len(self.server.game_clients_ref[evt.lobby_name]):
                     self._server_end_turn(gs, EndTurnEvent(EventType.END_TURN, identifier=None,
                                                            game_name=evt.lobby_name), sock)
@@ -591,8 +717,10 @@ class RequestHandler(socketserver.BaseRequestHandler):
             player = next(p for p in gs.players if p.faction == evt.leaving_player_faction)
             if gs.game_started:
                 player.ai_playstyle = evt.player_ai_playstyle
+                # If the player is in-game, then show the player change overlay.
                 gs.board.overlay.toggle_player_change(player, changed_player_is_leaving=True)
             else:
+                # Otherwise just remove the player from state and the lobby player list.
                 gs.players.remove(player)
                 current_players: List[PlayerDetails] = \
                     [p for p in self.server.game_controller_ref.menu.multiplayer_lobby.current_players
@@ -600,15 +728,23 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 self.server.game_controller_ref.menu.multiplayer_lobby.current_players = current_players
 
     def process_join_event(self, evt: JoinEvent, sock: socket.socket):
+        """
+        Process an event to join a multiplayer game.
+        :param evt: The JoinEvent to process.
+        :param sock: The socket to use to forward out player data.
+        """
         gsrs: Dict[str, GameState] = self.server.game_states_ref
         gc: GameController = self.server.game_controller_ref
         gs: GameState = gsrs[evt.lobby_name if self.server.is_server else "local"]
         if self.server.is_server:
             player_name: str
+            # If the player is joining an ongoing game, then they can just take the name of the AI player they're
+            # replacing.
             if gs.game_started:
                 replaced_player: Player = next(p for p in gs.players if p.faction == evt.player_faction)
                 replaced_player.ai_playstyle = None
                 player_name = replaced_player.name
+            # Otherwise, we just have to keep generating one for them until they get one that's not taken.
             else:
                 player_name = random.choice(PLAYER_NAMES)
                 while any(player.name == player_name for player in self.server.game_clients_ref[evt.lobby_name]):
@@ -632,9 +768,13 @@ class RequestHandler(socketserver.BaseRequestHandler):
             evt.lobby_details = lobby_details
             self._forward_packet(evt, evt.lobby_name, sock,
                                  gate=lambda pd: pd.faction != evt.player_faction or not gs.game_started)
+            # If the player is joining an ongoing game, then we need to forward all the game state to them.
             if gs.game_started:
                 quads_list: List[Quad] = list(chain.from_iterable(gs.board.quads))
+                # We split the quads into chunks of 100 in order to keep packet sizes suitably small.
                 for idx, quads_chunk in enumerate(split_list_into_chunks(quads_list, 100)):
+                    # We sleep for 10ms between each chunk in order to account for slower connections. By doing this, we
+                    # can stop these clients from being overwhelmed by packets.
                     time.sleep(0.01)
                     minified_quads: str = ""
                     for quad in quads_chunk:
@@ -649,7 +789,14 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                 self.server.clients_ref[evt.identifier])
                 evt.total_quads_seen = sum(len(p.quads_seen) for p in gs.players)
                 for idx, player in enumerate(gs.players):
+                    # We sleep for 10ms between each player in order to account for slower connections. By doing this,
+                    # we can stop these clients from being overwhelmed by packets.
                     time.sleep(0.01)
+                    # Before we add the player to the event, we need to reset the data from the previous loop. We need
+                    # to do this because the way we differentiate between the different types of JoinEvents client-side
+                    # is by checking what attributes are populated. For example, if quad_chunk is not None, then we know
+                    # to inflate the received quad data. Similarly, if player_chunk is not None, then we know to inflate
+                    # the received player data. This principle applies to seen quads and heathens as well.
                     evt.until_night = None
                     evt.nighttime_left = None
                     evt.cfg = None
@@ -664,7 +811,10 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 for idx, player in enumerate(gs.players):
                     evt.player_chunk_idx = idx
                     evt.quads_seen_chunk = None
+                    # We split the quad locations into chunks of 100 in order to keep packet sizes suitably small.
                     for qs_chunk in split_list_into_chunks(list(player.quads_seen), 100):
+                        # We sleep for 10ms between each chunk in order to account for slower connections. By doing
+                        # this, we can stop these clients from being overwhelmed by packets.
                         time.sleep(0.01)
                         evt.quads_seen_chunk = minify_quads_seen(set(qs_chunk))
                         sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
@@ -672,6 +822,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 evt.player_chunk_idx = None
                 evt.total_quads_seen = None
                 evt.quads_seen_chunk = None
+                # Since there are never that many heathens, we can just send them all together.
                 evt.heathens_chunk = minify_heathens(gs.heathens)
                 evt.total_heathens = len(gs.heathens)
                 sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
@@ -682,13 +833,21 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                                      evt.lobby_details.cfg,
                                                      evt.lobby_details.current_turn)
             if evt.lobby_details.current_turn:
+                # Normally once all game state is loaded, we can remove the AI playstyle for the player and continue on
+                # with the game. However, in some cases seen quad packets may be received by the player joining after
+                # entering the game. This is because game state is considered to be populated as long as each player has
+                # at least some seen quads. Additionally, for other players receiving this event after being forwarded
+                # it, the player change overlay is displayed.
                 if gs.game_started and not evt.quads_seen_chunk:
                     replaced_player: Player = next(p for p in gs.players if p.faction == evt.player_faction)
                     replaced_player.ai_playstyle = None
                     if gs.players[gs.player_idx].faction != evt.player_faction:
                         gs.board.overlay.toggle_player_change(replaced_player,
                                                               changed_player_is_leaving=False)
+                # It is important to note that players already in the game being joined will never enter this else - it
+                # is only for the player joining.
                 else:
+                    # If we are yet to determine which player the player joining is, do so.
                     if gs.player_idx is None:
                         for idx, player in enumerate(evt.lobby_details.current_players):
                             if player.faction == evt.player_faction:
@@ -696,6 +855,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                             gs.players.append(Player(player.name, Faction(player.faction),
                                                      FACTION_COLOURS[player.faction]))
                         gc.menu.multiplayer_game_being_loaded = LoadedMultiplayerState()
+                    # Initialise the board with night data if it has not been done already.
                     if not gs.board:
                         gs.until_night = evt.until_night
                         gs.nighttime_left = evt.nighttime_left
@@ -704,28 +864,41 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         gc.move_maker.board_ref = gs.board
                     if evt.quad_chunk:
                         split_quads: List[str] = evt.quad_chunk.split(",")[:-1]
+                        # Inflate each of the 100 quads received in this packet and assign them to the correct position
+                        # on the board, using the quad chunk index supplied in the event.
                         for j in range(100):
                             inflated_quad: Quad = inflate_quad(split_quads[j], location=(j, evt.quad_chunk_idx))
                             gs.board.quads[evt.quad_chunk_idx][j] = inflated_quad
                         gc.menu.multiplayer_game_being_loaded.quad_chunks_loaded += 1
                     if evt.player_chunk:
+                        # Inflate the player received in this packet.
                         gs.players[evt.player_chunk_idx] = \
                             inflate_player(evt.player_chunk, gs.board.quads)
+                        # Remove the names of this player's settlements from the joining player's namer, in order to
+                        # avoid name clashes.
                         for s in gs.players[evt.player_chunk_idx].settlements:
                             gc.namer.remove_settlement_name(s.name, s.quads[0].biome)
                         gc.menu.multiplayer_game_being_loaded.players_loaded += 1
                     if evt.quads_seen_chunk:
+                        # Because these chunks could arrive after entering the game, we need to make sure the loading
+                        # screen is still being shown before updating it.
                         if gc.menu.multiplayer_game_being_loaded:
                             gc.menu.multiplayer_game_being_loaded.total_quads_seen = evt.total_quads_seen
+                        # Inflate each of the 100 quad locations received in this packet and assign them to the correct
+                        # player, using the player chunk index supplied in the event.
                         inflated_quads_seen: Set[Tuple[int, int]] = inflate_quads_seen(evt.quads_seen_chunk)
                         gs.players[evt.player_chunk_idx].quads_seen.update(inflated_quads_seen)
                         if gc.menu.multiplayer_game_being_loaded:
                             gc.menu.multiplayer_game_being_loaded.quads_seen_loaded += len(inflated_quads_seen)
                     if evt.heathens_chunk:
                         gc.menu.multiplayer_game_being_loaded.total_heathens = evt.total_heathens
+                        # Inflate the heathens received.
                         gs.heathens = inflate_heathens(evt.heathens_chunk)
                         gc.menu.multiplayer_game_being_loaded.heathens_loaded = True
                     gs.turn = evt.lobby_details.current_turn
+                    # Once sufficient game state has been received, the game can start. We verify this by ensuring that
+                    # the board, every quad, every player (and at least some of their seen quads), and the heathens have
+                    # been loaded.
                     state_populated: bool = True
                     for i in range(90):
                         for j in range(100):
@@ -737,8 +910,11 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     for p in gs.players:
                         if not p.quads_seen:
                             state_populated = False
+                            break
+                    # We don't care about the heathens before turn 5 because they wouldn't have spawned yet.
                     if gs.turn > 5 and not gs.heathens:
                         state_populated = False
+                    # Enter the game once sufficient data has been received.
                     if state_populated:
                         pyxel.mouse(visible=True)
                         gc.last_turn_time = time.time()
@@ -754,8 +930,12 @@ class RequestHandler(socketserver.BaseRequestHandler):
                             sum(len(p.settlements) for p in gs.players) + 1
                         gc.music_player.stop_menu_music()
                         gc.music_player.play_game_music()
+                        # We can reset the loading screen's statistics as well.
                         gc.menu.multiplayer_game_being_loaded = None
+            # If the game hasn't started yet and we're still in the lobby.
             else:
+                # If the client's player index is None, then they must be the player that is joining, so we need to
+                # determine their index.
                 if gs.player_idx is None:
                     for idx, player in enumerate(evt.lobby_details.current_players):
                         if player.faction == evt.player_faction:
@@ -764,15 +944,27 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     gc.menu.joining_game = False
                     gc.menu.viewing_lobbies = False
                     gc.menu.setup_option = SetupOption.START_GAME
+                # Otherwise, a new player has joined a lobby the client is already a part of.
                 else:
                     new_player: PlayerDetails = evt.lobby_details.current_players[-1]
                     gs.players.append(Player(new_player.name, Faction(new_player.faction),
                                              FACTION_COLOURS[new_player.faction]))
 
     def process_register_event(self, evt: RegisterEvent):
+        """
+        Process an event to register a client with the server.
+        :param evt: The RegisterEvent to process.
+        """
+        # Keep track of the client's IP address and port they're listening on, so we can send them packets.
         self.server.clients_ref[evt.identifier] = self.client_address[0], evt.port
 
     def _server_end_turn(self, gs: GameState, evt: EndTurnEvent, sock: socket.socket):
+        """
+        Process turn-ending logic for a multiplayer game on the game server.
+        :param gs: The game state for the multiplayer game in which the turn is being ended.
+        :param evt: The EndTurnEvent to forward to other players.
+        :param sock: The socket to use to forward out turn data.
+        """
         for idx, player in enumerate(gs.players):
             gs.process_player(player, idx == gs.player_idx)
         if gs.turn % 5 == 0:
@@ -784,25 +976,39 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 h.health = min(h.health + h.plan.max_health * 0.1, h.plan.max_health)
         gs.turn += 1
         if gs.board.game_config.climatic_effects:
+            # We don't reseed the random number generator here so that all clients have the same day-night cycle.
             gs.process_climatic_effects(reseed_random=False)
-        # We need to check for victories on the server as well so each player's imminent victories are
-        # populated - this affects how units will move.
+        # If no victory has been achieved, then save the game and process the turns for the heathens and AI players.
         if gs.check_for_victory() is None:
             save_game(gs, auto=True)
             gs.process_heathens()
             gs.process_ais(self.server.move_makers_ref[evt.game_name])
+        # Alert all players that the turn has ended.
         self._forward_packet(evt, evt.game_name, sock)
+        # Since we're in a new turn, there are no longer any players ready to end their turn.
         gs.ready_players.clear()
 
     def process_end_turn_event(self, evt: EndTurnEvent, sock: socket.socket):
+        """
+        Process an event to either signal that a player is ready to end the turn, or to actually end the game's current
+        turn.
+        :param evt: The EndTurnEvent to process.
+        :param sock: The socket to use to forward out turn data.
+        """
         game_name: str = evt.game_name if self.server.is_server else "local"
         gs: GameState = self.server.game_states_ref[game_name]
         gc: GameController = self.server.game_controller_ref
+        # To keep the server and all clients in sync, we seed the random number generator with the game's turn before
+        # ending each turn.
         random.seed(gs.turn)
+        # If the server is receiving this event, then that means a player has signalled that they're ready for the turn
+        # to end. As such, add them to the list, and end the turn if all players are ready.
         if self.server.is_server:
             gs.ready_players.add(evt.identifier)
             if len(gs.ready_players) == len(self.server.game_clients_ref[evt.game_name]):
                 self._server_end_turn(gs, evt, sock)
+        # If a client is receiving this event, however, then that means that all players are ready and the turn has
+        # ended. Thus, process the turn.
         else:
             gs.processing_turn = True
             for idx, player in enumerate(gs.players):
@@ -817,6 +1023,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gs.board.overlay.remove_warning_if_possible()
             gs.turn += 1
             if gs.board.game_config.climatic_effects:
+                # We don't reseed the random number generator here so that all clients have the same day-night cycle.
                 gs.process_climatic_effects(reseed_random=False)
             possible_vic = gs.check_for_victory()
             if possible_vic is not None:
@@ -824,9 +1031,13 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 if possible_vic.player.faction == gs.players[gs.player_idx].faction:
                     if new_achs := save_stats_achievements(gs, victory_to_add=possible_vic.type):
                         gs.board.overlay.toggle_ach_notif(new_achs)
+                # We need an extra eliminated check in here because if the player was eliminated at the same time that
+                # the victory was achieved, e.g. in an elimination victory between two players, the defeat count would
+                # be incremented twice - once here and once when they are marked as eliminated.
                 elif not gs.players[gs.player_idx].eliminated:
                     if new_achs := save_stats_achievements(gs, increment_defeats=True):
                         gs.board.overlay.toggle_ach_notif(new_achs)
+            # If no victory has been achieved, then process the turns for the heathens and AI players.
             else:
                 time_elapsed = time.time() - gc.last_turn_time
                 gc.last_turn_time = time.time()
@@ -839,13 +1050,25 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gs.processing_turn = False
 
     def process_unready_event(self, evt: UnreadyEvent):
+        """
+        Process an event to mark a player has not being ready to end the current turn.
+        :param evt: The UnreadyEvent to process.
+        """
+        # We use discard rather than remove here just in case a client attempts to unready between the time that the
+        # turn has ended on the server and the time the turn has ended on the client's machine.
         self.server.game_states_ref[evt.game_name].ready_players.discard(evt.identifier)
 
     def process_autofill_event(self, evt: AutofillEvent, sock: socket.socket):
+        """
+        Process an event to autofill a multiplayer lobby.
+        :param evt: The AutofillEvent to process.
+        :param sock: The socket to use to forward out player data.
+        """
         gsrs: Dict[str, GameState] = self.server.game_states_ref
         if self.server.is_server:
             max_players: int = self.server.lobbies_ref[evt.lobby_name].player_count
             current_players: int = len(self.server.game_clients_ref[evt.lobby_name])
+            # Generate enough AI players to fill the lobby.
             for _ in range(max_players - current_players):
                 ai_name = random.choice(PLAYER_NAMES)
                 while any(player.name == ai_name for player in gsrs[evt.lobby_name].players):
@@ -859,10 +1082,13 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gsrs[evt.lobby_name].players.append(ai_player)
             update_evt: AutofillEvent = AutofillEvent(EventType.AUTOFILL, None, evt.lobby_name,
                                                       gsrs[evt.lobby_name].players)
+            # Alert all players to the new AI players in the lobby.
             self._forward_packet(update_evt, evt.lobby_name, sock)
         else:
             gc: GameController = self.server.game_controller_ref
             previous_player_count = len(gc.menu.multiplayer_lobby.current_players)
+            # Since AutofillEvents contain actual Player objects, we can just migrate them and update the lobby and game
+            # state with them.
             for player in evt.players[previous_player_count:]:
                 player.faction = Faction(player.faction)
                 player.imminent_victories = set(player.imminent_victories)
@@ -872,9 +1098,18 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gsrs["local"].players.append(player)
 
     def process_save_event(self, evt: SaveEvent):
+        """
+        Process an event to save the multiplayer game with the given name.
+        :param evt: The SaveEvent to extract the game name from.
+        """
         save_game(self.server.game_states_ref[evt.game_name])
 
     def process_query_saves_event(self, evt: QuerySavesEvent, sock: socket.socket):
+        """
+        Process an event to query the saved multiplayer games on the server.
+        :param evt: The QuerySavesEvent to process.
+        :param sock: The socket to use to respond to the client that sent the query.
+        """
         if self.server.is_server:
             evt.saves = get_saves()
             sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
@@ -883,15 +1118,22 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.server.game_controller_ref.menu.loading_multiplayer_game = True
 
     def process_load_event(self, evt: LoadEvent, sock: socket.socket):
+        """
+        Process an event to load a multiplayer game.
+        :param evt: The LoadEvent to process.
+        :param sock: The socket to use to respond to the client that sent the load request.
+        """
         if self.server.is_server:
             gsrs: Dict[str, GameState] = self.server.game_states_ref
+            # Choose a new lobby name for the saved game.
             lobby_name = random.choice(LOBBY_NAMES)
             while lobby_name in gsrs:
                 lobby_name = random.choice(LOBBY_NAMES)
             gsrs[lobby_name] = GameState()
             self.server.namers_ref[lobby_name] = Namer()
+            # Load in all game state from the file.
             cfg, quads = load_save_file(gsrs[lobby_name], self.server.namers_ref[lobby_name], evt.save_name)
-            # Do this so we can 'join' as any player.
+            # Make all players AIs so we can 'join' as any player.
             for p in gsrs[lobby_name].players:
                 p.ai_playstyle = AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)
             self.server.game_clients_ref[lobby_name] = []
@@ -905,10 +1147,12 @@ class RequestHandler(socketserver.BaseRequestHandler):
             player_details: List[PlayerDetails] = []
             for player in [p for p in gsrs[lobby_name].players if not p.eliminated]:
                 player_details.append(PlayerDetails(player.name, player.faction, id=None))
+            # Respond with the lobby details so the client can pick a faction.
             evt.lobby = LobbyDetails(lobby_name, player_details, cfg, gsrs[lobby_name].turn)
             sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
         else:
             gc: GameController = self.server.game_controller_ref
+            # Reset the client's namer so that it can be updated on join.
             gc.namer.reset()
             gc.menu.multiplayer_lobbies = [evt.lobby]
             gc.menu.available_multiplayer_factions = \
@@ -917,58 +1161,106 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gc.menu.joining_game = True
 
     def process_keepalive_event(self, evt: Event):
+        """
+        Process an event to determine whether the client is still playing (and their connection is stable).
+        """
+        # If the server is receiving this event, then the client responded to the initial keepalive, and we can reset
+        # their counter.
         if self.server.is_server:
             self.server.keepalive_ctrs_ref[evt.identifier] = 0
+        # If a client is receiving this event, however, they need to send one back to the server to signal that they're
+        # still 'alive'.
         else:
             dispatch_event(Event(EventType.KEEPALIVE, get_identifier()))
 
 
 class EventListener:
+    """
+    Listens for multiplayer-related events on a UPnP-exposed port.
+    """
     def __init__(self,
                  is_server: bool = False,
                  game_states: Optional[Dict[str, GameState]] = None,
                  game_controller: Optional[GameController] = None):
+        """
+        Construct the listener.
+        :param is_server: Whether the listener is *the* game server.
+        :param game_states: An optional dictionary of game states - used by clients to pre-supply local state.
+        :param game_controller: An optional game controller - used by clients to pre-supply local state.
+        """
+        # Game name -> GameState.
         self.game_states: Dict[str, GameState] = game_states if game_states is not None else {}
+        # Game name -> Namer.
         self.namers: Dict[str, Namer] = {}
+        # Game name -> MoveMaker.
         self.move_makers: Dict[str, MoveMaker] = {}
+        # Whether this server is *the* game server.
         self.is_server: bool = is_server
+        # An optional GameController - only used by clients to update displayed content, e.g. menus.
         self.game_controller: Optional[GameController] = game_controller
+        # Game name -> a list of players in the game.
         self.game_clients: Dict[str, List[PlayerDetails]] = {}
+        # Game name -> GameConfig.
         self.lobbies: Dict[str, GameConfig] = {}
-        self.clients: Dict[int, Tuple[str, int]] = {}  # Hash identifier to (host, port).
-        self.keepalive_ctrs: Dict[int, int] = {}  # Hash identifier to number sent without response.
+        # Hash identifier -> (host, port).
+        self.clients: Dict[int, Tuple[str, int]] = {}
+        # Hash identifier -> number sent without response.
+        self.keepalive_ctrs: Dict[int, int] = {}
 
+        # The game server needs to send out regular keepalives in another thread, since we're going to be listening for
+        # events on the main one.
         if self.is_server:
             self.keepalive_scheduler: sched.scheduler = sched.scheduler(time.time, time.sleep)
             keepalive_thread: Thread = Thread(target=self.run_keepalive_scheduler, daemon=True)
             keepalive_thread.start()
 
     def run_keepalive_scheduler(self):
+        """
+        Run the keepalive scheduler, which runs the keepalive every 5 seconds.
+        """
         self.keepalive_scheduler.enter(5, 1, self.run_keepalive, (self.keepalive_scheduler,))
         self.keepalive_scheduler.run()
 
     def run_keepalive(self, scheduler: sched.scheduler):
+        """
+        Runs the keepalive, ensuring all clients are still playing the game (and their connection is stable).
+        :param scheduler: The scheduler to use to run the keepalive.
+        """
+        # Run the keepalive again in 5 seconds.
         scheduler.enter(5, 1, self.run_keepalive, (scheduler,))
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         evt = Event(EventType.KEEPALIVE, None)
         clients_to_remove: List[int] = []
+        # Send the keepalive event to each client.
         for identifier, client in self.clients.items():
             sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), client)
             if identifier in self.keepalive_ctrs:
                 self.keepalive_ctrs[identifier] += 1
+                # If a client has not responded to a keepalive event in the last 30 seconds, then they can be considered
+                # to be no longer playing.
                 if self.keepalive_ctrs[identifier] == 6:
                     clients_to_remove.append(identifier)
             else:
                 self.keepalive_ctrs[identifier] = 1
+        # Clients that are being removed are removed from their current game and then removed from the clients
+        # dictionary.
         for identifier in clients_to_remove:
             for lobby_name, details in self.game_clients.items():
                 for player_detail in details:
                     if player_detail.id == identifier:
+                        # Rather than copy all the same logic as leave events, we simply send a leave event from the
+                        # server to itself with the client's details.
                         l_evt: LeaveEvent = LeaveEvent(EventType.LEAVE, identifier, lobby_name)
                         sock.sendto(json.dumps(l_evt, cls=SaveEncoder).encode(), ("localhost", 9999))
             self.clients.pop(identifier)
 
     def run(self):
+        """
+        Run the event listener, listening forever.
+        """
+        # Bind the listener to all IP addresses on the machine. The game server listens on port 9999, while clients can
+        # listen on whichever dynamic port they get assigned - since the server remembers what port each client is on,
+        # it doesn't matter that it is different for each client.
         with socketserver.UDPServer(("0.0.0.0", 9999 if self.is_server else 0), RequestHandler) as server:
             if not self.is_server:
                 try:
