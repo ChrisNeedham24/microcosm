@@ -1262,30 +1262,50 @@ class EventListener:
         # listen on whichever dynamic port they get assigned - since the server remembers what port each client is on,
         # it doesn't matter that it is different for each client.
         with socketserver.UDPServer(("0.0.0.0", 9999 if self.is_server else 0), RequestHandler) as server:
+            # Clients need to open up their networking and contact the server before they can start listening for
+            # events.
             if not self.is_server:
                 try:
+                    # Initialise UPnP, discovering and then selecting a valid UPnP IGD device on the connected network,
+                    # where IGD refers to the protocol used for UPnP.
                     upnp = UPnP()
                     upnp.discover()
                     upnp.selectigd()
+                    # Fundamentally, UPnP works by opening up a port into your connected network, and then forwards all
+                    # public traffic directed at that port to a configured private IP within the network. Because of
+                    # this, we need to determine what the private IP is for this machine. We do this by connecting to
+                    # the Google DNS server, which allows us to see the private IP for this machine.
                     ip_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     ip_sock.connect(("8.8.8.8", 80))
                     private_ip: str = ip_sock.getsockname()[0]
                     mapping_idx: int = 0
                     todays_date: datetime.date = datetime.date.today()
+                    # For security reasons, we don't really want to leave these UPnP ports open permanently (even though
+                    # nothing is listening). As such, we check all existing port mappings on the network, and delete any
+                    # mappings that were created on previous days. Additionally, if a previous mapping was for this
+                    # machine, we delete the old one and make a new one.
                     while (port_mapping := upnp.getgenericportmapping(mapping_idx)) is not None:
                         mapping_name: str = port_mapping[3]
                         if mapping_name.startswith("Microcosm"):
+                            # Because ISO dates can be sorted alphabetically to sort them chronologically, we can just
+                            # extract the date from the mapping and compare the strings.
                             mapping_is_old: bool = mapping_name[10:] < str(todays_date)
                             mapping_is_for_this_machine: bool = port_mapping[2][0] == private_ip
                             if mapping_is_old or mapping_is_for_this_machine:
                                 upnp.deleteportmapping(port_mapping[0], "UDP")
                         mapping_idx += 1
+                    # Now create a new port mapping for this machine's private IP and dynamic listener port, complete
+                    # with the creation date, so it can be deleted later.
                     upnp.addportmapping(server.server_address[1], "UDP", private_ip, server.server_address[1],
                                         f"Microcosm {todays_date}", "")
+                    # Now with a port listening for external traffic, we can signal to the server that we're listening.
                     dispatch_event(RegisterEvent(EventType.REGISTER, get_identifier(), server.server_address[1]))
                     self.game_controller.menu.upnp_enabled = True
+                # This would be a more specific Exception, but the UPnP library that is used actually raises the base
+                # Exception.
                 except Exception:
                     self.game_controller.menu.upnp_enabled = False
+            # So that the request handler can access the listener's state, we set some attributes on the handler itself.
             server.game_states_ref = self.game_states
             server.namers_ref = self.namers
             server.move_makers_ref = self.move_makers
@@ -1295,4 +1315,5 @@ class EventListener:
             server.lobbies_ref = self.lobbies
             server.clients_ref = self.clients
             server.keepalive_ctrs_ref = self.keepalive_ctrs
+            # Listen for events until the process is killed.
             server.serve_forever()
