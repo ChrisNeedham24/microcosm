@@ -483,7 +483,7 @@ class Board:
                 else:
                     # If we're not using biome clustering, just randomly choose one.
                     biome = random.choice(list(Biome))
-                quad_yield: (float, float, float, float) = calculate_yield_for_quad(biome)
+                quad_yield: typing.Tuple[int, int, int, int] = calculate_yield_for_quad(biome)
 
                 resource: typing.Optional[ResourceCollection] = None
                 # Each quad has a 1 in 20 chance of having a core resource, and a 1 in 100 chance of having a rare

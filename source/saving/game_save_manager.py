@@ -7,15 +7,15 @@ import time
 from datetime import datetime
 from itertools import chain
 from json import JSONDecodeError
-from typing import TYPE_CHECKING, Optional, List, Dict
+from typing import TYPE_CHECKING, Optional, List, Dict, Tuple
 
 import pyxel
 from platformdirs import user_data_dir
 
 from source.display.board import Board
 from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement, ACHIEVEMENTS, Namer
-from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement, GameConfig, Quad, \
-    HarvestStatus, EconomicStatus
+from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement, GameConfig, \
+    Quad, HarvestStatus, EconomicStatus
 from source.game_management.game_controller import GameController
 if TYPE_CHECKING:
     from source.game_management.game_state import GameState
@@ -45,6 +45,8 @@ def init_app_data():
 def save_game(game_state: GameState, auto: bool = False):
     """
     Saves the current game with the current timestamp as the file name.
+    :param game_state: The state of the game to save.
+    :param auto: Whether the save is an autosave.
     """
     # Only maintain 3 autosaves at a time, delete the oldest if we already have 3 before saving the next.
     if auto and len(autosaves := list(filter(lambda fn: fn.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))) == 3:
@@ -179,7 +181,14 @@ def get_stats() -> Statistics:
 
 def load_save_file(game_state: GameState,
                    namer: Namer,
-                   save_name: str) -> (GameConfig, List[List[Quad]]):
+                   save_name: str) -> Tuple[GameConfig, List[List[Quad]]]:
+    """
+    Load the save file with the given name into the supplied game state and namer objects.
+    :param game_state: The game state to load the save data into.
+    :param namer: The namer to update with settlement details from the saved game.
+    :param save_name: The name of the save file to load.
+    :return: A tuple containing the game configuration and the quads on the board.
+    """
     game_cfg: GameConfig
     quads: List[List[Quad]]
     with open(os.path.join(SAVES_DIR, save_name), "r", encoding="utf-8") as save_file:
@@ -275,6 +284,8 @@ def load_game(game_state: GameState, game_controller: GameController):
         # Now do all the same logic we do when starting a game.
         pyxel.mouse(visible=True)
         game_controller.last_turn_time = time.time()
+        # Because we only load single-player games using this function, we know that the player will be the first player
+        # in the players list in game state.
         game_state.player_idx = 0
         game_state.game_started = True
         game_state.on_menu = False
@@ -293,7 +304,8 @@ def load_game(game_state: GameState, game_controller: GameController):
 
 def get_saves() -> List[str]:
     """
-    Get the prettified file names of each save file in the saves/ directory and pass them to the menu.
+    Get the prettified file names of each save file in the saves/ directory.
+    :return: The prettified file names of the available save files.
     """
     save_names: List[str] = []
     autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))

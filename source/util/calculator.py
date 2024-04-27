@@ -7,7 +7,7 @@ from source.foundation.models import Biome, Unit, Heathen, AttackData, Player, E
     HealData, DeployerUnitPlan, DeployerUnit, ResourceCollection, Quad
 
 
-def calculate_yield_for_quad(biome: Biome) -> (int, int, int, int):
+def calculate_yield_for_quad(biome: Biome) -> Tuple[int, int, int, int]:
     """
     Given the supplied biome, generate a random yield to be used for a quad.
     :param biome: The biome of the quad-to-be.
@@ -395,11 +395,24 @@ def subtract_player_resources_for_improvement(player: Player, improvement: Impro
 
 
 def split_list_into_chunks(list_to_split: list, chunk_length: int) -> Generator[list, None, None]:
+    """
+    Splits a list into chunks of a given size.
+    Once the Python version for Microcosm is upgraded to 3.12, itertools.batched() can be used instead of this.
+    :param list_to_split: The list to generate chunks from.
+    :param chunk_length: The size of each chunk to return.
+    :return: A generator that yields chunks of the given list with the given size.
+    """
     for i in range(0, len(list_to_split), chunk_length):
         yield list_to_split[i:i + chunk_length]
 
 
 def update_player_quads_seen_around_point(player: Player, point: (int, int), vision_range: int = 5):
+    """
+    Updates the seen quads for a player around the given point with the given range.
+    :param player: The player to update the seen quads for.
+    :param point: The point around which seen quads are to be added.
+    :param vision_range: The 'distance' from the point to add seen quads for.
+    """
     for i in range(point[1] - vision_range, point[1] + vision_range + 1):
         for j in range(point[0] - vision_range, point[0] + vision_range + 1):
             player.quads_seen.add((clamp(j, 0, 99), clamp(i, 0, 89)))

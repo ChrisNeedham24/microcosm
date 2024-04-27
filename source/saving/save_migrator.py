@@ -139,7 +139,7 @@ def migrate_climatic_effects(game_state, save):
 
 def migrate_quad(quad, location: (int, int)) -> Quad:
     """
-    Apply the is_relic, location, and resource migrations for Quads, if required.
+    Apply the is_relic, location, resource, and yield migrations for Quads, if required.
     :param quad: The loaded quad object.
     :param location: The backup location to use for the quad if it is from an outdated save.
     :return: An optionally-migrated Quad representation.
@@ -190,7 +190,7 @@ def migrate_settlement(settlement):
 
 def migrate_game_config(config) -> GameConfig:
     """
-    Apply the climatic_effects and player_faction migrations for game configuration, if required.
+    Apply the climatic_effects, player_faction, and multiplayer migrations for game configuration, if required.
     :param config: The loaded game configuration.
     :return: An optionally-migrated GameConfig representation.
     """

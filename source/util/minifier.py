@@ -1,4 +1,3 @@
-from copy import deepcopy
 from typing import List, Optional, Set, Tuple
 
 from source.foundation.catalogue import get_unit_plan, get_improvement, get_project, get_blessing, FACTION_COLOURS, \
@@ -9,10 +8,21 @@ from source.foundation.models import Quad, Biome, ResourceCollection, Player, Se
 
 
 def minify_resource_collection(rc: ResourceCollection) -> str:
+    """
+    Turn the given resource collection object into a minified string representation.
+    :param rc: The resource collection object to minify.
+    :return: A minified string representation of the resource collection.
+    """
     return f"{rc.ore}+{rc.timber}+{rc.magma}+{rc.aurora}+{rc.bloodstone}+{rc.obsidian}+{rc.sunstone}+{rc.aquamarine}"
 
 
 def minify_quad(quad: Quad) -> str:
+    """
+    Turn the given quad object into a minified string representation.
+    :param quad: The quad object to minify.
+    :return: A minified string representation of the quad.
+    """
+    # Just the first character of the biome is enough to identify it.
     quad_str: str = f"{quad.biome.value[0]}{quad.wealth}{quad.harvest}{quad.zeal}{quad.fortune}"
     if quad.resource:
         quad_str += minify_resource_collection(quad.resource)
@@ -22,10 +32,20 @@ def minify_quad(quad: Quad) -> str:
 
 
 def minify_unit_plan(unit_plan: UnitPlan) -> str:
+    """
+    Turn the given unit plan object into a minified string representation.
+    :param unit_plan: The unit plan object to minify.
+    :return: A minified string representation of the unit plan.
+    """
     return f"{unit_plan.power}/{unit_plan.max_health}/{unit_plan.total_stamina}/{unit_plan.name}"
 
 
 def minify_unit(unit: Unit) -> str:
+    """
+    Turn the given unit object into a minified string representation.
+    :param unit: The unit object to minify.
+    :return: A minified string representation of the unit.
+    """
     unit_str: str = f"{unit.health}|{unit.remaining_stamina}|{unit.location[0]}-{unit.location[1]}|"
     unit_str += minify_unit_plan(unit.plan) + "|"
     unit_str += f"{unit.has_acted}|{unit.besieging}"
@@ -37,10 +57,21 @@ def minify_unit(unit: Unit) -> str:
 
 
 def minify_improvement(improvement: Improvement) -> str:
+    """
+    Turn the given improvement object into a minified string representation.
+    :param improvement: The improvement object to minify.
+    :return: A minified string representation of the improvement.
+    """
+    # Just the first character of each word in the name of the improvement is enough to identify it.
     return "".join(word[0] for word in improvement.name.split(" "))
 
 
 def minify_settlement(settlement: Settlement) -> str:
+    """
+    Turn the given settlement object into a minified string representation.
+    :param settlement: The settlement object to minify.
+    :return: A minified string representation of the settlement.
+    """
     settlement_str: str = f"{settlement.name};{settlement.location[0]}-{settlement.location[1]};"
     settlement_str += "$".join(minify_improvement(imp) for imp in settlement.improvements) + ";"
     settlement_str += ",".join(f"{quad.location[0]}-{quad.location[1]}" for quad in settlement.quads) + ";"
@@ -64,6 +95,11 @@ def minify_settlement(settlement: Settlement) -> str:
 
 
 def minify_player(player: Player) -> str:
+    """
+    Turn the given player object into a minified string representation.
+    :param player: The player object to minify.
+    :return: A minified string representation of the player.
+    """
     player_str: str = f"{player.name}~{player.faction.value}~{player.wealth}~"
     player_str += "!".join(minify_settlement(setl) for setl in player.settlements) + "~"
     player_str += "&".join(minify_unit(unit) for unit in player.units) + "~"
@@ -81,10 +117,21 @@ def minify_player(player: Player) -> str:
 
 
 def minify_quads_seen(quads_seen: Set[Tuple[int, int]]) -> str:
+    """
+    Turn the given set of seen quads into a minified string representation.
+    :param quads_seen: The set of seen quads to minify.
+    :return: A minified string representation of the seen quads.
+    """
+    # We can just exclude seen quads with locations including negative values - they shouldn't exist anyway.
     return ",".join(f"{quad_loc[0]}-{quad_loc[1]}" for quad_loc in quads_seen if quad_loc[0] >= 0 and quad_loc[1] >= 0)
 
 
 def minify_heathens(heathens: List[Heathen]) -> str:
+    """
+    Turn the given list of heathen objects into a minified string representation.
+    :param heathens: The list of heathen objects to minify.
+    :return: A minified string representation of the heathens.
+    """
     heathens_str: str = ""
     for heathen in heathens:
         hp: UnitPlan = heathen.plan
@@ -94,10 +141,23 @@ def minify_heathens(heathens: List[Heathen]) -> str:
 
 
 def inflate_resource_collection(rc_str: str) -> ResourceCollection:
+    """
+    Inflate the given minified resource collection string into a resource collection object.
+    :param rc_str: The minified resource collection to inflate.
+    :return: An inflated resource collection object.
+    """
+    # The below might look a bit complex at first glance, but we're just extracting out a list of integer values for
+    # each resource in the collection and then using * to unpack them to be the arguments for the object constructor.
     return ResourceCollection(*[int(res) for res in rc_str.split("+")])
 
 
 def inflate_quad(quad_str: str, location: (int, int)) -> Quad:
+    """
+    Inflate the given minified quad string into a quad object.
+    :param quad_str: The minified quad to inflate.
+    :param location: The location to use for the quad object - predetermined from the minified quad's index.
+    :return: An inflated quad object.
+    """
     quad_biome: Biome
     match quad_str[0]:
         case "D":
@@ -120,6 +180,11 @@ def inflate_quad(quad_str: str, location: (int, int)) -> Quad:
 
 
 def inflate_unit_plan(up_str: str) -> UnitPlan:
+    """
+    Inflate the given minified unit plan string into a unit plan object.
+    :param up_str: The minified unit plan to inflate.
+    :return: An inflated unit plan object.
+    """
     split_up: List[str] = up_str.split("/")
     unit_plan: UnitPlan = get_unit_plan(split_up[-1])
     unit_plan.power = float(split_up[0])
@@ -129,9 +194,17 @@ def inflate_unit_plan(up_str: str) -> UnitPlan:
 
 
 def inflate_unit(unit_str: str, garrisoned: bool) -> Unit:
+    """
+    Inflate the given minified unit string into a unit object.
+    :param unit_str: The minified unit to inflate.
+    :param garrisoned: Whether the minified unit is garrisoned.
+    :return: An inflated unit object.
+    """
     split_unit: List[str] = unit_str.split("|")
     unit_health: float = float(split_unit[0])
     unit_rem_stamina: int = int(split_unit[1])
+    # We need to do string comparisons against "True" here because if we just do 'is True' here instead, then everything
+    # will evaluate to True. This is because any string that isn't empty is considered to be 'True'.
     unit_has_acted: bool = split_unit[4] == "True"
     unit_is_besieging: bool = split_unit[5] == "True"
     unit_loc: (int, int) = int(split_unit[2].split("-")[0]), int(split_unit[2].split("-")[1])
@@ -140,6 +213,8 @@ def inflate_unit(unit_str: str, garrisoned: bool) -> Unit:
                     unit_has_acted, unit_is_besieging)
     else:
         passengers_str: str = "|".join(split_unit[6:])
+        # Because we add a carat per passenger, there will be an extra one on the end. As such, we discard the last
+        # split element.
         split_passengers: List[str] = passengers_str.split("^")[:-1]
         passengers: List[Unit] = [inflate_unit(sp, garrisoned=False) for sp in split_passengers]
         return DeployerUnit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3]),
