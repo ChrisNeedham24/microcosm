@@ -222,10 +222,22 @@ def inflate_unit(unit_str: str, garrisoned: bool) -> Unit:
 
 
 def inflate_improvement(improvement_str: str) -> Improvement:
+    """
+    Inflate the given minified improvement string into an improvement object.
+    :param improvement_str: The minified improvement to inflate.
+    :return: An inflated improvement object.
+    """
+    # This is one of the more naive functions - we literally just test this string against all of the minified options.
     return next(imp for imp in IMPROVEMENTS if minify_improvement(imp) == improvement_str)
 
 
 def inflate_settlement(setl_str: str, quads: List[List[Quad]]) -> Settlement:
+    """
+    Inflate the given minified settlement string into a settlement object.
+    :param setl_str: The minified settlement to inflate.
+    :param quads: The quads on the board.
+    :return: An inflated settlement object.
+    """
     split_setl: List[str] = setl_str.split(";")
     name: str = split_setl[0]
     loc: (int, int) = int(split_setl[1].split("-")[0]), int(split_setl[1].split("-")[1])
@@ -258,6 +270,8 @@ def inflate_settlement(setl_str: str, quads: List[List[Quad]]) -> Settlement:
     harvest_reserves: float = float(split_setl[11])
     harvest_status: HarvestStatus = HarvestStatus(split_setl[12])
     economic_status: EconomicStatus = EconomicStatus(split_setl[13])
+    # We need to do string comparisons against "True" here because if we just do 'is True' here instead, then everything
+    # will evaluate to True. This is because any string that isn't empty is considered to be 'True'.
     produced_settler: bool = split_setl[14] == "True"
     besieged: bool = split_setl[15] == "True"
     return Settlement(name, loc, improvements, setl_quads, resources, garrison, strength, max_strength, satisfaction,
@@ -266,6 +280,12 @@ def inflate_settlement(setl_str: str, quads: List[List[Quad]]) -> Settlement:
 
 
 def inflate_player(player_str: str, quads: List[List[Quad]]) -> Player:
+    """
+    Inflate the given minified player string into a player object.
+    :param player_str: The minified player to inflate.
+    :param quads: The quads on the board.
+    :return: An inflated player object.
+    """
     split_pl: List[str] = player_str.split("~")
     name: str = split_pl[0]
     faction: Faction = Faction(split_pl[1])
@@ -296,12 +316,19 @@ def inflate_player(player_str: str, quads: List[List[Quad]]) -> Player:
                                    ExpansionPlaystyle(split_pl[9].split("-")[1]))
     jubilation_ctr: int = int(split_pl[10])
     accumulated_wealth: float = float(split_pl[11])
+    # We need to do a string comparison against "True" here because if we just do 'is True' here instead, then
+    # everything will evaluate to True. This is because any string that isn't empty is considered to be 'True'.
     eliminated: bool = split_pl[12] == "True"
     return Player(name, faction, FACTION_COLOURS[faction], wealth, settlements, units, blessings, resources, set(),
                   imminent_victories, ongoing_blessing, ai_playstyle, jubilation_ctr, accumulated_wealth, eliminated)
 
 
 def inflate_quads_seen(qs_str: str) -> Set[Tuple[int, int]]:
+    """
+    Inflate the given minified seen quads string into a set of tuples representing the locations of each seen quad.
+    :param qs_str: The minified set of seen quads to inflate.
+    :return: An inflated set of seen quad location tuples.
+    """
     quads_seen: Set[Tuple[int, int]] = set()
     for quad_loc in qs_str.split(","):
         quads_seen.add((int(quad_loc.split("-")[0]), int(quad_loc.split("-")[1])))
@@ -309,6 +336,11 @@ def inflate_quads_seen(qs_str: str) -> Set[Tuple[int, int]]:
 
 
 def inflate_heathens(heathens_str: str) -> List[Heathen]:
+    """
+    Inflate the given minified heathens string into a list of heathen objects.
+    :param heathens_str: The minified heathens to inflate.
+    :return: An inflated list of heathen objects.
+    """
     heathens: List[Heathen] = []
     mini_heathens: List[str] = heathens_str.split(",")[:-1]
     for heathen in mini_heathens:
@@ -316,8 +348,12 @@ def inflate_heathens(heathens_str: str) -> List[Heathen]:
         health: float = float(split_heathen[0])
         remaining_stamina: int = int(split_heathen[1])
         location: (int, int) = int(split_heathen[2].split("-")[0]), int(split_heathen[2].split("-")[1])
+        # We don't use inflate_unit_plan() here because that will attempt to retrieve the non-heathen plan for this
+        # unit, which of course does not exist.
         unit_plan: UnitPlan = UnitPlan(float(split_heathen[3]), float(split_heathen[4]), int(split_heathen[5]),
                                        split_heathen[6], None, 0)
+        # We need to do a string comparison against "True" here because if we just do 'is True' here instead, then
+        # everything will evaluate to True. This is because any string that isn't empty is considered to be 'True'.
         has_attacked: bool = split_heathen[7] == "True"
         heathens.append(Heathen(health, remaining_stamina, location, unit_plan, has_attacked))
     return heathens

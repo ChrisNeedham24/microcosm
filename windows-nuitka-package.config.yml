@@ -1,3 +1,5 @@
+# This additional configuration is required for Windows bundles so that the required DLL for miniupnpc is included in
+# the created EXE. As long as the DLL is on the PYTHONPATH (e.g. in site-packages), it will be picked up.
 - module-name: "miniupnpc"
   dlls:
     - from_filenames:
