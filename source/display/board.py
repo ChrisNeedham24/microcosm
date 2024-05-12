@@ -568,7 +568,7 @@ class Board:
         :param mouse_x: The X coordinate of the mouse click.
         :param mouse_y: The Y coordinate of the mouse click.
         :param settled: Whether the player has founded a settlement yet.
-        :param player: The non-AI player.
+        :param player: The player making the click.
         :param map_pos: The current map position.
         :param heathens: The list of Heathens.
         :param all_units: The list of all Units in the game.

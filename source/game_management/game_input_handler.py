@@ -283,7 +283,6 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, get_identifier(),
                                                        game_controller.menu.multiplayer_lobby.name)
             dispatch_event(leave_lobby_event)
-            game_controller.menu.multiplayer_lobby = None
         # If the player has won the game, or they've just been eliminated themselves, enter will take them back
         # to the menu.
         game_state.game_started = False
@@ -413,7 +412,6 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, get_identifier(),
                                                                game_controller.menu.multiplayer_lobby.name)
                     dispatch_event(leave_lobby_event)
-                    game_controller.menu.multiplayer_lobby = None
                 game_state.game_started = False
                 game_state.on_menu = True
                 game_state.reset_state()

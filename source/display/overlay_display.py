@@ -16,8 +16,8 @@ from source.display.overlay import Overlay
 def display_overlay(overlay: Overlay, is_night: bool):
     """
     Display the given overlay to the screen.
-    :param overlay The Overlay to display.
-    :param is_night Whether it is night.
+    :param overlay: The Overlay to display.
+    :param is_night: Whether it is night.
     """
     pyxel.load("resources/sprites.pyxres")
     # The achievement notification overlay displays any achievements that the player has obtained since the last turn.
@@ -61,7 +61,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
         pyxel.rectb(12, 150, 176, 15, pyxel.COLOR_WHITE)
         pyxel.rect(13, 151, 174, 13, pyxel.COLOR_BLACK)
         pyxel.text(20, 153, "Click any white-bordered quad to deploy!", pyxel.COLOR_WHITE)
-    # The elimination overlay displays either game over if the player has been eliminated, or alternatively, any AI
+    # The elimination overlay displays either game over if the player has been eliminated, or alternatively, any other
     # players that have been eliminated since the last turn.
     elif OverlayType.ELIMINATION in overlay.showing:
         pyxel.rectb(12, 60, 176, 38, pyxel.COLOR_WHITE)
@@ -284,14 +284,14 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(54, 15, f"A {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
             pyxel.text(72, 25, f"{setl_name} (-{setl_dmg})", overlay.setl_attack_data.setl_owner.colour)
         # The siege notification overlay notifies the player that one of their settlements has been placed under
-        # siege by an AI player.
+        # siege by another player.
         if OverlayType.SIEGE_NOTIF in overlay.showing:
             pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
             pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
             att_name = overlay.sieger_of_settlement.name
             setl_name = overlay.sieged_settlement.name
             pyxel.text(22, 15, f"{setl_name} was placed under siege by {att_name}", pyxel.COLOR_RED)
-        # The player change overlay notifies the player when a player leaves or joins their multiplayer game.
+        # The player change overlay notifies the player when another player leaves or joins their multiplayer game.
         if OverlayType.PLAYER_CHANGE in overlay.showing:
             pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
             pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)

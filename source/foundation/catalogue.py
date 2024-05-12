@@ -77,7 +77,7 @@ class Namer:
 
     def remove_settlement_name(self, name: str, biome: Biome):
         """
-        Removes a settlement name from the list. Used in loaded game cases.
+        Removes a settlement name from the list. Used in loaded game and multiplayer cases.
         :param name: The settlement name to remove.
         :param biome: The biome of the settlement. Used to locate the name in the dictionary.
         """
@@ -643,7 +643,7 @@ def get_unlockable_units(blessing: Blessing) -> typing.List[UnitPlan]:
 
 def get_improvement(name: str) -> Improvement:
     """
-    Get the improvement with the given name. Used when loading games.
+    Get the improvement with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the improvement.
     :return: The Improvement with the given name.
     """
@@ -652,7 +652,7 @@ def get_improvement(name: str) -> Improvement:
 
 def get_project(name: str) -> Project:
     """
-    Get the project with the given name. Used when loading games.
+    Get the project with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the project.
     :return: The Project with the given name.
     """
@@ -661,7 +661,7 @@ def get_project(name: str) -> Project:
 
 def get_blessing(name: str) -> Blessing:
     """
-    Get the blessing with the given name. Used when loading games.
+    Get the blessing with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the blessing.
     :return: The Blessing with the given name.
     """
@@ -670,7 +670,7 @@ def get_blessing(name: str) -> Blessing:
 
 def get_unit_plan(name: str) -> UnitPlan:
     """
-    Get the unit plan with the given name. Used when loading games.
+    Get the unit plan with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the unit plan.
     :return: The UnitPlan with the given name.
     """

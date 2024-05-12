@@ -17,7 +17,7 @@ class Overlay:
         """
         self.showing: typing.List[OverlayType] = []  # What the overlay is currently displaying.
         self.current_settlement: typing.Optional[Settlement] = None
-        self.current_player: typing.Optional[Player] = None  # Will always be the non-AI player.
+        self.current_player: typing.Optional[Player] = None  # Will always be the non-AI player on this machine.
         self.available_constructions: typing.List[Improvement] = []
         self.available_projects: typing.List[Project] = []
         self.available_unit_plans: typing.List[UnitPlan] = []
@@ -255,7 +255,7 @@ class Overlay:
         """
         Toggle the settlement overlay.
         :param settlement: The selected settlement to display.
-        :param player: The current player. Will always be the non-AI player.
+        :param player: The current player. Will always be the non-AI player on this machine.
         """
         # Ensure that we can only remove the settlement overlay if the player is not choosing a construction.
         if OverlayType.SETTLEMENT in self.showing and not self.is_constructing():
