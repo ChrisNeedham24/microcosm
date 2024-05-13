@@ -605,7 +605,7 @@ class MoveMaker:
             get_resources_for_settlement([prospective_quad.location], self.board_ref.quads)
         # We make sure that AI settler units only settle next to core resources so that they don't end up in a situation
         # where they are missing the necessary core resources to construct improvements, and as a result, are unable to
-        # effectively compete with the human player to win the game.
+        # effectively compete with human players to win the game.
         if not prospective_resources.ore and not prospective_resources.timber and not prospective_resources.magma:
             should_settle = False
         if should_settle:
@@ -809,7 +809,7 @@ class MoveMaker:
                             unit.besieging = False
                             data = attack(unit, within_range)
 
-                            # Show the attack notification if we attacked the player.
+                            # Show the attack notification if we attacked the human player on this machine.
                             if player_idx is not None and within_range in all_players[player_idx].units:
                                 self.board_ref.overlay.toggle_attack(data)
                             if within_range.health <= 0:
@@ -831,7 +831,8 @@ class MoveMaker:
                             if setl_owner:
                                 data = attack_setl(unit, within_range, setl_owner)
 
-                                # Show the settlement attack notification if we attacked the player.
+                                # Show the settlement attack notification if we attacked the human player on this
+                                # machine.
                                 if player_idx is not None and within_range in all_players[player_idx].settlements:
                                     self.board_ref.overlay.toggle_setl_attack(data)
                                 if data.attacker_was_killed:
@@ -853,7 +854,8 @@ class MoveMaker:
                         unit.besieging = True
                         if not within_range.besieged:
                             within_range.besieged = True
-                            # Show the siege notification if we have placed one of the player's settlements under siege.
+                            # Show the siege notification if we have placed a settlement under siege that belongs to the
+                            # human player on this machine.
                             if player_idx is not None and within_range in all_players[player_idx].settlements:
                                 self.board_ref.overlay.toggle_siege_notif(within_range, player)
             # If a suitable unit or settlement was not found to attack, but there is another player with an imminent

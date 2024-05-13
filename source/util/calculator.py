@@ -139,13 +139,13 @@ def get_setl_totals(player: Player,
     :param player: The owner of the settlement.
     :param setl: The settlement to calculate totals for.
     :param is_night: Whether it is night. Used as harvest is halved and fortune increased by 10% at night.
-    :param strict: Whether the total should be 0 as opposed to 0.5 in situations where the total would be negative.
+    :param strict: Whether the total should be 0 as opposed to 1 in situations where the total would be negative.
     Only used for the settlement overlay, as we want users to make progress even if their zeal/fortune is 0.
     :return: A tuple containing the settlement's wealth, harvest, zeal, and fortune.
     """
 
     # For each of the four categories, add together the values for all of the settlement's quads and improvements. If
-    # negative, return 0 for wealth and harvest, and 0.5 for zeal and fortune. Also, use the settlement's level to add
+    # negative, return 0 for wealth and harvest, and 1 for zeal and fortune. Also, use the settlement's level to add
     # to each of the four categories. For example, a level 5 settlement with 10 total wealth will have its wealth
     # doubled to 20. Similarly, a level 10 settlement with 10 total wealth will have its wealth increased to 32.5. Also
     # note that wealth and harvest are special because they have additional conditions applied relating to the

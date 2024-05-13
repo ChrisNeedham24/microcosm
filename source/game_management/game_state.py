@@ -452,14 +452,12 @@ class GameState:
                 # If the player has constructed the Holy Sanctum, they have achieved a VIGOUR victory.
                 if constructed_sanctum:
                     return Victory(p, VictoryType.VIGOUR)
-            # The player has a special advantage over the AIs - if they have a settler unit despite losing all of their
-            # settlements, they are considered to still be in the game.
-            elif not (self.player_idx is not None and
-                      p == self.players[self.player_idx] and
-                      any(unit.plan.can_settle for unit in p.units)) and not p.eliminated:
+            # Human players have a special advantage over the AIs - if they have a settler unit despite losing all of
+            # their settlements, they are considered to still be in the game.
+            elif not (not p.ai_playstyle and any(unit.plan.can_settle for unit in p.units)) and not p.eliminated:
                 p.eliminated = True
                 self.board.overlay.toggle_elimination(p)
-                # Update the defeats stat if the eliminated player is the human player.
+                # Update the defeats stat if the eliminated player is the human player on this machine.
                 if self.player_idx is not None and p == self.players[self.player_idx]:
                     if new_achs := save_stats_achievements(self, increment_defeats=True):
                         self.board.overlay.toggle_ach_notif(new_achs)
@@ -485,14 +483,18 @@ class GameState:
                 close_to_vics.append(Victory(p, VictoryType.SERENDIPITY))
                 p.imminent_victories.add(VictoryType.SERENDIPITY)
 
-        if players_with_setls == 1 and \
-                not (self.player_idx is not None and
-                     not self.players[self.player_idx].settlements and
-                     any(unit.plan.can_settle for unit in self.players[self.player_idx].units)):
-            # If there is only one player with settlements (and the human player doesn't have a settler), they have
-            # achieved an ELIMINATION victory.
-            return Victory(next(player for player in self.players if len(player.settlements) > 0),
-                           VictoryType.ELIMINATION)
+        if players_with_setls == 1:
+            other_human_player_with_settler: bool = False
+            for p in self.players:
+                has_settler: bool = any(unit.plan.can_settle for unit in p.units)
+                if not p.ai_playstyle and has_settler and not p.settlements:
+                    other_human_player_with_settler = True
+                    break
+            if not other_human_player_with_settler:
+                # If there is only one player with settlements (and no other human players have a settler), they have
+                # achieved an ELIMINATION victory.
+                return Victory(next(player for player in self.players if len(player.settlements) > 0),
+                               VictoryType.ELIMINATION)
 
         # If any players are newly-close to a victory, show that in the overlay.
         if len(close_to_vics) > 0:
