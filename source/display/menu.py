@@ -768,10 +768,14 @@ class Menu:
                 pyxel.blt(150, 48, 0, total_faction_idx * 8, 92, 8, 8)
                 if self.faction_idx != 0:
                     pyxel.text(35, 140, "<-", pyxel.COLOR_WHITE)
-                    pyxel.blt(45, 138, 0, (total_faction_idx - 1) * 8, 92, 8, 8)
+                    prev_total_faction_idx = \
+                        self.faction_colours.index(self.available_multiplayer_factions[self.faction_idx - 1])
+                    pyxel.blt(45, 138, 0, prev_total_faction_idx * 8, 92, 8, 8)
                 pyxel.text(65, 140, "Press F to go back", pyxel.COLOR_WHITE)
                 if self.faction_idx != len(self.available_multiplayer_factions) - 1:
-                    pyxel.blt(148, 138, 0, (total_faction_idx + 1) * 8, 92, 8, 8)
+                    next_total_faction_idx = \
+                        self.faction_colours.index(self.available_multiplayer_factions[self.faction_idx + 1])
+                    pyxel.blt(148, 138, 0, next_total_faction_idx * 8, 92, 8, 8)
                     pyxel.text(158, 140, "->", pyxel.COLOR_WHITE)
         elif self.viewing_lobbies:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
