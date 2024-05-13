@@ -46,6 +46,7 @@ class AchievementsTest(unittest.TestCase):
                    ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL),
                    settlements=[self.TEST_SETTLEMENT_2]),
         ]
+        self.game_state.player_idx = 0
 
     def test_full_house(self):
         """
@@ -337,7 +338,7 @@ class AchievementsTest(unittest.TestCase):
         Ensure that verification for the 'All Is Revealed' achievement functions as expected.
         """
         # To make things easier in terms of quad counting, we initialise a real Board for this test.
-        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True), Namer())
+        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, False), Namer())
         self._verify_achievement(ACHIEVEMENTS[34].verification_fn, should_pass=False)
         # If we give the player all of the quads on the board as seen, the achievement should be obtained.
         self.game_state.players[0].quads_seen = list(chain.from_iterable(self.game_state.board.quads))

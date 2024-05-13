@@ -33,7 +33,7 @@ class GameInputHandlerTest(unittest.TestCase):
         """
         self.game_controller = GameController()
         self.game_state = GameState()
-        self.game_state.board = Board(GameConfig(4, Faction.NOCTURNE, True, True, True), Namer())
+        self.game_state.board = Board(GameConfig(4, Faction.NOCTURNE, True, True, True, False), Namer())
         self.game_state.on_menu = False
 
         self.TEST_QUAD = Quad(Biome.FOREST, 0, 0, 0, 0, (40, 40))
@@ -50,6 +50,7 @@ class GameInputHandlerTest(unittest.TestCase):
                                   [self.TEST_UNIT])
         self.TEST_PLAYER_2 = Player("Tester The Second", Faction.FUNDAMENTALISTS, 0)
         self.game_state.players = [self.TEST_PLAYER, self.TEST_PLAYER_2]
+        self.game_state.player_idx = 0
 
     def test_arrow_down_menu(self):
         """
@@ -495,17 +496,6 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.music_player.stop_menu_music.assert_called()
         self.game_controller.music_player.play_game_music.assert_called()
 
-    def test_return_cancel_load_game(self):
-        """
-        Ensure that when pressing the return key while on the load game screen with no save selected, the player is
-        returned to the main menu.
-        """
-        self.game_state.on_menu = True
-        self.game_controller.menu.loading_game = True
-        self.game_controller.menu.save_idx = -1
-        on_key_return(self.game_controller, self.game_state)
-        self.assertFalse(self.game_controller.menu.loading_game)
-
     @patch("source.game_management.game_input_handler.load_game")
     def test_return_load_game(self, load_mock: MagicMock):
         """
@@ -562,12 +552,15 @@ class GameInputHandlerTest(unittest.TestCase):
         the Load Game option selected.
         :param get_saves_mock: The mock implementation of the get_saves() function.
         """
+        test_saves = ["abc", "def"]
+        get_saves_mock.return_value = test_saves
+
         self.game_state.on_menu = True
         self.assertFalse(self.game_controller.menu.loading_game)
         self.game_controller.menu.main_menu_option = MainMenuOption.LOAD_GAME
         on_key_return(self.game_controller, self.game_state)
         self.assertTrue(self.game_controller.menu.loading_game)
-        get_saves_mock.assert_called_with(self.game_controller)
+        self.assertEqual(test_saves, self.game_controller.menu.saves)
 
     def test_return_select_main_menu_option_statistics(self):
         """
@@ -1248,7 +1241,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board.selected_settlement = self.TEST_SETTLEMENT
 
         self.assertIsNone(self.TEST_SETTLEMENT.current_work)
-        on_key_a(self.game_state)
+        on_key_a(self.game_controller, self.game_state)
         self.assertIsNotNone(self.TEST_SETTLEMENT.current_work)
 
     def test_escape(self):

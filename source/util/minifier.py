@@ -208,17 +208,18 @@ def inflate_unit(unit_str: str, garrisoned: bool) -> Unit:
     unit_has_acted: bool = split_unit[4] == "True"
     unit_is_besieging: bool = split_unit[5] == "True"
     unit_loc: (int, int) = int(split_unit[2].split("-")[0]), int(split_unit[2].split("-")[1])
+    # If the minified unit only has six parts, then it is a standard non-deployer unit.
     if len(split_unit) == 6:
         return Unit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3]),
                     unit_has_acted, unit_is_besieging)
-    else:
-        passengers_str: str = "|".join(split_unit[6:])
-        # Because we add a carat per passenger, there will be an extra one on the end. As such, we discard the last
-        # split element.
-        split_passengers: List[str] = passengers_str.split("^")[:-1]
-        passengers: List[Unit] = [inflate_unit(sp, garrisoned=False) for sp in split_passengers]
-        return DeployerUnit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3]),
-                            unit_has_acted, unit_is_besieging, passengers)
+    # Otherwise, it must be a deployer unit.
+    passengers_str: str = "|".join(split_unit[6:])
+    # Because we add a carat per passenger, there will be an extra one on the end. As such, we discard the last
+    # split element.
+    split_passengers: List[str] = passengers_str.split("^")[:-1]
+    passengers: List[Unit] = [inflate_unit(sp, garrisoned=False) for sp in split_passengers]
+    return DeployerUnit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3]),
+                        unit_has_acted, unit_is_besieging, passengers)
 
 
 def inflate_improvement(improvement_str: str) -> Improvement:

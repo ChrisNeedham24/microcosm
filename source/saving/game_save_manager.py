@@ -287,6 +287,7 @@ def load_game(game_state: GameState, game_controller: GameController):
         # Because we only load single-player games using this function, we know that the player will be the first player
         # in the players list in game state.
         game_state.player_idx = 0
+        game_state.located_player_idx = True
         game_state.game_started = True
         game_state.on_menu = False
         game_state.board = Board(game_cfg, game_controller.namer, quads)

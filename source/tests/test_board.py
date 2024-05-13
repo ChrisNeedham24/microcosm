@@ -11,7 +11,7 @@ class BoardTest(unittest.TestCase):
     """
     The test class for board.py.
     """
-    TEST_CONFIG = GameConfig(2, Faction.CONCENTRATED, True, True, True)
+    TEST_CONFIG = GameConfig(2, Faction.CONCENTRATED, True, True, True, False)
     TEST_NAMER = Namer()
     TEST_UPDATE_TIME = 2
     TEST_UPDATE_TIME_OVER = 4
@@ -74,7 +74,7 @@ class BoardTest(unittest.TestCase):
         """
         Ensure that board construction still functions correctly when biome clustering is disabled.
         """
-        no_clustering_cfg = GameConfig(2, Faction.NOCTURNE, False, True, True)
+        no_clustering_cfg = GameConfig(2, Faction.NOCTURNE, False, True, True, False)
 
         new_board = Board(no_clustering_cfg, self.TEST_NAMER)
 
@@ -274,7 +274,7 @@ class BoardTest(unittest.TestCase):
         """
         Ensure that when climatic effects are disabled, no sunstone resources are generated on the board.
         """
-        no_climatic_effects_cfg = GameConfig(2, Faction.INFIDELS, True, True, False)
+        no_climatic_effects_cfg = GameConfig(2, Faction.INFIDELS, True, True, False, False)
         self.board = Board(no_climatic_effects_cfg, self.TEST_NAMER)
         found_sunstone = False
         for i in range(90):
@@ -370,6 +370,12 @@ class BoardTest(unittest.TestCase):
         """
         self.board.overlay.toggle_tutorial = MagicMock()
         self.board.overlay.toggle_settlement = MagicMock()
+
+        # To make things consistent, remove resources from all quads to begin with so that settlement strength is not
+        # affected.
+        for i in range(90):
+            for j in range(100):
+                self.board.quads[i][j].resource = None
 
         test_player = Player("Mr. Agriculture", Faction.AGRICULTURISTS, 0)
 
@@ -752,6 +758,8 @@ class BoardTest(unittest.TestCase):
         """
         Ensure that heathens are appropriately selected when clicked on.
         """
+        # Add the heathen's location to the player's set of seen quads so that they can click on the heathen.
+        self.TEST_PLAYER.quads_seen.add(self.TEST_HEATHEN.location)
         self.board.overlay.toggle_unit = MagicMock()
 
         self.board.process_left_click(45, 45, True, self.TEST_PLAYER, (5, 5), [self.TEST_HEATHEN], [], [], [])
@@ -952,6 +960,8 @@ class BoardTest(unittest.TestCase):
         """
         Ensure that units are selected when clicked on.
         """
+        # Add the unit's location to the player's set of seen quads so that they can click on the unit.
+        self.TEST_PLAYER.quads_seen.add(self.TEST_UNIT.location)
         self.board.overlay.toggle_unit = MagicMock()
 
         self.assertIsNone(self.board.selected_unit)
@@ -991,6 +1001,8 @@ class BoardTest(unittest.TestCase):
         another of the player's units, does not move the unit.
         """
         self.TEST_PLAYER.units.append(self.TEST_UNIT_3)
+        # Add the unit's location to the player's set of seen quads so that they can click on the unit.
+        self.TEST_PLAYER.quads_seen.add(self.TEST_UNIT.location)
 
         self.assertTupleEqual((9, 9), self.TEST_UNIT_3.location)
         self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (5, 5), [],
@@ -1113,6 +1125,12 @@ class BoardTest(unittest.TestCase):
         self.board.overlay.toggle_unit = MagicMock()
         self.board.overlay.toggle_settlement = MagicMock()
 
+        # To make things consistent, remove resources from all quads to begin with so that settlement strength is not
+        # affected.
+        for i in range(90):
+            for j in range(100):
+                self.board.quads[i][j].resource = None
+
         # Move the test unit to occupy the same quad as any existing settlement, meaning it should not be able to found
         # a new one.
         self.TEST_UNIT.location = self.TEST_PLAYER.settlements[0].location
@@ -1149,6 +1167,12 @@ class BoardTest(unittest.TestCase):
         self.board.overlay.toggle_unit = MagicMock()
         self.board.overlay.toggle_settlement = MagicMock()
 
+        # To make things consistent, remove resources from all quads to begin with so that settlement strength is not
+        # affected.
+        for i in range(90):
+            for j in range(100):
+                self.board.quads[i][j].resource = None
+
         self.board.selected_unit = self.TEST_UNIT
         self.TEST_PLAYER.faction = Faction.FRONTIERSMEN
 
@@ -1172,6 +1196,12 @@ class BoardTest(unittest.TestCase):
         """
         self.board.overlay.toggle_unit = MagicMock()
         self.board.overlay.toggle_settlement = MagicMock()
+
+        # To make things consistent, remove resources from all quads to begin with so that settlement strength is not
+        # affected.
+        for i in range(90):
+            for j in range(100):
+                self.board.quads[i][j].resource = None
 
         self.board.selected_unit = self.TEST_UNIT
         self.TEST_PLAYER.faction = Faction.IMPERIALS

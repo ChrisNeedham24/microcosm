@@ -21,7 +21,7 @@ class GameSaveManagerTest(unittest.TestCase):
     """
     The test class for game_save_manager.py.
     """
-    TEST_CONFIG = GameConfig(4, Faction.NOCTURNE, True, True, True)
+    TEST_CONFIG = GameConfig(4, Faction.NOCTURNE, True, True, True, False)
 
     @patch("source.game_management.game_controller.MusicPlayer")
     def setUp(self, _: MagicMock) -> None:
@@ -33,6 +33,7 @@ class GameSaveManagerTest(unittest.TestCase):
         self.game_state = GameState()
         self.game_state.board = Board(self.TEST_CONFIG, Namer())
         self.game_state.gen_players(self.TEST_CONFIG)
+        self.game_state.player_idx = 0
         self.game_state.heathens = [Heathen(1, 2, (3, 4), get_heathen_plan(1))]
         self.game_controller = GameController()
 
@@ -414,22 +415,15 @@ class GameSaveManagerTest(unittest.TestCase):
     @patch("os.listdir")
     def test_get_saves(self, listdir_mock: MagicMock):
         """
-        Ensure that when retrieving existing save files, the correct filters and ordering are applied before displaying
-        them on the menu.
+        Ensure that when retrieving existing save files, the correct filters and ordering are applied.
         :param listdir_mock: The mock representation of os.listdir(), which is used to retrieve file names from the
         saves directory.
         """
-        # Set some fake data for the menu that we expect to be overwritten.
-        self.game_controller.menu.saves = ["a", "b", "c"]
-        self.game_controller.menu.save_idx = 999
         # In our first example, there are no existing save files.
         listdir_mock.return_value = []
 
-        get_saves(self.game_controller)
-        # As such, we expect the menu saves to be reset and the save index to be negative (which is used to select the
-        # cancel button).
-        self.assertFalse(self.game_controller.menu.saves)
-        self.assertEqual(-1, self.game_controller.menu.save_idx)
+        # As such, we expect no saves to be returned.
+        self.assertFalse(get_saves())
 
         # Now return some mock files from the listdir() call.
         test_saves = [
@@ -445,8 +439,7 @@ class GameSaveManagerTest(unittest.TestCase):
             "2023-01-07 13.36.00"
         ]
 
-        get_saves(self.game_controller)
-        self.assertListEqual(expected_saves, self.game_controller.menu.saves)
+        self.assertListEqual(expected_saves, get_saves())
 
 
 if __name__ == '__main__':

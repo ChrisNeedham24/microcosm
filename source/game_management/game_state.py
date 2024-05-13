@@ -43,9 +43,11 @@ class GameState:
         self.game_version: float = 4.0
 
         # The index of the player in the overall list of players. Will always be zero for single-player games, but will
-        # be variable for multiplayer ones. Begins as None so that the server can differentiate players that are yet to
-        # find their faction.
-        self.player_idx: Optional[int] = None
+        # be variable for multiplayer ones.
+        self.player_idx: int = 0
+        # Whether the local player has determined their player index yet. This exists so that the server can
+        # differentiate players that are yet to find their faction.
+        self.located_player_idx: bool = False
         # The set of identifiers for players who have ended their turn and are ready for it to be processed.
         self.ready_players: Set[int] = set()
         # Whether the previous turn is being processed.
@@ -63,7 +65,8 @@ class GameState:
         self.turn = 1
         self.until_night = random.randint(10, 20)
         self.nighttime_left = 0
-        self.player_idx = None
+        self.player_idx = 0
+        self.located_player_idx = False
         self.ready_players = set()
         self.processing_turn = False
 
@@ -458,7 +461,7 @@ class GameState:
                 p.eliminated = True
                 self.board.overlay.toggle_elimination(p)
                 # Update the defeats stat if the eliminated player is the human player on this machine.
-                if self.player_idx is not None and p == self.players[self.player_idx]:
+                if self.located_player_idx and p == self.players[self.player_idx]:
                     if new_achs := save_stats_achievements(self, increment_defeats=True):
                         self.board.overlay.toggle_ach_notif(new_achs)
             # If the player has accumulated at least 100k wealth over the game, they have achieved an AFFLUENCE victory.
@@ -549,7 +552,7 @@ class GameState:
                 heathen.remaining_stamina = 0
                 data = attack(heathen, within_range)
                 # Only show the attack overlay if the unit attacked was the player's.
-                if self.player_idx is not None and within_range in self.players[self.player_idx].units:
+                if self.located_player_idx and within_range in self.players[self.player_idx].units:
                     self.board.overlay.toggle_attack(data)
                 if within_range.health <= 0:
                     for player in self.players:
@@ -623,4 +626,4 @@ class GameState:
         for player in self.players:
             if player.ai_playstyle is not None:
                 move_maker.make_move(player, self.players, self.board.quads, self.board.game_config,
-                                     self.nighttime_left > 0, self.player_idx)
+                                     self.nighttime_left > 0, self.player_idx if self.located_player_idx else None)

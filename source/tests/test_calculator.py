@@ -23,7 +23,7 @@ class CalculatorTest(unittest.TestCase):
         Initialise our test models.
         """
         self.TEST_PLAYER = Player("TestMan", Faction.NOCTURNE, 0, wealth=self.ORIGINAL_WEALTH)
-        self.TEST_CONFIG = GameConfig(2, self.TEST_PLAYER.faction, True, True, True)
+        self.TEST_CONFIG = GameConfig(2, self.TEST_PLAYER.faction, True, True, True, False)
         self.TEST_UNIT_PLAN = UnitPlan(100, 100, 3, "TesterUnit", None, 25)
         self.ORIGINAL_PLAN_HEALTH = self.TEST_UNIT_PLAN.max_health
         self.ORIGINAL_PLAN_POWER = self.TEST_UNIT_PLAN.power
@@ -454,9 +454,9 @@ class CalculatorTest(unittest.TestCase):
         player = Player("Testerman", Faction.INFIDELS, 0, settlements=[setl])
 
         _, _, zeal, fortune = get_setl_totals(player, setl, False)
-        # A settlement will always produce at least 0.5 zeal and fortune when strict is False.
-        self.assertEqual(0.5, zeal)
-        self.assertEqual(0.5, fortune)
+        # A settlement will always produce at least 1 zeal and fortune when strict is False.
+        self.assertEqual(1, zeal)
+        self.assertEqual(1, fortune)
 
         _, _, zeal, fortune = get_setl_totals(player, setl, False, strict=True)
         # However, when strict is True, settlements can produce 0 zeal and fortune.
@@ -559,7 +559,7 @@ class CalculatorTest(unittest.TestCase):
         # We don't really care what the result is, just make sure it succeeded.
         self.assertNotEqual(InvestigationResult.NONE,
                             investigate_relic(test_player, self.TEST_UNIT, (9, 9),
-                                              GameConfig(2, test_player.faction, False, False, False)))
+                                              GameConfig(2, test_player.faction, False, False, False, False)))
 
     @patch("random.randint")
     def test_investigate_relic_without_blessing(self, random_mock: MagicMock):
@@ -598,8 +598,9 @@ class CalculatorTest(unittest.TestCase):
         random_mock.return_value = 25
 
         self.assertEqual(self.ORIGINAL_WEALTH, self.TEST_PLAYER.wealth)
-        result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9),
-                                                        GameConfig(2, self.TEST_PLAYER.faction, True, False, True))
+        result: InvestigationResult = \
+            investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9),
+                              GameConfig(2, self.TEST_PLAYER.faction, True, False, True, False))
         self.assertEqual(InvestigationResult.WEALTH, result)
         self.assertEqual(self.ORIGINAL_WEALTH + 25, self.TEST_PLAYER.wealth)
 

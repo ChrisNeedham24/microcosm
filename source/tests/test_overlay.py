@@ -18,7 +18,7 @@ class OverlayTest(unittest.TestCase):
         """
         Instantiate a standard Overlay object before each test and initialise test models.
         """
-        self.TEST_CONFIG = GameConfig(14, Faction.INFIDELS, True, True, True)
+        self.TEST_CONFIG = GameConfig(14, Faction.INFIDELS, True, True, True, False)
         self.overlay = Overlay(self.TEST_CONFIG)
         self.TEST_SETTLEMENT = Settlement("Testville", (0, 0), [], [], ResourceCollection(), [])
         self.TEST_UNIT = Unit(1, 2, (3, 4), False, UNIT_PLANS[0])

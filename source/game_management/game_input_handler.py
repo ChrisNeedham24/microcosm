@@ -189,6 +189,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     pyxel.mouse(visible=True)
                     game_controller.last_turn_time = time.time()
                     game_state.player_idx = 0
+                    game_state.located_player_idx = True
                     game_state.game_started = True
                     game_state.turn = 1
                     # Reinitialise night variables.

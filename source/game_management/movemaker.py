@@ -485,7 +485,7 @@ class MoveMaker:
         self.board_ref = None
 
     def make_move(self, player: Player, all_players: List[Player], quads: List[List[Quad]],
-                  cfg: GameConfig, is_night: bool, player_idx: Optional[int]):
+                  cfg: GameConfig, is_night: bool, local_player_idx: Optional[int]):
         """
         Make a move for the given AI player.
         :param player: The AI player to make a move for.
@@ -493,7 +493,7 @@ class MoveMaker:
         :param quads: The 2D list of quads to use to search for relics.
         :param cfg: The game configuration.
         :param is_night: Whether it is night.
-        :param player_idx: The index of the player on this machine in the overall players list.
+        :param local_player_idx: The index of the player on this machine in the overall players list.
         """
         all_setls = []
         for pl in all_players:
@@ -563,7 +563,8 @@ class MoveMaker:
         for unit in player.units:
             if pow_health := (unit.health + unit.plan.power) < min_pow_health[0]:
                 min_pow_health = pow_health, unit
-            self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg, other_player_vics, player_idx)
+            self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg, other_player_vics,
+                           local_player_idx)
             overall_wealth -= unit.plan.cost / 10
         if (player.wealth + overall_wealth < 0) and min_pow_health[1] in player.units:
             player.wealth += min_pow_health[1].plan.cost
@@ -627,7 +628,7 @@ class MoveMaker:
 
     def move_unit(self, player: Player, unit: Unit, other_units: List[Unit], all_players: List[Player],
                   all_setls: List[Settlement], quads: List[List[Quad]], cfg: GameConfig,
-                  other_player_vics: List[Tuple[Player, int]], player_idx: Optional[int]):
+                  other_player_vics: List[Tuple[Player, int]], local_player_idx: Optional[int]):
         """
         Move the given unit, attacking if the right conditions are met.
         :param player: The AI owner of the unit being moved.
@@ -639,7 +640,7 @@ class MoveMaker:
         :param cfg: The game configuration.
         :param other_player_vics: A list of tuples of players and the number of imminent victories they have. Note that
         players without any imminent victories are not included in this list.
-        :param player_idx: The index of the player on this machine in the overall players list.
+        :param local_player_idx: The index of the player on this machine in the overall players list.
         """
         # If the unit can settle, randomly move it until it is far enough away from any of the player's other
         # settlements, ensuring that it does not collide with any other units or settlements. Once this has been
@@ -810,7 +811,7 @@ class MoveMaker:
                             data = attack(unit, within_range)
 
                             # Show the attack notification if we attacked the human player on this machine.
-                            if player_idx is not None and within_range in all_players[player_idx].units:
+                            if local_player_idx is not None and within_range in all_players[local_player_idx].units:
                                 self.board_ref.overlay.toggle_attack(data)
                             if within_range.health <= 0:
                                 for p in all_players:
@@ -833,7 +834,8 @@ class MoveMaker:
 
                                 # Show the settlement attack notification if we attacked the human player on this
                                 # machine.
-                                if player_idx is not None and within_range in all_players[player_idx].settlements:
+                                if local_player_idx is not None and \
+                                        within_range in all_players[local_player_idx].settlements:
                                     self.board_ref.overlay.toggle_setl_attack(data)
                                 if data.attacker_was_killed:
                                     player.units.remove(data.attacker)
@@ -856,7 +858,8 @@ class MoveMaker:
                             within_range.besieged = True
                             # Show the siege notification if we have placed a settlement under siege that belongs to the
                             # human player on this machine.
-                            if player_idx is not None and within_range in all_players[player_idx].settlements:
+                            if local_player_idx is not None and \
+                                    within_range in all_players[local_player_idx].settlements:
                                 self.board_ref.overlay.toggle_siege_notif(within_range, player)
             # If a suitable unit or settlement was not found to attack, but there is another player with an imminent
             # victory, either move into a deployer unit or move towards the weakest settlement belonging to the player

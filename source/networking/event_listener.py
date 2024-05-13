@@ -10,6 +10,9 @@ from threading import Thread
 from typing import Dict, List, Optional, Set, Tuple, Callable
 
 import pyxel
+# We need to disable a lint rule for the miniupnpc import because it doesn't actually declare UPnP in its module. This
+# isn't our fault, so we can just disable the rule.
+# pylint: disable=no-name-in-module
 from miniupnpc import UPnP
 
 from source.display.board import Board
@@ -164,6 +167,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gsrs["local"].players.append(Player(evt.player_details[0].name, Faction(evt.cfg.player_faction),
                                                 FACTION_COLOURS[evt.cfg.player_faction]))
             gsrs["local"].player_idx = 0
+            gsrs["local"].located_player_idx = True
             gc: GameController = self.server.game_controller_ref
             gc.menu.multiplayer_lobby = LobbyDetails(evt.lobby_name, evt.player_details, evt.cfg, current_turn=None)
             gc.namer.reset()
@@ -848,10 +852,11 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 # is only for the player joining.
                 else:
                     # If we are yet to determine which player the player joining is, do so.
-                    if gs.player_idx is None:
+                    if not gs.located_player_idx:
                         for idx, player in enumerate(evt.lobby_details.current_players):
                             if player.faction == evt.player_faction:
                                 gs.player_idx = idx
+                                gs.located_player_idx = True
                             gs.players.append(Player(player.name, Faction(player.faction),
                                                      FACTION_COLOURS[player.faction]))
                         gc.menu.multiplayer_game_being_loaded = LoadedMultiplayerState()
@@ -934,12 +939,13 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         gc.menu.multiplayer_game_being_loaded = None
             # If the game hasn't started yet and we're still in the lobby.
             else:
-                # If the client's player index is None, then they must be the player that is joining, so we need to
-                # determine their index.
-                if gs.player_idx is None:
+                # If the client has not located their player index, then they must be the player that is joining, so we
+                # need to determine their index.
+                if not gs.located_player_idx:
                     for idx, player in enumerate(evt.lobby_details.current_players):
                         if player.faction == evt.player_faction:
                             gs.player_idx = idx
+                            gs.located_player_idx = True
                         gs.players.append(Player(player.name, Faction(player.faction), FACTION_COLOURS[player.faction]))
                     gc.menu.joining_game = False
                     gc.menu.viewing_lobbies = False
@@ -1302,7 +1308,8 @@ class EventListener:
                     dispatch_event(RegisterEvent(EventType.REGISTER, get_identifier(), server.server_address[1]))
                     self.game_controller.menu.upnp_enabled = True
                 # This would be a more specific Exception, but the UPnP library that is used actually raises the base
-                # Exception.
+                # Exception. Thus, we also have to disable the lint rule for catching base Exceptions.
+                # pylint: disable=broad-exception-caught
                 except Exception:
                     self.game_controller.menu.upnp_enabled = False
             # So that the request handler can access the listener's state, we set some attributes on the handler itself.
