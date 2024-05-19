@@ -1,10 +1,13 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from source.display.board import Board, HelpOption
 from source.foundation.catalogue import Namer, get_heathen_plan
 from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement, Unit, UnitPlan, Heathen, \
-    DeployerUnit, DeployerUnitPlan, ResourceCollection
+    DeployerUnit, DeployerUnitPlan, ResourceCollection, InvestigationResult
+from source.networking.events import FoundSettlementEvent, EventType, UpdateAction, GarrisonUnitEvent, \
+    BoardDeployerEvent, DeployUnitEvent, DeployerDeployEvent, AttackUnitEvent, HealUnitEvent, MoveUnitEvent, \
+    InvestigateEvent
 
 
 class BoardTest(unittest.TestCase):
@@ -12,16 +15,20 @@ class BoardTest(unittest.TestCase):
     The test class for board.py.
     """
     TEST_CONFIG = GameConfig(2, Faction.CONCENTRATED, True, True, True, False)
+    MULTIPLAYER_CONFIG = GameConfig(2, Faction.CONCENTRATED, True, True, True, True)
     TEST_NAMER = Namer()
     TEST_UPDATE_TIME = 2
     TEST_UPDATE_TIME_OVER = 4
+    TEST_IDENTIFIER = 123
+    TEST_GAME_NAME = "Omega"
 
     def setUp(self) -> None:
         """
-        Instantiate a standard Board object with generated quads before each test. Also initialise the test models and
-        save some relevant quad coordinates.
+        Instantiate two Board objects with generated quads before each test, one single-player and one multiplayer. Also
+        initialise the test models and save some relevant quad coordinates.
         """
         self.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
+        self.multi_board = Board(self.MULTIPLAYER_CONFIG, self.TEST_NAMER, game_name=self.TEST_GAME_NAME)
         self.TEST_UNIT_PLAN = UnitPlan(100, 100, 2, "TestMan", None, 0, heals=True)
         self.TEST_DEPLOYER_UNIT_PLAN = DeployerUnitPlan(0, 50, 10, "Train", None, 0)
         self.TEST_UNIT = Unit(100, 2, (5, 5), False, self.TEST_UNIT_PLAN)
@@ -47,6 +54,14 @@ class BoardTest(unittest.TestCase):
                     break
             if self.relic_coords[0] != -1:
                 break
+        self.multi_relic_coords: (int, int) = -1, -1
+        for i in range(90):
+            for j in range(80):
+                if self.multi_board.quads[i][j].is_relic:
+                    self.multi_relic_coords = i, j
+                    break
+            if self.multi_relic_coords[0] != -1:
+                break
 
     def test_construction(self):
         """
@@ -58,6 +73,7 @@ class BoardTest(unittest.TestCase):
         self.assertFalse(self.board.siege_time_bank)
         self.assertFalse(self.board.construction_prompt_time_bank)
         self.assertFalse(self.board.heal_time_bank)
+        self.assertFalse(self.board.player_change_time_bank)
         self.assertEqual(self.TEST_CONFIG, self.board.game_config)
         self.assertEqual(self.TEST_NAMER, self.board.namer)
 
@@ -69,6 +85,10 @@ class BoardTest(unittest.TestCase):
         self.assertIsNone(self.board.selected_settlement)
         self.assertFalse(self.board.deploying_army)
         self.assertIsNone(self.board.selected_unit)
+
+        self.assertFalse(self.board.player_idx)
+        self.assertIsNone(self.board.game_name)
+        self.assertFalse(self.board.waiting_for_other_players)
 
     def test_construction_without_clustering(self):
         """
@@ -84,6 +104,7 @@ class BoardTest(unittest.TestCase):
         self.assertFalse(new_board.siege_time_bank)
         self.assertFalse(new_board.construction_prompt_time_bank)
         self.assertFalse(new_board.heal_time_bank)
+        self.assertFalse(new_board.player_change_time_bank)
         self.assertEqual(no_clustering_cfg, new_board.game_config)
         self.assertEqual(self.TEST_NAMER, new_board.namer)
 
@@ -96,14 +117,16 @@ class BoardTest(unittest.TestCase):
         self.assertFalse(new_board.deploying_army)
         self.assertIsNone(new_board.selected_unit)
 
+        self.assertFalse(new_board.player_idx)
+        self.assertIsNone(new_board.game_name)
+        self.assertFalse(new_board.waiting_for_other_players)
+
     def test_construction_loading(self):
         """
-        Ensure that the Board is constructed correctly, initialising class variables and using supplied quads.
+        Ensure that the Board is constructed correctly when supplying quads to use.
         """
         # We can just have a single Quad here for testing.
-        test_quads = [[
-            Quad(Biome.MOUNTAIN, 1.0, 1.0, 1.0, 1.0, (0, 0))
-        ]]
+        test_quads = [[Quad(Biome.MOUNTAIN, 1, 1, 1, 1, (0, 0))]]
 
         board = Board(self.TEST_CONFIG, self.TEST_NAMER, test_quads)
 
@@ -113,6 +136,7 @@ class BoardTest(unittest.TestCase):
         self.assertFalse(board.siege_time_bank)
         self.assertFalse(board.construction_prompt_time_bank)
         self.assertFalse(board.heal_time_bank)
+        self.assertFalse(board.player_change_time_bank)
         self.assertEqual(self.TEST_CONFIG, board.game_config)
         self.assertEqual(self.TEST_NAMER, board.namer)
 
@@ -124,6 +148,46 @@ class BoardTest(unittest.TestCase):
         self.assertIsNone(board.selected_settlement)
         self.assertFalse(board.deploying_army)
         self.assertIsNone(board.selected_unit)
+
+        self.assertFalse(board.player_idx)
+        self.assertIsNone(board.game_name)
+        self.assertFalse(board.waiting_for_other_players)
+
+    def test_construction_multiplayer(self):
+        """
+        Ensure that the Board is constructed correctly for multiplayer games.
+        """
+        # We can just have a single Quad here for testing.
+        test_quads = [[Quad(Biome.MOUNTAIN, 1, 1, 1, 1, (0, 0))]]
+        test_player_idx = 1
+        test_game_name = "Alpha"
+
+        board = Board(self.MULTIPLAYER_CONFIG, self.TEST_NAMER, test_quads,
+                      player_idx=test_player_idx, game_name=test_game_name)
+
+        self.assertEqual(HelpOption.SETTLEMENT, board.current_help)
+        self.assertFalse(board.help_time_bank)
+        self.assertFalse(board.attack_time_bank)
+        self.assertFalse(board.siege_time_bank)
+        self.assertFalse(board.construction_prompt_time_bank)
+        self.assertFalse(board.heal_time_bank)
+        self.assertFalse(board.player_change_time_bank)
+        self.assertEqual(self.MULTIPLAYER_CONFIG, board.game_config)
+        self.assertEqual(self.TEST_NAMER, board.namer)
+
+        # Since we supplied quads ourselves, these should be used.
+        self.assertEqual(1, len(board.quads))
+
+        self.assertIsNone(board.quad_selected)
+        self.assertTrue(board.overlay)
+        self.assertIsNone(board.selected_settlement)
+        self.assertFalse(board.deploying_army)
+        self.assertIsNone(board.selected_unit)
+
+        # The supplied player index and game name should both be used.
+        self.assertEqual(test_player_idx, board.player_idx)
+        self.assertEqual(test_game_name, board.game_name)
+        self.assertFalse(board.waiting_for_other_players)
 
     def test_update_help(self):
         """
@@ -268,7 +332,31 @@ class BoardTest(unittest.TestCase):
         # Updating again exceeds the limit, toggling the overlay and resetting the time bank.
         self.board.update(self.TEST_UPDATE_TIME)
         self.board.overlay.toggle_heal.assert_called_with(None)
-        self.assertFalse(self.board.siege_time_bank)
+        self.assertFalse(self.board.heal_time_bank)
+
+    def test_update_player_change(self):
+        """
+        Ensure that the player change time bank and overlay are appropriately updated when the Board object is updated
+        with elapsed time.
+        """
+        # Mock out the two relevant functions.
+        self.board.overlay.is_player_change = MagicMock(return_value=False)
+        self.board.overlay.toggle_player_change = MagicMock()
+
+        # The bank should not have been updated since the player change overlay is not in view.
+        self.assertFalse(self.board.player_change_time_bank)
+        self.board.update(self.TEST_UPDATE_TIME)
+        self.assertFalse(self.board.player_change_time_bank)
+
+        self.board.overlay.is_player_change.return_value = True
+        # Now that we've set the player change overlay to be in view, the bank should be updated.
+        self.board.update(self.TEST_UPDATE_TIME)
+        self.assertEqual(self.TEST_UPDATE_TIME, self.board.player_change_time_bank)
+
+        # Updating again exceeds the limit, toggling the overlay and resetting the time bank.
+        self.board.update(self.TEST_UPDATE_TIME)
+        self.board.overlay.toggle_player_change.assert_called_with(None, None)
+        self.assertFalse(self.board.player_change_time_bank)
 
     def test_resource_quad_generation_climatic_effects(self):
         """
@@ -293,7 +381,7 @@ class BoardTest(unittest.TestCase):
         self.assertTrue(self.board.quads[7][7].selected)
         self.assertEqual(self.board.quads[7][7], self.board.quad_selected)
 
-        # Let's right click the same quad again.
+        # Let's right-click the same quad again.
         self.board.process_right_click(20, 20, (5, 5))
         self.assertFalse(self.board.quads[7][7].selected)
         self.assertIsNone(self.board.quad_selected)
@@ -303,7 +391,7 @@ class BoardTest(unittest.TestCase):
         self.assertTrue(self.board.quads[7][7].selected)
         self.assertEqual(self.board.quads[7][7], self.board.quad_selected)
 
-        # Now, if we right click on another quad, it should be selected and the previously selected quad should be
+        # Now, if we right-click on another quad, it should be selected and the previously selected quad should be
         # deselected.
         self.board.process_right_click(28, 28, (5, 5))
         self.assertTrue(self.board.quads[8][8].selected)
@@ -443,6 +531,46 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(50, new_setl.max_strength)
         self.assertEqual(50, new_setl.satisfaction)
 
+    @patch("source.display.board.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.display.board.dispatch_event")
+    def test_left_click_new_settlement_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that new settlements are correctly created in multiplayer games when a player with no settlements
+        left-clicks on the board.
+        """
+        self.multi_board.overlay.toggle_tutorial = MagicMock()
+        self.multi_board.overlay.toggle_settlement = MagicMock()
+
+        # To make things consistent, remove resources from all quads to begin with so that settlement strength is not
+        # affected.
+        for i in range(90):
+            for j in range(100):
+                self.multi_board.quads[i][j].resource = None
+
+        test_player = Player("Mr. Agriculture", Faction.AGRICULTURISTS, 0)
+
+        self.multi_board.process_left_click(100, 100, False, test_player, (10, 10), [], [], [], [])
+        # The player should now have a settlement, seen quads, and should no longer be seeing the tutorial overlay.
+        self.assertTrue(test_player.settlements)
+        self.assertTrue(test_player.quads_seen)
+        self.multi_board.overlay.toggle_tutorial.assert_called()
+        new_setl = test_player.settlements[0]
+        # The new settlement should also be selected, and in view in the settlement overlay.
+        self.assertEqual(new_setl, self.multi_board.selected_settlement)
+        self.multi_board.overlay.toggle_settlement.assert_called_with(new_setl, test_player)
+
+        # The new settlement should have standard strength and satisfaction, since the player isn't of a faction that
+        # has bonuses or penalties for these.
+        self.assertEqual(100, new_setl.strength)
+        self.assertEqual(100, new_setl.max_strength)
+        self.assertEqual(50, new_setl.satisfaction)
+
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = FoundSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.FOUND_SETTLEMENT,
+                                              self.TEST_GAME_NAME, test_player.faction, new_setl, False)
+        dispatch_mock.assert_called_with(expected_event)
+
     def test_left_click_new_settlement_with_resources(self):
         """
         Ensure that a new settlement is correctly created when a player with no settlements left-clicks on the board on
@@ -555,6 +683,39 @@ class BoardTest(unittest.TestCase):
         # this case, the unit is instead deselected because an alternative quad is clicked where the unit cannot move
         # to.
 
+    @patch("source.display.board.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.display.board.dispatch_event")
+    def test_left_click_garrison_unit_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that, in multiplayer games, units are successfully garrisoned in settlements when the unit's stamina is
+        sufficient to reach the selected settlement.
+        """
+        self.multi_board.overlay.toggle_unit = MagicMock()
+        self.multi_board.selected_unit = self.TEST_PLAYER.units[0]
+
+        unit = self.TEST_PLAYER.units[0]
+        initial_stamina = unit.remaining_stamina
+        initial_loc = unit.location
+        setl = self.TEST_PLAYER.settlements[0]
+        # To begin with, the unit should not be garrisoned, and the settlement should have no units in its garrison.
+        self.assertFalse(unit.garrisoned)
+        self.assertFalse(setl.garrison)
+        self.multi_board.process_left_click(20, 20, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        # The unit should now be in the settlement's garrison, removed from the player's units, and deselected.
+        self.assertLess(unit.remaining_stamina, initial_stamina)
+        self.assertTrue(unit.garrisoned)
+        self.assertTrue(setl.garrison)
+        self.assertFalse(self.TEST_PLAYER.units)
+        self.assertIsNone(self.multi_board.selected_unit)
+        self.multi_board.overlay.toggle_unit.assert_called_with(None)
+
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = GarrisonUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.GARRISON_UNIT,
+                                           self.TEST_GAME_NAME, self.TEST_PLAYER.faction, initial_loc,
+                                           unit.remaining_stamina, setl.name)
+        dispatch_mock.assert_called_with(expected_event)
+
     def test_left_click_add_passenger_to_deployer_unit(self):
         """
         Ensure that units are successfully added as passengers to deployer units when the unit's stamina is sufficient
@@ -578,6 +739,40 @@ class BoardTest(unittest.TestCase):
         self.assertNotIn(unit, self.TEST_PLAYER.units)
         self.assertIsNone(self.board.selected_unit)
         self.board.overlay.toggle_unit.assert_called_with(None)
+
+    @patch("source.display.board.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.display.board.dispatch_event")
+    def test_left_click_add_passenger_to_deployer_unit_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that, in multiplayer games, units are successfully added as passengers to deployer units when the unit's
+        stamina is sufficient to reach the selected deployer unit.
+        """
+        self.multi_board.overlay.toggle_unit = MagicMock()
+        self.TEST_PLAYER.units.append(self.TEST_DEPLOYER_UNIT)
+        self.multi_board.selected_unit = self.TEST_PLAYER.units[0]
+
+        unit = self.TEST_PLAYER.units[0]
+        initial_stamina = unit.remaining_stamina
+        initial_loc = unit.location
+        dep_unit = self.TEST_DEPLOYER_UNIT
+
+        # To begin with, the deployer unit should have no passengers.
+        self.assertFalse(dep_unit.passengers)
+        self.multi_board.process_left_click(5, 5, True, self.TEST_PLAYER, (4, 4), [], [], [], [])
+        # After clicking on the deployer unit with our other unit selected, the unit should have its stamina reduced,
+        # and subsequently be added as a passenger to the clicked-on deployer unit, while also deselecting the unit.
+        self.assertLess(unit.remaining_stamina, initial_stamina)
+        self.assertIn(unit, dep_unit.passengers)
+        self.assertNotIn(unit, self.TEST_PLAYER.units)
+        self.assertIsNone(self.multi_board.selected_unit)
+        self.multi_board.overlay.toggle_unit.assert_called_with(None)
+
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = BoardDeployerEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.BOARD_DEPLOYER,
+                                            self.TEST_GAME_NAME, self.TEST_PLAYER.faction, initial_loc,
+                                            self.TEST_DEPLOYER_UNIT.location, unit.remaining_stamina)
+        dispatch_mock.assert_called_with(expected_event)
 
     def test_left_click_add_deployer_unit_passenger_to_deployer_unit(self):
         """
@@ -706,6 +901,49 @@ class BoardTest(unittest.TestCase):
         self.board.overlay.toggle_settlement.assert_called_with(None, self.TEST_PLAYER)
         self.board.overlay.toggle_unit.assert_called_with(unit)
 
+    @patch("source.display.board.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.display.board.dispatch_event")
+    def test_left_click_deploy_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that, in multiplayer games, units are deployed correctly when clicking a quad adjacent to a settlement.
+        """
+        self.multi_board.overlay.toggle_deployment = MagicMock()
+        self.multi_board.overlay.toggle_settlement = MagicMock()
+        self.multi_board.overlay.toggle_unit = MagicMock()
+
+        # Set up the scenario in which we have selected a settlement with a unit in its garrison, and we are deploying
+        # said unit.
+        self.multi_board.deploying_army = True
+        self.multi_board.selected_settlement = self.TEST_PLAYER.settlements[0]
+        unit = self.TEST_PLAYER.units.pop()
+        self.TEST_PLAYER.settlements[0].garrison.append(unit)
+        unit.garrisoned = True
+
+        # Click an adjacent quad, updates should occur.
+        self.multi_board.process_left_click(30, 20, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        # The unit should no longer be garrisoned, and should be located where the click occurred.
+        self.assertFalse(unit.garrisoned)
+        self.assertEqual((8, 7), unit.location)
+        # The player should also have the unit in their possession, not the settlement's, and their seen quads should be
+        # updated.
+        self.assertTrue(self.TEST_PLAYER.units)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
+        # The deployment should also be concluded, updating state to show the new unit as selected, and toggling a few
+        # overlays.
+        self.assertFalse(self.multi_board.deploying_army)
+        self.assertEqual(unit, self.multi_board.selected_unit)
+        self.multi_board.overlay.toggle_deployment.assert_called()
+        self.assertIsNone(self.multi_board.selected_settlement)
+        self.multi_board.overlay.toggle_settlement.assert_called_with(None, self.TEST_PLAYER)
+        self.multi_board.overlay.toggle_unit.assert_called_with(unit)
+
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = DeployUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.DEPLOY_UNIT,
+                                         self.TEST_GAME_NAME, self.TEST_PLAYER.faction,
+                                         self.TEST_PLAYER.settlements[0].name, unit.location)
+        dispatch_mock.assert_called_with(expected_event)
+
     def test_left_click_deploy_from_unit(self):
         """
         Ensure that units are deployed correctly when clicking a quad adjacent to a deployer unit.
@@ -754,6 +992,50 @@ class BoardTest(unittest.TestCase):
         self.board.overlay.toggle_deployment.assert_called()
         self.board.overlay.update_unit.assert_called_with(self.TEST_UNIT_3)
 
+    @patch("source.display.board.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.display.board.dispatch_event")
+    def test_left_click_deploy_from_unit_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that, in multiplayer games, units are deployed correctly when clicking a quad adjacent to a deployer
+        unit.
+        """
+        self.multi_board.overlay.toggle_deployment = MagicMock()
+        self.multi_board.overlay.update_unit = MagicMock()
+
+        # Set up the scenario in which we have selected a deployer unit with a passenger unit, and we are deploying
+        # said passenger unit.
+        self.multi_board.deploying_army_from_unit = True
+        self.multi_board.selected_unit = self.TEST_DEPLOYER_UNIT
+        self.TEST_DEPLOYER_UNIT.passengers = [self.TEST_UNIT, self.TEST_UNIT_3]
+        self.TEST_PLAYER.units = [self.TEST_DEPLOYER_UNIT]
+        self.multi_board.overlay.unit_passengers_idx = 1
+        self.multi_board.overlay.show_unit_passengers = True
+
+        # Click an adjacent quad, updates should occur.
+        self.multi_board.process_left_click(5, 5, True, self.TEST_PLAYER, (5, 5), [], [], [], [])
+        # The unit should be located where the click occurred.
+        self.assertTupleEqual((5, 5), self.TEST_UNIT_3.location)
+        # The player should also have the unit in their possession, not the deployer unit's, and their seen quads should
+        # be updated.
+        self.assertListEqual([self.TEST_DEPLOYER_UNIT, self.TEST_UNIT_3], self.TEST_PLAYER.units)
+        self.assertListEqual([self.TEST_UNIT], self.TEST_DEPLOYER_UNIT.passengers)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
+        # The deployment should also be concluded, updating state to show the new unit as selected, and toggling two
+        # overlays.
+        self.assertFalse(self.multi_board.deploying_army_from_unit)
+        self.assertEqual(0, self.multi_board.overlay.unit_passengers_idx)
+        self.assertFalse(self.multi_board.overlay.show_unit_passengers)
+        self.assertEqual(self.TEST_UNIT_3, self.multi_board.selected_unit)
+        self.multi_board.overlay.toggle_deployment.assert_called()
+        self.multi_board.overlay.update_unit.assert_called_with(self.TEST_UNIT_3)
+
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = DeployerDeployEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.DEPLOYER_DEPLOY,
+                                             self.TEST_GAME_NAME, self.TEST_PLAYER.faction,
+                                             self.TEST_DEPLOYER_UNIT.location, 1, self.TEST_UNIT_3.location)
+        dispatch_mock.assert_called_with(expected_event)
+
     def test_left_click_select_heathen(self):
         """
         Ensure that heathens are appropriately selected when clicked on.
@@ -765,6 +1047,17 @@ class BoardTest(unittest.TestCase):
         self.board.process_left_click(45, 45, True, self.TEST_PLAYER, (5, 5), [self.TEST_HEATHEN], [], [], [])
         self.assertEqual(self.TEST_HEATHEN, self.board.selected_unit)
         self.board.overlay.toggle_unit.assert_called_with(self.TEST_HEATHEN)
+
+    def test_left_click_select_heathen_not_seen(self):
+        """
+        Ensure that heathens are not selected when clicked on if the player has not seen the quad the heathen is
+        occupying.
+        """
+        self.board.overlay.toggle_unit = MagicMock()
+
+        self.board.process_left_click(45, 45, True, self.TEST_PLAYER, (5, 5), [self.TEST_HEATHEN], [], [], [])
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_not_called()
 
     def test_left_click_attack_already_acted(self):
         """
@@ -900,6 +1193,36 @@ class BoardTest(unittest.TestCase):
         # Make sure the player unit is still alive.
         self.assertIn(self.TEST_UNIT, self.TEST_PLAYER.units)
 
+    @patch("source.display.board.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.display.board.dispatch_event")
+    def test_left_click_attack_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that, in multiplayer games, the correct state and overlay updates occur when an attack between units
+        occurs with no casualties.
+        """
+        # Move the unit next to TEST_UNIT_2, which is at (8, 8).
+        self.TEST_UNIT.location = (7, 8)
+        self.multi_board.selected_unit = self.TEST_UNIT
+        self.multi_board.overlay.toggle_attack = MagicMock()
+
+        self.multi_board.process_left_click(15, 15, True, self.TEST_PLAYER, (7, 7), [],
+                                            [self.TEST_UNIT, self.TEST_UNIT_2],
+                                            [self.TEST_PLAYER, self.TEST_ENEMY_PLAYER], [])
+        self.assertEqual(self.TEST_UNIT, self.multi_board.selected_unit)
+        # The overlay should be displayed and its time bank reset.
+        self.multi_board.overlay.toggle_attack.assert_called()
+        self.assertFalse(self.multi_board.attack_time_bank)
+        # The units themselves should also still be associated with their players.
+        self.assertIn(self.TEST_UNIT, self.TEST_PLAYER.units)
+        self.assertIn(self.TEST_UNIT_2, self.TEST_ENEMY_PLAYER.units)
+
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = AttackUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.ATTACK_UNIT,
+                                         self.TEST_GAME_NAME, self.TEST_PLAYER.faction, self.TEST_UNIT.location,
+                                         self.TEST_UNIT_2.location)
+        dispatch_mock.assert_called_with(expected_event)
+
     def test_left_click_attack_heal(self):
         """
         Ensure that the correct state and overlay updates occur when an adjacent friendly unit is clicked on when a
@@ -921,6 +1244,37 @@ class BoardTest(unittest.TestCase):
         self.board.overlay.toggle_heal.assert_called()
         self.assertFalse(self.board.heal_time_bank)
         self.assertEqual(self.TEST_UNIT, self.board.selected_unit)
+
+    @patch("source.display.board.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.display.board.dispatch_event")
+    def test_left_click_attack_heal_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that, in multiplayer games, the correct state and overlay updates occur when an adjacent friendly unit is
+        clicked on when a healer unit is selected.
+        """
+        self.TEST_PLAYER.units.append(self.TEST_UNIT_3)
+        # Move the unit next to TEST_UNIT_3, which is at (9, 9).
+        self.TEST_UNIT.location = (8, 9)
+        original_health = 1
+        self.TEST_UNIT_3.health = original_health
+        self.multi_board.selected_unit = self.TEST_UNIT
+        self.multi_board.overlay.toggle_heal = MagicMock()
+
+        self.multi_board.process_left_click(15, 15, True, self.TEST_PLAYER, (8, 8), [],
+                                            [self.TEST_UNIT, self.TEST_UNIT_3], [self.TEST_PLAYER], [])
+        # The friendly unit should have had its health increased.
+        self.assertGreater(self.TEST_UNIT_3.health, original_health)
+        # The heal overlay should be displayed and its time bank reset.
+        self.multi_board.overlay.toggle_heal.assert_called()
+        self.assertFalse(self.multi_board.heal_time_bank)
+        self.assertEqual(self.TEST_UNIT, self.multi_board.selected_unit)
+
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = HealUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.HEAL_UNIT,
+                                       self.TEST_GAME_NAME, self.TEST_PLAYER.faction, self.TEST_UNIT.location,
+                                       self.TEST_UNIT_3.location)
+        dispatch_mock.assert_called_with(expected_event)
 
     def test_left_click_attack_select_other_unit(self):
         """
@@ -968,6 +1322,18 @@ class BoardTest(unittest.TestCase):
         self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (5, 5), [], self.TEST_PLAYER.units, [], [])
         self.assertEqual(self.TEST_UNIT, self.board.selected_unit)
         self.board.overlay.toggle_unit.assert_called_with(self.TEST_UNIT)
+
+    def test_left_click_select_unit_not_seen(self):
+        """
+        Ensure that units are not selected when clicked on if they are occupying quads that have not yet been seen by
+        the player.
+        """
+        self.board.overlay.toggle_unit = MagicMock()
+
+        self.assertIsNone(self.board.selected_unit)
+        self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (5, 5), [], self.TEST_PLAYER.units, [], [])
+        self.assertIsNone(self.board.selected_unit)
+        self.board.overlay.toggle_unit.assert_not_called()
 
     def test_left_click_move_heathen(self):
         """
@@ -1061,6 +1427,26 @@ class BoardTest(unittest.TestCase):
         self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (4, 4), [], [], [], [])
         self.assertTupleEqual((4, 4), self.TEST_UNIT.location)
 
+    @patch("source.display.board.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.display.board.dispatch_event")
+    def test_left_click_move_unit_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that, in multiplayer games, when a player's unit is selected, clicking on a quad within its range moves
+        it there.
+        """
+        self.multi_board.selected_unit = self.TEST_UNIT
+
+        self.assertTupleEqual((5, 5), self.TEST_UNIT.location)
+        self.multi_board.process_left_click(5, 5, True, self.TEST_PLAYER, (4, 4), [], [], [], [])
+        self.assertTupleEqual((4, 4), self.TEST_UNIT.location)
+
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = MoveUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.MOVE_UNIT,
+                                       self.TEST_GAME_NAME, self.TEST_PLAYER.faction, (5, 5), (4, 4),
+                                       self.TEST_UNIT.remaining_stamina, self.TEST_UNIT.besieging)
+        dispatch_mock.assert_called_with(expected_event)
+
     def test_left_click_move_unit_into_siege(self):
         """
         Ensure that when a player's unit is moved within range of an enemy settlement currently under siege, the unit's
@@ -1077,11 +1463,15 @@ class BoardTest(unittest.TestCase):
         self.assertTupleEqual((7, 6), self.TEST_UNIT_3.location)
         self.assertTrue(self.TEST_UNIT_3.besieging)
 
-    def test_left_click_relic(self):
+    @patch("source.display.board.investigate_relic")
+    def test_left_click_relic(self, inv_mock: MagicMock):
         """
         Ensure that when a unit clicks on an adjacent relic, it loses its relic status and brings up the investigation
         overlay.
         """
+        test_result = InvestigationResult.POWER
+        inv_mock.return_value = test_result
+
         self.board.overlay.toggle_investigation = MagicMock()
         self.board.selected_unit = self.TEST_PLAYER.units[0]
 
@@ -1103,8 +1493,38 @@ class BoardTest(unittest.TestCase):
         self.board.process_left_click(5, 5, True, self.TEST_PLAYER, (self.relic_coords[1], self.relic_coords[0]), [],
                                       [], [], [])
         self.assertFalse(self.board.quads[self.relic_coords[0]][self.relic_coords[1]].is_relic)
-        # Note that we cannot specify the expected arguments due to the fact that each investigation result is random.
-        self.board.overlay.toggle_investigation.assert_called()
+        self.board.overlay.toggle_investigation.assert_called_with(test_result)
+
+    @patch("source.display.board.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.display.board.dispatch_event")
+    @patch("source.display.board.investigate_relic")
+    def test_left_click_relic_multiplayer(self, inv_mock: MagicMock, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that, in multiplayer games, when a unit clicks on an adjacent relic, it loses its relic status and brings
+        up the investigation overlay.
+        """
+        test_result = InvestigationResult.POWER
+        inv_mock.return_value = test_result
+
+        self.multi_board.overlay.toggle_investigation = MagicMock()
+        self.multi_board.selected_unit = self.TEST_PLAYER.units[0]
+
+        # If we teleport the unit to be right next to the relic, the click should result in the relic disappearing and
+        # the investigation overlay being toggled.
+        self.multi_board.selected_unit.location = (self.multi_relic_coords[1], self.multi_relic_coords[0] + 1)
+        self.assertTrue(self.multi_board.quads[self.multi_relic_coords[0]][self.multi_relic_coords[1]].is_relic)
+        self.multi_board.process_left_click(5, 5, True, self.TEST_PLAYER,
+                                            (self.multi_relic_coords[1], self.multi_relic_coords[0]), [], [], [], [])
+        self.assertFalse(self.multi_board.quads[self.multi_relic_coords[0]][self.multi_relic_coords[1]].is_relic)
+        self.multi_board.overlay.toggle_investigation.assert_called_with(InvestigationResult.POWER)
+
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = InvestigateEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.INVESTIGATE,
+                                          self.TEST_GAME_NAME, self.TEST_PLAYER.faction,
+                                          self.TEST_PLAYER.units[0].location,
+                                          (self.multi_relic_coords[1], self.multi_relic_coords[0]), test_result)
+        dispatch_mock.assert_called_with(expected_event)
 
     def test_left_click_deselect_unit(self):
         """
@@ -1145,6 +1565,7 @@ class BoardTest(unittest.TestCase):
         self.board.selected_unit.location = (5, 5)
 
         self.assertEqual(1, len(self.TEST_PLAYER.units))
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.board.handle_new_settlement(self.TEST_PLAYER)
         # The new settlement should have been created with the standard specifications.
         self.assertEqual(2, len(self.TEST_PLAYER.settlements))
@@ -1154,11 +1575,51 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(100, new_setl.max_strength)
         # The settler unit should no longer exist nor be selected, and the unit overlay should be toggled off.
         self.assertFalse(self.TEST_PLAYER.units)
+        # The player's seen quads should also have been populated.
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertIsNone(self.board.selected_unit)
         self.board.overlay.toggle_unit.assert_called_with(None)
         # The new settlement should also be selected and its overlay displayed.
         self.assertEqual(new_setl, self.board.selected_settlement)
         self.board.overlay.toggle_settlement.assert_called_with(new_setl, self.TEST_PLAYER)
+
+    @patch("source.display.board.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.display.board.dispatch_event")
+    def test_handle_new_settlement_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that new settlements are created correctly in multiplayer games.
+        """
+        self.multi_board.overlay.toggle_unit = MagicMock()
+        self.multi_board.overlay.toggle_settlement = MagicMock()
+
+        # To make things consistent, remove resources from all quads to begin with so that settlement strength is not
+        # affected.
+        for i in range(90):
+            for j in range(100):
+                self.multi_board.quads[i][j].resource = None
+
+        self.multi_board.selected_unit = self.TEST_UNIT
+
+        self.assertEqual(1, len(self.TEST_PLAYER.units))
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+        self.multi_board.handle_new_settlement(self.TEST_PLAYER)
+        self.assertEqual(2, len(self.TEST_PLAYER.settlements))
+        new_setl = self.TEST_PLAYER.settlements[1]
+        self.assertEqual(50, new_setl.satisfaction)
+        self.assertEqual(100, new_setl.strength)
+        self.assertEqual(100, new_setl.max_strength)
+        self.assertFalse(self.TEST_PLAYER.units)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
+        self.assertIsNone(self.multi_board.selected_unit)
+        self.multi_board.overlay.toggle_unit.assert_called_with(None)
+        self.assertEqual(new_setl, self.multi_board.selected_settlement)
+        self.multi_board.overlay.toggle_settlement.assert_called_with(new_setl, self.TEST_PLAYER)
+
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = FoundSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.FOUND_SETTLEMENT,
+                                              self.TEST_GAME_NAME, self.TEST_PLAYER.faction, new_setl)
+        dispatch_mock.assert_called_with(expected_event)
 
     def test_handle_new_settlement_frontiersmen(self):
         """
@@ -1177,6 +1638,7 @@ class BoardTest(unittest.TestCase):
         self.TEST_PLAYER.faction = Faction.FRONTIERSMEN
 
         self.assertEqual(1, len(self.TEST_PLAYER.units))
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.board.handle_new_settlement(self.TEST_PLAYER)
         self.assertEqual(2, len(self.TEST_PLAYER.settlements))
         new_setl = self.TEST_PLAYER.settlements[1]
@@ -1185,6 +1647,7 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(100, new_setl.strength)
         self.assertEqual(100, new_setl.max_strength)
         self.assertFalse(self.TEST_PLAYER.units)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertIsNone(self.board.selected_unit)
         self.board.overlay.toggle_unit.assert_called_with(None)
         self.assertEqual(new_setl, self.board.selected_settlement)
@@ -1207,6 +1670,7 @@ class BoardTest(unittest.TestCase):
         self.TEST_PLAYER.faction = Faction.IMPERIALS
 
         self.assertEqual(1, len(self.TEST_PLAYER.units))
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.board.handle_new_settlement(self.TEST_PLAYER)
         self.assertEqual(2, len(self.TEST_PLAYER.settlements))
         new_setl = self.TEST_PLAYER.settlements[1]
@@ -1215,6 +1679,7 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(50, new_setl.strength)
         self.assertEqual(50, new_setl.max_strength)
         self.assertFalse(self.TEST_PLAYER.units)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertIsNone(self.board.selected_unit)
         self.board.overlay.toggle_unit.assert_called_with(None)
         self.assertEqual(new_setl, self.board.selected_settlement)
@@ -1243,6 +1708,7 @@ class BoardTest(unittest.TestCase):
         self.board.quads[unit_loc[0] + 1][unit_loc[1] + 1].resource = ResourceCollection(obsidian=1)
 
         self.assertEqual(1, len(self.TEST_PLAYER.units))
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.board.handle_new_settlement(self.TEST_PLAYER)
         self.assertEqual(2, len(self.TEST_PLAYER.settlements))
         new_setl = self.TEST_PLAYER.settlements[1]
@@ -1254,6 +1720,7 @@ class BoardTest(unittest.TestCase):
         # We also verify that the settlement has the expected resources.
         self.assertEqual(ResourceCollection(obsidian=2, magma=1), new_setl.resources)
         self.assertFalse(self.TEST_PLAYER.units)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertIsNone(self.board.selected_unit)
         self.board.overlay.toggle_unit.assert_called_with(None)
         self.assertEqual(new_setl, self.board.selected_settlement)
