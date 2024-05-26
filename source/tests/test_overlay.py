@@ -856,7 +856,7 @@ class OverlayTest(unittest.TestCase):
         """
         self.overlay.showing = []
 
-        # When not displayed, toggling should add the overlay and updated the new achievements.
+        # When not displayed, toggling should add the overlay and update the new achievements.
         self.overlay.toggle_ach_notif(ACHIEVEMENTS[0:2])
         self.assertTrue(self.overlay.is_ach_notif())
         self.assertListEqual(ACHIEVEMENTS[0:2], self.overlay.new_achievements)
@@ -871,6 +871,22 @@ class OverlayTest(unittest.TestCase):
         self.overlay.toggle_ach_notif([])
         self.assertFalse(self.overlay.is_ach_notif())
         self.assertFalse(self.overlay.new_achievements)
+
+    def test_toggle_player_change(self):
+        """
+        Ensure that the Player Change overlay can be toggled correctly.
+        """
+        self.overlay.showing = []
+
+        # When not displayed, toggling should add the overlay and update the player changing.
+        self.overlay.toggle_player_change(self.TEST_PLAYER, changed_player_is_leaving=True)
+        self.assertTrue(self.overlay.is_player_change())
+        self.assertEqual(self.TEST_PLAYER, self.overlay.player_changing)
+        self.assertTrue(self.overlay.changed_player_is_leaving)
+
+        # When toggling off, the overlay should be removed.
+        self.overlay.toggle_player_change(None, None)
+        self.assertFalse(self.overlay.is_player_change())
 
     def test_remove_layer(self):
         """
