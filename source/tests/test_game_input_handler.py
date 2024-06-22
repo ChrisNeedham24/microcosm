@@ -1,20 +1,22 @@
 import typing
 import unittest
+from copy import deepcopy
 from unittest.mock import MagicMock, patch
 
 from source.display.board import Board
 from source.display.menu import SetupOption, WikiOption, MainMenuOption
 from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS, get_available_improvements, \
-    get_available_unit_plans, PROJECTS, ACHIEVEMENTS, get_improvement
+    get_available_unit_plans, PROJECTS, ACHIEVEMENTS, get_improvement, FACTION_COLOURS
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
     Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit, Construction, CompletedConstruction, \
     SettlementAttackType, PauseOption, Quad, Biome, DeployerUnitPlan, DeployerUnit, ResourceCollection, \
-    StandardOverlayView
+    StandardOverlayView, LobbyDetails, PlayerDetails
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
     on_key_arrow_right, on_key_shift, on_key_f, on_key_d, on_key_s, on_key_n, on_key_a, on_key_c, on_key_tab, \
     on_key_escape, on_key_m, on_key_j, on_key_space, on_key_b, on_key_return, on_key_x
 from source.game_management.game_state import GameState
+from source.networking.events import QuerySavesEvent, EventType, CreateEvent, InitEvent, LoadEvent, JoinEvent
 
 
 class GameInputHandlerTest(unittest.TestCase):
@@ -22,6 +24,8 @@ class GameInputHandlerTest(unittest.TestCase):
     The test class for game_input_handler.py.
     """
     PLAYER_WEALTH = 1000
+    TEST_IDENTIFIER = 123
+    TEST_MULTIPLAYER_CONFIG = GameConfig(2, Faction.AGRICULTURISTS, True, True, True, True)
 
     @patch("source.game_management.game_controller.MusicPlayer")
     def setUp(self, _: MagicMock) -> None:
@@ -271,6 +275,24 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_left(self.game_controller, self.game_state, False)
         self.game_controller.menu.navigate.assert_called_with(left=True)
 
+    @patch("source.game_management.game_input_handler.get_saves")
+    def test_arrow_left_menu_loading_game(self, get_saves_mock: MagicMock):
+        """
+        Ensure that the correct method is called and saves are loaded when pressing the left arrow key while loading a
+        game.
+        """
+        test_saves = ["abc", "def"]
+        get_saves_mock.return_value = test_saves
+
+        self.game_state.on_menu = True
+        self.game_controller.menu.loading_game = True
+        self.game_controller.menu.navigate = MagicMock()
+
+        on_key_arrow_left(self.game_controller, self.game_state, False)
+
+        self.game_controller.menu.navigate.assert_called_with(left=True)
+        self.assertListEqual(test_saves, self.game_controller.menu.saves)
+
     def test_arrow_left_construction(self):
         """
         Ensure that the correct change in view occurs when pressing the left arrow key while viewing the construction
@@ -364,6 +386,24 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_right(self.game_controller, self.game_state, False)
         self.game_controller.menu.navigate.assert_called_with(right=True)
 
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_arrow_right_menu_loading_game(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that the correct method is called and the correct event is dispatched when pressing the right arrow key
+        while on the menu and loading a game.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.loading_game = True
+        self.game_controller.menu.upnp_enabled = True
+        self.game_controller.menu.navigate = MagicMock()
+
+        on_key_arrow_right(self.game_controller, self.game_state, False)
+
+        self.game_controller.menu.navigate.assert_called_with(right=True)
+        expected_event = QuerySavesEvent(EventType.QUERY_SAVES, self.TEST_IDENTIFIER)
+        dispatch_mock.assert_called_with(expected_event)
+
     def test_arrow_right_construction(self):
         """
         Ensure that the correct change in view occurs when pressing the right arrow key while viewing the construction
@@ -438,6 +478,54 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_right(self.game_controller, self.game_state, True)
         self.assertTupleEqual((pos_x + 6, pos_y), self.game_state.map_pos)
 
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_return_create_multiplayer_lobby(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that when pressing the return key while in game setup and selecting the Start Game button with a game
+        configuration where multiplayer is enabled, the correct event is dispatched to the game server.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.in_game_setup = True
+        self.game_controller.menu.setup_option = SetupOption.START_GAME
+        self.game_controller.menu.multiplayer_enabled = True
+
+        # This test suite initialises a game state object before each test, so these should be populated.
+        self.assertIsNotNone(self.game_state.board)
+        self.assertTrue(self.game_state.players)
+
+        on_key_return(self.game_controller, self.game_state)
+
+        # We now expect the game state to be reset, and a CreateEvent to have been sent to the game server.
+        self.assertIsNone(self.game_state.board)
+        self.assertFalse(self.game_state.players)
+        expected_event = CreateEvent(EventType.CREATE, self.TEST_IDENTIFIER, self.TEST_MULTIPLAYER_CONFIG)
+        dispatch_mock.assert_called_with(expected_event)
+
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_return_start_multiplayer_game(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that the correct behaviour occurs when pressing the return key while in a multiplayer lobby.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.setup_option = SetupOption.START_GAME
+        lobby_name = "Cool Lobby"
+
+        self.game_controller.menu.multiplayer_lobby = \
+            LobbyDetails(lobby_name, [PlayerDetails("Bob", Faction.AGRICULTURISTS, 123)],
+                         self.TEST_MULTIPLAYER_CONFIG, None)
+        # Because there is only one player currently in the lobby, we expect no event to have been dispatched.
+        on_key_return(self.game_controller, self.game_state)
+        dispatch_mock.assert_not_called()
+
+        self.game_controller.menu.multiplayer_lobby.current_players.append(PlayerDetails("Jack", Faction.NOCTURNE, 345))
+        # Now with a second player in the lobby, we expect the appropriate event to have been dispatched with this
+        # lobby's name.
+        on_key_return(self.game_controller, self.game_state)
+        expected_event = InitEvent(EventType.INIT, self.TEST_IDENTIFIER, lobby_name)
+        dispatch_mock.assert_called_with(expected_event)
+
     @patch("source.game_management.game_input_handler.save_stats_achievements")
     @patch("random.seed")
     @patch("pyxel.mouse")
@@ -465,11 +553,14 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertFalse(self.game_state.game_started)
         self.assertIsNone(self.game_controller.move_maker.board_ref)
         self.assertFalse(hasattr(self.game_controller, "last_turn_time"))
+        self.assertFalse(self.game_state.located_player_idx)
 
         on_key_return(self.game_controller, self.game_state)
 
         mouse_mock.assert_called_with(visible=True)
         self.assertTrue(hasattr(self.game_controller, "last_turn_time"))
+        self.assertEqual(0, self.game_state.player_idx)
+        self.assertTrue(self.game_state.located_player_idx)
         self.assertTrue(self.game_state.game_started)
         self.assertEqual(1, self.game_state.turn)
         random_mock.assert_called()
@@ -496,6 +587,32 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.music_player.stop_menu_music.assert_called()
         self.game_controller.music_player.play_game_music.assert_called()
 
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_return_load_multiplayer_game(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that when pressing the return key while on the load multiplayer game screen with a save selected, the
+        correct load event is dispatched to the game server.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.loading_game = True
+        self.game_controller.menu.loading_multiplayer_game = True
+        autosave_name = "2024-06-22 20.15.00 (auto)"
+        autosave_file_name = "autosave-2024-06-22T20.15.00.json"
+        save_name = "2024-06-22 20.00.00"
+        save_file_name = "save-2024-06-22T20.00.00.json"
+        self.game_controller.menu.saves = [autosave_name, save_name]
+
+        self.game_controller.menu.save_idx = 0
+        on_key_return(self.game_controller, self.game_state)
+        expected_event = LoadEvent(EventType.LOAD, self.TEST_IDENTIFIER, autosave_file_name)
+        dispatch_mock.assert_called_with(expected_event)
+
+        self.game_controller.menu.save_idx = 1
+        on_key_return(self.game_controller, self.game_state)
+        expected_event = LoadEvent(EventType.LOAD, self.TEST_IDENTIFIER, save_file_name)
+        dispatch_mock.assert_called_with(expected_event)
+
     @patch("source.game_management.game_input_handler.load_game")
     def test_return_load_game(self, load_mock: MagicMock):
         """
@@ -507,6 +624,89 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.menu.save_idx = 9
         on_key_return(self.game_controller, self.game_state)
         load_mock.assert_called_with(self.game_state, self.game_controller)
+
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_return_join_multiplayer_game(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that the correct behaviour occurs when pressing the return key while joining a multiplayer game.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.joining_game = True
+        self.game_controller.namer.reset = MagicMock()
+        lobby_name = "Uno"
+        available_faction = Faction.NOCTURNE
+        # Obviously these lobbies and factions are not realistic since the lobby has no players and the faction colour
+        # is wrong, but they're enough for our testing purposes.
+        self.game_controller.menu.multiplayer_lobbies = \
+            [LobbyDetails(lobby_name, [], self.TEST_MULTIPLAYER_CONFIG, None)]
+        self.game_controller.menu.available_multiplayer_factions = [(available_faction, 0)]
+
+        self.game_controller.menu.showing_faction_details = True
+        # Because the faction details are currently being displayed, we don't expect anything to happen when the return
+        # key is pressed.
+        on_key_return(self.game_controller, self.game_state)
+        dispatch_mock.assert_not_called()
+        self.game_controller.namer.reset.assert_not_called()
+
+        self.game_controller.menu.showing_faction_details = False
+        # Now with the faction details not being displayed, we expect the correct event to be dispatched, and the namer
+        # to have been reset.
+        on_key_return(self.game_controller, self.game_state)
+        expected_event = JoinEvent(EventType.JOIN, self.TEST_IDENTIFIER, lobby_name, available_faction)
+        dispatch_mock.assert_called_with(expected_event)
+        self.game_controller.namer.reset.assert_called()
+
+    def test_return_joining_multiplayer_lobby(self):
+        """
+        Ensure that the correct behaviour occurs when pressing the return key while viewing multiplayer lobbies for
+        games that have not yet started.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.viewing_lobbies = True
+
+        lobby_players = [PlayerDetails("Alvin", Faction.AGRICULTURISTS, 123),
+                         PlayerDetails("Brett", Faction.NOCTURNE, 456)]
+        self.game_controller.menu.multiplayer_lobbies = \
+            [LobbyDetails("El Lobbo", lobby_players, self.TEST_MULTIPLAYER_CONFIG, None)]
+        # Because the test multiplayer game config we're using has two players, and there are already two human players
+        # in the lobby, we expect nothing to happen when the return key is pressed.
+        on_key_return(self.game_controller, self.game_state)
+        self.assertFalse(self.game_controller.menu.joining_game)
+
+        # However, if we make the second player an AI, we expect the appropriate factions to be available. That is, all
+        # factions but the one used by the human player.
+        lobby_players[1].id = None
+        on_key_return(self.game_controller, self.game_state)
+        expected_factions = deepcopy(FACTION_COLOURS)
+        expected_factions.pop(lobby_players[0].faction)
+        self.assertListEqual(list(expected_factions.items()), self.game_controller.menu.available_multiplayer_factions)
+        self.assertTrue(self.game_controller.menu.joining_game)
+
+    def test_return_joining_multiplayer_lobby_in_progress(self):
+        """
+        Ensure that the correct behaviour occurs when pressing the return key while viewing multiplayer lobbies for
+        games that have started.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.viewing_lobbies = True
+
+        lobby_players = [PlayerDetails("Alvin", Faction.AGRICULTURISTS, 123),
+                         PlayerDetails("Brett", Faction.NOCTURNE, 456)]
+        self.game_controller.menu.multiplayer_lobbies = \
+            [LobbyDetails("El Lobbo", lobby_players, self.TEST_MULTIPLAYER_CONFIG, current_turn=13)]
+        # Because the test multiplayer game config we're using has two players, and there are already two human players
+        # in the lobby, we expect nothing to happen when the return key is pressed.
+        on_key_return(self.game_controller, self.game_state)
+        self.assertFalse(self.game_controller.menu.joining_game)
+
+        # However, if we make the second player an AI, we expect the appropriate faction to be available. That is, the
+        # one faction used by the AI player, since the game is ongoing.
+        lobby_players[1].id = None
+        on_key_return(self.game_controller, self.game_state)
+        self.assertListEqual([(lobby_players[1].faction, FACTION_COLOURS[lobby_players[1].faction])],
+                             self.game_controller.menu.available_multiplayer_factions)
+        self.assertTrue(self.game_controller.menu.joining_game)
 
     def test_return_exit_wiki(self):
         """
