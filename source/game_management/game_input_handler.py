@@ -247,7 +247,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 else:
                     available_factions = deepcopy(FACTION_COLOURS)
                     for player in current_lobby.current_players:
-                        available_factions.pop(player.faction)
+                        if player.id:
+                            available_factions.pop(player.faction)
                     game_controller.menu.available_multiplayer_factions = list(available_factions.items())
                 game_controller.menu.joining_game = True
         elif game_controller.menu.in_wiki:

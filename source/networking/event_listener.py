@@ -741,10 +741,11 @@ class RequestHandler(socketserver.BaseRequestHandler):
         gc: GameController = self.server.game_controller_ref
         gs: GameState = gsrs[evt.lobby_name if self.server.is_server else "local"]
         if self.server.is_server:
+            replacing_lobby_ai: bool = not gs.game_started and evt.player_faction in [p.faction for p in gs.players]
             player_name: str
             # If the player is joining an ongoing game, then they can just take the name of the AI player they're
             # replacing.
-            if gs.game_started:
+            if gs.game_started or replacing_lobby_ai:
                 replaced_player: Player = next(p for p in gs.players if p.faction == evt.player_faction)
                 replaced_player.ai_playstyle = None
                 player_name = replaced_player.name
