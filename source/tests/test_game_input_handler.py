@@ -18,7 +18,8 @@ from source.game_management.game_input_handler import on_key_arrow_down, on_key_
 from source.game_management.game_state import GameState
 from source.networking.events import QuerySavesEvent, EventType, CreateEvent, InitEvent, LoadEvent, JoinEvent, \
     QueryEvent, LeaveEvent, SetConstructionEvent, UpdateAction, SetBlessingEvent, AttackSettlementEvent, \
-    BesiegeSettlementEvent, SaveEvent, EndTurnEvent, UnreadyEvent
+    BesiegeSettlementEvent, SaveEvent, EndTurnEvent, UnreadyEvent, AutofillEvent, BuyoutConstructionEvent, \
+    DisbandUnitEvent
 
 
 class GameInputHandlerTest(unittest.TestCase):
@@ -1549,6 +1550,35 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertIsNone(self.game_state.board.selected_unit)
         self.game_state.board.overlay.toggle_unit.assert_called_with(None)
 
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_x_disband_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that the X key correctly disbands the selected unit and credits the player in a multiplayer game.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.selected_unit = self.TEST_UNIT
+        self.game_state.board.overlay.toggle_unit = MagicMock()
+        self.game_state.board.game_config = self.TEST_MULTIPLAYER_CONFIG
+        game_name = "Massive Multiplayer Game"
+        self.game_state.board.game_name = game_name
+
+        self.assertEqual(self.PLAYER_WEALTH, self.TEST_PLAYER.wealth)
+        self.assertTrue(self.TEST_PLAYER.units)
+        on_key_x(self.game_state)
+        # The player should now have their wealth increased by the value of the unit.
+        self.assertEqual(self.PLAYER_WEALTH + UNIT_PLANS[0].cost, self.TEST_PLAYER.wealth)
+        # Additionally, the player only had one unit, so they should now have no units.
+        self.assertFalse(self.TEST_PLAYER.units)
+        # Lastly, the unit should have been unselected and the overlay removed.
+        self.assertIsNone(self.game_state.board.selected_unit)
+        self.game_state.board.overlay.toggle_unit.assert_called_with(None)
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = DisbandUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.DISBAND_UNIT,
+                                          game_name, self.TEST_PLAYER.faction, self.TEST_UNIT.location)
+        dispatch_mock.assert_called_with(expected_event)
+
     def test_tab(self):
         """
         Ensure that the correct iteration between settlements occurs when the TAB key is pressed.
@@ -1817,7 +1847,32 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_n(self.game_controller, self.game_state)
         self.game_controller.music_player.next_song.assert_called()
 
-    def test_a(self):
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_a_autofill_multiplayer_lobby(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that the A key autofills the appropriate multiplayer lobbies.
+        """
+        self.game_state.on_menu = True
+        lobby_name = "Large Lobby"
+
+        # To begin with, let's simulate a situation where the lobby is already full. Since we're using an unrealistic
+        # lobby with zero players, we'll just set the game config player count to zero.
+        zero_player_config = GameConfig(0, Faction.AGRICULTURISTS, True, True, True, True)
+        self.game_controller.menu.multiplayer_lobby = LobbyDetails(lobby_name, [], zero_player_config, 99)
+        on_key_a(self.game_controller, self.game_state)
+        # Since we're technically already at the max player count, no event to autofill the lobby should have been
+        # dispatched to the game server.
+        dispatch_mock.assert_not_called()
+
+        # Now, if we use the standard test multiplayer config, which has a player count of two, we expect an event to be
+        # dispatched.
+        self.game_controller.menu.multiplayer_lobby = LobbyDetails(lobby_name, [], self.TEST_MULTIPLAYER_CONFIG, 99)
+        on_key_a(self.game_controller, self.game_state)
+        expected_event = AutofillEvent(EventType.AUTOFILL, self.TEST_IDENTIFIER, lobby_name)
+        dispatch_mock.assert_called_with(expected_event)
+
+    def test_a_construction(self):
         """
         Ensure that the A key automatically selects a construction for the selected settlement.
         """
@@ -1828,6 +1883,30 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertIsNone(self.TEST_SETTLEMENT.current_work)
         on_key_a(self.game_controller, self.game_state)
         self.assertIsNotNone(self.TEST_SETTLEMENT.current_work)
+
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_a_construction_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that the A key automatically selects a construction for the selected settlement in a multiplayer game.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.SETTLEMENT]
+        self.game_state.board.selected_settlement = self.TEST_SETTLEMENT
+        self.game_state.board.game_config = self.TEST_MULTIPLAYER_CONFIG
+        game_name = "Massive Multiplayer Game"
+        self.game_state.board.game_name = game_name
+
+        self.assertIsNone(self.TEST_SETTLEMENT.current_work)
+        on_key_a(self.game_controller, self.game_state)
+        self.assertIsNotNone(self.TEST_SETTLEMENT.current_work)
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = SetConstructionEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.SET_CONSTRUCTION,
+                                              game_name, self.game_state.players[0].faction,
+                                              self.game_state.players[0].resources, self.TEST_SETTLEMENT.name,
+                                              self.TEST_SETTLEMENT.current_work)
+        dispatch_mock.assert_called_with(expected_event)
 
     def test_escape(self):
         """
@@ -1962,6 +2041,39 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertIsNone(self.TEST_SETTLEMENT_WITH_WORK.current_work)
         self.assertEqual(self.PLAYER_WEALTH - initial_work.construction.cost, self.TEST_PLAYER.wealth)
 
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_b_buyout_success_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that the B key successfully buys out a settlement's current work when the appropriate criteria are met
+        in a multiplayer game.
+        """
+        initial_work: Construction = self.TEST_SETTLEMENT_WITH_WORK.current_work
+        self.game_state.game_started = True
+        self.game_state.board.selected_settlement = self.TEST_SETTLEMENT_WITH_WORK
+        self.game_state.board.overlay.toggle_construction_notification = MagicMock()
+        self.game_state.board.game_config = self.TEST_MULTIPLAYER_CONFIG
+        game_name = "Massive Multiplayer Game"
+        self.game_state.board.game_name = game_name
+
+        on_key_b(self.game_state)
+        # After the B key is pressed, the notification should have been toggled, the garrison populated, the original
+        # work removed, and the player's wealth decreased appropriately.
+        self.game_state.board.overlay.toggle_construction_notification.assert_called_with([
+            CompletedConstruction(initial_work.construction, self.TEST_SETTLEMENT_WITH_WORK)
+        ])
+        self.assertFalse(self.TEST_SETTLEMENT_WITH_WORK.improvements)
+        self.assertTrue(self.TEST_SETTLEMENT_WITH_WORK.garrison)
+        self.assertIsNone(self.TEST_SETTLEMENT_WITH_WORK.current_work)
+        self.assertEqual(self.PLAYER_WEALTH - initial_work.construction.cost, self.TEST_PLAYER.wealth)
+        # Since this is a multiplayer game, we also expect an event with the appropriate attributes to have been
+        # dispatched to the game server.
+        expected_event = BuyoutConstructionEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                 UpdateAction.BUYOUT_CONSTRUCTION,
+                                                 game_name, self.game_state.players[0].faction,
+                                                 self.TEST_SETTLEMENT_WITH_WORK.name, self.game_state.players[0].wealth)
+        dispatch_mock.assert_called_with(expected_event)
+
     def test_m(self):
         """
         Ensure that the player can successfully iterate through their movable units when pressing the M key.
@@ -2013,6 +2125,7 @@ class GameInputHandlerTest(unittest.TestCase):
         Ensure that the player can successfully jump to idle settlements when pressing the J key.
         """
         self.game_state.game_started = True
+        self.game_state.board.overlay.remove_warning_if_possible = MagicMock()
         self.game_state.board.overlay.toggle_settlement = MagicMock()
         self.game_state.board.overlay.update_settlement = MagicMock()
         self.game_state.board.overlay.toggle_unit = MagicMock()
@@ -2023,6 +2136,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.board.selected_unit = self.TEST_UNIT
 
         on_key_j(self.game_state)
+        self.game_state.board.overlay.remove_warning_if_possible.assert_called()
         # We firstly expect the selected unit to now be deselected, and the unit overlay removed.
         self.assertIsNone(self.game_state.board.selected_unit)
         self.game_state.board.overlay.toggle_unit.assert_called_with(None)
@@ -2034,6 +2148,7 @@ class GameInputHandlerTest(unittest.TestCase):
                               self.game_state.map_pos)
 
         on_key_j(self.game_state)
+        self.assertEqual(2, self.game_state.board.overlay.remove_warning_if_possible.call_count)
         # After the second press, note that, by order, our third settlement is now selected. This is because the second
         # settlement is skipped due to it not being idle.
         self.assertEqual(self.TEST_SETTLEMENT_2, self.game_state.board.selected_settlement)
@@ -2045,6 +2160,7 @@ class GameInputHandlerTest(unittest.TestCase):
         # settlement by order as the TAB key does, we expect the first idle settlement to be selected instead.
         self.game_state.board.selected_settlement = self.TEST_SETTLEMENT_WITH_WORK
         on_key_j(self.game_state)
+        self.assertEqual(3, self.game_state.board.overlay.remove_warning_if_possible.call_count)
         self.assertEqual(self.TEST_SETTLEMENT, self.game_state.board.selected_settlement)
         self.game_state.board.overlay.update_settlement.assert_called_with(self.TEST_SETTLEMENT)
         self.assertTupleEqual((self.TEST_SETTLEMENT.location[0] - 12, self.TEST_SETTLEMENT.location[1] - 11),
