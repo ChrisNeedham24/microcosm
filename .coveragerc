@@ -10,3 +10,4 @@ exclude_lines =
     class Game:
     def on_mouse_button
     if typing.TYPE_CHECKING:
+    if TYPE_CHECKING:
