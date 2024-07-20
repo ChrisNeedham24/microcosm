@@ -47,6 +47,37 @@ class GameStateTest(unittest.TestCase):
         self.game_state.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
         self.game_state.heathens = [self.TEST_HEATHEN]
 
+    @patch("random.randint")
+    @patch("random.seed")
+    def test_reset_state(self, random_seed_mock: MagicMock, random_randint_mock: MagicMock):
+        """
+        Ensure that game state is correctly reset to default values.
+        """
+        random_randint_mock.return_value = 10
+        self.game_state.turn = 10
+        # Not realistic because it can't be both nighttime and not nighttime at the same time, but it suits our testing
+        # purposes.
+        self.game_state.until_night = 20
+        self.game_state.nighttime_left = 15
+        self.game_state.player_idx = 2
+        self.game_state.ready_players = {1}
+        self.game_state.processing_turn = True
+
+        self.game_state.reset_state()
+
+        self.assertIsNone(self.game_state.board)
+        self.assertFalse(self.game_state.players)
+        self.assertFalse(self.game_state.heathens)
+        random_seed_mock.assert_called()
+        self.assertTupleEqual((10, 10), self.game_state.map_pos)
+        self.assertEqual(1, self.game_state.turn)
+        self.assertEqual(10, self.game_state.until_night)
+        self.assertFalse(self.game_state.nighttime_left)
+        self.assertEqual(0, self.game_state.player_idx)
+        self.assertFalse(self.game_state.located_player_idx)
+        self.assertFalse(self.game_state.ready_players)
+        self.assertFalse(self.game_state.processing_turn)
+
     def test_gen_players(self):
         """
         Ensure that players are generated for a game according to the supplied game configuration.
@@ -440,7 +471,8 @@ class GameStateTest(unittest.TestCase):
                                             aurora=1, bloodstone=1, obsidian=1, sunstone=1, aquamarine=1),
                          self.game_state.players[0].resources)
 
-    def test_process_climatic_effects_daytime_continue(self):
+    @patch("random.seed")
+    def test_process_climatic_effects_daytime_continue(self, random_mock: MagicMock):
         """
         Ensure that when a turn is ended and daytime is to continue, the nighttime tracking variables are updated
         correctly.
@@ -450,9 +482,11 @@ class GameStateTest(unittest.TestCase):
         self.game_state.until_night = original_turns_left
 
         self.game_state.process_climatic_effects()
+        random_mock.assert_called()
         self.assertEqual(original_turns_left - 1, self.game_state.until_night)
 
-    def test_process_climatic_effects_night_begins(self):
+    @patch("random.seed")
+    def test_process_climatic_effects_night_begins(self, random_mock: MagicMock):
         """
         Ensure that when a turn is ended and nighttime is to begin, the nighttime tracking variables are updated
         correctly and heathen and Nocturne unit's power is increased.
@@ -469,6 +503,7 @@ class GameStateTest(unittest.TestCase):
 
         self.game_state.process_climatic_effects()
 
+        random_mock.assert_called()
         self.game_state.board.overlay.toggle_night.assert_called_with(True)
         # The nighttime left variable should now be initialised to some number between 5 and 20.
         self.assertTrue(self.game_state.nighttime_left)
@@ -477,7 +512,8 @@ class GameStateTest(unittest.TestCase):
         self.assertEqual(2 * original_unit_power, self.TEST_UNIT.plan.power)
         self.assertEqual(2 * original_unit_2_power, self.TEST_SETTLEMENT.garrison[0].plan.power)
 
-    def test_process_climatic_effects_night_continues(self):
+    @patch("random.seed")
+    def test_process_climatic_effects_night_continues(self, random_mock: MagicMock):
         """
         Ensure that when a turn is ended and nighttime is to continue, the nighttime tracking variables are updated
         correctly.
@@ -487,9 +523,11 @@ class GameStateTest(unittest.TestCase):
         self.game_state.until_night = 0
 
         self.game_state.process_climatic_effects()
+        random_mock.assert_called()
         self.assertEqual(original_turns_left - 1, self.game_state.nighttime_left)
 
-    def test_process_climatic_effects_daytime_begins(self):
+    @patch("random.seed")
+    def test_process_climatic_effects_daytime_begins(self, random_mock: MagicMock):
         """
         Ensure that when a turn is ended and daytime is to begin, the nighttime tracking variables are updated
         correctly and heathen and Nocturne unit's power, health, and stamina is decreased.
@@ -513,6 +551,7 @@ class GameStateTest(unittest.TestCase):
         original_unit_2_total_stamina = self.TEST_UNIT_2.plan.total_stamina
 
         self.game_state.process_climatic_effects()
+        random_mock.assert_called()
         # The until night variable should now be initialised to some number between 10 and 20.
         self.assertTrue(self.game_state.until_night)
         self.game_state.board.overlay.toggle_night.assert_called_with(False)
@@ -528,6 +567,15 @@ class GameStateTest(unittest.TestCase):
         self.assertEqual(round(original_unit_2_health / 2), self.TEST_UNIT_2.health)
         self.assertEqual(round(original_unit_2_max_health / 2), self.TEST_UNIT_2.plan.max_health)
         self.assertEqual(round(original_unit_2_total_stamina / 2), self.TEST_UNIT_2.plan.total_stamina)
+
+    @patch("random.seed")
+    def test_process_climatic_effects_no_reseed(self, random_mock: MagicMock):
+        """
+        Ensure that when climatic effects are processed without reseeding random, the random number generated is
+        appropriately not reseeded.
+        """
+        self.game_state.process_climatic_effects(reseed_random=False)
+        random_mock.assert_not_called()
 
     def test_end_turn_warning(self):
         """
@@ -771,6 +819,8 @@ class GameStateTest(unittest.TestCase):
         # is only one player with one or more settlements, which is the requirement for this victory.
         self.game_state.players[1].settlements = [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2]
         self.game_state.board.overlay.toggle_elimination = MagicMock()
+        self.game_state.board.overlay.toggle_ach_notif = MagicMock()
+        save_stats_achievements_mock.return_value = ACHIEVEMENTS[0:2]
 
         # The other players should not be eliminated before the check.
         self.assertFalse(self.game_state.players[0].eliminated)
@@ -789,6 +839,9 @@ class GameStateTest(unittest.TestCase):
         # naturally.
         self.assertEqual(1, save_stats_achievements_mock.call_count)
         save_stats_achievements_mock.assert_called_with(self.game_state, increment_defeats=True)
+        # Additionally, the achievement notification overlay should have been toggled with the newly-obtained
+        # achievements.
+        self.game_state.board.overlay.toggle_ach_notif.assert_called_with(ACHIEVEMENTS[0:2])
 
     def test_check_for_victory_reset_jubilation_counter(self):
         """
@@ -965,6 +1018,10 @@ class GameStateTest(unittest.TestCase):
         # By giving the settlement two sunstone, six quads in all four directions are inhospitable for heathens.
         self.TEST_SETTLEMENT.resources = ResourceCollection(sunstone=2)
         self.game_state.players[0].settlements = [self.TEST_SETTLEMENT]
+        # Also give another player a settlement so we can test settlement and unit locations being banned for heathens.
+        # Note that the first player already has a unit, so that case is covered.
+        self.TEST_SETTLEMENT_2.quads = [self.game_state.board.quads[50][50]]
+        self.game_state.players[1].settlements = [self.TEST_SETTLEMENT_2]
         # By placing the heathen directly to the left of the settlement, and reducing its stamina to one, we guarantee
         # that the heathen will not be able to escape.
         self.TEST_HEATHEN.location = self.TEST_SETTLEMENT.location[0] - 1, self.TEST_SETTLEMENT.location[1]
@@ -990,10 +1047,13 @@ class GameStateTest(unittest.TestCase):
         # belonging to a faction with no strength or satisfaction modifiers for settlements.
         self.game_state.board.quads[20][9].resource = ResourceCollection(obsidian=1)
 
-        # Initially, make sure that the settlements are created at all.
+        # Initially, make sure that the settlements are created at all. We also expect each AI player to have the quads
+        # around their settlements to be added to their seen quads set.
         self.assertFalse(any(player.settlements for player in self.game_state.players))
+        self.assertFalse(any(player.quads_seen for player in self.game_state.players))
         self.game_state.initialise_ais(self.TEST_NAMER)
         self.assertTrue(all(player.settlements for player in self.game_state.players))
+        self.assertTrue(all(player.quads_seen for player in self.game_state.players))
 
         # The first player is of the Infidels faction, so normally their settlement would have no modifiers applied.
         # However, since their settlement has obsidian in range, we expect strength to be increased.
