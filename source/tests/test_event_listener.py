@@ -3,13 +3,18 @@ import socket
 import unittest
 from unittest.mock import MagicMock, call, patch
 
-from source.foundation.catalogue import LOBBY_NAMES, PLAYER_NAMES, FACTION_COLOURS
-from source.foundation.models import PlayerDetails, Faction, GameConfig, Player
+from source.foundation.catalogue import LOBBY_NAMES, PLAYER_NAMES, FACTION_COLOURS, BLESSINGS, PROJECTS, IMPROVEMENTS, \
+    UNIT_PLANS
+from source.foundation.models import PlayerDetails, Faction, GameConfig, Player, Settlement, ResourceCollection, \
+    OngoingBlessing, Construction, InvestigationResult
+from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.networking.event_listener import RequestHandler, MicrocosmServer
 from source.networking.events import EventType, RegisterEvent, Event, CreateEvent, InitEvent, UpdateEvent, \
     UpdateAction, QueryEvent, LeaveEvent, JoinEvent, EndTurnEvent, UnreadyEvent, AutofillEvent, SaveEvent, \
-    QuerySavesEvent, LoadEvent
+    QuerySavesEvent, LoadEvent, FoundSettlementEvent, SetBlessingEvent, SetConstructionEvent, MoveUnitEvent, \
+    DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent, BuyoutConstructionEvent, \
+    DisbandUnitEvent, AttackUnitEvent, AttackSettlementEvent, HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent
 from source.saving.save_encoder import SaveEncoder
 
 
@@ -28,11 +33,20 @@ class EventListenerTest(unittest.TestCase):
     TEST_GAME_NAME: str = "My favourite game"
     TEST_GAME_CONFIG: GameConfig = GameConfig(2, Faction.AGRICULTURISTS, True, True, True, True)
 
-    def setUp(self):
+    @patch("source.game_management.game_controller.MusicPlayer")
+    def setUp(self, _: MagicMock):
         """
-        Set up our mock server and request handler - noting that the call of the handler's constructor actually handles
-        the test event given in the request.
+        Set up some test models, our mock server, and request handler - noting that the call of the handler's
+        constructor actually handles the test event given in the request. Note that we mock out MusicPlayer so that the
+        construction of the GameController doesn't try to play the menu music.
         """
+        self.TEST_SETTLEMENT: Settlement = Settlement("Testville", (0, 0), [], [], ResourceCollection(), [])
+        self.TEST_GAME_STATE: GameState = GameState()
+        self.TEST_GAME_STATE.players = [
+            Player("Uno", Faction.AGRICULTURISTS, 0, settlements=[self.TEST_SETTLEMENT]),
+            Player("Dos", Faction.FRONTIERSMEN, 1)
+        ]
+
         self.mock_socket: MagicMock = MagicMock()
         self.mock_server: MicrocosmServer = MagicMock()
         self.mock_server.game_clients_ref = {
@@ -46,6 +60,8 @@ class EventListenerTest(unittest.TestCase):
         self.mock_server.namers_ref = {}
         self.mock_server.move_makers_ref = {}
         self.mock_server.lobbies_ref = {}
+        self.mock_server.game_states_ref = {}
+        self.mock_server.game_controller_ref = GameController()
         self.request_handler: RequestHandler = RequestHandler((self.TEST_EVENT_BYTES, self.mock_socket),
                                                               (self.TEST_HOST, self.TEST_PORT), self.mock_server)
 
@@ -186,6 +202,251 @@ class EventListenerTest(unittest.TestCase):
         # that originally dispatched the create event.
         self.mock_socket.sendto.assert_called_with(json.dumps(test_event, cls=SaveEncoder).encode(),
                                                    (self.TEST_HOST, self.TEST_PORT))
+
+    def test_process_create_event_client(self):
+        """
+        Ensure that game clients correctly process responses to create events.
+        """
+        test_name: str = PLAYER_NAMES[0]
+        test_faction: Faction = Faction.AGRICULTURISTS
+        test_event: CreateEvent = \
+            CreateEvent(EventType.CREATE, self.TEST_IDENTIFIER, self.TEST_GAME_CONFIG,
+                        # Since this is a response event from the game server, it has the generated lobby name and
+                        # player details as well.
+                        lobby_name=self.TEST_GAME_NAME,
+                        player_details=[PlayerDetails(test_name, test_faction, self.TEST_IDENTIFIER)])
+        self.mock_server.is_server = False
+        # Create a local game state for the client.
+        self.mock_server.game_states_ref["local"] = GameState()
+        gs: GameState = self.mock_server.game_states_ref["local"]
+        gc: GameController = self.mock_server.game_controller_ref
+        gc.namer.reset = MagicMock()
+
+        # The game state is not initialised to begin with.
+        self.assertFalse(gs.players)
+        self.assertEqual(0, gs.player_idx)
+        self.assertFalse(gs.located_player_idx)
+        # The client should also have no multiplayer lobby.
+        self.assertIsNone(gc.menu.multiplayer_lobby)
+
+        # Process our test event.
+        self.request_handler.process_event(test_event, self.mock_socket)
+
+        # The local game state should now have a player with the appropriate name, faction, and colour.
+        self.assertEqual(1, len(gs.players))
+        self.assertEqual(test_name, gs.players[0].name)
+        self.assertEqual(test_faction, gs.players[0].faction)
+        self.assertEqual(FACTION_COLOURS[test_faction], gs.players[0].colour)
+        # The player's index should also have been located.
+        self.assertEqual(0, gs.player_idx)
+        self.assertTrue(gs.located_player_idx)
+        # The client's multiplayer lobby should also have been initialised.
+        self.assertEqual(test_event.lobby_name, gc.menu.multiplayer_lobby.name)
+        self.assertEqual(test_event.player_details, gc.menu.multiplayer_lobby.current_players)
+        self.assertEqual(test_event.cfg, gc.menu.multiplayer_lobby.cfg)
+        self.assertIsNone(gc.menu.multiplayer_lobby.current_turn)
+        gc.namer.reset.assert_called()
+
+    def test_process_update_event(self):
+        """
+        Ensure that updated events are correctly assigned to the correct process method based on their action.
+        """
+
+        def validate_update_event_action(event: UpdateEvent, expected_method: str):
+            """
+            Ensure that the given update event, when processed, calls the expected process method.
+            :param event: The update event to process and validate.
+            :param expected_method: The name of the method we expect to be called in the request handler when processing
+                                    the given update event.
+            """
+            # Mock out the method.
+            self.request_handler.__setattr__(expected_method, MagicMock())
+            self.request_handler.process_update_event(event, self.mock_socket)
+            # Ensure the method was called with the expected arguments.
+            self.request_handler.__getattribute__(expected_method).assert_called_with(event, self.mock_socket)
+
+        # Go through each update event action.
+        validate_update_event_action(FoundSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                          UpdateAction.FOUND_SETTLEMENT, self.TEST_GAME_NAME,
+                                                          Faction.AGRICULTURISTS, self.TEST_SETTLEMENT),
+                                     "process_found_settlement_event")
+        validate_update_event_action(SetBlessingEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.SET_BLESSING,
+                                                      self.TEST_GAME_NAME, Faction.AGRICULTURISTS,
+                                                      OngoingBlessing(BLESSINGS["beg_spl"])),
+                                     "process_set_blessing_event")
+        validate_update_event_action(SetConstructionEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                          UpdateAction.SET_CONSTRUCTION, self.TEST_GAME_NAME,
+                                                          Faction.AGRICULTURISTS, ResourceCollection(), "Cool",
+                                                          Construction(PROJECTS[0])),
+                                     "process_set_construction_event")
+        validate_update_event_action(MoveUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.MOVE_UNIT,
+                                                   self.TEST_GAME_NAME, Faction.AGRICULTURISTS, (1, 1), (2, 2), 0,
+                                                   False),
+                                     "process_move_unit_event")
+        validate_update_event_action(DeployUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.DEPLOY_UNIT,
+                                                     self.TEST_GAME_NAME, Faction.AGRICULTURISTS, "Cool", (3, 3)),
+                                     "process_deploy_unit_event")
+        validate_update_event_action(GarrisonUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                       UpdateAction.GARRISON_UNIT, self.TEST_GAME_NAME,
+                                                       Faction.AGRICULTURISTS, (4, 4), 1, "Cool"),
+                                     "process_garrison_unit_event")
+        validate_update_event_action(InvestigateEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.INVESTIGATE,
+                                                      self.TEST_GAME_NAME, Faction.AGRICULTURISTS, (5, 5), (5, 6),
+                                                      InvestigationResult.POWER),
+                                     "process_investigate_event")
+        validate_update_event_action(BesiegeSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                            UpdateAction.BESIEGE_SETTLEMENT, self.TEST_GAME_NAME,
+                                                            Faction.AGRICULTURISTS, (6, 6), "Cool"),
+                                     "process_besiege_settlement_event")
+        validate_update_event_action(BuyoutConstructionEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                             UpdateAction.BUYOUT_CONSTRUCTION, self.TEST_GAME_NAME,
+                                                             Faction.AGRICULTURISTS, "Cool", 3.50),
+                                     "process_buyout_construction_event")
+        validate_update_event_action(DisbandUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.DISBAND_UNIT,
+                                                      self.TEST_GAME_NAME, Faction.AGRICULTURISTS, (7, 7)),
+                                     "process_disband_unit_event")
+        validate_update_event_action(AttackUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.ATTACK_UNIT,
+                                                     self.TEST_GAME_NAME, Faction.AGRICULTURISTS, (8, 8), (8, 9)),
+                                     "process_attack_unit_event")
+        validate_update_event_action(AttackSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                           UpdateAction.ATTACK_SETTLEMENT, self.TEST_GAME_NAME,
+                                                           Faction.AGRICULTURISTS, (9, 9), "Cool"),
+                                     "process_attack_settlement_event")
+        validate_update_event_action(HealUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.HEAL_UNIT,
+                                                   self.TEST_GAME_NAME, Faction.AGRICULTURISTS, (10, 10), (10, 11)),
+                                     "process_heal_unit_event")
+        validate_update_event_action(BoardDeployerEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                        UpdateAction.BOARD_DEPLOYER, self.TEST_GAME_NAME,
+                                                        Faction.AGRICULTURISTS, (11, 11), (11, 12), 1),
+                                     "process_board_deployer_event")
+        validate_update_event_action(DeployerDeployEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                         UpdateAction.DEPLOYER_DEPLOY, self.TEST_GAME_NAME,
+                                                         Faction.AGRICULTURISTS, (12, 12), 1, (12, 13)),
+                                     "process_deployer_deploy_event")
+
+    def test_process_set_blessing_event_server(self):
+        """
+        Ensure that the game server correctly processes set blessing events.
+        """
+        test_event: SetBlessingEvent = SetBlessingEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                        UpdateAction.SET_BLESSING, self.TEST_GAME_NAME,
+                                                        Faction.AGRICULTURISTS, OngoingBlessing(BLESSINGS["beg_spl"]))
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # The player with the same faction as the event should have no ongoing blessing to begin with.
+        self.assertIsNone(self.TEST_GAME_STATE.players[0].ongoing_blessing)
+
+        # Process our test event.
+        self.request_handler.process_set_blessing_event(test_event, self.mock_socket)
+
+        # The player should now have the same ongoing blessing as the event, and this information should have been
+        # forwarded just the once, to the other player in the game.
+        self.assertEqual(test_event.blessing, self.TEST_GAME_STATE.players[0].ongoing_blessing)
+        self.mock_socket.sendto.assert_called_once()
+
+    def test_process_set_blessing_event_client(self):
+        """
+        Ensure that game clients correctly process forwarded set blessing event packets.
+        """
+        test_event: SetBlessingEvent = SetBlessingEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                        UpdateAction.SET_BLESSING, self.TEST_GAME_NAME,
+                                                        Faction.AGRICULTURISTS, OngoingBlessing(BLESSINGS["beg_spl"]))
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # The player with the same faction as the event should have no ongoing blessing to begin with.
+        self.assertIsNone(self.TEST_GAME_STATE.players[0].ongoing_blessing)
+
+        # Process our test event.
+        self.request_handler.process_set_blessing_event(test_event, self.mock_socket)
+
+        # The player should now have the same ongoing blessing as the event, and this information should not have been
+        # forwarded, since this is a client.
+        self.assertEqual(test_event.blessing, self.TEST_GAME_STATE.players[0].ongoing_blessing)
+        self.mock_socket.sendto.assert_not_called()
+
+    def test_process_set_construction_event_server(self):
+        """
+        Ensure that the game server correctly processes set construction events.
+        """
+        test_event: SetConstructionEvent = SetConstructionEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                                UpdateAction.SET_CONSTRUCTION, self.TEST_GAME_NAME,
+                                                                Faction.AGRICULTURISTS, ResourceCollection(magma=1),
+                                                                self.TEST_SETTLEMENT.name,
+                                                                # Initially, construct an improvement.
+                                                                Construction(IMPROVEMENTS[0]))
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        player: Player = self.TEST_GAME_STATE.players[0]
+        self.mock_socket.sendto = MagicMock()
+
+        self.assertFalse(player.resources)
+        # The settlement should have no current work to begin with.
+        self.assertIsNone(player.settlements[0].current_work)
+
+        # Process our test event.
+        self.request_handler.process_set_construction_event(test_event, self.mock_socket)
+
+        # This is not a realistic use case, since you can't gain resources by constructing something, but it serves to
+        # show that the player's resources are updated to be the same as the event's.
+        self.assertEqual(test_event.player_resources, player.resources)
+        # The settlement should also have had its construction updated.
+        self.assertEqual(test_event.construction, player.settlements[0].current_work)
+        # Lastly, this information should have been forwarded by the server just once to the other player.
+        self.mock_socket.sendto.assert_called_once()
+
+        # Make sure the same construction logic works for projects.
+        test_event.construction = Construction(PROJECTS[0])
+        self.request_handler.process_set_construction_event(test_event, self.mock_socket)
+        self.assertEqual(test_event.construction, player.settlements[0].current_work)
+
+        # Make sure the same construction logic works for units.
+        test_event.construction = Construction(UNIT_PLANS[0])
+        self.request_handler.process_set_construction_event(test_event, self.mock_socket)
+        self.assertEqual(test_event.construction, player.settlements[0].current_work)
+
+    def test_process_set_construction_event_client(self):
+        """
+        Ensure that game clients correctly process forwarded set construction event packets.
+        """
+        test_event: SetConstructionEvent = SetConstructionEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                                UpdateAction.SET_CONSTRUCTION, self.TEST_GAME_NAME,
+                                                                Faction.AGRICULTURISTS, ResourceCollection(magma=1),
+                                                                self.TEST_SETTLEMENT.name,
+                                                                # Initially, construct an improvement.
+                                                                Construction(IMPROVEMENTS[0]))
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        player: Player = self.TEST_GAME_STATE.players[0]
+        self.mock_socket.sendto = MagicMock()
+
+        self.assertFalse(player.resources)
+        # The settlement should have no current work to begin with.
+        self.assertIsNone(player.settlements[0].current_work)
+
+        # Process our test event.
+        self.request_handler.process_set_construction_event(test_event, self.mock_socket)
+
+        # This is not a realistic use case, since you can't gain resources by constructing something, but it serves to
+        # show that the player's resources are updated to be the same as the event's.
+        self.assertEqual(test_event.player_resources, player.resources)
+        # The settlement should also have had its construction updated.
+        self.assertEqual(test_event.construction, player.settlements[0].current_work)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+
+        # Make sure the same construction logic works for projects.
+        test_event.construction = Construction(PROJECTS[0])
+        self.request_handler.process_set_construction_event(test_event, self.mock_socket)
+        self.assertEqual(test_event.construction, player.settlements[0].current_work)
+
+        # Make sure the same construction logic works for units.
+        test_event.construction = Construction(UNIT_PLANS[0])
+        self.request_handler.process_set_construction_event(test_event, self.mock_socket)
+        self.assertEqual(test_event.construction, player.settlements[0].current_work)
 
 
 if __name__ == '__main__':
