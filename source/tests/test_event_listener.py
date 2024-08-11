@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, call, patch
 from source.foundation.catalogue import LOBBY_NAMES, PLAYER_NAMES, FACTION_COLOURS, BLESSINGS, PROJECTS, IMPROVEMENTS, \
     UNIT_PLANS
 from source.foundation.models import PlayerDetails, Faction, GameConfig, Player, Settlement, ResourceCollection, \
-    OngoingBlessing, Construction, InvestigationResult
+    OngoingBlessing, Construction, InvestigationResult, Unit
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.networking.event_listener import RequestHandler, MicrocosmServer
@@ -41,10 +41,12 @@ class EventListenerTest(unittest.TestCase):
         construction of the GameController doesn't try to play the menu music.
         """
         self.TEST_SETTLEMENT: Settlement = Settlement("Testville", (0, 0), [], [], ResourceCollection(), [])
+        self.TEST_SETTLEMENT_2: Settlement = Settlement("EvilTown", (5, 5), [], [], ResourceCollection(), [])
+        self.TEST_UNIT: Unit = Unit(50, 50, (4, 4), False, UNIT_PLANS[0])
         self.TEST_GAME_STATE: GameState = GameState()
         self.TEST_GAME_STATE.players = [
-            Player("Uno", Faction.AGRICULTURISTS, 0, settlements=[self.TEST_SETTLEMENT]),
-            Player("Dos", Faction.FRONTIERSMEN, 1)
+            Player("Uno", Faction.AGRICULTURISTS, 0, settlements=[self.TEST_SETTLEMENT], units=[self.TEST_UNIT]),
+            Player("Dos", Faction.FRONTIERSMEN, 1, settlements=[self.TEST_SETTLEMENT_2])
         ]
 
         self.mock_socket: MagicMock = MagicMock()
@@ -447,6 +449,247 @@ class EventListenerTest(unittest.TestCase):
         test_event.construction = Construction(UNIT_PLANS[0])
         self.request_handler.process_set_construction_event(test_event, self.mock_socket)
         self.assertEqual(test_event.construction, player.settlements[0].current_work)
+
+    def test_process_move_unit_event_server(self):
+        """
+        Ensure that the game server correctly processes move unit events.
+        """
+        player: Player = self.TEST_GAME_STATE.players[0]
+        unit: Unit = player.units[0]
+        test_event: MoveUnitEvent = MoveUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.MOVE_UNIT,
+                                                  self.TEST_GAME_NAME, player.faction, unit.location, (6, 6), 0, True)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # The player should have no seen quads to begin with. We could also assert on the unit's attributes, but since
+        # we control that anyway, there's no point.
+        self.assertFalse(player.quads_seen)
+
+        # Process our test event.
+        self.request_handler.process_move_unit_event(test_event, self.mock_socket)
+
+        # The unit's location, stamina, and besieging attributes should have been updated accordingly.
+        self.assertTupleEqual(test_event.new_loc, unit.location)
+        self.assertEqual(test_event.new_stamina, unit.remaining_stamina)
+        self.assertEqual(test_event.besieging, unit.besieging)
+        # The player should now also have some seen quads.
+        self.assertTrue(player.quads_seen)
+        # Lastly, this information should have been forwarded by the server just once to the other player.
+        self.mock_socket.sendto.assert_called_once()
+
+    def test_process_move_unit_event_client(self):
+        """
+        Ensure that game clients correctly process forwarded move unit event packets.
+        """
+        player: Player = self.TEST_GAME_STATE.players[0]
+        unit: Unit = player.units[0]
+        test_event: MoveUnitEvent = MoveUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.MOVE_UNIT,
+                                                  self.TEST_GAME_NAME, player.faction, unit.location, (6, 6), 0, True)
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # The player should have no seen quads to begin with. We could also assert on the unit's attributes, but since
+        # we control that anyway, there's no point.
+        self.assertFalse(player.quads_seen)
+
+        # Process our test event.
+        self.request_handler.process_move_unit_event(test_event, self.mock_socket)
+
+        # The unit's location, stamina, and besieging attributes should have been updated accordingly.
+        self.assertTupleEqual(test_event.new_loc, unit.location)
+        self.assertEqual(test_event.new_stamina, unit.remaining_stamina)
+        self.assertEqual(test_event.besieging, unit.besieging)
+        # The player should now also have some seen quads.
+        self.assertTrue(player.quads_seen)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+
+    def test_process_deploy_unit_event_server(self):
+        """
+        Ensure that the game server correctly processes deploy unit events.
+        """
+        player: Player = self.TEST_GAME_STATE.players[0]
+        # Garrison the test unit in the test settlement.
+        unit: Unit = player.units.pop()
+        setl: Settlement = player.settlements[0]
+        setl.garrison = [unit]
+        unit.garrisoned = True
+        test_event: DeployUnitEvent = DeployUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.DEPLOY_UNIT,
+                                                      self.TEST_GAME_NAME, player.faction, setl.name, (7, 7))
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # The player should have no seen quads or deployed units initially.
+        self.assertFalse(player.quads_seen)
+        self.assertFalse(player.units)
+
+        # Process our test event.
+        self.request_handler.process_deploy_unit_event(test_event, self.mock_socket)
+
+        # The settlement's garrison should now be empty, with the unit deployed at the location given by the event.
+        self.assertFalse(setl.garrison)
+        self.assertFalse(unit.garrisoned)
+        self.assertTupleEqual(test_event.location, unit.location)
+        # The player should also now have some seen quads, and a deployed unit.
+        self.assertTrue(player.quads_seen)
+        self.assertTrue(player.units)
+        # Lastly, this information should have been forwarded by the server just once to the other player.
+        self.mock_socket.sendto.assert_called_once()
+
+    def test_process_deploy_unit_event_client(self):
+        """
+        Ensure that game clients correctly process forwarded deploy unit event packets.
+        """
+        player: Player = self.TEST_GAME_STATE.players[0]
+        # Garrison the test unit in the test settlement.
+        unit: Unit = player.units.pop()
+        setl: Settlement = player.settlements[0]
+        setl.garrison = [unit]
+        unit.garrisoned = True
+        test_event: DeployUnitEvent = DeployUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.DEPLOY_UNIT,
+                                                      self.TEST_GAME_NAME, player.faction, setl.name, (7, 7))
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # The player should have no seen quads or deployed units initially.
+        self.assertFalse(player.quads_seen)
+        self.assertFalse(player.units)
+
+        # Process our test event.
+        self.request_handler.process_deploy_unit_event(test_event, self.mock_socket)
+
+        # The settlement's garrison should now be empty, with the unit deployed at the location given by the event.
+        self.assertFalse(setl.garrison)
+        self.assertFalse(unit.garrisoned)
+        self.assertTupleEqual(test_event.location, unit.location)
+        # The player should also now have some seen quads, and a deployed unit.
+        self.assertTrue(player.quads_seen)
+        self.assertTrue(player.units)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+
+    def test_process_garrison_unit_event_server(self):
+        """
+        Ensure that the game server correctly processes garrison unit events.
+        """
+        player: Player = self.TEST_GAME_STATE.players[0]
+        unit: Unit = player.units[0]
+        setl: Settlement = player.settlements[0]
+        test_event: GarrisonUnitEvent = GarrisonUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                          UpdateAction.GARRISON_UNIT, self.TEST_GAME_NAME,
+                                                          player.faction, unit.location, 1, setl.name)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # The unit should be deployed and the settlement's garrison should be empty to begin with.
+        self.assertFalse(unit.garrisoned)
+        self.assertFalse(setl.garrison)
+        self.assertTrue(player.units)
+
+        # Process our test event.
+        self.request_handler.process_garrison_unit_event(test_event, self.mock_socket)
+
+        # The unit should have been garrisoned with reduced stamina according to the event.
+        self.assertEqual(test_event.new_stamina, unit.remaining_stamina)
+        self.assertTrue(unit.garrisoned)
+        self.assertTrue(setl.garrison)
+        # Naturally, this means the player no longer has any deployed units either.
+        self.assertFalse(player.units)
+        # Lastly, this information should have been forwarded by the server just once to the other player.
+        self.mock_socket.sendto.assert_called_once()
+
+    def test_process_garrison_unit_event_client(self):
+        """
+        Ensure that the game server correctly processes garrison unit events.
+        """
+        player: Player = self.TEST_GAME_STATE.players[0]
+        unit: Unit = player.units[0]
+        setl: Settlement = player.settlements[0]
+        test_event: GarrisonUnitEvent = GarrisonUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                          UpdateAction.GARRISON_UNIT, self.TEST_GAME_NAME,
+                                                          player.faction, unit.location, 1, setl.name)
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # The unit should be deployed and the settlement's garrison should be empty to begin with.
+        self.assertFalse(unit.garrisoned)
+        self.assertFalse(setl.garrison)
+        self.assertTrue(player.units)
+
+        # Process our test event.
+        self.request_handler.process_garrison_unit_event(test_event, self.mock_socket)
+
+        # The unit should have been garrisoned with reduced stamina according to the event.
+        self.assertEqual(test_event.new_stamina, unit.remaining_stamina)
+        self.assertTrue(unit.garrisoned)
+        self.assertTrue(setl.garrison)
+        # Naturally, this means the player no longer has any deployed units either.
+        self.assertFalse(player.units)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+
+    def test_process_besiege_settlement_event_server(self):
+        """
+        Ensure that the game server correctly processes besiege settlement events.
+        """
+        besieging_player: Player = self.TEST_GAME_STATE.players[0]
+        besieged_player: Player = self.TEST_GAME_STATE.players[1]
+        unit: Unit = besieging_player.units[0]
+        setl: Settlement = besieged_player.settlements[0]
+        test_event: BesiegeSettlementEvent = BesiegeSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                                    UpdateAction.BESIEGE_SETTLEMENT,
+                                                                    self.TEST_GAME_NAME, besieging_player.faction,
+                                                                    unit.location, setl.name)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # Neither the unit nor the settlement should be in a siege situation.
+        self.assertFalse(unit.besieging)
+        self.assertFalse(setl.besieged)
+
+        # Process our test event.
+        self.request_handler.process_besiege_settlement_event(test_event, self.mock_socket)
+
+        # The unit should now be laying siege to the settlement, with this information forwarded to the other player.
+        self.assertTrue(unit.besieging)
+        self.assertTrue(setl.besieged)
+        self.mock_socket.sendto.assert_called_once()
+
+    def test_process_besiege_settlement_event_client(self):
+        """
+        Ensure that game clients correctly process forwarded besiege settlement event packets.
+        """
+        besieging_player: Player = self.TEST_GAME_STATE.players[0]
+        besieged_player: Player = self.TEST_GAME_STATE.players[1]
+        unit: Unit = besieging_player.units[0]
+        setl: Settlement = besieged_player.settlements[0]
+        test_event: BesiegeSettlementEvent = BesiegeSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                                    UpdateAction.BESIEGE_SETTLEMENT,
+                                                                    self.TEST_GAME_NAME, besieging_player.faction,
+                                                                    unit.location, setl.name)
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # Neither the unit nor the settlement should be in a siege situation.
+        self.assertFalse(unit.besieging)
+        self.assertFalse(setl.besieged)
+
+        # Process our test event.
+        self.request_handler.process_besiege_settlement_event(test_event, self.mock_socket)
+
+        # The unit should now be laying siege to the settlement, with this information not forwarded to the other
+        # player, since this is a client.
+        self.assertTrue(unit.besieging)
+        self.assertTrue(setl.besieged)
+        self.mock_socket.sendto.assert_not_called()
 
 
 if __name__ == '__main__':

@@ -210,7 +210,7 @@ class Quad:
     harvest: int
     zeal: int
     fortune: int
-    location: (int, int)
+    location: Tuple[int, int]
     # Even though a quad will only ever have one resource, it's easier to use this.
     resource: Optional[ResourceCollection] = None
     selected: bool = False
@@ -335,7 +335,7 @@ class Unit:
     """
     health: float
     remaining_stamina: int
-    location: (float, float)
+    location: Tuple[int, int]
     garrisoned: bool
     plan: UnitPlan
     has_acted: bool = False  # Units can only act (attack/heal) once per turn.
@@ -357,7 +357,7 @@ class Heathen:
     """
     health: float
     remaining_stamina: int
-    location: (float, float)
+    location: Tuple[int, int]
     plan: UnitPlan
     has_attacked: bool = False  # Heathens can also only attack once per turn.
 
@@ -386,7 +386,7 @@ class Settlement:
     A settlement belonging to a player.
     """
     name: str
-    location: (int, int)
+    location: Tuple[int, int]
     improvements: List[Improvement]
     quads: List[Quad]  # Only players of The Concentrated faction can have more than one quad in a settlement.
     # Resources can be exploited by a settlement if they are within 1 quad.
