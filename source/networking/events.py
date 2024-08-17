@@ -311,7 +311,6 @@ class UnreadyEvent(Event):
     The event containing the required data to mark a player as no longer ready to end their turn.
     """
     game_name: str
-    player_faction: Faction  # Used to identify the player that is no longer ready.
 
 
 @dataclass

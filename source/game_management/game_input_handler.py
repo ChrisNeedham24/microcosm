@@ -449,8 +449,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                                         game_state.board.game_name)
                     dispatch_event(et_evt)
                 else:
-                    u_evt: UnreadyEvent = UnreadyEvent(EventType.UNREADY, get_identifier(), game_state.board.game_name,
-                                                       game_state.players[game_state.player_idx].faction)
+                    u_evt: UnreadyEvent = UnreadyEvent(EventType.UNREADY, get_identifier(), game_state.board.game_name)
                     dispatch_event(u_evt)
         # If we are not in any of the above situations, end the turn.
         elif game_state.end_turn():

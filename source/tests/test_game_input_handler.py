@@ -1382,7 +1382,7 @@ class GameInputHandlerTest(unittest.TestCase):
         # We expect state to have changed, and an unready event to have been dispatched, signalling that the player is
         # no longer ready for the turn to end.
         self.assertFalse(self.game_state.board.waiting_for_other_players)
-        expected_event = UnreadyEvent(EventType.UNREADY, self.TEST_IDENTIFIER, game_name, self.TEST_PLAYER.faction)
+        expected_event = UnreadyEvent(EventType.UNREADY, self.TEST_IDENTIFIER, game_name)
         dispatch_mock.assert_called_with(expected_event)
 
     @patch("source.game_management.game_input_handler.save_stats_achievements")
