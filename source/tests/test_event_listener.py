@@ -1,16 +1,20 @@
 import json
+import sched
 import socket
 import unittest
-from typing import List
+from threading import Thread
+from typing import List, Dict
 from unittest.mock import MagicMock, call, patch
 
+from source.display.menu import Menu
 from source.foundation.catalogue import LOBBY_NAMES, PLAYER_NAMES, FACTION_COLOURS, BLESSINGS, PROJECTS, IMPROVEMENTS, \
-    UNIT_PLANS
+    UNIT_PLANS, Namer
 from source.foundation.models import PlayerDetails, Faction, GameConfig, Player, Settlement, ResourceCollection, \
-    OngoingBlessing, Construction, InvestigationResult, Unit, DeployerUnit
+    OngoingBlessing, Construction, InvestigationResult, Unit, DeployerUnit, Quad, Biome, AIPlaystyle, \
+    ExpansionPlaystyle, AttackPlaystyle, LobbyDetails
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
-from source.networking.event_listener import RequestHandler, MicrocosmServer
+from source.networking.event_listener import RequestHandler, MicrocosmServer, EventListener
 from source.networking.events import EventType, RegisterEvent, Event, CreateEvent, InitEvent, UpdateEvent, \
     UpdateAction, QueryEvent, LeaveEvent, JoinEvent, EndTurnEvent, UnreadyEvent, AutofillEvent, SaveEvent, \
     QuerySavesEvent, LoadEvent, FoundSettlementEvent, SetBlessingEvent, SetConstructionEvent, MoveUnitEvent, \
@@ -48,11 +52,14 @@ class EventListenerTest(unittest.TestCase):
         self.TEST_HEALER_UNIT: Unit = Unit(20, 20, (5, 5), False, UNIT_PLANS[6])
         # The unit plan used is the first deployer one.
         self.TEST_DEPLOYER_UNIT: DeployerUnit = DeployerUnit(60, 60, (6, 6), False, UNIT_PLANS[9])
+        # The unit plan used is the settler unit plan.
+        self.TEST_SETTLER_UNIT: Unit = Unit(5, 5, (7, 7), False, UNIT_PLANS[3])
         self.TEST_GAME_STATE: GameState = GameState()
         self.TEST_GAME_STATE.players = [
             Player("Uno", Faction.AGRICULTURISTS, 0, settlements=[self.TEST_SETTLEMENT], units=[self.TEST_UNIT]),
             Player("Dos", Faction.FRONTIERSMEN, 1, settlements=[self.TEST_SETTLEMENT_2])
         ]
+        self.TEST_GAME_CONTROLLER: GameController = GameController()
 
         self.mock_socket: MagicMock = MagicMock()
         self.mock_server: MicrocosmServer = MagicMock()
@@ -68,7 +75,7 @@ class EventListenerTest(unittest.TestCase):
         self.mock_server.move_makers_ref = {}
         self.mock_server.lobbies_ref = {}
         self.mock_server.game_states_ref = {}
-        self.mock_server.game_controller_ref = GameController()
+        self.mock_server.game_controller_ref = self.TEST_GAME_CONTROLLER
         self.mock_server.keepalive_ctrs_ref = {}
         self.request_handler: RequestHandler = RequestHandler((self.TEST_EVENT_BYTES, self.mock_socket),
                                                               (self.TEST_HOST, self.TEST_PORT), self.mock_server)
@@ -333,6 +340,88 @@ class EventListenerTest(unittest.TestCase):
                                                          UpdateAction.DEPLOYER_DEPLOY, self.TEST_GAME_NAME,
                                                          Faction.AGRICULTURISTS, (12, 12), 1, (12, 13)),
                                      "process_deployer_deploy_event")
+
+    def test_process_found_settlement_event_server(self):
+        """
+        Ensure that the game server correctly processes found settlement events.
+        """
+        player: Player = self.TEST_GAME_STATE.players[0]
+        player.units.append(self.TEST_SETTLER_UNIT)
+        settler: Unit = player.units[1]
+        quad: Quad = Quad(Biome.DESERT, 0, 0, 0, 0, settler.location)
+        # Chuck a unit in the garrison so we can make sure the unit migration works as well.
+        new_setl: Settlement = Settlement("New One", settler.location, [], [quad], ResourceCollection(),
+                                          garrison=[self.TEST_HEALER_UNIT])
+        test_event: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                                UpdateAction.FOUND_SETTLEMENT, self.TEST_GAME_NAME,
+                                                                player.faction, new_setl, from_settler=True)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+        namer: Namer = Namer()
+        namer.remove_settlement_name = MagicMock()
+        self.mock_server.namers_ref[self.TEST_GAME_NAME] = namer
+
+        # The player should only have the one settlement to begin with.
+        self.assertListEqual([self.TEST_SETTLEMENT], player.settlements)
+        # They should also have no seen quads.
+        self.assertFalse(player.quads_seen)
+        # The player should lastly have two deployed units, one of which is the settler that will found the settlement.
+        self.assertListEqual([self.TEST_UNIT, settler], player.units)
+
+        # Process our test event.
+        self.request_handler.process_found_settlement_event(test_event, self.mock_socket)
+
+        # The player should now have a new settlement in accordance with the event, as well as some seen quads.
+        self.assertListEqual([self.TEST_SETTLEMENT, new_setl], player.settlements)
+        self.assertTrue(player.quads_seen)
+        # We also expect the settler unit to no longer exist.
+        self.assertListEqual([self.TEST_UNIT], player.units)
+        # The game server should also have removed the settlement's name from the game's Namer so that future AI
+        # settlements do not have the chance of name collisions occurring.
+        namer.remove_settlement_name.assert_called_with(new_setl.name, quad.biome)
+        # Lastly, this information should have been forwarded by the server just once to the other player.
+        self.mock_socket.sendto.assert_called_once()
+
+    def test_process_found_settlement_event_client(self):
+        """
+        Ensure that game clients correctly process found settlement events.
+        """
+        player: Player = self.TEST_GAME_STATE.players[0]
+        player.units.append(self.TEST_SETTLER_UNIT)
+        settler: Unit = player.units[1]
+        quad: Quad = Quad(Biome.DESERT, 0, 0, 0, 0, settler.location)
+        # Chuck a unit in the garrison so we can make sure the unit migration works as well.
+        new_setl: Settlement = Settlement("New One", settler.location, [], [quad], ResourceCollection(),
+                                          garrison=[self.TEST_HEALER_UNIT])
+        test_event: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                                UpdateAction.FOUND_SETTLEMENT, self.TEST_GAME_NAME,
+                                                                player.faction, new_setl, from_settler=True)
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+        self.mock_server.game_controller_ref.namer.remove_settlement_name = MagicMock()
+
+        # The player should only have the one settlement to begin with.
+        self.assertListEqual([self.TEST_SETTLEMENT], player.settlements)
+        # They should also have no seen quads.
+        self.assertFalse(player.quads_seen)
+        # The player should lastly have two deployed units, one of which is the settler that will found the settlement.
+        self.assertListEqual([self.TEST_UNIT, settler], player.units)
+
+        # Process our test event.
+        self.request_handler.process_found_settlement_event(test_event, self.mock_socket)
+
+        # The player should now have a new settlement in accordance with the event, as well as some seen quads.
+        self.assertListEqual([self.TEST_SETTLEMENT, new_setl], player.settlements)
+        self.assertTrue(player.quads_seen)
+        # We also expect the settler unit to no longer exist.
+        self.assertListEqual([self.TEST_UNIT], player.units)
+        # The client should also have removed the settlement's name from their Namer so that future settlements do not
+        # have the chance of name collisions occurring.
+        self.mock_server.game_controller_ref.namer.remove_settlement_name.assert_called_with(new_setl.name, quad.biome)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
 
     def test_process_set_blessing_event_server(self):
         """
@@ -1003,6 +1092,73 @@ class EventListenerTest(unittest.TestCase):
         # Since this is a client, no packets should have been forwarded.
         self.mock_socket.sendto.assert_not_called()
 
+    def test_process_query_event_server(self):
+        """
+        Ensure that the game server correctly processes query events.
+        """
+        # Add an AI player to the game so we can see how their details are included as well.
+        ai_player: Player = Player("Mr. Roboto", Faction.FUNDAMENTALISTS, 2,
+                                   ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
+        self.TEST_GAME_STATE.players.append(ai_player)
+        # Simulate that the game has started so we can validate the turn being used.
+        self.TEST_GAME_STATE.game_started = True
+        self.TEST_GAME_STATE.turn = 10
+        # Use a different GameConfig that allows for three players.
+        three_player_conf: GameConfig = GameConfig(3, Faction.AGRICULTURISTS, True, True, True, True)
+        test_event: QueryEvent = QueryEvent(EventType.QUERY, self.TEST_IDENTIFIER)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        self.mock_server.lobbies_ref[self.TEST_GAME_NAME] = three_player_conf
+        self.mock_socket.sendto = MagicMock()
+
+        # Process our test event.
+        self.request_handler.process_query_event(test_event, self.mock_socket)
+
+        # Extract out our expected data into a couple of variables since this logic is a little more complicated.
+        expected_player_details: List[PlayerDetails] = []
+        # The player details for the human players should have been retrieved directly from the game clients for this
+        # game.
+        expected_player_details.extend(self.mock_server.game_clients_ref[self.TEST_GAME_NAME])
+        # However, the AI player should have had their details manually added.
+        expected_player_details.append(PlayerDetails(ai_player.name, ai_player.faction, id=None))
+        # The lobby returned should have the correct name, config, turn, and player details.
+        expected_lobby: LobbyDetails = LobbyDetails(self.TEST_GAME_NAME, expected_player_details,
+                                                    three_player_conf, self.TEST_GAME_STATE.turn)
+
+        # Ensure the lobby is returned as expected.
+        self.assertListEqual([expected_lobby], test_event.lobbies)
+        # We also expect the server to have sent a packet containing a JSON representation of the event to the client
+        # that originally dispatched the query event.
+        self.mock_socket.sendto.assert_called_with(json.dumps(test_event, cls=SaveEncoder).encode(),
+                                                   (self.TEST_HOST, self.TEST_PORT))
+
+    def test_process_query_event_client(self):
+        """
+        Ensure that game clients correctly process query events.
+        """
+        test_lobby: LobbyDetails = LobbyDetails(self.TEST_GAME_NAME,
+                                                self.mock_server.game_clients_ref[self.TEST_GAME_NAME],
+                                                self.TEST_GAME_CONFIG,
+                                                self.TEST_GAME_STATE.turn)
+        test_event: QueryEvent = QueryEvent(EventType.QUERY, self.TEST_IDENTIFIER,
+                                            lobbies=[test_lobby])
+        self.mock_server.is_server = False
+        self.mock_socket.sendto = MagicMock()
+        menu: Menu = self.mock_server.game_controller_ref.menu
+
+        # The client should have no lobbies present initially, and thus should not be viewing them.
+        self.assertFalse(menu.multiplayer_lobbies)
+        self.assertFalse(menu.viewing_lobbies)
+
+        # Process our test event.
+        self.request_handler.process_query_event(test_event, self.mock_socket)
+
+        # The lobbies from the event should now be both present and being viewed in the client's menu.
+        self.assertListEqual(test_event.lobbies, menu.multiplayer_lobbies)
+        self.assertTrue(menu.viewing_lobbies)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+
     def test_process_register_event(self):
         """
         Ensure that register events are correctly processed by the game server.
@@ -1028,6 +1184,75 @@ class EventListenerTest(unittest.TestCase):
         self.request_handler.process_unready_event(test_event)
         # The corresponding identifier in the game state's ready players should have been removed.
         self.assertFalse(gs.ready_players)
+
+    @patch("random.choice")
+    def test_process_autofill_event_server(self, random_choice_mock: MagicMock):
+        """
+        Ensure that the game server correctly processes autofill events.
+        """
+        test_event: AutofillEvent = AutofillEvent(EventType.AUTOFILL, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
+        self.mock_server.is_server = True
+        # Use a different GameConfig that allows for three players.
+        three_player_conf: GameConfig = GameConfig(3, Faction.AGRICULTURISTS, True, True, True, True)
+        self.mock_server.lobbies_ref[self.TEST_GAME_NAME] = three_player_conf
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        # We need to pre-determine the AI player's details so we can use them in our random mock.
+        ai_player_name: str = "Mr. Roboto"
+        ai_faction: Faction = Faction.FUNDAMENTALISTS
+        ai_playstyle: AIPlaystyle = AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)
+        # There are up to six calls to random.choice() when processing autofill events, as the server attempts to assign
+        # the AI player a name, a faction, and then an AI playstyle. To account for all logic branches, on the first
+        # attempt for both the name and faction, we return one already in use by a player currently in the game. Lastly,
+        # we return a valid AI playstyle.
+        random_choice_mock.side_effect = [self.TEST_GAME_STATE.players[0].name, ai_player_name,
+                                          self.TEST_GAME_STATE.players[0].faction, ai_faction,
+                                          ai_playstyle.attacking, ai_playstyle.expansion]
+        # When created, we expect our AI player to have the following attributes.
+        expected_ai_player: Player = Player(ai_player_name, ai_faction, FACTION_COLOURS[ai_faction],
+                                            ai_playstyle=ai_playstyle)
+        self.mock_socket.sendto = MagicMock()
+
+        # Process our test event.
+        self.request_handler.process_autofill_event(test_event, self.mock_socket)
+
+        # There should now be a third player in the game - the AI player just generated.
+        self.assertEqual(3, len(self.TEST_GAME_STATE.players))
+        self.assertEqual(expected_ai_player, self.TEST_GAME_STATE.players[2])
+        self.assertListEqual(self.TEST_GAME_STATE.players, test_event.players)
+        # We also expect these details to have been forwarded to all game clients, not just clients other than the one
+        # that dispatched the event.
+        self.assertEqual(2, len(self.mock_socket.sendto.mock_calls))
+
+    def test_process_autofill_event_client(self):
+        """
+        Ensure that game clients correctly process autofill events.
+        """
+        ai_player: Player = Player("Mr. Roboto", Faction.FUNDAMENTALISTS, FACTION_COLOURS[Faction.FUNDAMENTALISTS],
+                                   ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
+        # Since we need to maintain two parallel game states, we create a new list inline for the event players, and
+        # leave the ones in test game state untouched.
+        test_event: AutofillEvent = AutofillEvent(EventType.AUTOFILL, self.TEST_IDENTIFIER, self.TEST_GAME_NAME,
+                                                  players=self.TEST_GAME_STATE.players + [ai_player])
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        # Use a different GameConfig that allows for three players.
+        three_player_conf: GameConfig = GameConfig(3, Faction.AGRICULTURISTS, True, True, True, True)
+        menu: Menu = self.mock_server.game_controller_ref.menu
+        menu.multiplayer_lobby = \
+            LobbyDetails("Cool", self.mock_server.game_clients_ref[self.TEST_GAME_NAME], three_player_conf, None)
+        self.mock_socket.sendto = MagicMock()
+
+        # Process our test event.
+        self.request_handler.process_autofill_event(test_event, self.mock_socket)
+
+        # The client's lobby should now have three players, with the third representative of the autofilled AI player.
+        self.assertEqual(3, len(menu.multiplayer_lobby.current_players))
+        self.assertEqual(PlayerDetails(ai_player.name, ai_player.faction, id=None),
+                         menu.multiplayer_lobby.current_players[2])
+        # The AI player should also have been added to the game state, in accordance with the event.
+        self.assertListEqual(test_event.players, self.TEST_GAME_STATE.players)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
 
     @patch("source.networking.event_listener.save_game")
     def test_process_save_event(self, save_game_mock: MagicMock):
@@ -1111,6 +1336,68 @@ class EventListenerTest(unittest.TestCase):
         self.request_handler.process_keepalive_event(test_event)
         # We expect the client to have dispatched a keepalive event back to the game server with their identifier.
         dispatch_mock.assert_called_with(Event(EventType.KEEPALIVE, self.TEST_IDENTIFIER))
+
+    @patch.object(Thread, "start")
+    def test_event_listener_construction_server(self, thread_start_mock: MagicMock):
+        """
+        Ensure that the event listener is correctly constructed for the game server.
+        """
+        server_listener: EventListener = EventListener(is_server=True)
+
+        # All state variables should be empty, with the exception of is_server which is naturally True, and the game
+        # controller, which isn't required for the game server.
+        self.assertFalse(server_listener.game_states)
+        self.assertFalse(server_listener.namers)
+        self.assertFalse(server_listener.move_makers)
+        self.assertTrue(server_listener.is_server)
+        self.assertIsNone(server_listener.game_controller)
+        self.assertFalse(server_listener.game_clients)
+        self.assertFalse(server_listener.lobbies)
+        self.assertFalse(server_listener.clients)
+        self.assertFalse(server_listener.keepalive_ctrs)
+
+        # Since this is the game server, we also expect the keepalive thread to have been started.
+        thread_start_mock.assert_called()
+
+    @patch.object(Thread, "start")
+    def test_event_listener_construction_client(self, thread_start_mock: MagicMock):
+        """
+        Ensure that event listeners are correctly constructed for clients.
+        """
+        test_game_states: Dict[str, GameState] = {"local": self.TEST_GAME_STATE}
+        client_listener: EventListener = EventListener(game_states=test_game_states,
+                                                       game_controller=self.TEST_GAME_CONTROLLER)
+
+        # Most state variables should be empty, but the game states and game controller provided in the constructor
+        # should have been passed down. Naturally the client listener should also not be a server.
+        self.assertEqual(test_game_states, client_listener.game_states)
+        self.assertFalse(client_listener.namers)
+        self.assertFalse(client_listener.move_makers)
+        self.assertFalse(client_listener.is_server)
+        self.assertEqual(self.TEST_GAME_CONTROLLER, client_listener.game_controller)
+        self.assertFalse(client_listener.game_clients)
+        self.assertFalse(client_listener.lobbies)
+        self.assertFalse(client_listener.clients)
+        self.assertFalse(client_listener.keepalive_ctrs)
+
+        # Since this is a client, we don't expect it to start a new thread to manage keepalives.
+        thread_start_mock.assert_not_called()
+
+    @patch.object(Thread, "start", lambda *args: None)
+    def test_event_listener_run_keepalive_scheduler(self):
+        """
+        Ensure that the keepalive scheduler is correctly run on the game server.
+        """
+        server_listener: EventListener = EventListener(is_server=True)
+        scheduler: sched.scheduler = server_listener.keepalive_scheduler
+        scheduler.enter = MagicMock()
+        scheduler.run = MagicMock()
+
+        server_listener.run_keepalive_scheduler()
+
+        # Our mocked scheduler functions should have been called with the appropriate arguments.
+        scheduler.enter.assert_called_with(5, 1, server_listener.run_keepalive, (scheduler,))
+        scheduler.run.assert_called()
 
 
 if __name__ == '__main__':

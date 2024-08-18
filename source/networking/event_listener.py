@@ -1089,10 +1089,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                    ai_playstyle=AIPlaystyle(random.choice(list(AttackPlaystyle)),
                                                             random.choice(list(ExpansionPlaystyle))))
                 gsrs[evt.lobby_name].players.append(ai_player)
-            update_evt: AutofillEvent = AutofillEvent(EventType.AUTOFILL, None, evt.lobby_name,
-                                                      gsrs[evt.lobby_name].players)
+            evt.players = gsrs[evt.lobby_name].players
             # Alert all players to the new AI players in the lobby.
-            self._forward_packet(update_evt, evt.lobby_name, sock)
+            self._forward_packet(evt, evt.lobby_name, sock)
         else:
             gc: GameController = self.server.game_controller_ref
             previous_player_count = len(gc.menu.multiplayer_lobby.current_players)
