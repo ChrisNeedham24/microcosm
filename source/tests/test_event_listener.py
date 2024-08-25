@@ -2,10 +2,12 @@ import json
 import sched
 import socket
 import unittest
+from copy import deepcopy
 from threading import Thread
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from unittest.mock import MagicMock, call, patch
 
+from source.display.board import Board
 from source.display.menu import Menu
 from source.foundation.catalogue import LOBBY_NAMES, PLAYER_NAMES, FACTION_COLOURS, BLESSINGS, PROJECTS, IMPROVEMENTS, \
     UNIT_PLANS, Namer
@@ -47,13 +49,13 @@ class EventListenerTest(unittest.TestCase):
         """
         self.TEST_SETTLEMENT: Settlement = Settlement("Testville", (0, 0), [], [], ResourceCollection(), [])
         self.TEST_SETTLEMENT_2: Settlement = Settlement("EvilTown", (5, 5), [], [], ResourceCollection(), [])
-        self.TEST_UNIT: Unit = Unit(50, 50, (4, 4), False, UNIT_PLANS[0])
+        self.TEST_UNIT: Unit = Unit(50, 2, (4, 4), False, deepcopy(UNIT_PLANS[0]))
         # The unit plan used is the first one that can heal.
-        self.TEST_HEALER_UNIT: Unit = Unit(20, 20, (5, 5), False, UNIT_PLANS[6])
+        self.TEST_HEALER_UNIT: Unit = Unit(20, 20, (5, 5), False, deepcopy(UNIT_PLANS[6]))
         # The unit plan used is the first deployer one.
-        self.TEST_DEPLOYER_UNIT: DeployerUnit = DeployerUnit(60, 60, (6, 6), False, UNIT_PLANS[9])
+        self.TEST_DEPLOYER_UNIT: DeployerUnit = DeployerUnit(60, 60, (6, 6), False, deepcopy(UNIT_PLANS[9]))
         # The unit plan used is the settler unit plan.
-        self.TEST_SETTLER_UNIT: Unit = Unit(5, 5, (7, 7), False, UNIT_PLANS[3])
+        self.TEST_SETTLER_UNIT: Unit = Unit(5, 5, (7, 7), False, deepcopy(UNIT_PLANS[3]))
         self.TEST_GAME_STATE: GameState = GameState()
         self.TEST_GAME_STATE.players = [
             Player("Uno", Faction.AGRICULTURISTS, 0, settlements=[self.TEST_SETTLEMENT], units=[self.TEST_UNIT]),
@@ -73,7 +75,9 @@ class EventListenerTest(unittest.TestCase):
         }
         self.mock_server.namers_ref = {}
         self.mock_server.move_makers_ref = {}
-        self.mock_server.lobbies_ref = {}
+        self.mock_server.lobbies_ref = {
+            self.TEST_GAME_NAME: self.TEST_GAME_CONFIG
+        }
         self.mock_server.game_states_ref = {}
         self.mock_server.game_controller_ref = self.TEST_GAME_CONTROLLER
         self.mock_server.keepalive_ctrs_ref = {}
@@ -133,6 +137,7 @@ class EventListenerTest(unittest.TestCase):
         """
         Ensure that events are correctly assigned to the correct process method based on their type.
         """
+
         def validate_event_type(event: Event, expected_method: str, with_sock: bool = True):
             """
             Ensure that the given event, when processed, calls the expected process method.
@@ -702,7 +707,7 @@ class EventListenerTest(unittest.TestCase):
 
     def test_process_garrison_unit_event_client(self):
         """
-        Ensure that the game server correctly processes garrison unit events.
+        Ensure that game clients correctly process garrison unit events.
         """
         player: Player = self.TEST_GAME_STATE.players[0]
         unit: Unit = player.units[0]
@@ -729,6 +734,295 @@ class EventListenerTest(unittest.TestCase):
         # Naturally, this means the player no longer has any deployed units either.
         self.assertFalse(player.units)
         # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+
+    def test_process_investigate_event_server(self):
+        """
+        Ensure that the game server correctly processes investigate events.
+        """
+        # For this test, we actually need an initialised board with quads.
+        self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
+        self.TEST_GAME_STATE.board.generate_quads(True, True)
+        player: Player = self.TEST_GAME_STATE.players[0]
+        # Give the player a blessing so that we can see it progress with the fortune investigation result.
+        player.ongoing_blessing = OngoingBlessing(BLESSINGS["beg_spl"])
+        unit: Unit = player.units[0]
+        # Pick a quad for our relic.
+        relic_loc: Tuple[int, int] = 11, 12
+        relic_quad: Quad = self.TEST_GAME_STATE.board.quads[relic_loc[1]][relic_loc[0]]
+        test_event: InvestigateEvent = InvestigateEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                        UpdateAction.INVESTIGATE, self.TEST_GAME_NAME, player.faction,
+                                                        unit.location, relic_loc, InvestigationResult.NONE)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        relic_quad.is_relic = True
+        # Testing the fortune investigation result.
+        test_event.result = InvestigationResult.FORTUNE
+        self.assertFalse(player.ongoing_blessing.fortune_consumed)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect some progress to have been made on the player's ongoing blessing.
+        self.assertTrue(player.ongoing_blessing.fortune_consumed)
+        # We also expect the quad to no longer have a relic.
+        self.assertFalse(relic_quad.is_relic)
+        # Lastly, this information should have been forwarded by the server just once to the other player.
+        self.mock_socket.sendto.assert_called_once()
+
+        # Reset the mock state.
+        relic_quad.is_relic = True
+        self.mock_socket.reset_mock()
+        # Testing the wealth investigation result.
+        test_event.result = InvestigationResult.WEALTH
+        self.assertFalse(player.wealth)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the player to now have some wealth.
+        self.assertTrue(player.wealth)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_called_once()
+
+        relic_quad.is_relic = True
+        self.mock_socket.reset_mock()
+        # Testing the vision investigation result.
+        test_event.result = InvestigationResult.VISION
+        self.assertFalse(player.quads_seen)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the player to now have some seen quads.
+        self.assertTrue(player.quads_seen)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_called_once()
+
+        relic_quad.is_relic = True
+        self.mock_socket.reset_mock()
+        # Testing the health investigation result.
+        test_event.result = InvestigationResult.HEALTH
+        self.assertEqual(100, unit.plan.max_health)
+        self.assertEqual(50, unit.health)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the unit's current and max health to both have been increased by five.
+        self.assertEqual(105, unit.plan.max_health)
+        self.assertEqual(55, unit.health)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_called_once()
+
+        relic_quad.is_relic = True
+        self.mock_socket.reset_mock()
+        # Testing the power investigation result.
+        test_event.result = InvestigationResult.POWER
+        self.assertEqual(100, unit.plan.power)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the unit's power to have been increased by five.
+        self.assertEqual(105, unit.plan.power)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_called_once()
+
+        relic_quad.is_relic = True
+        self.mock_socket.reset_mock()
+        # Testing the stamina investigation result.
+        test_event.result = InvestigationResult.STAMINA
+        self.assertEqual(3, unit.plan.total_stamina)
+        self.assertEqual(2, unit.remaining_stamina)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the unit's total stamina to have been increased, and its current stamina to have been replenished.
+        self.assertEqual(4, unit.plan.total_stamina)
+        self.assertEqual(4, unit.remaining_stamina)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_called_once()
+
+        relic_quad.is_relic = True
+        self.mock_socket.reset_mock()
+        # Testing the upkeep investigation result.
+        test_event.result = InvestigationResult.UPKEEP
+        self.assertEqual(25, unit.plan.cost)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the unit to no longer have any upkeep, which is derived from its cost.
+        self.assertFalse(unit.plan.cost)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_called_once()
+
+        relic_quad.is_relic = True
+        self.mock_socket.reset_mock()
+        # Testing the ore investigation result.
+        test_event.result = InvestigationResult.ORE
+        self.assertFalse(player.resources.ore)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the player to now have some ore.
+        self.assertTrue(player.resources.ore)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_called_once()
+
+        relic_quad.is_relic = True
+        self.mock_socket.reset_mock()
+        # Testing the timber investigation result.
+        test_event.result = InvestigationResult.TIMBER
+        self.assertFalse(player.resources.timber)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the player to now have some timber.
+        self.assertTrue(player.resources.timber)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_called_once()
+
+        relic_quad.is_relic = True
+        self.mock_socket.reset_mock()
+        # Testing the magma investigation result.
+        test_event.result = InvestigationResult.MAGMA
+        self.assertFalse(player.resources.magma)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the player to now have some magma.
+        self.assertTrue(player.resources.magma)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_called_once()
+
+        relic_quad.is_relic = True
+        self.mock_socket.reset_mock()
+        # Testing the failure/none investigation result.
+        test_event.result = InvestigationResult.NONE
+        # Copy the player and unit objects so that we can assert that they haven't changed.
+        player_copy: Player = deepcopy(player)
+        unit_copy: Unit = deepcopy(unit)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect no state changes to have occurred, since the investigation was not successful.
+        self.assertEqual(player_copy, player)
+        self.assertEqual(unit_copy, unit)
+        self.mock_socket.sendto.assert_called_once()
+
+    def test_process_investigate_event_client(self):
+        """
+        Ensure that game clients correctly process investigate events.
+        """
+        # For this test, we actually need an initialised board with quads.
+        self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
+        self.TEST_GAME_STATE.board.generate_quads(True, True)
+        player: Player = self.TEST_GAME_STATE.players[0]
+        # Give the player a blessing so that we can see it progress with the fortune investigation result.
+        player.ongoing_blessing = OngoingBlessing(BLESSINGS["beg_spl"])
+        unit: Unit = player.units[0]
+        # Pick a quad for our relic.
+        relic_loc: Tuple[int, int] = 11, 12
+        relic_quad: Quad = self.TEST_GAME_STATE.board.quads[relic_loc[1]][relic_loc[0]]
+        test_event: InvestigateEvent = InvestigateEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                        UpdateAction.INVESTIGATE, self.TEST_GAME_NAME, player.faction,
+                                                        unit.location, relic_loc, InvestigationResult.NONE)
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        relic_quad.is_relic = True
+        # Testing the fortune investigation result.
+        test_event.result = InvestigationResult.FORTUNE
+        self.assertFalse(player.ongoing_blessing.fortune_consumed)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect some progress to have been made on the player's ongoing blessing.
+        self.assertTrue(player.ongoing_blessing.fortune_consumed)
+        # We also expect the quad to no longer have a relic.
+        self.assertFalse(relic_quad.is_relic)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+
+        relic_quad.is_relic = True
+        # Testing the wealth investigation result.
+        test_event.result = InvestigationResult.WEALTH
+        self.assertFalse(player.wealth)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the player to now have some wealth.
+        self.assertTrue(player.wealth)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_not_called()
+
+        relic_quad.is_relic = True
+        # Testing the vision investigation result.
+        test_event.result = InvestigationResult.VISION
+        self.assertFalse(player.quads_seen)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the player to now have some seen quads.
+        self.assertTrue(player.quads_seen)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_not_called()
+
+        relic_quad.is_relic = True
+        # Testing the health investigation result.
+        test_event.result = InvestigationResult.HEALTH
+        self.assertEqual(100, unit.plan.max_health)
+        self.assertEqual(50, unit.health)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the unit's current and max health to both have been increased by five.
+        self.assertEqual(105, unit.plan.max_health)
+        self.assertEqual(55, unit.health)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_not_called()
+
+        relic_quad.is_relic = True
+        # Testing the power investigation result.
+        test_event.result = InvestigationResult.POWER
+        self.assertEqual(100, unit.plan.power)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the unit's power to have been increased by five.
+        self.assertEqual(105, unit.plan.power)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_not_called()
+
+        relic_quad.is_relic = True
+        # Testing the stamina investigation result.
+        test_event.result = InvestigationResult.STAMINA
+        self.assertEqual(3, unit.plan.total_stamina)
+        self.assertEqual(2, unit.remaining_stamina)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the unit's total stamina to have been increased, and its current stamina to have been replenished.
+        self.assertEqual(4, unit.plan.total_stamina)
+        self.assertEqual(4, unit.remaining_stamina)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_not_called()
+
+        relic_quad.is_relic = True
+        # Testing the upkeep investigation result.
+        test_event.result = InvestigationResult.UPKEEP
+        self.assertEqual(25, unit.plan.cost)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the unit to no longer have any upkeep, which is derived from its cost.
+        self.assertFalse(unit.plan.cost)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_not_called()
+
+        relic_quad.is_relic = True
+        # Testing the ore investigation result.
+        test_event.result = InvestigationResult.ORE
+        self.assertFalse(player.resources.ore)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the player to now have some ore.
+        self.assertTrue(player.resources.ore)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_not_called()
+
+        relic_quad.is_relic = True
+        # Testing the timber investigation result.
+        test_event.result = InvestigationResult.TIMBER
+        self.assertFalse(player.resources.timber)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the player to now have some timber.
+        self.assertTrue(player.resources.timber)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_not_called()
+
+        relic_quad.is_relic = True
+        # Testing the magma investigation result.
+        test_event.result = InvestigationResult.MAGMA
+        self.assertFalse(player.resources.magma)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect the player to now have some magma.
+        self.assertTrue(player.resources.magma)
+        self.assertFalse(relic_quad.is_relic)
+        self.mock_socket.sendto.assert_not_called()
+
+        relic_quad.is_relic = True
+        # Testing the failure/none investigation result.
+        test_event.result = InvestigationResult.NONE
+        # Copy the player and unit objects so that we can assert that they haven't changed.
+        player_copy: Player = deepcopy(player)
+        unit_copy: Unit = deepcopy(unit)
+        self.request_handler.process_investigate_event(test_event, self.mock_socket)
+        # We expect no state changes to have occurred, since the investigation was not successful.
+        self.assertEqual(player_copy, player)
+        self.assertEqual(unit_copy, unit)
         self.mock_socket.sendto.assert_not_called()
 
     def test_process_besiege_settlement_event_server(self):
@@ -1159,6 +1453,86 @@ class EventListenerTest(unittest.TestCase):
         # Since this is a client, no packets should have been forwarded.
         self.mock_socket.sendto.assert_not_called()
 
+    def test_process_leave_event_server(self):
+        """
+        Ensure that the game server correctly processes leave events.
+        """
+        # Simulate a situation in which a two-player game is in progress, with one player having already ended their
+        # turn.
+        self.TEST_GAME_STATE.game_started = True
+        self.TEST_GAME_STATE.ready_players = {self.TEST_IDENTIFIER_2}
+        test_event: LeaveEvent = LeaveEvent(EventType.LEAVE, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+        leaving_player: Player = self.TEST_GAME_STATE.players[0]
+        other_player_details: PlayerDetails = self.mock_server.game_clients_ref[self.TEST_GAME_NAME][1]
+        # Mock out the end turn function since there's really no need to test it here.
+        self.request_handler._server_end_turn = MagicMock()
+
+        # The player that is leaving should obviously have no AI playstyle initially.
+        self.assertIsNone(leaving_player.ai_playstyle)
+        # Process our test event.
+        self.request_handler.process_leave_event(test_event, self.mock_socket)
+        # There should now only be the other player as a game client.
+        self.assertDictEqual({self.TEST_GAME_NAME: [other_player_details]}, self.mock_server.game_clients_ref)
+        # The player that left should now have an AI playstyle, which, along with their faction, should have been
+        # forwarded on just once to the remaining player.
+        self.assertIsNotNone(leaving_player.ai_playstyle)
+        self.assertEqual(leaving_player.ai_playstyle, test_event.player_ai_playstyle)
+        self.assertEqual(leaving_player.faction, test_event.leaving_player_faction)
+        self.mock_socket.sendto.assert_called_once()
+        # We also expect the turn to have been ended, since the remaining player had already ended their turn.
+        self.request_handler._server_end_turn.assert_called_with(self.TEST_GAME_STATE,
+                                                                 EndTurnEvent(EventType.END_TURN, None,
+                                                                              self.TEST_GAME_NAME),
+                                                                 self.mock_socket)
+
+        # Now we simulate the remaining player leaving as well.
+        test_event.identifier = self.TEST_IDENTIFIER_2
+        self.request_handler.process_leave_event(test_event, self.mock_socket)
+        # The game server should have purged all references to the game since there are no longer any players.
+        self.assertNotIn(self.TEST_GAME_NAME, self.mock_server.game_clients_ref)
+        self.assertNotIn(self.TEST_GAME_NAME, self.mock_server.lobbies_ref)
+        self.assertNotIn(self.TEST_GAME_NAME, self.mock_server.game_states_ref)
+        # No further packets should have been forwarded, nor turns ended.
+        self.mock_socket.sendto.assert_called_once()
+        self.request_handler._server_end_turn.assert_called_once()
+
+    def test_process_leave_event_client(self):
+        """
+        Ensure that game clients correctly respond to leave events.
+        """
+        # For this test, we actually need an initialised board.
+        self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
+        self.TEST_GAME_STATE.board.overlay.toggle_player_change = MagicMock()
+        player: Player = self.TEST_GAME_STATE.players[0]
+        player_details: PlayerDetails = self.mock_server.game_clients_ref[self.TEST_GAME_NAME][0]
+        test_event: LeaveEvent = LeaveEvent(EventType.LEAVE, self.TEST_IDENTIFIER, self.TEST_GAME_NAME,
+                                            player.faction, AIPlaystyle(AttackPlaystyle.NEUTRAL,
+                                                                        ExpansionPlaystyle.NEUTRAL))
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_server.game_controller_ref.menu.multiplayer_lobby = \
+            LobbyDetails("Cool", self.mock_server.game_clients_ref[self.TEST_GAME_NAME], self.TEST_GAME_CONFIG, None)
+
+        # First simulate the situation in which another player has left an ongoing game.
+        self.TEST_GAME_STATE.game_started = True
+        self.assertIsNone(player.ai_playstyle)
+        self.request_handler.process_leave_event(test_event, self.mock_socket)
+        # We expect the leaving player to now have an AI playstyle in accordance with the event, and for the local
+        # player's overlay to denote that the player has left.
+        self.assertEqual(test_event.player_ai_playstyle, player.ai_playstyle)
+        self.TEST_GAME_STATE.board.overlay.toggle_player_change.assert_called_with(player,
+                                                                                   changed_player_is_leaving=True)
+
+        # Now simulate the situation where a player is leaving a game that has not yet started.
+        self.TEST_GAME_STATE.game_started = False
+        self.request_handler.process_leave_event(test_event, self.mock_socket)
+        # The leaving player should have been removed from both the game state and the lobby itself.
+        self.assertNotIn(player, self.TEST_GAME_STATE.players)
+        self.assertNotIn(player_details, self.mock_server.game_controller_ref.menu.multiplayer_lobby.current_players)
+
     def test_process_register_event(self):
         """
         Ensure that register events are correctly processed by the game server.
@@ -1306,6 +1680,102 @@ class EventListenerTest(unittest.TestCase):
         self.assertTrue(self.mock_server.game_controller_ref.menu.loading_multiplayer_game)
         # Since this is a client, no packets should have been forwarded.
         self.mock_socket.sendto.assert_not_called()
+
+    @patch("source.networking.event_listener.load_save_file")
+    @patch("random.choice")
+    def test_process_load_event_server(self, random_choice_mock: MagicMock, load_save_file_mock: MagicMock):
+        """
+        Ensure that the game server correctly processes load events.
+        """
+        test_event: LoadEvent = LoadEvent(EventType.LOAD, self.TEST_IDENTIFIER, "cool.save")
+        self.mock_server.is_server = True
+        taken_lobby_name: str = LOBBY_NAMES[0]
+        test_lobby_name: str = LOBBY_NAMES[1]
+        # Add in an extra game state so we can see the lobby name iteration process.
+        self.mock_server.game_states_ref = {taken_lobby_name: GameState()}
+        # We mock the method to initially return a lobby name that's already been taken, thus covering the case where
+        # another lobby name needs to be randomly selected.
+        random_choice_mock.side_effect = [taken_lobby_name, test_lobby_name]
+        test_quads: List[List[Quad]] = [[Quad(Biome.DESERT, 1, 2, 3, 4, (5, 6))]]
+        test_turn: int = 5
+        expected_lobby: LobbyDetails = LobbyDetails(test_lobby_name, [
+            PlayerDetails(self.TEST_GAME_STATE.players[0].name, self.TEST_GAME_STATE.players[0].faction, id=None),
+            PlayerDetails(self.TEST_GAME_STATE.players[1].name, self.TEST_GAME_STATE.players[1].faction, id=None)
+        ], self.TEST_GAME_CONFIG, test_turn)
+
+        def mock_load(gs: GameState, _namer: Namer, _save: str) -> (GameConfig, List[List[Quad]]):
+            """
+            A mock function that does the bare minimum to avoid having to load in an actual save file. Assigns players
+            and turn, and returns config and quads.
+            :param gs: The game state to load data into.
+            :param _namer: The game's Namer - unused in this function.
+            :param _save: The save's name - unused in this function.
+            :return: A test game config and test quads.
+            """
+            gs.players = self.TEST_GAME_STATE.players
+            gs.turn = test_turn
+            return self.TEST_GAME_CONFIG, test_quads
+
+        # Rather than loading in an actual save file, we just use the mock function defined above.
+        load_save_file_mock.side_effect = mock_load
+
+        # Naturally, we expect this newly-loaded game to not exist in any capacity prior to loading it in.
+        self.assertNotIn(test_lobby_name, self.mock_server.game_states_ref)
+        self.assertNotIn(test_lobby_name, self.mock_server.namers_ref)
+        self.assertNotIn(test_lobby_name, self.mock_server.game_clients_ref)
+        self.assertNotIn(test_lobby_name, self.mock_server.move_makers_ref)
+        self.assertNotIn(test_lobby_name, self.mock_server.lobbies_ref)
+
+        # Process our test event.
+        self.request_handler.process_load_event(test_event, self.mock_socket)
+
+        # A game state should have been created for the loaded game.
+        self.assertIn(test_lobby_name, self.mock_server.game_states_ref)
+        new_game_state: GameState = self.mock_server.game_states_ref[test_lobby_name]
+        # All loaded-in players should have an AI playstyle so that human players can take their place.
+        self.assertTrue(all(p.ai_playstyle for p in new_game_state.players))
+        # All references should be updated for the new game.
+        self.assertIn(test_lobby_name, self.mock_server.namers_ref)
+        self.assertFalse(self.mock_server.game_clients_ref[test_lobby_name])
+        self.assertIn(test_lobby_name, self.mock_server.move_makers_ref)
+        self.assertEqual(self.TEST_GAME_CONFIG, self.mock_server.lobbies_ref[test_lobby_name])
+        # The loaded game should also be initialised.
+        self.assertTrue(new_game_state.game_started)
+        self.assertFalse(new_game_state.on_menu)
+        self.assertIsNotNone(new_game_state.board)
+        self.assertListEqual(test_quads, new_game_state.board.quads)
+        self.assertEqual(new_game_state.board, self.mock_server.move_makers_ref[test_lobby_name].board_ref)
+        # The lobby's details should also have been added on to the event, to be returned to the original dispatcher.
+        self.assertEqual(expected_lobby, test_event.lobby)
+        # Lastly, we expect the server to have sent a packet containing a JSON representation of the event to the client
+        # that originally dispatched the create event.
+        self.mock_socket.sendto.assert_called_with(json.dumps(test_event, cls=SaveEncoder).encode(),
+                                                   (self.TEST_HOST, self.TEST_PORT))
+
+    def test_process_load_event_client(self):
+        """
+        Ensure that game clients correctly process responses to load events.
+        """
+        test_lobby: LobbyDetails = LobbyDetails("Cool", [
+            PlayerDetails(self.TEST_GAME_STATE.players[0].name, self.TEST_GAME_STATE.players[0].faction, id=None),
+            PlayerDetails(self.TEST_GAME_STATE.players[1].name, self.TEST_GAME_STATE.players[1].faction, id=None)
+        ], self.TEST_GAME_CONFIG, 5)
+        expected_factions: List[Tuple[Faction, int]] = \
+            [(Faction.AGRICULTURISTS, FACTION_COLOURS[Faction.AGRICULTURISTS]),
+             (Faction.FRONTIERSMEN, FACTION_COLOURS[Faction.FRONTIERSMEN])]
+        test_event: LoadEvent = LoadEvent(EventType.LOAD, self.TEST_IDENTIFIER, "cool.save", test_lobby)
+        self.mock_server.is_server = False
+        self.TEST_GAME_CONTROLLER.namer.reset = MagicMock()
+
+        # Process our test event.
+        self.request_handler.process_load_event(test_event, self.mock_socket)
+        self.TEST_GAME_CONTROLLER.namer.reset.assert_called()
+        # We expect the client to now have the appropriate lobby and available factions.
+        self.assertListEqual([test_lobby], self.TEST_GAME_CONTROLLER.menu.multiplayer_lobbies)
+        self.assertListEqual(expected_factions, self.TEST_GAME_CONTROLLER.menu.available_multiplayer_factions)
+        # The client should also now be joining the game, rather than loading it.
+        self.assertFalse(self.TEST_GAME_CONTROLLER.menu.loading_game)
+        self.assertTrue(self.TEST_GAME_CONTROLLER.menu.joining_game)
 
     def test_process_keepalive_event_server(self):
         """
