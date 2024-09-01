@@ -10,10 +10,10 @@ from unittest.mock import MagicMock, call, patch
 from source.display.board import Board
 from source.display.menu import Menu
 from source.foundation.catalogue import LOBBY_NAMES, PLAYER_NAMES, FACTION_COLOURS, BLESSINGS, PROJECTS, IMPROVEMENTS, \
-    UNIT_PLANS, Namer
+    UNIT_PLANS, Namer, get_heathen_plan
 from source.foundation.models import PlayerDetails, Faction, GameConfig, Player, Settlement, ResourceCollection, \
     OngoingBlessing, Construction, InvestigationResult, Unit, DeployerUnit, Quad, Biome, AIPlaystyle, \
-    ExpansionPlaystyle, AttackPlaystyle, LobbyDetails
+    ExpansionPlaystyle, AttackPlaystyle, LobbyDetails, Heathen
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.networking.event_listener import RequestHandler, MicrocosmServer, EventListener
@@ -50,17 +50,20 @@ class EventListenerTest(unittest.TestCase):
         self.TEST_SETTLEMENT: Settlement = Settlement("Testville", (0, 0), [], [], ResourceCollection(), [])
         self.TEST_SETTLEMENT_2: Settlement = Settlement("EvilTown", (5, 5), [], [], ResourceCollection(), [])
         self.TEST_UNIT: Unit = Unit(50, 2, (4, 4), False, deepcopy(UNIT_PLANS[0]))
+        self.TEST_UNIT_2: Unit = Unit(50, 2, (8, 8), False, deepcopy(UNIT_PLANS[0]))
         # The unit plan used is the first one that can heal.
         self.TEST_HEALER_UNIT: Unit = Unit(20, 20, (5, 5), False, deepcopy(UNIT_PLANS[6]))
         # The unit plan used is the first deployer one.
         self.TEST_DEPLOYER_UNIT: DeployerUnit = DeployerUnit(60, 60, (6, 6), False, deepcopy(UNIT_PLANS[9]))
         # The unit plan used is the settler unit plan.
         self.TEST_SETTLER_UNIT: Unit = Unit(5, 5, (7, 7), False, deepcopy(UNIT_PLANS[3]))
+        self.TEST_HEATHEN: Heathen = Heathen(40, 3, (9, 9), get_heathen_plan(0))
         self.TEST_GAME_STATE: GameState = GameState()
         self.TEST_GAME_STATE.players = [
             Player("Uno", Faction.AGRICULTURISTS, 0, settlements=[self.TEST_SETTLEMENT], units=[self.TEST_UNIT]),
             Player("Dos", Faction.FRONTIERSMEN, 1, settlements=[self.TEST_SETTLEMENT_2])
         ]
+        self.TEST_GAME_STATE.heathens = [self.TEST_HEATHEN]
         self.TEST_GAME_CONTROLLER: GameController = GameController()
 
         self.mock_socket: MagicMock = MagicMock()
@@ -1194,6 +1197,145 @@ class EventListenerTest(unittest.TestCase):
         # Since this is a client, no packets should have been forwarded.
         self.mock_socket.sendto.assert_not_called()
 
+    def test_process_attack_unit_event_server(self):
+        """
+        Ensure that the game server correctly processes attack unit events involving other units.
+        """
+        attacking_player: Player = self.TEST_GAME_STATE.players[0]
+        defending_player: Player = self.TEST_GAME_STATE.players[1]
+        defending_player.units.append(self.TEST_UNIT_2)
+        attacker: Unit = attacking_player.units[0]
+        defender: Unit = defending_player.units[0]
+        # Set both units health to 1 so we can simulate both units being killed.
+        attacker.health = 1
+        defender.health = 1
+        test_event: AttackUnitEvent = AttackUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.ATTACK_UNIT,
+                                                      self.TEST_GAME_NAME, attacking_player.faction, attacker.location,
+                                                      defender.location)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # Process our test event.
+        self.request_handler.process_attack_unit_event(test_event, self.mock_socket)
+
+        # Since both units only had 1 health, we expect both to have been killed and removed from their respective
+        # player's units list.
+        self.assertFalse(attacking_player.units)
+        self.assertFalse(defending_player.units)
+        # This information should also have been forwarded by the server just once to the other player.
+        self.mock_socket.sendto.assert_called_once()
+
+    def test_process_attack_unit_event_client(self):
+        """
+        Ensure that game clients correctly process attack unit events involving other units.
+        """
+        # For this test, we actually need an initialised board.
+        self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
+        board: Board = self.TEST_GAME_STATE.board
+        # Simulate that the client is the defending player.
+        self.TEST_GAME_STATE.player_idx = 1
+        board.overlay.toggle_unit = MagicMock()
+        board.overlay.toggle_attack = MagicMock()
+        # Just set the attack time bank to something that isn't zero so we can see it being reset.
+        board.attack_time_bank = 1
+        attacking_player: Player = self.TEST_GAME_STATE.players[0]
+        defending_player: Player = self.TEST_GAME_STATE.players[1]
+        defending_player.units.append(self.TEST_UNIT_2)
+        attacker: Unit = attacking_player.units[0]
+        defender: Unit = defending_player.units[0]
+        # Simulate the defending unit being currently selected on the board so that we can verify that it is unselected
+        # when killed.
+        board.selected_unit = defender
+        # Set both units health to 1 so we can simulate both units being killed.
+        attacker.health = 1
+        defender.health = 1
+        test_event: AttackUnitEvent = AttackUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.ATTACK_UNIT,
+                                                      self.TEST_GAME_NAME, attacking_player.faction, attacker.location,
+                                                      defender.location)
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # Process our test event.
+        self.request_handler.process_attack_unit_event(test_event, self.mock_socket)
+
+        # Since both units only had 1 health, we expect both to have been killed and removed from their respective
+        # player's units list.
+        self.assertFalse(attacking_player.units)
+        self.assertFalse(defending_player.units)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+        # We also expect the board to have been appropriately updated, given the selected unit was killed.
+        self.assertIsNone(board.selected_unit)
+        board.overlay.toggle_unit.assert_called_with(None)
+        board.overlay.toggle_attack.assert_called()
+        self.assertFalse(board.attack_time_bank)
+
+    def test_process_attack_unit_event_heathen_server(self):
+        """
+        Ensure that the game server correctly processes attack unit events involving heathens.
+        """
+        player: Player = self.TEST_GAME_STATE.players[0]
+        attacker: Unit = player.units[0]
+        defender: Heathen = self.TEST_GAME_STATE.heathens[0]
+        # Set the health of both combatants to 1 so we can simulate both being killed.
+        attacker.health = 1
+        defender.health = 1
+        test_event: AttackUnitEvent = AttackUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.ATTACK_UNIT,
+                                                      self.TEST_GAME_NAME, player.faction, attacker.location,
+                                                      defender.location)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # Process our test event.
+        self.request_handler.process_attack_unit_event(test_event, self.mock_socket)
+
+        # Since both combatants only had 1 health, we expect both to have been killed, with the attacker removed from
+        # its player's units and the heathen removed from the game state.
+        self.assertFalse(player.units)
+        self.assertFalse(self.TEST_GAME_STATE.heathens)
+        # This information should also have been forwarded by the server just once to the other player.
+        self.mock_socket.sendto.assert_called_once()
+
+    def test_process_attack_unit_event_heathen_client(self):
+        """
+        Ensure that game clients correctly process attack unit events involving heathens.
+        """
+        # For this test, we actually need an initialised board.
+        self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
+        board: Board = self.TEST_GAME_STATE.board
+        board.overlay.toggle_unit = MagicMock()
+        player: Player = self.TEST_GAME_STATE.players[0]
+        attacker: Unit = player.units[0]
+        defender: Heathen = self.TEST_GAME_STATE.heathens[0]
+        # Simulate the heathen being currently selected on the board so that we can verify that it is unselected
+        # when killed.
+        board.selected_unit = defender
+        # Set the health of both combatants to 1 so we can simulate both being killed.
+        attacker.health = 1
+        defender.health = 1
+        test_event: AttackUnitEvent = AttackUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.ATTACK_UNIT,
+                                                      self.TEST_GAME_NAME, player.faction, attacker.location,
+                                                      defender.location)
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # Process our test event.
+        self.request_handler.process_attack_unit_event(test_event, self.mock_socket)
+
+        # Since both combatants only had 1 health, we expect both to have been killed, with the attacker removed from
+        # its player's units and the heathen removed from the game state.
+        self.assertFalse(player.units)
+        self.assertFalse(self.TEST_GAME_STATE.heathens)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+        # We also expect the board to have been appropriately updated, given the selected heathen was killed.
+        self.assertIsNone(board.selected_unit)
+        board.overlay.toggle_unit.assert_called_with(None)
+
     def test_process_heal_unit_event_server(self):
         """
         Ensure that the game server correctly processes heal unit events.
@@ -1868,6 +2010,43 @@ class EventListenerTest(unittest.TestCase):
         # Our mocked scheduler functions should have been called with the appropriate arguments.
         scheduler.enter.assert_called_with(5, 1, server_listener.run_keepalive, (scheduler,))
         scheduler.run.assert_called()
+
+    @patch.object(Thread, "start", lambda *args: None)
+    @patch("source.networking.event_listener.socket.socket")
+    def test_event_listener_run_keepalive(self, socket_mock: MagicMock):
+        """
+        Ensure that the keepalive is correctly run on the game server.
+        """
+        server_listener: EventListener = EventListener(is_server=True)
+        scheduler: sched.scheduler = server_listener.keepalive_scheduler
+        scheduler.enter = MagicMock()
+        socket_mock_instance: MagicMock = socket_mock.return_value
+        socket_mock_instance.sendto = MagicMock()
+        # Simulate two clients.
+        server_listener.clients = self.mock_server.clients_ref
+        # One client hasn't responded to their last five keepalives, and one is a new client that has no counter.
+        server_listener.keepalive_ctrs = {self.TEST_IDENTIFIER: 5}
+        server_listener.game_clients = self.mock_server.game_clients_ref
+
+        # Run the keepalive.
+        server_listener.run_keepalive(scheduler)
+
+        expected_keepalive_event_bytes: bytes = b'{"type": "KEEPALIVE", "identifier": null}'
+        expected_leave_event_bytes: bytes = (b'{"type": "LEAVE", "identifier": 123, "lobby_name": "My favourite game", '
+                                             b'"leaving_player_faction": null, "player_ai_playstyle": null}')
+        expected_calls = [
+            # We expect a keepalive event packet to have been sent to each client.
+            call(expected_keepalive_event_bytes, (self.TEST_HOST, self.TEST_PORT)),
+            call(expected_keepalive_event_bytes, (self.TEST_HOST_2, self.TEST_PORT_2)),
+            # Subsequently, since the first client has thus not responded to their last six keepalives, we expect the
+            # event listener to have sent a leave event to itself to remove the player who has lost connection.
+            call(expected_leave_event_bytes, ("localhost", 9999))
+        ]
+        self.assertEqual(expected_calls, socket_mock_instance.sendto.mock_calls)
+        # Both keepalive counters should have been incremented.
+        self.assertDictEqual({self.TEST_IDENTIFIER: 6, self.TEST_IDENTIFIER_2: 1}, server_listener.keepalive_ctrs)
+        # The client that lost connection should also have been removed.
+        self.assertNotIn(self.TEST_IDENTIFIER, server_listener.clients)
 
 
 if __name__ == '__main__':

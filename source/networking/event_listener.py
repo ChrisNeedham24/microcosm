@@ -544,18 +544,18 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
         else:
             # When other players receive this attack event, we need to check if they were the player being attacked. If
-            # so, show the attack overlay. Also, if the unit that was attacked was killed, and currently-selected,
-            # deselect it.
+            # so, show the attack overlay.
             if defender[1] is not None and \
                     defender[1].faction == gsrs["local"].players[gsrs["local"].player_idx].faction:
                 data.player_attack = False
-                sel_u = gsrs["local"].board.selected_unit
-                if sel_u is not None and sel_u.location == (evt.defender_loc[0], evt.defender_loc[1]) and \
-                        data.defender_was_killed:
-                    gsrs["local"].board.selected_unit = None
-                    gsrs["local"].board.overlay.toggle_unit(None)
                 gsrs["local"].board.overlay.toggle_attack(data)
                 gsrs["local"].board.attack_time_bank = 0
+            # Also, if the unit that was attacked was killed, and currently-selected, deselect it.
+            sel_u = gsrs["local"].board.selected_unit
+            if sel_u is not None and sel_u.location == (evt.defender_loc[0], evt.defender_loc[1]) and \
+                    data.defender_was_killed:
+                gsrs["local"].board.selected_unit = None
+                gsrs["local"].board.overlay.toggle_unit(None)
 
     def process_attack_settlement_event(self, evt: AttackSettlementEvent, sock: socket.socket):
         """
