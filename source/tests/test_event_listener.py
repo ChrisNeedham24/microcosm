@@ -10,12 +10,13 @@ from unittest.mock import MagicMock, call, patch
 from source.display.board import Board
 from source.display.menu import Menu
 from source.foundation.catalogue import LOBBY_NAMES, PLAYER_NAMES, FACTION_COLOURS, BLESSINGS, PROJECTS, IMPROVEMENTS, \
-    UNIT_PLANS, Namer, get_heathen_plan
+    UNIT_PLANS, Namer, get_heathen_plan, ACHIEVEMENTS
 from source.foundation.models import PlayerDetails, Faction, GameConfig, Player, Settlement, ResourceCollection, \
     OngoingBlessing, Construction, InvestigationResult, Unit, DeployerUnit, Quad, Biome, AIPlaystyle, \
-    ExpansionPlaystyle, AttackPlaystyle, LobbyDetails, Heathen
+    ExpansionPlaystyle, AttackPlaystyle, LobbyDetails, Heathen, Victory, VictoryType
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
+from source.game_management.movemaker import MoveMaker
 from source.networking.event_listener import RequestHandler, MicrocosmServer, EventListener
 from source.networking.events import EventType, RegisterEvent, Event, CreateEvent, InitEvent, UpdateEvent, \
     UpdateAction, QueryEvent, LeaveEvent, JoinEvent, EndTurnEvent, UnreadyEvent, AutofillEvent, SaveEvent, \
@@ -47,8 +48,12 @@ class EventListenerTest(unittest.TestCase):
         constructor actually handles the test event given in the request. Note that we mock out MusicPlayer so that the
         construction of the GameController doesn't try to play the menu music.
         """
-        self.TEST_SETTLEMENT: Settlement = Settlement("Testville", (0, 0), [], [], ResourceCollection(), [])
-        self.TEST_SETTLEMENT_2: Settlement = Settlement("EvilTown", (5, 5), [], [], ResourceCollection(), [])
+        self.TEST_QUAD: Quad = Quad(Biome.FOREST, 0, 0, 0, 0, (0, 0))
+        self.TEST_QUAD_2: Quad = Quad(Biome.MOUNTAIN, 0, 0, 0, 0, (5, 5))
+        self.TEST_SETTLEMENT: Settlement = \
+            Settlement("Testville", (0, 0), [], [self.TEST_QUAD], ResourceCollection(), [])
+        self.TEST_SETTLEMENT_2: Settlement = \
+            Settlement("EvilTown", (5, 5), [], [self.TEST_QUAD_2], ResourceCollection(), [])
         self.TEST_UNIT: Unit = Unit(50, 2, (4, 4), False, deepcopy(UNIT_PLANS[0]))
         self.TEST_UNIT_2: Unit = Unit(50, 2, (8, 8), False, deepcopy(UNIT_PLANS[0]))
         # The unit plan used is the first one that can heal.
@@ -1336,6 +1341,126 @@ class EventListenerTest(unittest.TestCase):
         self.assertIsNone(board.selected_unit)
         board.overlay.toggle_unit.assert_called_with(None)
 
+    def test_process_attack_settlement_event_server(self):
+        """
+        Ensure that the game server correctly processes attack settlement events.
+        """
+        attacking_player: Player = self.TEST_GAME_STATE.players[0]
+        attacking_player.units.append(self.TEST_UNIT_2)
+        attacker: Unit = attacking_player.units[0]
+        sieger: Unit = attacking_player.units[1]
+        defending_player: Player = self.TEST_GAME_STATE.players[1]
+        setl: Settlement = defending_player.settlements[0]
+        # Set the health of the attacking unit to 1 and the strength of the settlement to 2 so we can simulate both the
+        # attacking unit being killed and the settlement being taken.
+        attacker.health = 1
+        setl.strength = 2
+        # Simulate a situation where the attacking player's units were laying siege to the settlement prior to attacking
+        # it, placing them adjacent to the settlement.
+        setl.besieged = True
+        attacker.location = setl.location[0] - 1, setl.location[1]
+        sieger.location = setl.location[0] + 1, setl.location[1]
+        attacker.besieging = True
+        sieger.besieging = True
+        test_event: AttackSettlementEvent = AttackSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                                  UpdateAction.ATTACK_SETTLEMENT, self.TEST_GAME_NAME,
+                                                                  attacking_player.faction, attacker.location,
+                                                                  setl.name)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # The attacking player should have no seen quads initially.
+        self.assertFalse(attacking_player.quads_seen)
+
+        # Process our test event.
+        self.request_handler.process_attack_settlement_event(test_event, self.mock_socket)
+
+        # The attacking unit should have been killed.
+        self.assertNotIn(attacker, attacking_player.units)
+        # The settlement should no longer be besieged since it was taken.
+        self.assertFalse(setl.besieged)
+        # The remaining unit laying siege that did not attack should no longer be doing so, since the settlement was
+        # taken.
+        self.assertFalse(sieger.besieging)
+        # The settlement should have changed hands.
+        self.assertIn(setl, attacking_player.settlements)
+        self.assertFalse(defending_player.settlements)
+        # The attacking player should also now have some seen quads around the settlement.
+        self.assertTrue(attacking_player.quads_seen)
+        # This information should also have been forwarded by the server just once to the other player.
+        self.mock_socket.sendto.assert_called_once()
+
+    def test_process_attack_settlement_event_client(self):
+        """
+        Ensure that game clients correctly process attack settlement events.
+        """
+        # For this test, we actually need an initialised board.
+        self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
+        board: Board = self.TEST_GAME_STATE.board
+        # Simulate that the client is the defending player.
+        self.TEST_GAME_STATE.player_idx = 1
+        board.overlay.toggle_settlement = MagicMock()
+        board.overlay.toggle_setl_attack = MagicMock()
+        # Just set the attack time bank to something that isn't zero so we can see it being reset.
+        board.attack_time_bank = 1
+
+        attacking_player: Player = self.TEST_GAME_STATE.players[0]
+        attacking_player.units.append(self.TEST_UNIT_2)
+        attacker: Unit = attacking_player.units[0]
+        sieger: Unit = attacking_player.units[1]
+        defending_player: Player = self.TEST_GAME_STATE.players[1]
+        setl: Settlement = defending_player.settlements[0]
+        # Simulate the defending settlement being currently selected on the board so that we can verify that it is
+        # unselected when taken.
+        board.selected_settlement = setl
+
+        # Set the health of the attacking unit to 1 and the strength of the settlement to 2 so we can simulate both the
+        # attacking unit being killed and the settlement being taken.
+        attacker.health = 1
+        setl.strength = 2
+        # Simulate a situation where the attacking player's units were laying siege to the settlement prior to attacking
+        # it, placing them adjacent to the settlement.
+        setl.besieged = True
+        attacker.location = setl.location[0] - 1, setl.location[1]
+        sieger.location = setl.location[0] + 1, setl.location[1]
+        attacker.besieging = True
+        sieger.besieging = True
+
+        test_event: AttackSettlementEvent = AttackSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
+                                                                  UpdateAction.ATTACK_SETTLEMENT, self.TEST_GAME_NAME,
+                                                                  attacking_player.faction, attacker.location,
+                                                                  setl.name)
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # The attacking player should have no seen quads initially.
+        self.assertFalse(attacking_player.quads_seen)
+
+        # Process our test event.
+        self.request_handler.process_attack_settlement_event(test_event, self.mock_socket)
+
+        # The attacking unit should have been killed.
+        self.assertNotIn(attacker, attacking_player.units)
+        # The settlement should no longer be besieged since it was taken.
+        self.assertFalse(setl.besieged)
+        # The remaining unit laying siege that did not attack should no longer be doing so, since the settlement was
+        # taken.
+        self.assertFalse(sieger.besieging)
+        # The settlement should have changed hands.
+        self.assertIn(setl, attacking_player.settlements)
+        self.assertFalse(defending_player.settlements)
+        # The attacking player should also now have some seen quads around the settlement.
+        self.assertTrue(attacking_player.quads_seen)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+        # We also expect the board to have been appropriately updated, given the selected settlement was taken.
+        self.assertIsNone(board.selected_settlement)
+        board.overlay.toggle_settlement.assert_called_with(None, defending_player)
+        board.overlay.toggle_setl_attack.assert_called()
+        self.assertFalse(board.attack_time_bank)
+
     def test_process_heal_unit_event_server(self):
         """
         Ensure that the game server correctly processes heal unit events.
@@ -1687,6 +1812,241 @@ class EventListenerTest(unittest.TestCase):
         # There should now be a client with the expected identifier and port.
         self.assertTupleEqual((self.request_handler.client_address[0], test_event.port),
                               self.mock_server.clients_ref[test_event.identifier])
+
+    @patch("source.networking.event_listener.save_game")
+    @patch("random.seed")
+    def test_process_end_turn_event_server(self, random_seed_mock: MagicMock, save_game_mock: MagicMock):
+        """
+        Ensure that the game server correctly processes end turn events.
+        """
+        # For this test, we actually need an initialised board.
+        self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
+        # Reduce the test heathen's stamina and health so we can see them both being replenished.
+        self.TEST_HEATHEN.remaining_stamina = 0
+        self.TEST_HEATHEN.health = 1
+        # Mock out all the more complicated processing methods - testing their logic isn't the point of this test.
+        self.TEST_GAME_STATE.process_player = MagicMock()
+        self.TEST_GAME_STATE.process_climatic_effects = MagicMock()
+        self.TEST_GAME_STATE.process_heathens = MagicMock()
+        self.TEST_GAME_STATE.process_ais = MagicMock()
+        # We have to make sure the main player isn't the only one with a settlement, which would trigger an Elimination
+        # victory.
+        self.TEST_GAME_STATE.players[1].settlements = [self.TEST_SETTLEMENT_2]
+        # Set the turn to 5 so that a heathen will be spawned.
+        self.TEST_GAME_STATE.turn = 5
+        # Simulate a situation in which one player has already ended their turn.
+        self.TEST_GAME_STATE.ready_players = {self.TEST_IDENTIFIER_2}
+        test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
+        # We need a MoveMaker for this test too, since AI players are processed.
+        test_movemaker: MoveMaker = MoveMaker(Namer())
+        self.mock_server.move_makers_ref[self.TEST_GAME_NAME] = test_movemaker
+        self.mock_socket.sendto = MagicMock()
+
+        # Process our test event.
+        self.request_handler.process_end_turn_event(test_event, self.mock_socket)
+
+        # We expect the random number generator to have been seeded with the turn we specified earlier, for
+        # synchronisation purposes.
+        random_seed_mock.assert_called_with(5)
+        # We expect each player to be processed.
+        self.assertEqual(len(self.TEST_GAME_STATE.players), self.TEST_GAME_STATE.process_player.call_count)
+        # We also expect a new heathen to be spawned, and for all existing heathens to have their stamina reset and
+        # their health partly replenished.
+        self.assertEqual(2, len(self.TEST_GAME_STATE.heathens))
+        self.assertTrue(self.TEST_HEATHEN.remaining_stamina)
+        self.assertGreater(self.TEST_HEATHEN.health, 1)
+        # The turn should also be incremented and climatic effects processed, since our test game configuration has them
+        # enabled.
+        self.assertEqual(6, self.TEST_GAME_STATE.turn)
+        self.TEST_GAME_STATE.process_climatic_effects.assert_called_with(reseed_random=False)
+        # Since no victory was achieved, we expect the game to have been autosaved, with heathens and AI players also
+        # processed.
+        save_game_mock.assert_called_with(self.TEST_GAME_STATE, auto=True)
+        self.TEST_GAME_STATE.process_heathens.assert_called()
+        self.TEST_GAME_STATE.process_ais.assert_called_with(test_movemaker)
+        # We also expect all game clients to have been alerted that the turn has ended, not just clients other than the
+        # one that dispatched the event.
+        self.assertEqual(2, len(self.mock_socket.sendto.mock_calls))
+        # The server's ready players should also have been reset, since a new turn has begun.
+        self.assertFalse(self.TEST_GAME_STATE.ready_players)
+
+    @patch("source.networking.event_listener.save_stats_achievements")
+    @patch("random.seed")
+    def test_process_end_turn_event_client_victory(self, random_seed_mock: MagicMock, achievements_mock: MagicMock):
+        """
+        Ensure that game clients correctly process end turn events where the client has achieved a victory.
+        """
+        # For this test, we actually need an initialised board.
+        self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
+        self.TEST_GAME_STATE.board.overlay.remove_warning_if_possible = MagicMock()
+        self.TEST_GAME_STATE.board.overlay.toggle_victory = MagicMock()
+        self.TEST_GAME_STATE.board.overlay.toggle_ach_notif = MagicMock()
+        # If the client is waiting for the server to end the turn, then they will be waiting for other players.
+        self.TEST_GAME_STATE.board.waiting_for_other_players = True
+        # Mock that an achievement is returned when the client wins the game.
+        achievements_mock.return_value = [ACHIEVEMENTS[0]]
+        # Reduce the test heathen's stamina and health so we can see them both being replenished.
+        self.TEST_HEATHEN.remaining_stamina = 0
+        self.TEST_HEATHEN.health = 1
+        # Mock out all the more complicated processing methods - testing their logic isn't the point of this test.
+        self.TEST_GAME_STATE.process_player = MagicMock()
+        self.TEST_GAME_STATE.process_climatic_effects = MagicMock()
+        # Set the turn to 5 so that a heathen will be spawned.
+        self.TEST_GAME_STATE.turn = 5
+        # Remove the other player's settlement to trigger an elimination victory.
+        self.TEST_GAME_STATE.players[1].settlements = []
+        test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # Process our test event.
+        self.request_handler.process_end_turn_event(test_event, self.mock_socket)
+
+        # We expect the random number generator to have been seeded with the turn we specified earlier, for
+        # synchronisation purposes.
+        random_seed_mock.assert_called_with(5)
+        # We expect each player to be processed.
+        self.assertEqual(len(self.TEST_GAME_STATE.players), self.TEST_GAME_STATE.process_player.call_count)
+        # We also expect a new heathen to be spawned, and for all existing heathens to have their stamina reset and
+        # their health partly replenished.
+        self.assertEqual(2, len(self.TEST_GAME_STATE.heathens))
+        self.assertTrue(self.TEST_HEATHEN.remaining_stamina)
+        self.assertGreater(self.TEST_HEATHEN.health, 1)
+        self.TEST_GAME_STATE.board.overlay.remove_warning_if_possible.assert_called()
+        # The turn should also be incremented and climatic effects processed, since our test game configuration has them
+        # enabled.
+        self.assertEqual(6, self.TEST_GAME_STATE.turn)
+        self.TEST_GAME_STATE.process_climatic_effects.assert_called_with(reseed_random=False)
+        # We expect a victory for the first player to have been triggered, with the relevant overlay updates occurring.
+        self.TEST_GAME_STATE.board.overlay.toggle_victory.assert_called_with(Victory(self.TEST_GAME_STATE.players[0],
+                                                                                     VictoryType.ELIMINATION))
+        self.TEST_GAME_STATE.board.overlay.toggle_ach_notif.assert_called_with([ACHIEVEMENTS[0]])
+        # The client should now also no longer be waiting for other players.
+        self.assertFalse(self.TEST_GAME_STATE.board.waiting_for_other_players)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+
+    @patch("source.networking.event_listener.save_stats_achievements")
+    @patch("random.seed")
+    def test_process_end_turn_event_client_defeat(self, random_seed_mock: MagicMock, achievements_mock: MagicMock):
+        """
+        Ensure that game clients correctly process end turn events where another client has achieved a victory.
+        """
+        # For this test, we actually need an initialised board.
+        self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
+        self.TEST_GAME_STATE.board.overlay.remove_warning_if_possible = MagicMock()
+        self.TEST_GAME_STATE.board.overlay.toggle_victory = MagicMock()
+        self.TEST_GAME_STATE.board.overlay.toggle_ach_notif = MagicMock()
+        # If the client is waiting for the server to end the turn, then they will be waiting for other players.
+        self.TEST_GAME_STATE.board.waiting_for_other_players = True
+        # Mock that an achievement is returned when the client is defeated.
+        achievements_mock.return_value = [ACHIEVEMENTS[-3]]
+        # Reduce the test heathen's stamina and health so we can see them both being replenished.
+        self.TEST_HEATHEN.remaining_stamina = 0
+        self.TEST_HEATHEN.health = 1
+        # Mock out all the more complicated processing methods - testing their logic isn't the point of this test.
+        self.TEST_GAME_STATE.process_player = MagicMock()
+        self.TEST_GAME_STATE.process_climatic_effects = MagicMock()
+        # Set the turn to 5 so that a heathen will be spawned.
+        self.TEST_GAME_STATE.turn = 5
+        # Give the other player sufficient accumulated wealth to trigger an affluence victory.
+        self.TEST_GAME_STATE.players[1].accumulated_wealth = 100000
+        test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # Process our test event.
+        self.request_handler.process_end_turn_event(test_event, self.mock_socket)
+
+        # We expect the random number generator to have been seeded with the turn we specified earlier, for
+        # synchronisation purposes.
+        random_seed_mock.assert_called_with(5)
+        # We expect each player to be processed.
+        self.assertEqual(len(self.TEST_GAME_STATE.players), self.TEST_GAME_STATE.process_player.call_count)
+        # We also expect a new heathen to be spawned, and for all existing heathens to have their stamina reset and
+        # their health partly replenished.
+        self.assertEqual(2, len(self.TEST_GAME_STATE.heathens))
+        self.assertTrue(self.TEST_HEATHEN.remaining_stamina)
+        self.assertGreater(self.TEST_HEATHEN.health, 1)
+        self.TEST_GAME_STATE.board.overlay.remove_warning_if_possible.assert_called()
+        # The turn should also be incremented and climatic effects processed, since our test game configuration has them
+        # enabled.
+        self.assertEqual(6, self.TEST_GAME_STATE.turn)
+        self.TEST_GAME_STATE.process_climatic_effects.assert_called_with(reseed_random=False)
+        # We expect a victory for the second player to have been triggered, with the relevant overlay updates occurring.
+        self.TEST_GAME_STATE.board.overlay.toggle_victory.assert_called_with(Victory(self.TEST_GAME_STATE.players[1],
+                                                                                     VictoryType.AFFLUENCE))
+        self.TEST_GAME_STATE.board.overlay.toggle_ach_notif.assert_called_with([ACHIEVEMENTS[-3]])
+        # The client should now also no longer be waiting for other players.
+        self.assertFalse(self.TEST_GAME_STATE.board.waiting_for_other_players)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+
+    @patch("source.networking.event_listener.save_stats_achievements")
+    @patch("random.seed")
+    def test_process_end_turn_event_client_no_victory(self, random_seed_mock: MagicMock, achievements_mock: MagicMock):
+        """
+        Ensure that game clients correctly process end turn events where no victory is achieved.
+        """
+        # For this test, we actually need an initialised board.
+        self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
+        self.TEST_GAME_STATE.board.overlay.remove_warning_if_possible = MagicMock()
+        self.TEST_GAME_STATE.board.overlay.toggle_ach_notif = MagicMock()
+        # If the client is waiting for the server to end the turn, then they will be waiting for other players.
+        self.TEST_GAME_STATE.board.waiting_for_other_players = True
+        # Mock that an achievement is returned when the next turn begins.
+        achievements_mock.return_value = [ACHIEVEMENTS[2]]
+        # Reduce the test heathen's stamina and health so we can see them both being replenished.
+        self.TEST_HEATHEN.remaining_stamina = 0
+        self.TEST_HEATHEN.health = 1
+        # Mock out all the more complicated processing methods - testing their logic isn't the point of this test.
+        self.TEST_GAME_STATE.process_player = MagicMock()
+        self.TEST_GAME_STATE.process_climatic_effects = MagicMock()
+        self.TEST_GAME_STATE.process_heathens = MagicMock()
+        self.TEST_GAME_STATE.process_ais = MagicMock()
+        # Set the turn to 5 so that a heathen will be spawned.
+        self.TEST_GAME_STATE.turn = 5
+        # Set an initial last turn time so we can see it being updated later.
+        initial_last_turn_time: float = 0
+        self.TEST_GAME_CONTROLLER.last_turn_time = initial_last_turn_time
+        test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+        self.mock_socket.sendto = MagicMock()
+
+        # Process our test event.
+        self.request_handler.process_end_turn_event(test_event, self.mock_socket)
+
+        # We expect the random number generator to have been seeded with the turn we specified earlier, for
+        # synchronisation purposes.
+        random_seed_mock.assert_called_with(5)
+        # We expect each player to be processed.
+        self.assertEqual(len(self.TEST_GAME_STATE.players), self.TEST_GAME_STATE.process_player.call_count)
+        # We also expect a new heathen to be spawned, and for all existing heathens to have their stamina reset and
+        # their health partly replenished.
+        self.assertEqual(2, len(self.TEST_GAME_STATE.heathens))
+        self.assertTrue(self.TEST_HEATHEN.remaining_stamina)
+        self.assertGreater(self.TEST_HEATHEN.health, 1)
+        self.TEST_GAME_STATE.board.overlay.remove_warning_if_possible.assert_called()
+        # The turn should also be incremented and climatic effects processed, since our test game configuration has them
+        # enabled.
+        self.assertEqual(6, self.TEST_GAME_STATE.turn)
+        self.TEST_GAME_STATE.process_climatic_effects.assert_called_with(reseed_random=False)
+        self.assertGreater(self.TEST_GAME_CONTROLLER.last_turn_time, initial_last_turn_time)
+        # The relevant overlay related updates should have occurred.
+        self.TEST_GAME_STATE.board.overlay.toggle_ach_notif.assert_called_with([ACHIEVEMENTS[2]])
+        self.assertEqual(2, self.TEST_GAME_STATE.board.overlay.total_settlement_count)
+        # Since the game is continuing, we expect the turns for heathens and AI players to have been processed.
+        self.TEST_GAME_STATE.process_heathens.assert_called()
+        self.TEST_GAME_STATE.process_ais.assert_called_with(self.TEST_GAME_CONTROLLER.move_maker)
+        # The client should now also no longer be waiting for other players.
+        self.assertFalse(self.TEST_GAME_STATE.board.waiting_for_other_players)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
 
     def test_process_unready_event(self):
         """
@@ -2047,6 +2407,38 @@ class EventListenerTest(unittest.TestCase):
         self.assertDictEqual({self.TEST_IDENTIFIER: 6, self.TEST_IDENTIFIER_2: 1}, server_listener.keepalive_ctrs)
         # The client that lost connection should also have been removed.
         self.assertNotIn(self.TEST_IDENTIFIER, server_listener.clients)
+
+    @patch.object(Thread, "start", lambda *args: None)
+    @patch("socketserver.UDPServer")
+    def test_event_listener_run_server(self, udp_server_mock: MagicMock):
+        """
+        Ensure that the game server is correctly run, serving forever.
+        """
+        udp_server_mock_instance: MagicMock = udp_server_mock.return_value
+        mock_entered_server: MagicMock = MagicMock()
+        mock_entered_server.serve_forever = MagicMock()
+        # Because the created UDPServer is used within a context manager, we need to mock what the with statement
+        # returns. In this case, it is simply a mock object that will have attributes set and then called to serve
+        # forever.
+        udp_server_mock_instance.__enter__.return_value = mock_entered_server
+
+        server_listener: EventListener = EventListener(is_server=True)
+        server_listener.run()
+
+        # We expect the UDP server itself to have been created with the correct port.
+        udp_server_mock.assert_called_with(("0.0.0.0", 9999), RequestHandler)
+        # The expected state variables for the game server should have been passed down as references to the UDP server.
+        self.assertFalse(mock_entered_server.game_states_ref)
+        self.assertFalse(mock_entered_server.namers_ref)
+        self.assertFalse(mock_entered_server.move_makers_ref)
+        self.assertTrue(mock_entered_server.is_server_ref)
+        self.assertIsNone(mock_entered_server.game_controller_ref)
+        self.assertFalse(mock_entered_server.game_clients_ref)
+        self.assertFalse(mock_entered_server.lobbies_ref)
+        self.assertFalse(mock_entered_server.clients_ref)
+        self.assertFalse(mock_entered_server.keepalive_ctrs_ref)
+        # The UDP server should serve forever after it receives the state references.
+        mock_entered_server.serve_forever.assert_called()
 
 
 if __name__ == '__main__':
