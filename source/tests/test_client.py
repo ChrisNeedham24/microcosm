@@ -18,7 +18,7 @@ class ClientTest(unittest.TestCase):
         socket_mock_instance: MagicMock = socket_mock.return_value
         test_event: Event = Event(EventType.REGISTER, 123)
         dispatch_event(test_event)
-        socket_mock_instance.sendto.assert_called_with(b'{"type": "REGISTER", "identifier": 123}', (HOST, PORT))
+        socket_mock_instance.sendto.assert_called_with(b'{"type":"REGISTER","identifier":123}', (HOST, PORT))
 
     @patch("uuid.getnode")
     @patch("os.getpid")

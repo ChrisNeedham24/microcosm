@@ -1,3 +1,4 @@
+import datetime
 import json
 import sched
 import socket
@@ -17,6 +18,7 @@ from source.foundation.models import PlayerDetails, Faction, GameConfig, Player,
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
+from source.networking.client import HOST, PORT
 from source.networking.event_listener import RequestHandler, MicrocosmServer, EventListener
 from source.networking.events import EventType, RegisterEvent, Event, CreateEvent, InitEvent, UpdateEvent, \
     UpdateAction, QueryEvent, LeaveEvent, JoinEvent, EndTurnEvent, UnreadyEvent, AutofillEvent, SaveEvent, \
@@ -370,7 +372,6 @@ class EventListenerTest(unittest.TestCase):
                                                                 player.faction, new_setl, from_settler=True)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
         namer: Namer = Namer()
         namer.remove_settlement_name = MagicMock()
         self.mock_server.namers_ref[self.TEST_GAME_NAME] = namer
@@ -412,7 +413,6 @@ class EventListenerTest(unittest.TestCase):
                                                                 player.faction, new_setl, from_settler=True)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
         self.mock_server.game_controller_ref.namer.remove_settlement_name = MagicMock()
 
         # The player should only have the one settlement to begin with.
@@ -445,7 +445,6 @@ class EventListenerTest(unittest.TestCase):
                                                         Faction.AGRICULTURISTS, OngoingBlessing(BLESSINGS["beg_spl"]))
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The player with the same faction as the event should have no ongoing blessing to begin with.
         self.assertIsNone(self.TEST_GAME_STATE.players[0].ongoing_blessing)
@@ -467,7 +466,6 @@ class EventListenerTest(unittest.TestCase):
                                                         Faction.AGRICULTURISTS, OngoingBlessing(BLESSINGS["beg_spl"]))
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The player with the same faction as the event should have no ongoing blessing to begin with.
         self.assertIsNone(self.TEST_GAME_STATE.players[0].ongoing_blessing)
@@ -493,7 +491,6 @@ class EventListenerTest(unittest.TestCase):
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
         player: Player = self.TEST_GAME_STATE.players[0]
-        self.mock_socket.sendto = MagicMock()
 
         self.assertFalse(player.resources)
         # The settlement should have no current work to begin with.
@@ -533,7 +530,6 @@ class EventListenerTest(unittest.TestCase):
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
         player: Player = self.TEST_GAME_STATE.players[0]
-        self.mock_socket.sendto = MagicMock()
 
         self.assertFalse(player.resources)
         # The settlement should have no current work to begin with.
@@ -570,7 +566,6 @@ class EventListenerTest(unittest.TestCase):
                                                   self.TEST_GAME_NAME, player.faction, unit.location, (6, 6), 0, True)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The player should have no seen quads to begin with. We could also assert on the unit's attributes, but since
         # we control that anyway, there's no point.
@@ -598,7 +593,6 @@ class EventListenerTest(unittest.TestCase):
                                                   self.TEST_GAME_NAME, player.faction, unit.location, (6, 6), 0, True)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The player should have no seen quads to begin with. We could also assert on the unit's attributes, but since
         # we control that anyway, there's no point.
@@ -630,7 +624,6 @@ class EventListenerTest(unittest.TestCase):
                                                       self.TEST_GAME_NAME, player.faction, setl.name, (7, 7))
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The player should have no seen quads or deployed units initially.
         self.assertFalse(player.quads_seen)
@@ -663,7 +656,6 @@ class EventListenerTest(unittest.TestCase):
                                                       self.TEST_GAME_NAME, player.faction, setl.name, (7, 7))
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The player should have no seen quads or deployed units initially.
         self.assertFalse(player.quads_seen)
@@ -694,7 +686,6 @@ class EventListenerTest(unittest.TestCase):
                                                           player.faction, unit.location, 1, setl.name)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The unit should be deployed and the settlement's garrison should be empty to begin with.
         self.assertFalse(unit.garrisoned)
@@ -725,7 +716,6 @@ class EventListenerTest(unittest.TestCase):
                                                           player.faction, unit.location, 1, setl.name)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The unit should be deployed and the settlement's garrison should be empty to begin with.
         self.assertFalse(unit.garrisoned)
@@ -763,7 +753,6 @@ class EventListenerTest(unittest.TestCase):
                                                         unit.location, relic_loc, InvestigationResult.NONE)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         relic_quad.is_relic = True
         # Testing the fortune investigation result.
@@ -913,7 +902,6 @@ class EventListenerTest(unittest.TestCase):
                                                         unit.location, relic_loc, InvestigationResult.NONE)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         relic_quad.is_relic = True
         # Testing the fortune investigation result.
@@ -1047,7 +1035,6 @@ class EventListenerTest(unittest.TestCase):
                                                                     unit.location, setl.name)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # Neither the unit nor the settlement should be in a siege situation.
         self.assertFalse(unit.besieging)
@@ -1075,7 +1062,6 @@ class EventListenerTest(unittest.TestCase):
                                                                     unit.location, setl.name)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # Neither the unit nor the settlement should be in a siege situation.
         self.assertFalse(unit.besieging)
@@ -1104,7 +1090,6 @@ class EventListenerTest(unittest.TestCase):
                                                                       player_wealth=1)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The settlement should have no improvements prior to buying out the construction.
         self.assertFalse(setl.improvements)
@@ -1134,7 +1119,6 @@ class EventListenerTest(unittest.TestCase):
                                                                       player_wealth=1)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The settlement should have no improvements prior to buying out the construction.
         self.assertFalse(setl.improvements)
@@ -1161,7 +1145,6 @@ class EventListenerTest(unittest.TestCase):
                                                         unit.location)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The player should have no wealth to begin with.
         self.assertFalse(player.wealth)
@@ -1187,7 +1170,6 @@ class EventListenerTest(unittest.TestCase):
                                                         unit.location)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The player should have no wealth to begin with.
         self.assertFalse(player.wealth)
@@ -1219,7 +1201,6 @@ class EventListenerTest(unittest.TestCase):
                                                       defender.location)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # Process our test event.
         self.request_handler.process_attack_unit_event(test_event, self.mock_socket)
@@ -1260,7 +1241,6 @@ class EventListenerTest(unittest.TestCase):
                                                       defender.location)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # Process our test event.
         self.request_handler.process_attack_unit_event(test_event, self.mock_socket)
@@ -1292,7 +1272,6 @@ class EventListenerTest(unittest.TestCase):
                                                       defender.location)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # Process our test event.
         self.request_handler.process_attack_unit_event(test_event, self.mock_socket)
@@ -1326,7 +1305,6 @@ class EventListenerTest(unittest.TestCase):
                                                       defender.location)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # Process our test event.
         self.request_handler.process_attack_unit_event(test_event, self.mock_socket)
@@ -1368,7 +1346,6 @@ class EventListenerTest(unittest.TestCase):
                                                                   setl.name)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The attacking player should have no seen quads initially.
         self.assertFalse(attacking_player.quads_seen)
@@ -1433,7 +1410,6 @@ class EventListenerTest(unittest.TestCase):
                                                                   setl.name)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The attacking player should have no seen quads initially.
         self.assertFalse(attacking_player.quads_seen)
@@ -1475,7 +1451,6 @@ class EventListenerTest(unittest.TestCase):
                                                   self.TEST_GAME_NAME, player.faction, healer.location, healed.location)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The healer should not have acted prior to the event being processed.
         self.assertFalse(healer.has_acted)
@@ -1504,7 +1479,6 @@ class EventListenerTest(unittest.TestCase):
                                                   self.TEST_GAME_NAME, player.faction, healer.location, healed.location)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The healer should not have acted prior to the event being processed.
         self.assertFalse(healer.has_acted)
@@ -1534,7 +1508,6 @@ class EventListenerTest(unittest.TestCase):
                                                             new_stamina=0)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The deployer unit should have no passengers to begin with, and the player should have both it and another unit
         # deployed on the board.
@@ -1568,7 +1541,6 @@ class EventListenerTest(unittest.TestCase):
                                                             new_stamina=0)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The deployer unit should have no passengers to begin with, and the player should have both it and another unit
         # deployed on the board.
@@ -1602,7 +1574,6 @@ class EventListenerTest(unittest.TestCase):
                                                               deployed_loc=(10, 10))
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The player should not have seen any quads initially.
         self.assertFalse(player.quads_seen)
@@ -1635,7 +1606,6 @@ class EventListenerTest(unittest.TestCase):
                                                               deployed_loc=(10, 10))
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # The player should not have seen any quads initially.
         self.assertFalse(player.quads_seen)
@@ -1670,7 +1640,6 @@ class EventListenerTest(unittest.TestCase):
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
         self.mock_server.lobbies_ref[self.TEST_GAME_NAME] = three_player_conf
-        self.mock_socket.sendto = MagicMock()
 
         # Process our test event.
         self.request_handler.process_query_event(test_event, self.mock_socket)
@@ -1704,7 +1673,6 @@ class EventListenerTest(unittest.TestCase):
         test_event: QueryEvent = QueryEvent(EventType.QUERY, self.TEST_IDENTIFIER,
                                             lobbies=[test_lobby])
         self.mock_server.is_server = False
-        self.mock_socket.sendto = MagicMock()
         menu: Menu = self.mock_server.game_controller_ref.menu
 
         # The client should have no lobbies present initially, and thus should not be viewing them.
@@ -1731,7 +1699,6 @@ class EventListenerTest(unittest.TestCase):
         test_event: LeaveEvent = LeaveEvent(EventType.LEAVE, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
         self.mock_server.is_server = True
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
         leaving_player: Player = self.TEST_GAME_STATE.players[0]
         other_player_details: PlayerDetails = self.mock_server.game_clients_ref[self.TEST_GAME_NAME][1]
         # Mock out the end turn function since there's really no need to test it here.
@@ -1842,7 +1809,6 @@ class EventListenerTest(unittest.TestCase):
         # We need a MoveMaker for this test too, since AI players are processed.
         test_movemaker: MoveMaker = MoveMaker(Namer())
         self.mock_server.move_makers_ref[self.TEST_GAME_NAME] = test_movemaker
-        self.mock_socket.sendto = MagicMock()
 
         # Process our test event.
         self.request_handler.process_end_turn_event(test_event, self.mock_socket)
@@ -1900,7 +1866,6 @@ class EventListenerTest(unittest.TestCase):
         test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # Process our test event.
         self.request_handler.process_end_turn_event(test_event, self.mock_socket)
@@ -1957,7 +1922,6 @@ class EventListenerTest(unittest.TestCase):
         test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # Process our test event.
         self.request_handler.process_end_turn_event(test_event, self.mock_socket)
@@ -2016,7 +1980,6 @@ class EventListenerTest(unittest.TestCase):
         test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
-        self.mock_socket.sendto = MagicMock()
 
         # Process our test event.
         self.request_handler.process_end_turn_event(test_event, self.mock_socket)
@@ -2086,7 +2049,6 @@ class EventListenerTest(unittest.TestCase):
         # When created, we expect our AI player to have the following attributes.
         expected_ai_player: Player = Player(ai_player_name, ai_faction, FACTION_COLOURS[ai_faction],
                                             ai_playstyle=ai_playstyle)
-        self.mock_socket.sendto = MagicMock()
 
         # Process our test event.
         self.request_handler.process_autofill_event(test_event, self.mock_socket)
@@ -2116,7 +2078,6 @@ class EventListenerTest(unittest.TestCase):
         menu: Menu = self.mock_server.game_controller_ref.menu
         menu.multiplayer_lobby = \
             LobbyDetails("Cool", self.mock_server.game_clients_ref[self.TEST_GAME_NAME], three_player_conf, None)
-        self.mock_socket.sendto = MagicMock()
 
         # Process our test event.
         self.request_handler.process_autofill_event(test_event, self.mock_socket)
@@ -2149,7 +2110,6 @@ class EventListenerTest(unittest.TestCase):
         get_saves_mock.return_value = test_saves
         test_event: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, self.TEST_IDENTIFIER)
         self.mock_server.is_server = True
-        self.mock_socket.sendto = MagicMock()
 
         # Process our test event.
         self.request_handler.process_query_saves_event(test_event, self.mock_socket)
@@ -2168,7 +2128,6 @@ class EventListenerTest(unittest.TestCase):
         test_event: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, self.TEST_IDENTIFIER,
                                                       saves=["abc", "123"])
         self.mock_server.is_server = False
-        self.mock_socket.sendto = MagicMock()
 
         # The client's menu should have no saves, nor should it be loading a game, to begin with.
         self.assertFalse(self.mock_server.game_controller_ref.menu.saves)
@@ -2337,7 +2296,8 @@ class EventListenerTest(unittest.TestCase):
         Ensure that event listeners are correctly constructed for clients.
         """
         test_game_states: Dict[str, GameState] = {"local": self.TEST_GAME_STATE}
-        client_listener: EventListener = EventListener(game_states=test_game_states,
+        client_listener: EventListener = EventListener(is_server=False,
+                                                       game_states=test_game_states,
                                                        game_controller=self.TEST_GAME_CONTROLLER)
 
         # Most state variables should be empty, but the game states and game controller provided in the constructor
@@ -2381,7 +2341,6 @@ class EventListenerTest(unittest.TestCase):
         scheduler: sched.scheduler = server_listener.keepalive_scheduler
         scheduler.enter = MagicMock()
         socket_mock_instance: MagicMock = socket_mock.return_value
-        socket_mock_instance.sendto = MagicMock()
         # Simulate two clients.
         server_listener.clients = self.mock_server.clients_ref
         # One client hasn't responded to their last five keepalives, and one is a new client that has no counter.
@@ -2416,7 +2375,6 @@ class EventListenerTest(unittest.TestCase):
         """
         udp_server_mock_instance: MagicMock = udp_server_mock.return_value
         mock_entered_server: MagicMock = MagicMock()
-        mock_entered_server.serve_forever = MagicMock()
         # Because the created UDPServer is used within a context manager, we need to mock what the with statement
         # returns. In this case, it is simply a mock object that will have attributes set and then called to serve
         # forever.
@@ -2431,13 +2389,90 @@ class EventListenerTest(unittest.TestCase):
         self.assertFalse(mock_entered_server.game_states_ref)
         self.assertFalse(mock_entered_server.namers_ref)
         self.assertFalse(mock_entered_server.move_makers_ref)
-        self.assertTrue(mock_entered_server.is_server_ref)
+        self.assertTrue(mock_entered_server.is_server)
         self.assertIsNone(mock_entered_server.game_controller_ref)
         self.assertFalse(mock_entered_server.game_clients_ref)
         self.assertFalse(mock_entered_server.lobbies_ref)
         self.assertFalse(mock_entered_server.clients_ref)
         self.assertFalse(mock_entered_server.keepalive_ctrs_ref)
         # The UDP server should serve forever after it receives the state references.
+        mock_entered_server.serve_forever.assert_called()
+
+    @patch.object(Thread, "start", lambda *args: None)
+    @patch("source.networking.event_listener.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("socket.socket")
+    @patch("source.networking.event_listener.UPnP")
+    @patch("socketserver.UDPServer")
+    def test_event_listener_run_client(self,
+                                       udp_server_mock: MagicMock,
+                                       upnp_mock: MagicMock,
+                                       socket_mock: MagicMock,
+                                       _: MagicMock):
+        """
+        Ensure that event listeners are correctly run for clients with UPnP available, serving forever.
+        """
+        # Set up a few test networking constants.
+        test_port: int = 9999
+        test_private_ip: str = "127.0.0.1"
+        test_mapping_number: int = 1
+        udp_server_mock_instance: MagicMock = udp_server_mock.return_value
+        mock_entered_server: MagicMock = MagicMock()
+        # Set the local listener's server address so that the UPnP mapping can be added correctly.
+        mock_entered_server.server_address = test_private_ip, test_port
+        # Because the created UDPServer is used within a context manager, we need to mock what the with statement
+        # returns. In this case, it is simply a mock object that will have attributes set and then called to serve
+        # forever.
+        udp_server_mock_instance.__enter__.return_value = mock_entered_server
+        upnp_mock_instance: MagicMock = upnp_mock.return_value
+        # Mock out the existing UPnP port mappings to have just one. Note that the date used will always be prior to the
+        # current date.
+        upnp_mock_instance.getgenericportmapping = \
+            MagicMock(side_effect=[(test_mapping_number, "UDP", (test_private_ip, 1),
+                                    "Microcosm 1970-01-01", "1", "", test_port), None])
+        socket_mock_instance: MagicMock = socket_mock.return_value
+        # Mock out the call to retrieve the client's private IP.
+        socket_mock_instance.getsockname = MagicMock(return_value=(test_private_ip,))
+        # Pass through the test game state and controller, as we do for client listeners.
+        test_game_states: Dict[str, GameState] = {"local": self.TEST_GAME_STATE}
+        client_listener: EventListener = EventListener(is_server=False,
+                                                       game_states=test_game_states,
+                                                       game_controller=self.TEST_GAME_CONTROLLER)
+
+        # Before the listener is run, the menu should still say that it's 'Connecting to server...'.
+        self.assertFalse(self.TEST_GAME_CONTROLLER.menu.upnp_enabled)
+
+        # Run the event listener.
+        client_listener.run()
+
+        # We expect the UDP server itself to have been created with the correct port.
+        udp_server_mock.assert_called_with(("0.0.0.0", 0), RequestHandler)
+        # We expect the correct UPnP setup to have occurred, discovering and selecting from the available UPnP devices
+        # on the network.
+        upnp_mock_instance.discover.assert_called()
+        upnp_mock_instance.selectigd.assert_called()
+        # Because our mocked-out UPnP port mapping was from 1970, and because it was for the local machine, we expect it
+        # to have been deleted.
+        upnp_mock_instance.deleteportmapping.assert_called_with(test_mapping_number, "UDP")
+        # We then expect a new mapping to have been added with the appropriate networking details and date.
+        upnp_mock_instance.addportmapping.assert_called_with(test_port, "UDP", test_private_ip,
+                                                             test_port, f"Microcosm {datetime.date.today()}", "")
+        # With the UPnP setup done, the client should then send off a packet to the game server alerting it that the
+        # client will be sending more requests.
+        socket_mock_instance.sendto.assert_called_with(self.TEST_EVENT_BYTES, (HOST, PORT))
+        # The main menu should also now be shown.
+        self.assertTrue(self.TEST_GAME_CONTROLLER.menu.upnp_enabled)
+        # The expected state variables for the client listener should have been passed down as references to the UDP
+        # server.
+        self.assertEqual(test_game_states, mock_entered_server.game_states_ref)
+        self.assertFalse(mock_entered_server.namers_ref)
+        self.assertFalse(mock_entered_server.move_makers_ref)
+        self.assertFalse(mock_entered_server.is_server)
+        self.assertEqual(self.TEST_GAME_CONTROLLER, mock_entered_server.game_controller_ref)
+        self.assertFalse(mock_entered_server.game_clients_ref)
+        self.assertFalse(mock_entered_server.lobbies_ref)
+        self.assertFalse(mock_entered_server.clients_ref)
+        self.assertFalse(mock_entered_server.keepalive_ctrs_ref)
+        # Lastly, the UDP server should serve forever after it receives the state references.
         mock_entered_server.serve_forever.assert_called()
 
 

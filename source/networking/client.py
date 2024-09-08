@@ -18,7 +18,7 @@ def dispatch_event(evt: Event):
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     # We use SaveEncoder here too for the same custom JSON output as with game saves.
-    evt_json: str = json.dumps(evt, cls=SaveEncoder)
+    evt_json: str = json.dumps(evt, separators=(",", ":"), cls=SaveEncoder)
     sock.sendto(evt_json.encode(), (HOST, PORT))
 
 
