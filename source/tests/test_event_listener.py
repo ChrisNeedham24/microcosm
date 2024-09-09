@@ -279,6 +279,59 @@ class EventListenerTest(unittest.TestCase):
         self.assertIsNone(gc.menu.multiplayer_lobby.current_turn)
         gc.namer.reset.assert_called()
 
+    @patch("random.seed")
+    def test_process_init_event_server(self, random_seed_mock: MagicMock):
+        """
+        Ensure that the game server correctly processes init events.
+        """
+        test_event: InitEvent = InitEvent(EventType.INIT, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
+        self.mock_server.is_server = True
+        gs: GameState = self.TEST_GAME_STATE
+        # Add an AI player so we can see how its initialised settlement details are forwarded to the clients.
+        ai_player: Player = Player("Mr. Roboto", Faction.FUNDAMENTALISTS, 2,
+                                   ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
+        gs.players.append(ai_player)
+        # Initialise some game state variables to mostly nonsensical values - all that matters is that these are
+        # appropriately changed.
+        gs.turn = 2
+        gs.until_night = 0
+        gs.nighttime_left = 1
+        gs.on_menu = True
+        # Pass the necessary references down to the server.
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = gs
+        test_namer: Namer = Namer()
+        self.mock_server.namers_ref[self.TEST_GAME_NAME] = test_namer
+        test_move_maker: MoveMaker = MoveMaker(test_namer)
+        self.mock_server.move_makers_ref[self.TEST_GAME_NAME] = test_move_maker
+
+        # As a fresh game state, initially the game should not be started and the board should be None, as should its
+        # reference in the MoveMaker.
+        self.assertFalse(gs.game_started)
+        self.assertIsNone(gs.board)
+        self.assertIsNone(test_move_maker.board_ref)
+
+        # Process our test event.
+        self.request_handler.process_init_event(test_event, self.mock_socket)
+
+        # The game state should have been initialised in the standard fashion.
+        self.assertTrue(gs.game_started)
+        self.assertEqual(1, gs.turn)
+        random_seed_mock.assert_called()
+        self.assertTrue(10 <= gs.until_night <= 20)
+        self.assertFalse(gs.nighttime_left)
+        self.assertFalse(gs.on_menu)
+        self.assertIsNotNone(gs.board)
+        self.assertEqual(gs.board, test_move_maker.board_ref)
+        # We expect each client to have been notified of the location of the AI player's settlement.
+        ai_update_settlement_packets = \
+            [c for c in self.mock_socket.sendto.mock_calls if json.loads(c.args[0])["type"] == EventType.UPDATE]
+        self.assertEqual(2, len(ai_update_settlement_packets))
+        # We also expect each client to have been sent the quad details for the board. The board has 9000 quads and each
+        # packet has 100 quads. As such, we expect 90 packets to have been sent to each client.
+        quad_init_packets = \
+            [c for c in self.mock_socket.sendto.mock_calls if json.loads(c.args[0])["type"] == EventType.INIT]
+        self.assertEqual(180, len(quad_init_packets))
+
     def test_process_update_event(self):
         """
         Ensure that updated events are correctly assigned to the correct process method based on their action.
@@ -2403,11 +2456,11 @@ class EventListenerTest(unittest.TestCase):
     @patch("socket.socket")
     @patch("source.networking.event_listener.UPnP")
     @patch("socketserver.UDPServer")
-    def test_event_listener_run_client(self,
-                                       udp_server_mock: MagicMock,
-                                       upnp_mock: MagicMock,
-                                       socket_mock: MagicMock,
-                                       _: MagicMock):
+    def test_event_listener_run_client_with_upnp(self,
+                                                 udp_server_mock: MagicMock,
+                                                 upnp_mock: MagicMock,
+                                                 socket_mock: MagicMock,
+                                                 _: MagicMock):
         """
         Ensure that event listeners are correctly run for clients with UPnP available, serving forever.
         """
@@ -2439,7 +2492,7 @@ class EventListenerTest(unittest.TestCase):
                                                        game_controller=self.TEST_GAME_CONTROLLER)
 
         # Before the listener is run, the menu should still say that it's 'Connecting to server...'.
-        self.assertFalse(self.TEST_GAME_CONTROLLER.menu.upnp_enabled)
+        self.assertIsNone(self.TEST_GAME_CONTROLLER.menu.upnp_enabled)
 
         # Run the event listener.
         client_listener.run()
@@ -2474,6 +2527,54 @@ class EventListenerTest(unittest.TestCase):
         self.assertFalse(mock_entered_server.keepalive_ctrs_ref)
         # Lastly, the UDP server should serve forever after it receives the state references.
         mock_entered_server.serve_forever.assert_called()
+
+    @patch.object(Thread, "start", lambda *args: None)
+    @patch("socket.socket")
+    @patch("source.networking.event_listener.UPnP")
+    @patch("socketserver.UDPServer")
+    def test_event_listener_run_client_without_upnp(self,
+                                                    udp_server_mock: MagicMock,
+                                                    upnp_mock: MagicMock,
+                                                    socket_mock: MagicMock):
+        """
+        Ensure that event listeners are correctly run for clients with UPnP unavailable, not serving at all.
+        """
+        udp_server_mock_instance: MagicMock = udp_server_mock.return_value
+        mock_entered_server: MagicMock = MagicMock()
+        # Because the created UDPServer is used within a context manager, we need to mock what the with statement
+        # returns. In this case, it is simply a mock object that will be unmodified since UPnP is unavailable.
+        udp_server_mock_instance.__enter__.return_value = mock_entered_server
+        upnp_mock_instance: MagicMock = upnp_mock.return_value
+        # When there are no available UPnP devices on the client's network, then the selectigd() function will raise an
+        # Exception - we mock that here.
+        upnp_mock_instance.selectigd.side_effect = Exception()
+        socket_mock_instance: MagicMock = socket_mock.return_value
+        # Pass through the test game state and controller, as we do for client listeners.
+        test_game_states: Dict[str, GameState] = {"local": self.TEST_GAME_STATE}
+        client_listener: EventListener = EventListener(is_server=False,
+                                                       game_states=test_game_states,
+                                                       game_controller=self.TEST_GAME_CONTROLLER)
+
+        # Before the listener is run, the menu should still say that it's 'Connecting to server...'.
+        self.assertIsNone(self.TEST_GAME_CONTROLLER.menu.upnp_enabled)
+
+        # Run the event listener.
+        client_listener.run()
+
+        # We expect the UDP server itself to have been created with the correct port.
+        udp_server_mock.assert_called_with(("0.0.0.0", 0), RequestHandler)
+        # We expect UPnP setup to have been attempted, however in our simulation, no devices were discovered and so an
+        # Exception was raised.
+        upnp_mock_instance.discover.assert_called()
+        upnp_mock_instance.selectigd.assert_called()
+        # Because UPnP initialisation failed, we expect no mappings to be deleted nor added.
+        upnp_mock_instance.deleteportmapping.assert_not_called()
+        upnp_mock_instance.addportmapping.assert_not_called()
+        # Similarly, the client should not have sent a packet to the game server since it will not be able to receive
+        # any.
+        socket_mock_instance.sendto.assert_not_called()
+        # Thus, we expect the menu to now be displayed, but with multiplayer features disabled.
+        self.assertFalse(self.TEST_GAME_CONTROLLER.menu.upnp_enabled)
 
 
 if __name__ == '__main__':

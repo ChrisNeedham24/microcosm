@@ -1314,6 +1314,9 @@ class EventListener:
                 # pylint: disable=broad-exception-caught
                 except Exception:
                     self.game_controller.menu.upnp_enabled = False
+                    # We can just return early since there's no way a client without UPnP will be able to receive
+                    # packets from the game server, so there's no reason to serve the server at all.
+                    return
             # So that the request handler can access the listener's state, we set some attributes on the handler itself.
             server.game_states_ref = self.game_states
             server.namers_ref = self.namers
