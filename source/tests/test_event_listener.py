@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, call, patch
 
 from source.display.board import Board
 from source.display.menu import Menu
+from source.display.overlay import Overlay
 from source.foundation.catalogue import LOBBY_NAMES, PLAYER_NAMES, FACTION_COLOURS, BLESSINGS, PROJECTS, IMPROVEMENTS, \
     UNIT_PLANS, Namer, get_heathen_plan, ACHIEVEMENTS
 from source.foundation.models import PlayerDetails, Faction, GameConfig, Player, Settlement, ResourceCollection, \
@@ -25,7 +26,8 @@ from source.networking.events import EventType, RegisterEvent, Event, CreateEven
     QuerySavesEvent, LoadEvent, FoundSettlementEvent, SetBlessingEvent, SetConstructionEvent, MoveUnitEvent, \
     DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent, BuyoutConstructionEvent, \
     DisbandUnitEvent, AttackUnitEvent, AttackSettlementEvent, HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent
-from source.saving.save_encoder import SaveEncoder
+from source.saving.save_encoder import SaveEncoder, ObjectConverter
+from source.util.minifier import minify_quad, minify_player, minify_quads_seen, minify_heathens
 
 
 class EventListenerTest(unittest.TestCase):
@@ -296,7 +298,6 @@ class EventListenerTest(unittest.TestCase):
         gs.turn = 2
         gs.until_night = 0
         gs.nighttime_left = 1
-        gs.on_menu = True
         # Pass the necessary references down to the server.
         self.mock_server.game_states_ref[self.TEST_GAME_NAME] = gs
         test_namer: Namer = Namer()
@@ -331,6 +332,87 @@ class EventListenerTest(unittest.TestCase):
         quad_init_packets = \
             [c for c in self.mock_socket.sendto.mock_calls if json.loads(c.args[0])["type"] == EventType.INIT]
         self.assertEqual(180, len(quad_init_packets))
+
+    @patch.object(Overlay, "toggle_tutorial")
+    @patch("source.networking.event_listener.save_stats_achievements")
+    @patch("pyxel.mouse")
+    def test_process_init_event_client(self,
+                                       pyxel_mouse_mock: MagicMock,
+                                       achievements_mock: MagicMock,
+                                       overlay_toggle_tutorial_mock: MagicMock):
+        """
+        Ensure that game clients correctly process init events.
+        """
+        # The quad chunk we use for this test is just the same test quad over and over.
+        test_quads_str: str = (minify_quad(self.TEST_QUAD) + ",") * 100
+        # The test event will just be for the first quad chunk to begin with.
+        test_event: InitEvent = InitEvent(EventType.INIT, self.TEST_IDENTIFIER, self.TEST_GAME_NAME,
+                                          until_night=1, cfg=self.TEST_GAME_CONFIG,
+                                          quad_chunk=test_quads_str, quad_chunk_idx=0)
+        self.mock_server.is_server = False
+        gs: GameState = self.TEST_GAME_STATE
+        # Manually change the until night value in game state so we can be sure that it was set from the received
+        # packet, and didn't just happen to be randomly the same as the event.
+        gs.until_night = 0
+        self.mock_server.game_states_ref["local"] = gs
+        gc: GameController = self.TEST_GAME_CONTROLLER
+        # Set an initial last turn time so we can see it being updated later.
+        initial_last_turn_time: float = 0
+        gc.last_turn_time = initial_last_turn_time
+        gc.music_player.stop_menu_music = MagicMock()
+        gc.music_player.play_game_music = MagicMock()
+
+        # Until the first packet is processed, the game state should have no board.
+        self.assertIsNone(gs.board)
+        self.assertIsNone(gc.move_maker.board_ref)
+
+        # Process our test event.
+        self.request_handler.process_init_event(test_event, self.mock_socket)
+
+        # The until night value in game state should now be the same as the event.
+        self.assertEqual(test_event.until_night, gs.until_night)
+        # The game state should also now have a board, populated with the game config and name from the event.
+        self.assertIsNotNone(gs.board)
+        self.assertEqual(test_event.cfg, gs.board.game_config)
+        self.assertEqual(test_event.game_name, gs.board.game_name)
+        self.assertEqual(gc.move_maker.board_ref, gs.board)
+        # However, since we have only simulated the client receiving a single quad chunk, we do not expect any of the
+        # game-entering logic to have occurred. As such, the client should still be on the menu.
+        pyxel_mouse_mock.assert_not_called()
+        self.assertEqual(initial_last_turn_time, gc.last_turn_time)
+        self.assertFalse(gs.game_started)
+        self.assertTrue(gs.on_menu)
+        achievements_mock.assert_not_called()
+        overlay_toggle_tutorial_mock.assert_not_called()
+        self.assertFalse(gs.board.overlay.total_settlement_count)
+        gc.music_player.stop_menu_music.assert_not_called()
+        gc.music_player.play_game_music.assert_not_called()
+
+        # Simulate the client receiving the rest of the quad chunks. It doesn't make for a great board, but
+        # for testing purposes, it doesn't matter that every quad will be the same.
+        for i in range(1, 90):
+            test_event.quad_chunk_idx = i
+            self.request_handler.process_init_event(test_event, self.mock_socket)
+
+        # Since the board has now been fully populated with quads, we expect the client to have entered the game.
+        pyxel_mouse_mock.assert_called_with(visible=True)
+        self.assertGreater(gc.last_turn_time, initial_last_turn_time)
+        self.assertTrue(gs.game_started)
+        self.assertFalse(gs.on_menu)
+        achievements_mock.assert_called_with(gs, faction_to_add=gs.players[gs.player_idx].faction)
+        overlay_toggle_tutorial_mock.assert_called()
+        # You would normally think that this would be 2, since there are two settlements in the game. However, because
+        # this is an init event - meaning that the game has just started - we take into account that the client is about
+        # to found their first settlement.
+        self.assertEqual(3, gs.board.overlay.total_settlement_count)
+        gc.music_player.stop_menu_music.assert_called()
+        gc.music_player.play_game_music.assert_called()
+        # We can even make sure that the correct quad was assigned for all of the board's quads.
+        for i in range(90):
+            for j in range(100):
+                # We do have to mock the location however, as that was the same in the quad chunk.
+                self.TEST_QUAD.location = j, i
+                self.assertEqual(self.TEST_QUAD, gs.board.quads[i][j])
 
     def test_process_update_event(self):
         """
@@ -1819,6 +1901,238 @@ class EventListenerTest(unittest.TestCase):
         # The leaving player should have been removed from both the game state and the lobby itself.
         self.assertNotIn(player, self.TEST_GAME_STATE.players)
         self.assertNotIn(player_details, self.mock_server.game_controller_ref.menu.multiplayer_lobby.current_players)
+
+    @patch("time.sleep", lambda *args: None)
+    @patch("random.choice")
+    def test_process_join_event_server_in_lobby(self, random_choice_mock: MagicMock):
+        """
+        Ensure that the game server correctly processes join events when the game being joined has not yet started.
+        """
+        gs: GameState = self.TEST_GAME_STATE
+        # To verify that AI and human player details are returned differently, we need an AI player in the lobby as
+        # well.
+        ai_player: Player = Player("Mr. Roboto", Faction.FUNDAMENTALISTS, FACTION_COLOURS[Faction.FUNDAMENTALISTS],
+                                   ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
+        gs.players.append(ai_player)
+        gs.game_started = False
+        # Make the first player an AI too so that we can see them getting kicked out to make way for the joining client.
+        player_to_be_removed: Player = gs.players[0]
+        player_to_be_removed.ai_playstyle = AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)
+        # Simulate the randomly-generated player name conflicting with an existing name in the lobby, and then selecting
+        # a non-conflicting one.
+        random_choice_mock.side_effect = [gs.players[1].name, PLAYER_NAMES[0]]
+
+        test_event: JoinEvent = JoinEvent(EventType.JOIN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME, Faction.GODLESS)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = gs
+        # Out of the three players in the lobby, one is currently a human player.
+        other_client_details: PlayerDetails = PlayerDetails("Dos", Faction.FRONTIERSMEN, self.TEST_IDENTIFIER_2)
+        # Since the first and third players are AIs, they shouldn't be in the game clients.
+        self.mock_server.game_clients_ref = {
+            self.TEST_GAME_NAME: [other_client_details]
+        }
+        # Use a different GameConfig that allows for three players.
+        three_player_conf: GameConfig = GameConfig(3, Faction.AGRICULTURISTS, True, True, True, True)
+        self.mock_server.lobbies_ref[self.TEST_GAME_NAME] = three_player_conf
+
+        # Process our test event.
+        self.request_handler.process_join_event(test_event, self.mock_socket)
+
+        # Declare some of the more complicated expected state separately for clarity.
+        # We expect the player joining the lobby to have the appropriate name, as well as the faction and identifier
+        # from the event.
+        expected_new_player_details: PlayerDetails = \
+            PlayerDetails(PLAYER_NAMES[0], test_event.player_faction, test_event.identifier)
+        # The AI player's details shouldn't have an identifier.
+        expected_ai_player_details: PlayerDetails = PlayerDetails(ai_player.name, ai_player.faction, id=None)
+        # The lobby should have the name from the event, the expected details from each player, the correct
+        # configuration, but no turn since the game has not yet started.
+        expected_lobby_details: LobbyDetails = \
+            LobbyDetails(test_event.lobby_name,
+                         # Note the order here - since the joining player is a new player altogether, the other two
+                         # players have each shifted back one in their player index.
+                         [other_client_details, expected_ai_player_details, expected_new_player_details],
+                         three_player_conf,
+                         current_turn=None)
+
+        # The first AI player should have been removed to make way for the joining client.
+        self.assertNotIn(player_to_be_removed, gs.players)
+        # There should still be three players however, as the new client should be tacked on the end.
+        self.assertEqual(3, len(gs.players))
+        # The new player should have the expected name and faction.
+        self.assertEqual(Player(PLAYER_NAMES[0], test_event.player_faction, FACTION_COLOURS[test_event.player_faction]),
+                         gs.players[2])
+        # The game clients for this lobby should now consist of both the original client and the new joining one.
+        self.assertListEqual([other_client_details, expected_new_player_details],
+                             self.mock_server.game_clients_ref[test_event.lobby_name])
+        self.assertEqual(expected_lobby_details, test_event.lobby_details)
+
+        # We expect both clients to have been notified that the player joined the lobby successfully.
+        self.assertEqual(2, len(self.mock_socket.sendto.mock_calls))
+
+    @patch("time.sleep", lambda *args: None)
+    def test_process_join_event_server_game_started(self):
+        """
+        Ensure that the game server correctly processes join events when the game being joined is already underway.
+        """
+        gs: GameState = self.TEST_GAME_STATE
+        # To verify that AI and human player details are returned differently, we need an AI player in the game as well.
+        ai_player: Player = Player("Mr. Roboto", Faction.FUNDAMENTALISTS, FACTION_COLOURS[Faction.FUNDAMENTALISTS],
+                                   ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
+        gs.players.append(ai_player)
+        # Give each player some seen quads so we can see the minified packet representations them being sent back to the
+        # joining client.
+        test_seen_quads: List[Tuple[int, int]] = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
+        for p in gs.players:
+            p.quads_seen = test_seen_quads
+        gs.game_started = True
+        # The below values obviously can't occur simultaneously, but we want to show that the server responds correctly
+        # and assigns these values to the forwarded event.
+        gs.until_night = 1
+        gs.nighttime_left = 1
+        # Make the first player an AI as well so that a client can join as them in this test.
+        replaced_player: Player = gs.players[0]
+        replaced_player.ai_playstyle = AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)
+        # For this test, we actually need an initialised board.
+        gs.board = Board(self.TEST_GAME_CONFIG, Namer())
+
+        test_event: JoinEvent = JoinEvent(EventType.JOIN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME,
+                                          replaced_player.faction)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = gs
+        # Out of the three players in the game, one is currently a human player.
+        other_client_details: PlayerDetails = PlayerDetails("Dos", Faction.FRONTIERSMEN, self.TEST_IDENTIFIER_2)
+        # Since the first and third players are AIs, they shouldn't be in the game clients.
+        self.mock_server.game_clients_ref = {
+            self.TEST_GAME_NAME: [other_client_details]
+        }
+        # Use a different GameConfig that allows for three players.
+        three_player_conf: GameConfig = GameConfig(3, Faction.AGRICULTURISTS, True, True, True, True)
+        self.mock_server.lobbies_ref[self.TEST_GAME_NAME] = three_player_conf
+
+        # Process our test event.
+        self.request_handler.process_join_event(test_event, self.mock_socket)
+
+        # Declare some of the more complicated expected state separately for clarity.
+        # We expect the player being replaced to now be represented as a human client, using the joining player's
+        # identifier.
+        expected_replaced_player_details: PlayerDetails = \
+            PlayerDetails(replaced_player.name, replaced_player.faction, test_event.identifier)
+        # The AI player's details shouldn't have an identifier.
+        expected_ai_player_details: PlayerDetails = PlayerDetails(ai_player.name, ai_player.faction, id=None)
+        # The lobby should have the name from the event, the expected details from each player, and the correct
+        # configuration and turn.
+        expected_lobby_details: LobbyDetails = \
+            LobbyDetails(test_event.lobby_name,
+                         [expected_replaced_player_details, other_client_details, expected_ai_player_details],
+                         three_player_conf,
+                         gs.turn)
+
+        # Naturally, the replaced player should no longer have an AI playstyle.
+        self.assertIsNone(replaced_player.ai_playstyle)
+        # The game clients for this game should now consist of both the original client and the new joining one.
+        self.assertListEqual([other_client_details, expected_replaced_player_details],
+                             self.mock_server.game_clients_ref[test_event.lobby_name])
+        self.assertEqual(expected_lobby_details, test_event.lobby_details)
+
+        # Because there are a number of different types of JoinEvents fired off by the server to clients, we need to
+        # distinguish the five types using separate methods.
+
+        def is_standard_packet(c: call) -> bool:
+            """
+            Get whether the supplied mock call to the mock socket was representative of a standard JoinEvent with no
+            extra fields. This standard type is sent to all clients already in the game the new client is joining.
+            :param c: The mock call being checked.
+            :return: Whether the mock call originates from a standard JoinEvent.
+            """
+            evt: JoinEvent = json.loads(c.args[0], object_hook=ObjectConverter)
+            return evt.quad_chunk is None and \
+                evt.player_chunk is None and \
+                evt.quads_seen_chunk is None and \
+                evt.heathens_chunk is None
+
+        def is_quad_and_cfg_packet(c: call) -> bool:
+            """
+            Get whether the supplied mock call to the mock socket was representative of a JoinEvent containing quad and
+            overall game configuration data. This type is sent only to the client joining the game.
+            :param c: The mock call being checked.
+            :return: Whether the mock call originates from a quad and config JoinEvent.
+            """
+            evt: JoinEvent = json.loads(c.args[0], object_hook=ObjectConverter)
+            return evt.quad_chunk is not None
+
+        def is_player_packet(c: call) -> bool:
+            """
+            Get whether the supplied mock call to the mock socket was representative of a JoinEvent containing player
+            data. This type is sent only to the client joining the game.
+            :param c: The mock call being checked.
+            :return: Whether the mock call originates from a player JoinEvent.
+            """
+            evt: JoinEvent = json.loads(c.args[0], object_hook=ObjectConverter)
+            return evt.player_chunk is not None
+
+        def is_quads_seen_packet(c: call) -> bool:
+            """
+            Get whether the supplied mock call to the mock socket was representative of a JoinEvent containing seen
+            quads data for each player. This type is sent only to the client joining the game.
+            :param c: The mock call being checked.
+            :return: Whether the mock call originates from a seen quads JoinEvent.
+            """
+            evt: JoinEvent = json.loads(c.args[0], object_hook=ObjectConverter)
+            return evt.quads_seen_chunk is not None
+
+        def is_heathens_packet(c: call) -> bool:
+            """
+            Get whether the supplied mock call to the mock socket was representative of a JoinEvent containing heathen
+            data. This type is sent only to the client joining the game.
+            :param c: The mock call being checked.
+            :return: Whether the mock call originates from a heathen JoinEvent.
+            """
+            evt: JoinEvent = json.loads(c.args[0], object_hook=ObjectConverter)
+            return evt.heathens_chunk is not None
+
+        # We expect the other client to have been notified that the player joined.
+        standard_packets: List[call] = [c for c in self.mock_socket.sendto.mock_calls if is_standard_packet(c)]
+        self.assertEqual(1, len(standard_packets))
+
+        quad_and_cfg_packets: List[JoinEvent] = [json.loads(c.args[0], object_hook=ObjectConverter)
+                                                 for c in self.mock_socket.sendto.mock_calls
+                                                 if is_quad_and_cfg_packet(c)]
+        # We expect there to have been 90 packets sent back to the joining client with quad data. This is because there
+        # are 9000 quads on the board, and they are sent in chunks of 100.
+        self.assertEqual(90, len(quad_and_cfg_packets))
+        for pkt in quad_and_cfg_packets:
+            # Validate that the game configuration was appropriately returned.
+            self.assertEqual(gs.until_night, pkt.until_night)
+            self.assertEqual(gs.nighttime_left, pkt.nighttime_left)
+            # We need to compare the object's dictionary forms as one is a GameConfig and one is an ObjectConverter.
+            self.assertEqual(three_player_conf.__dict__, pkt.cfg.__dict__)
+
+        player_packets: List[JoinEvent] = [json.loads(c.args[0], object_hook=ObjectConverter)
+                                           for c in self.mock_socket.sendto.mock_calls if is_player_packet(c)]
+        # The joining client should have been sent three packets of player data, each containing the data for a single
+        # player in the game.
+        self.assertEqual(3, len(player_packets))
+        for i in range(len(player_packets)):
+            self.assertEqual(minify_player(gs.players[i]), player_packets[i].player_chunk)
+            self.assertEqual(i, player_packets[i].player_chunk_idx)
+
+        quads_seen_packets: List[JoinEvent] = [json.loads(c.args[0], object_hook=ObjectConverter)
+                                               for c in self.mock_socket.sendto.mock_calls if is_quads_seen_packet(c)]
+        # The joining client should have been sent three packets of seen quad data, each containing the data for a
+        # single player's seen quads.
+        self.assertEqual(3, len(quads_seen_packets))
+        for i in range(len(quads_seen_packets)):
+            self.assertEqual(minify_quads_seen(set(gs.players[i].quads_seen)), quads_seen_packets[i].quads_seen_chunk)
+            self.assertEqual(i, quads_seen_packets[i].player_chunk_idx)
+
+        heathens_packets: List[JoinEvent] = [json.loads(c.args[0], object_hook=ObjectConverter)
+                                             for c in self.mock_socket.sendto.mock_calls if is_heathens_packet(c)]
+        # Lastly, we expect the joining client to have been sent a single packet containing data about the heathens
+        # currently in the game.
+        self.assertEqual(1, len(heathens_packets))
+        self.assertEqual(minify_heathens(gs.heathens), heathens_packets[0].heathens_chunk)
+        self.assertEqual(len(gs.heathens), heathens_packets[0].total_heathens)
 
     def test_process_register_event(self):
         """

@@ -233,7 +233,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             quads_populated: bool = True
             for i in range(90):
                 for j in range(100):
-                    if not gsrs["local"].board or gsrs["local"].board.quads[i][j] is None:
+                    if gsrs["local"].board.quads[i][j] is None:
                         quads_populated = False
                         break
                 if not quads_populated:
@@ -768,11 +768,10 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 else:
                     player_details.append(next(pd for pd in self.server.game_clients_ref[evt.lobby_name]
                                                if pd.faction == player.faction))
-            lobby_details: LobbyDetails = LobbyDetails(evt.lobby_name,
-                                                       player_details,
-                                                       self.server.lobbies_ref[evt.lobby_name],
-                                                       current_turn=None if not gs.game_started else gs.turn)
-            evt.lobby_details = lobby_details
+            evt.lobby_details = LobbyDetails(evt.lobby_name,
+                                             player_details,
+                                             self.server.lobbies_ref[evt.lobby_name],
+                                             current_turn=None if not gs.game_started else gs.turn)
             self._forward_packet(evt, evt.lobby_name, sock,
                                  gate=lambda pd: pd.faction != evt.player_faction or not gs.game_started)
             # If the player is joining an ongoing game, then we need to forward all the game state to them.
