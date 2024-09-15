@@ -879,8 +879,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         gc.menu.multiplayer_game_being_loaded.quad_chunks_loaded += 1
                     if evt.player_chunk:
                         # Inflate the player received in this packet.
-                        gs.players[evt.player_chunk_idx] = \
-                            inflate_player(evt.player_chunk, gs.board.quads)
+                        gs.players[evt.player_chunk_idx] = inflate_player(evt.player_chunk, gs.board.quads)
                         # Remove the names of this player's settlements from the joining player's namer, in order to
                         # avoid name clashes.
                         for s in gs.players[evt.player_chunk_idx].settlements:
@@ -909,7 +908,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     state_populated: bool = True
                     for i in range(90):
                         for j in range(100):
-                            if not gs.board or gs.board.quads[i][j] is None:
+                            if gs.board.quads[i][j] is None:
                                 state_populated = False
                                 break
                         if not state_populated:
@@ -933,8 +932,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         gs.map_pos = (clamp(gs.players[gs.player_idx].settlements[0].location[0] - 12, -1, 77),
                                       clamp(gs.players[gs.player_idx].settlements[0].location[1] - 11, -1, 69))
                         gs.board.overlay.current_player = gs.players[gs.player_idx]
-                        gs.board.overlay.total_settlement_count = \
-                            sum(len(p.settlements) for p in gs.players) + 1
+                        gs.board.overlay.total_settlement_count = sum(len(p.settlements) for p in gs.players)
                         gc.music_player.stop_menu_music()
                         gc.music_player.play_game_music()
                         # We can reset the loading screen's statistics as well.

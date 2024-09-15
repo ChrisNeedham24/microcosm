@@ -9,7 +9,7 @@ from typing import List, Dict, Tuple
 from unittest.mock import MagicMock, call, patch
 
 from source.display.board import Board
-from source.display.menu import Menu
+from source.display.menu import Menu, SetupOption
 from source.display.overlay import Overlay
 from source.foundation.catalogue import LOBBY_NAMES, PLAYER_NAMES, FACTION_COLOURS, BLESSINGS, PROJECTS, IMPROVEMENTS, \
     UNIT_PLANS, Namer, get_heathen_plan, ACHIEVEMENTS
@@ -69,8 +69,10 @@ class EventListenerTest(unittest.TestCase):
         self.TEST_HEATHEN: Heathen = Heathen(40, 3, (9, 9), get_heathen_plan(0))
         self.TEST_GAME_STATE: GameState = GameState()
         self.TEST_GAME_STATE.players = [
-            Player("Uno", Faction.AGRICULTURISTS, 0, settlements=[self.TEST_SETTLEMENT], units=[self.TEST_UNIT]),
-            Player("Dos", Faction.FRONTIERSMEN, 1, settlements=[self.TEST_SETTLEMENT_2])
+            Player("Uno", Faction.AGRICULTURISTS, FACTION_COLOURS[Faction.AGRICULTURISTS],
+                   settlements=[self.TEST_SETTLEMENT], units=[self.TEST_UNIT]),
+            Player("Dos", Faction.FRONTIERSMEN, FACTION_COLOURS[Faction.FRONTIERSMEN],
+                   settlements=[self.TEST_SETTLEMENT_2])
         ]
         self.TEST_GAME_STATE.heathens = [self.TEST_HEATHEN]
         self.TEST_GAME_CONTROLLER: GameController = GameController()
@@ -1981,7 +1983,7 @@ class EventListenerTest(unittest.TestCase):
                                    ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
         gs.players.append(ai_player)
         # Give each player some seen quads so we can see the minified packet representations them being sent back to the
-        # joining client.
+        # joining client. We use a list here so that the order is consistent.
         test_seen_quads: List[Tuple[int, int]] = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
         for p in gs.players:
             p.quads_seen = test_seen_quads
@@ -2133,6 +2135,342 @@ class EventListenerTest(unittest.TestCase):
         self.assertEqual(1, len(heathens_packets))
         self.assertEqual(minify_heathens(gs.heathens), heathens_packets[0].heathens_chunk)
         self.assertEqual(len(gs.heathens), heathens_packets[0].total_heathens)
+
+    def test_process_join_event_client_joining_lobby(self):
+        """
+        Ensure that game clients process join events correctly when the client is joining an existing lobby.
+        """
+        test_lobby_details: LobbyDetails = LobbyDetails(self.TEST_GAME_NAME,
+                                                        # Just use our test game clients - we're simulating a situation
+                                                        # where the client has just joined as the second player.
+                                                        self.mock_server.game_clients_ref[self.TEST_GAME_NAME],
+                                                        self.TEST_GAME_CONFIG,
+                                                        # The current turn is None, meaning the game has not yet
+                                                        # started.
+                                                        current_turn=None)
+        self.mock_server.is_server = False
+        gs: GameState = self.TEST_GAME_STATE
+        # Remove the second player from game state and reset their settlements. We do this so that we can see a player
+        # with the same attributes being added as a result of this event in the client's game state.
+        joining_player: Player = gs.players.pop()
+        joining_player.settlements = []
+        self.mock_server.game_states_ref["local"] = gs
+        gc: GameController = self.TEST_GAME_CONTROLLER
+        # Simulate menu state as if the client is joining a game.
+        gc.menu.joining_game = True
+        gc.menu.viewing_lobbies = True
+        gc.menu.setup_option = SetupOption.PLAYER_FACTION
+        # Because we're joining as the second player, we use their identifier and faction in the event. We do this
+        # because we're using the same test game clients as the other tests, meaning we need to use the values from
+        # there, in addition to the fact that we want to see the client's player index change in game state.
+        test_event: JoinEvent = JoinEvent(EventType.JOIN, self.TEST_IDENTIFIER_2, self.TEST_GAME_NAME,
+                                          Faction.FRONTIERSMEN, lobby_details=test_lobby_details)
+
+        # To begin with, the client should not be in a lobby, nor should they have determined their player index.
+        self.assertIsNone(gc.menu.multiplayer_lobby)
+        self.assertFalse(gs.player_idx)
+        self.assertFalse(gs.located_player_idx)
+
+        # Process our test event.
+        self.request_handler.process_join_event(test_event, self.mock_socket)
+
+        # The client should now be in the lobby from the test event.
+        self.assertEqual(test_lobby_details, gc.menu.multiplayer_lobby)
+        # They should also have determined their player index.
+        self.assertEqual(1, gs.player_idx)
+        self.assertTrue(gs.located_player_idx)
+        # A new player representing the client should have been added to their game state.
+        self.assertIn(joining_player, gs.players)
+        # The menu should also have been updated to reflect the client joining.
+        self.assertFalse(gc.menu.joining_game)
+        self.assertFalse(gc.menu.viewing_lobbies)
+        self.assertEqual(SetupOption.START_GAME, gc.menu.setup_option)
+
+    def test_process_join_event_client_already_in_lobby(self):
+        """
+        Ensure that game clients process join events correctly when the client is already in a lobby, and another client
+        has just joined.
+        """
+        test_lobby_details: LobbyDetails = LobbyDetails(self.TEST_GAME_NAME,
+                                                        # Just use our test game clients - we're simulating a situation
+                                                        # where the client is the first player and the second player has
+                                                        # just joined.
+                                                        self.mock_server.game_clients_ref[self.TEST_GAME_NAME],
+                                                        self.TEST_GAME_CONFIG,
+                                                        # The current turn is None, meaning the game has not yet
+                                                        # started.
+                                                        current_turn=None)
+        self.mock_server.is_server = False
+        gs: GameState = self.TEST_GAME_STATE
+        # Remove the second player from game state and reset their settlements. We do this so that we can see a player
+        # with the same attributes being added as a result of this event in the client's game state.
+        joining_player: Player = gs.players.pop()
+        joining_player.settlements = []
+        # Since the client is already in the lobby, naturally they would have located their player index.
+        gs.located_player_idx = True
+        self.mock_server.game_states_ref["local"] = gs
+        gc: GameController = self.TEST_GAME_CONTROLLER
+        # Simulate menu state as if the client is already in a lobby. This lobby is the same as the above one (which is
+        # used for the test event), except it only has one player, reflecting the client's lobby prior to the new player
+        # joining.
+        gc.menu.multiplayer_lobby = LobbyDetails(self.TEST_GAME_NAME,
+                                                 [test_lobby_details.current_players[0]],
+                                                 self.TEST_GAME_CONFIG,
+                                                 current_turn=None)
+        # Because we're simulating the second player joining, we use their identifier and faction in the event. We do
+        # this because we're using the same test game clients as the other tests, meaning we need to use the values from
+        # there.
+        test_event: JoinEvent = JoinEvent(EventType.JOIN, self.TEST_IDENTIFIER_2, self.TEST_GAME_NAME,
+                                          Faction.FRONTIERSMEN, lobby_details=test_lobby_details)
+
+        # Process our test event.
+        self.request_handler.process_join_event(test_event, self.mock_socket)
+
+        # The client's lobby should now have the players from the test event.
+        self.assertEqual(test_lobby_details, gc.menu.multiplayer_lobby)
+        # A new player representing the joining player should have been added to the client's game state.
+        self.assertIn(joining_player, gs.players)
+
+    @patch("source.networking.event_listener.save_stats_achievements")
+    @patch("pyxel.mouse")
+    def test_process_join_event_client_joining_game(self, pyxel_mouse_mock: MagicMock, achievements_mock: MagicMock):
+        """
+        Ensure that game clients process join events correctly when the client is joining an ongoing game.
+        """
+        test_lobby_details: LobbyDetails = LobbyDetails(self.TEST_GAME_NAME,
+                                                        self.mock_server.game_clients_ref[self.TEST_GAME_NAME],
+                                                        self.TEST_GAME_CONFIG,
+                                                        current_turn=10)
+        # The quad chunk we use for this test is just the same test quad over and over.
+        test_quads_str: str = (minify_quad(self.TEST_QUAD) + ",") * 100
+        # Some seen quads that will be sent to the client.
+        test_seen_quads: List[Tuple[int, int]] = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
+        self.mock_server.is_server = False
+        gs: GameState = self.TEST_GAME_STATE
+        # We need to keep the players separately here because they will be removed to simulate a real join situation.
+        original_first_player: Player = gs.players[0]
+        original_second_player: Player = gs.players[1]
+        # Because we're using the same quad for the entire board, the settlement will actually have this quad rather
+        # than TEST_QUAD_2.
+        original_second_player.settlements[0].quads = [self.TEST_QUAD]
+        # Make the second player returned to the client an AI - this is the player they will be taking control of.
+        original_second_player.ai_playstyle = AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)
+        # In a real join situation, the client won't have any players or heathens in their game state.
+        gs.players = []
+        gs.heathens = []
+        # Manually change the until night and nighttime left values in game state so we can be sure that they were set
+        # from the received packet, and didn't just happen to be randomly the same as the event.
+        gs.until_night = 0
+        gs.nighttime_left = 5
+        self.mock_server.game_states_ref["local"] = gs
+        gc: GameController = self.TEST_GAME_CONTROLLER
+        gc.namer.remove_settlement_name = MagicMock()
+        # Set an initial last turn time so we can see it being updated later.
+        initial_last_turn_time: float = 0
+        gc.last_turn_time = initial_last_turn_time
+        gc.music_player.stop_menu_music = MagicMock()
+        gc.music_player.play_game_music = MagicMock()
+        # Because we're joining as the second player, we use their identifier and faction in the event. We do this
+        # because we're using the same test game clients as the other tests, meaning we need to use the values from
+        # there, in addition to the fact that we want to see the client's player index change in game state.
+        test_event: JoinEvent = JoinEvent(EventType.JOIN, self.TEST_IDENTIFIER_2, self.TEST_GAME_NAME,
+                                          Faction.FRONTIERSMEN, lobby_details=test_lobby_details,
+                                          # The initial packet being sent is the first quad packet, containing game
+                                          # configuration and quad data.
+                                          until_night=3, nighttime_left=0, cfg=self.TEST_GAME_CONFIG,
+                                          quad_chunk=test_quads_str, quad_chunk_idx=0)
+
+        # To begin with, the client should not be in a lobby.
+        self.assertIsNone(gc.menu.multiplayer_lobby)
+        # They should also not have determined their player index.
+        self.assertFalse(gs.player_idx)
+        self.assertFalse(gs.located_player_idx)
+        # Additionally, since they're not joining a game, there should be no game being loaded.
+        self.assertIsNone(gc.menu.multiplayer_game_being_loaded)
+        # Lastly, there should be no board.
+        self.assertIsNone(gs.board)
+        self.assertIsNone(gc.move_maker.board_ref)
+
+        # Process our first test event.
+        self.request_handler.process_join_event(test_event, self.mock_socket)
+
+        # Not that it's currently being shown, but the client should now have the lobby from the test event on their
+        # hidden menu.
+        self.assertEqual(test_lobby_details, gc.menu.multiplayer_lobby)
+        # They should also have determined their player index.
+        self.assertEqual(1, gs.player_idx)
+        self.assertTrue(gs.located_player_idx)
+        # A new player representing the client should have been added to their game state - just without settlements or
+        # the previously-held AI playstyle, since the client has taken control of them.
+        joined_player: Player = deepcopy(original_second_player)
+        joined_player.settlements = []
+        joined_player.ai_playstyle = None
+        self.assertIn(joined_player, gs.players)
+        # Now the client should be loading a multiplayer game.
+        self.assertIsNotNone(gc.menu.multiplayer_game_being_loaded)
+        # Night details should have been set from the event.
+        self.assertEqual(test_event.until_night, gs.until_night)
+        self.assertEqual(test_event.nighttime_left, gs.nighttime_left)
+        # The board should also have been initialised.
+        self.assertIsNotNone(gs.board)
+        self.assertEqual(gs.board, gc.move_maker.board_ref)
+        # The first quad chunk should have been loaded.
+        self.assertEqual(1, gc.menu.multiplayer_game_being_loaded.quad_chunks_loaded)
+        # The game's turn should have been retrieved from the event.
+        self.assertEqual(test_event.lobby_details.current_turn, gs.turn)
+        # However since there are still many packets to come, the game should not have started.
+        self.assertFalse(gs.game_started)
+
+        # Simulate the client receiving the rest of the quad chunks. It doesn't make for a great board, but
+        # for testing purposes, it doesn't matter that every quad will be the same.
+        for i in range(1, 90):
+            test_event.quad_chunk_idx = i
+            self.request_handler.process_join_event(test_event, self.mock_socket)
+        # All quad chunks should now be loaded.
+        self.assertEqual(90, gc.menu.multiplayer_game_being_loaded.quad_chunks_loaded)
+        # We can even make sure that the correct quad was assigned for all of the board's quads.
+        for i in range(90):
+            for j in range(100):
+                # We do have to mock the location however, as that was the same in the quad chunk.
+                self.TEST_QUAD.location = j, i
+                self.assertEqual(self.TEST_QUAD, gs.board.quads[i][j])
+
+        # Reset the test event for the player chunks.
+        test_event.quad_chunk = None
+        test_event.quad_chunk_idx = None
+
+        # Process the next event with the first player's details.
+        test_event.player_chunk = minify_player(original_first_player)
+        test_event.player_chunk_idx = 0
+        self.request_handler.process_join_event(test_event, self.mock_socket)
+        # The first player should have been loaded in correctly, with their settlement name also being removed.
+        self.assertEqual(original_first_player, gs.players[0])
+        gc.namer.remove_settlement_name.assert_called_with(original_first_player.settlements[0].name,
+                                                           original_first_player.settlements[0].quads[0].biome)
+        # One player should have been loaded, naturally.
+        self.assertEqual(1, gc.menu.multiplayer_game_being_loaded.players_loaded)
+        # The game should still not have started, as the other player, plus seen quads and heathens, are still to come.
+        self.assertFalse(gs.game_started)
+
+        # Process the next event with the second player's details.
+        test_event.player_chunk = minify_player(original_second_player)
+        test_event.player_chunk_idx = 1
+        self.request_handler.process_join_event(test_event, self.mock_socket)
+        # The second player should have been loaded in correctly, with their settlement name also being removed.
+        self.assertEqual(original_second_player, gs.players[1])
+        gc.namer.remove_settlement_name.assert_called_with(original_second_player.settlements[0].name,
+                                                           original_second_player.settlements[0].quads[0].biome)
+        # Now both players should have been loaded.
+        self.assertEqual(2, gc.menu.multiplayer_game_being_loaded.players_loaded)
+        # The game should still not have started, as seen quads and heathens are still to come.
+        self.assertFalse(gs.game_started)
+
+        # Reset the test event for the seen quads chunks - noting that the player_chunk_idx is still used to identify
+        # which player the seen quads belong to.
+        test_event.player_chunk = None
+
+        # Process the next event with the seen quads for the first player. Note that the total quads seen is simply
+        # twice the test seen quads list, as for testing purposes, both players have the same seen quads.
+        test_event.player_chunk_idx = 0
+        test_event.quads_seen_chunk = minify_quads_seen(set(test_seen_quads))
+        test_event.total_quads_seen = len(test_seen_quads) * 2
+        self.request_handler.process_join_event(test_event, self.mock_socket)
+        # The seen quads for the first player should have been loaded in correctly, with the multiplayer game being
+        # loaded being updated as well.
+        self.assertEqual(test_event.total_quads_seen, gc.menu.multiplayer_game_being_loaded.total_quads_seen)
+        self.assertEqual(set(test_seen_quads), gs.players[0].quads_seen)
+        self.assertEqual(len(test_seen_quads), gc.menu.multiplayer_game_being_loaded.quads_seen_loaded)
+        # The game should still not have started, as the seen quads for the other player, and heathens, are still to
+        # come.
+        self.assertFalse(gs.game_started)
+
+        # Process the next event with the seen quads for the second player. Note that the actual chunk and the total are
+        # unchanged for this event, for reasons described above.
+        test_event.player_chunk_idx = 1
+        self.request_handler.process_join_event(test_event, self.mock_socket)
+        # The seen quads for the second player should have been loaded in correctly, with the multiplayer game being
+        # loaded being updated as well.
+        self.assertEqual(set(test_seen_quads), gs.players[1].quads_seen)
+        self.assertEqual(len(test_seen_quads) * 2, gc.menu.multiplayer_game_being_loaded.quads_seen_loaded)
+        # The game should still not have started, as the heathens are still to come.
+        self.assertFalse(gs.game_started)
+
+        # Reset the test event for the heathen chunk.
+        test_event.player_chunk_idx = None
+        test_event.quads_seen_chunk = None
+        test_event.total_quads_seen = None
+
+        # Process the final event with the heathens in the game.
+        test_event.heathens_chunk = minify_heathens([self.TEST_HEATHEN])
+        test_event.total_heathens = 1
+        self.request_handler.process_join_event(test_event, self.mock_socket)
+        # The heathens should have been loaded in correctly.
+        self.assertListEqual([self.TEST_HEATHEN], gs.heathens)
+        # Note that we can't test the total heathens or heathens loaded attributes here because the game being loaded is
+        # made None once it's finished loading.
+
+        # Finally, the game should have started, with the client having entered the game.
+        pyxel_mouse_mock.assert_called_with(visible=True)
+        self.assertGreater(gc.last_turn_time, initial_last_turn_time)
+        self.assertTrue(gs.game_started)
+        self.assertFalse(gs.on_menu)
+        achievements_mock.assert_called_with(gs, faction_to_add=test_event.player_faction)
+        # The test settlement is near the top-left of the board, so we do our best to centre on it.
+        self.assertTupleEqual((-1, -1), gs.map_pos)
+        # Since the seen quads will have been loaded, we need to add that in here before validating against the current
+        # player in the overlay.
+        original_second_player.quads_seen = set(test_seen_quads)
+        self.assertEqual(original_second_player, gs.board.overlay.current_player)
+        # Two settlements - one for each player. This differs from init events in that init events will add an extra one
+        # to the count in anticipation of the player founding a new settlement. For join events however, the joining
+        # client is not able to found a new settlement when they join, since they'll already have one (or more).
+        self.assertEqual(2, gs.board.overlay.total_settlement_count)
+        gc.music_player.stop_menu_music.assert_called()
+        gc.music_player.play_game_music.assert_called()
+        # The game being loaded on the menu should now also have been reset.
+        self.assertIsNone(gc.menu.multiplayer_game_being_loaded)
+
+    def test_process_join_event_client_already_in_game(self):
+        """
+        Ensure that game clients process join events correctly when the client is in an ongoing game and another client
+        joins.
+        """
+        test_lobby_details: LobbyDetails = LobbyDetails(self.TEST_GAME_NAME,
+                                                        self.mock_server.game_clients_ref[self.TEST_GAME_NAME],
+                                                        self.TEST_GAME_CONFIG,
+                                                        current_turn=10)
+        self.mock_server.is_server = False
+        gs: GameState = self.TEST_GAME_STATE
+        # For this test, we actually need an initialised board.
+        gs.board = Board(self.TEST_GAME_CONFIG, Namer())
+        gs.board.overlay.toggle_player_change = MagicMock()
+        # Make the second player in the game an AI - this is the player the other client will be taking control of.
+        gs.players[1].ai_playstyle = AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)
+        gs.game_started = True
+        self.mock_server.game_states_ref["local"] = gs
+        gc: GameController = self.TEST_GAME_CONTROLLER
+        # Simulate menu state as if the client was already in a lobby prior to the game starting. This lobby is the same
+        # as the above one (which is used for the test event), except it only has one player, reflecting the client's
+        # lobby before the game started.
+        gc.menu.multiplayer_lobby = LobbyDetails(self.TEST_GAME_NAME,
+                                                 [test_lobby_details.current_players[0]],
+                                                 self.TEST_GAME_CONFIG,
+                                                 current_turn=10)
+        # Because the second player is joining the client's game, we use their identifier and faction in the event. We
+        # do this because we're using the same test game clients as the other tests, meaning we need to use the values
+        # from there.
+        test_event: JoinEvent = JoinEvent(EventType.JOIN, self.TEST_IDENTIFIER_2, self.TEST_GAME_NAME,
+                                          Faction.FRONTIERSMEN, lobby_details=test_lobby_details)
+
+        # Process our test event.
+        self.request_handler.process_join_event(test_event, self.mock_socket)
+
+        # The client's lobby should now have the players from the test event.
+        self.assertEqual(test_lobby_details, gc.menu.multiplayer_lobby)
+        # The player the new client took control of should no longer have an AI playstyle.
+        self.assertIsNone(gs.players[1].ai_playstyle)
+        # The appropriate overlay change should also have occurred to alert the client that another player has joined.
+        gs.board.overlay.toggle_player_change.assert_called_with(gs.players[1], changed_player_is_leaving=False)
 
     def test_process_register_event(self):
         """
