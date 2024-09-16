@@ -1,5 +1,5 @@
-import typing
 import unittest
+from typing import List, Tuple
 from unittest.mock import patch, MagicMock
 
 from source.foundation.catalogue import UNIT_PLANS, BLESSINGS, PROJECTS
@@ -7,7 +7,7 @@ from source.foundation.models import Biome, Unit, AttackData, HealData, Settleme
     Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing, \
     Quad, EconomicStatus, HarvestStatus, DeployerUnitPlan, DeployerUnit, ResourceCollection
 from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction, \
-    investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices
+    investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices, get_resources_for_settlement
 
 
 class CalculatorTest(unittest.TestCase):
@@ -731,7 +731,7 @@ class CalculatorTest(unittest.TestCase):
         locations are generated.
         """
         central_loc: (int, int) = 5, 5
-        expected_indices: typing.List[typing.Tuple[int, int]] = [
+        expected_indices: List[Tuple[int, int]] = [
             central_loc,
             (central_loc[0] + 1, central_loc[1]),
             (central_loc[0] + 1, central_loc[1] + 1),
@@ -745,6 +745,38 @@ class CalculatorTest(unittest.TestCase):
         # The test does not have to be as thorough as verifying each and every index, we just want to make sure this
         # function is working at a basic level.
         self.assertTrue(all(index in gen_spiral_indices(central_loc) for index in expected_indices))
+
+    def test_get_resources_for_settlement(self):
+        """
+        Ensure that resource counts are determined correctly for settlements.
+        """
+        test_quads: List[List[Quad]] = [
+            [Quad(Biome.DESERT, 0, 0, 0, 0, (0, 0), ResourceCollection(ore=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (1, 0), ResourceCollection(timber=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (2, 0), ResourceCollection(magma=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (3, 0), ResourceCollection(aurora=1))],
+            [Quad(Biome.DESERT, 0, 0, 0, 0, (0, 1), ResourceCollection(bloodstone=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (1, 1), ResourceCollection(obsidian=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (2, 1), ResourceCollection(sunstone=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (3, 1), ResourceCollection(aurora=1))],
+            [Quad(Biome.DESERT, 0, 0, 0, 0, (0, 2), ResourceCollection(ore=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (1, 2), ResourceCollection(timber=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (2, 2), ResourceCollection(magma=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (3, 2), ResourceCollection(aurora=1))],
+            [Quad(Biome.DESERT, 0, 0, 0, 0, (0, 3), ResourceCollection(bloodstone=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (1, 3), ResourceCollection(obsidian=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (2, 3), ResourceCollection(sunstone=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (3, 3), ResourceCollection(aurora=1))]
+        ]
+        # Simulating a settlement belonging to The Concentrated, to ensure that there is no resource double-up.
+        test_setl_locs: List[Tuple[int, int]] = [(1, 1), (1, 2)]
+        # We expect the settlement to have the resources from all of the above quads apart from the ones at (3, 0),
+        # (3, 1), (3, 2), and (3, 3), as they are one quad away. As such, the resources should have no aurora since
+        # those quads are one away, nor any aquamarine, as none of the quads have that.
+        expected_resources: ResourceCollection = \
+            ResourceCollection(ore=2, timber=2, magma=2, aurora=0, bloodstone=2, obsidian=2, sunstone=2, aquamarine=0)
+        resources = get_resources_for_settlement(test_setl_locs, test_quads)
+        self.assertEqual(expected_resources, resources)
 
 
 if __name__ == '__main__':

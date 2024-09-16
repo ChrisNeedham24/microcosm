@@ -453,8 +453,10 @@ class SaveMigratorTest(unittest.TestCase):
 
         outdated_config: GameConfig = migrate_game_config(test_loaded_config)
 
-        # Since this save was from before the introduction of climatic effects, it should have been mapped to False.
+        # Since this save was from before the introduction of climatic effects and multiplayer, both should have been
+        # mapped to False.
         self.assertFalse(outdated_config.climatic_effects)
+        self.assertFalse(outdated_config.multiplayer)
         # The player faction should have been determined from the player_colour attribute, which should have been
         # deleted.
         self.assertEqual(Faction.FUNDAMENTALISTS, outdated_config.player_faction)
