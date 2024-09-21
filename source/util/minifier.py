@@ -105,7 +105,9 @@ def minify_player(player: Player) -> str:
     player_str += "&".join(minify_unit(unit) for unit in player.units) + "~"
     player_str += ",".join(blessing.name for blessing in player.blessings) + "~"
     player_str += minify_resource_collection(player.resources) + "~"
-    player_str += ",".join([iv.value for iv in player.imminent_victories]) + "~"
+    # We sort the player's imminent victories here specifically for testing purposes, so we can validate against the
+    # whole minified string - this has no effect in actual use.
+    player_str += ",".join([iv.value for iv in sorted(player.imminent_victories)]) + "~"
     if bls := player.ongoing_blessing:
         player_str += f"{bls.blessing.name}>{bls.fortune_consumed}"
     player_str += "~"

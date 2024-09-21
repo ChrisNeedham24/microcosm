@@ -1829,6 +1829,9 @@ class EventListenerTest(unittest.TestCase):
         """
         Ensure that the game server correctly processes leave events.
         """
+        # We need to disable the pylint rule against protected access since we're going to be testing an internal method
+        # in this test.
+        # pylint: disable=protected-access
         # Simulate a situation in which a two-player game is in progress, with one player having already ended their
         # turn.
         self.TEST_GAME_STATE.game_started = True
