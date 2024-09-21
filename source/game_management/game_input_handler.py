@@ -296,6 +296,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         game_controller.menu.multiplayer_lobby = None
         game_controller.menu.joining_game = False
         game_controller.menu.viewing_lobbies = False
+        game_controller.menu.faction_idx = 0
         game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
         game_controller.music_player.stop_game_music()
         game_controller.music_player.play_menu_music()
@@ -423,6 +424,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_controller.menu.multiplayer_lobby = None
                 game_controller.menu.joining_game = False
                 game_controller.menu.viewing_lobbies = False
+                game_controller.menu.faction_idx = 0
                 game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
                 game_controller.music_player.stop_game_music()
                 game_controller.music_player.play_menu_music()
