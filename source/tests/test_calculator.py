@@ -1,5 +1,5 @@
 import unittest
-from typing import List, Tuple
+from typing import List, Tuple, Generator
 from unittest.mock import patch, MagicMock
 
 from source.foundation.catalogue import UNIT_PLANS, BLESSINGS, PROJECTS
@@ -7,7 +7,9 @@ from source.foundation.models import Biome, Unit, AttackData, HealData, Settleme
     Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing, \
     Quad, EconomicStatus, HarvestStatus, DeployerUnitPlan, DeployerUnit, ResourceCollection
 from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction, \
-    investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices, get_resources_for_settlement
+    investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices, get_resources_for_settlement, \
+    player_has_resources_for_improvement, subtract_player_resources_for_improvement, split_list_into_chunks, \
+    update_player_quads_seen_around_point
 
 
 class CalculatorTest(unittest.TestCase):
@@ -777,6 +779,81 @@ class CalculatorTest(unittest.TestCase):
             ResourceCollection(ore=2, timber=2, magma=2, aurora=0, bloodstone=2, obsidian=2, sunstone=2, aquamarine=0)
         resources = get_resources_for_settlement(test_setl_locs, test_quads)
         self.assertEqual(expected_resources, resources)
+
+    def test_player_has_resources_for_improvement(self):
+        """
+        Ensure that whether a player meets the resource requirements for an improvement is correctly determined.
+        """
+        test_no_resource_improvement: Improvement = \
+            Improvement(ImprovementType.MAGICAL, 0, "No", "Resources", Effect(), None, req_resources=None)
+        test_all_resources_improvement: Improvement = \
+            Improvement(ImprovementType.MAGICAL, 0, "All", "Resources", Effect(), None,
+                        req_resources=ResourceCollection(ore=1, timber=1, magma=1))
+
+        # With no resources, the player should be able to construct the improvement with no required resources, but not
+        # the one that requires one of each of the core resources.
+        self.TEST_PLAYER.resources = ResourceCollection()
+        self.assertTrue(player_has_resources_for_improvement(self.TEST_PLAYER, test_no_resource_improvement))
+        self.assertFalse(player_has_resources_for_improvement(self.TEST_PLAYER, test_all_resources_improvement))
+
+        # We expect the player to only be able to construct the improvement requiring all three core resources once they
+        # themselves have one of each of the core resources.
+        self.TEST_PLAYER.resources = ResourceCollection(ore=1)
+        self.assertFalse(player_has_resources_for_improvement(self.TEST_PLAYER, test_all_resources_improvement))
+        self.TEST_PLAYER.resources = ResourceCollection(ore=1, timber=1)
+        self.assertFalse(player_has_resources_for_improvement(self.TEST_PLAYER, test_all_resources_improvement))
+        self.TEST_PLAYER.resources = ResourceCollection(ore=1, timber=1, magma=1)
+        self.assertTrue(player_has_resources_for_improvement(self.TEST_PLAYER, test_all_resources_improvement))
+
+    def test_subtract_player_resources_for_improvement(self):
+        """
+        Ensure that player resources are correctly subtracted when constructing an improvement requiring them.
+        """
+        test_improvement: Improvement = \
+            Improvement(ImprovementType.MAGICAL, 0, "All", "Resources", Effect(), None,
+                        req_resources=ResourceCollection(ore=1, timber=2, magma=3))
+        self.TEST_PLAYER.resources = ResourceCollection(ore=5, timber=4, magma=10)
+        subtract_player_resources_for_improvement(self.TEST_PLAYER, test_improvement)
+        # Naturally the player's resources should have been subtracted by the required values for the test improvement.
+        self.assertEqual(ResourceCollection(ore=4, timber=2, magma=7), self.TEST_PLAYER.resources)
+
+    def test_split_list_into_chunks(self):
+        """
+        Ensure that lists are split into chunks correctly.
+        """
+        test_list: List[str] = ["a", "b", "c", "d", "e", "f", "g"]
+        chunked_list: Generator[list, None, None] = split_list_into_chunks(test_list, chunk_length=2)
+        # The created generator should yield sub-lists of two elements each time next() is called until the original
+        # elements are exhausted.
+        self.assertListEqual(["a", "b"], next(chunked_list))
+        self.assertListEqual(["c", "d"], next(chunked_list))
+        self.assertListEqual(["e", "f"], next(chunked_list))
+        # Because there aren't sufficient elements to fill out a whole two-element chunk, we only expect one.
+        self.assertListEqual(["g"], next(chunked_list))
+        # Since there are no elements left, calling next() should raise a StopIteration exception.
+        self.assertRaises(StopIteration, lambda: next(chunked_list))
+
+    def test_update_player_quads_seen_around_point(self):
+        """
+        Ensure that the seen quads for a player are correctly updated around a point with the specified range.
+        """
+        self.TEST_PLAYER.quads_seen = set()
+        update_player_quads_seen_around_point(self.TEST_PLAYER, point=(1, 1), vision_range=2)
+        # We expect the quads that would have been in the negatives, e.g. (-1, -1), which were technically within range,
+        # to not have been added because those quads don't exist.
+        self.assertSetEqual({(0, 0), (1, 0), (2, 0), (3, 0),
+                             (0, 1), (1, 1), (2, 1), (3, 1),
+                             (0, 2), (1, 2), (2, 2), (3, 2),
+                             (0, 3), (1, 3), (2, 3), (3, 3)}, self.TEST_PLAYER.quads_seen)
+
+        self.TEST_PLAYER.quads_seen = set()
+        update_player_quads_seen_around_point(self.TEST_PLAYER, point=(98, 88), vision_range=2)
+        # We expect the quads that would have been off the board, e.g. (100, 90), which were technically within range,
+        # to not have been added because those quads don't exist.
+        self.assertSetEqual({(96, 86), (97, 86), (98, 86), (99, 86),
+                             (96, 87), (97, 87), (98, 87), (99, 87),
+                             (96, 88), (97, 88), (98, 88), (99, 88),
+                             (96, 89), (97, 89), (98, 89), (99, 89)}, self.TEST_PLAYER.quads_seen)
 
 
 if __name__ == '__main__':
