@@ -22,12 +22,12 @@ jobs:
           pip install -r dev_requirements.txt
       - name: Bundle (MacOS)
         run: |
-          python -m nuitka --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --macos-create-app-bundle --macos-app-icon=source/resources/icon.png microcosm.py
+          python -m nuitka --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --macos-create-app-bundle --macos-app-icon=source/resources/icon.png --noinclude-setuptools-mode=nofollow microcosm.py
           ditto -c -k --sequesterRsrc --keepParent microcosm.app microcosm-osx.zip
         if: matrix.os == 'macos-latest'
       - name: Bundle (Ubuntu)
         run: |
-          python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png -o microcosm microcosm.py
+          python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png --noinclude-setuptools-mode=nofollow -o microcosm microcosm.py
           chmod 744 microcosm
           tar -czvf microcosm.tar.gz microcosm
         if: matrix.os == 'ubuntu-latest'
@@ -37,7 +37,7 @@ jobs:
         # during the bundle.
         run: |
           cp source/resources/dll/miniupnpc.dll C:\hostedtoolcache\windows\Python\3.10.11\x64\lib\site-packages\
-          python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --mingw64 --windows-icon-from-ico=source/resources/icon.png --user-package-configuration-file=windows-nuitka-package.config.yml microcosm.py
+          python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --mingw64 --windows-icon-from-ico=source/resources/icon.png --user-package-configuration-file=windows-nuitka-package.config.yml --noinclude-setuptools-mode=nofollow microcosm.py
         if: matrix.os == 'windows-latest'
       - name: Upload artifact (MacOS)
         uses: actions/upload-artifact@v3
@@ -78,7 +78,7 @@ jobs:
           python -m pip install -r dev_requirements.txt
       - name: Bundle
         run: |
-          python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png -o microcosm microcosm.py
+          python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png --noinclude-setuptools-mode=nofollow -o microcosm microcosm.py
           chmod 744 microcosm
           tar -czvf microcosm.tar.gz microcosm
       - name: Upload artifact
