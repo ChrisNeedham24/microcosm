@@ -22,7 +22,7 @@ jobs:
           pip install -r dev_requirements.txt
       - name: Bundle (MacOS)
         run: |
-          python -m nuitka --report=report.txt --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --macos-create-app-bundle --macos-app-icon=source/resources/icon.png --noinclude-setuptools-mode=nofollow microcosm.py
+          python -m nuitka --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --macos-create-app-bundle --macos-app-icon=source/resources/icon.png --noinclude-setuptools-mode=nofollow --macos-target-arch=x86_64 microcosm.py
           ditto -c -k --sequesterRsrc --keepParent microcosm.app microcosm-osx.zip
         if: matrix.os == 'macos-latest'
       - name: Bundle (Ubuntu)
@@ -44,12 +44,6 @@ jobs:
         with:
           name: microcosm-osx
           path: microcosm-osx.zip
-        if: matrix.os == 'macos-latest'
-      - name: Upload artifact (MacOS)
-        uses: actions/upload-artifact@v3
-        with:
-          name: report
-          path: report.txt
         if: matrix.os == 'macos-latest'
       - name: Upload artifact (Ubuntu)
         uses: actions/upload-artifact@v3
