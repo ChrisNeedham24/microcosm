@@ -15,7 +15,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.10.15"
       - name: Install requirements
         run: |
           python -m pip install --upgrade pip
@@ -36,7 +36,7 @@ jobs:
         # copy the miniupnpc DLL to the Python site-packages directory first, so that it can be picked up by Nuitka
         # during the bundle.
         run: |
-          cp source/resources/dll/miniupnpc.dll C:\hostedtoolcache\windows\Python\3.10.11\x64\lib\site-packages\
+          cp source/resources/dll/miniupnpc.dll C:\hostedtoolcache\windows\Python\3.10.15\x64\lib\site-packages\
           python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --mingw64 --windows-icon-from-ico=source/resources/icon.png --user-package-configuration-file=windows-nuitka-package.config.yml microcosm.py
         if: matrix.os == 'windows-latest'
       - name: Upload artifact (MacOS)
@@ -67,7 +67,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.10.15"
       - name: Install system packages
         run: |
           dnf update -y
