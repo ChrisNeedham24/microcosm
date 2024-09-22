@@ -1,5 +1,5 @@
 -r requirements.txt
 pylint==2.17.1
 coverage==6.5.0
-nuitka==1.5.5
+nuitka==1.6.6
 imageio==2.26.1
