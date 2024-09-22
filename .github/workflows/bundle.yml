@@ -78,7 +78,7 @@ jobs:
           python -m pip install -r dev_requirements.txt
       - name: Bundle
         run: |
-          python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png -o microcosm microcosm.py
+          python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png --noinclude-setuptools-mode=nofollow -o microcosm microcosm.py
           chmod 744 microcosm
           tar -czvf microcosm.tar.gz microcosm
       - name: Upload artifact
