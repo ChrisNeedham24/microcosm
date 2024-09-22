@@ -4,19 +4,20 @@ import json
 import os
 import pathlib
 import time
-import typing
 from datetime import datetime
 from itertools import chain
 from json import JSONDecodeError
+from typing import TYPE_CHECKING, Optional, List, Dict, Tuple
 
 import pyxel
 from platformdirs import user_data_dir
 
 from source.display.board import Board
-from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement, ACHIEVEMENTS
-from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement
+from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement, ACHIEVEMENTS, Namer
+from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement, GameConfig, \
+    Quad, HarvestStatus, EconomicStatus
 from source.game_management.game_controller import GameController
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from source.game_management.game_state import GameState
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
 from source.saving.save_migrator import migrate_unit, migrate_player, migrate_climatic_effects, \
@@ -41,13 +42,14 @@ def init_app_data():
         pathlib.Path(SAVES_DIR).mkdir(parents=True, exist_ok=True)
 
 
-def save_game(game_state, auto: bool = False):
+def save_game(game_state: GameState, auto: bool = False):
     """
     Saves the current game with the current timestamp as the file name.
+    :param game_state: The state of the game to save.
+    :param auto: Whether the save is an autosave.
     """
     # Only maintain 3 autosaves at a time, delete the oldest if we already have 3 before saving the next.
-    if auto and len(
-            autosaves := list(filter(lambda fn: fn.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))) == 3:
+    if auto and len(autosaves := list(filter(lambda fn: fn.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))) == 3:
         autosaves.sort()
         os.remove(os.path.join(SAVES_DIR, autosaves[0]))
     # The ':' characters in the datestring must be replaced to conform with Windows files supported characters.
@@ -72,9 +74,9 @@ def save_game(game_state, auto: bool = False):
 def save_stats_achievements(game_state: GameState,
                             playtime: float = 0,
                             increment_turn: bool = True,
-                            victory_to_add: typing.Optional[VictoryType] = None,
+                            victory_to_add: Optional[VictoryType] = None,
                             increment_defeats: bool = False,
-                            faction_to_add: typing.Optional[Faction] = None) -> typing.List[Achievement]:
+                            faction_to_add: Optional[Faction] = None) -> List[Achievement]:
     """
     Saves the supplied statistics to the statistics JSON file. Additionally, check if any achievements have been
     obtained. All parameters have default values so that they may be supplied at different times.
@@ -88,11 +90,11 @@ def save_stats_achievements(game_state: GameState,
     """
     playtime_to_write: float = playtime
     existing_turns: int = 0
-    existing_victories: typing.Dict[VictoryType, int] = {}
+    existing_victories: Dict[VictoryType, int] = {}
     existing_defeats: int = 0
-    existing_factions: typing.Dict[Faction, int] = {}
-    existing_achievements: typing.List[str] = []
-    new_achievements: typing.List[Achievement] = []
+    existing_factions: Dict[Faction, int] = {}
+    existing_achievements: List[str] = []
+    new_achievements: List[Achievement] = []
 
     stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
     # If the player already has statistics and achievements, get those to add our new ones to.
@@ -177,7 +179,89 @@ def get_stats() -> Statistics:
         return Statistics(0, 0, {}, 0, {}, set())
 
 
-def load_game(game_state, game_controller: GameController):
+def load_save_file(game_state: GameState,
+                   namer: Namer,
+                   save_name: str) -> Tuple[GameConfig, List[List[Quad]]]:
+    """
+    Load the save file with the given name into the supplied game state and namer objects.
+    :param game_state: The game state to load the save data into.
+    :param namer: The namer to update with settlement details from the saved game.
+    :param save_name: The name of the save file to load.
+    :return: A tuple containing the game configuration and the quads on the board.
+    """
+    game_cfg: GameConfig
+    quads: List[List[Quad]]
+    with open(os.path.join(SAVES_DIR, save_name), "r", encoding="utf-8") as save_file:
+        # Use a custom object hook when loading the JSON so that the resulting objects have attribute access.
+        save = json.loads(save_file.read(), object_hook=ObjectConverter)
+        # Load in the quads.
+        quads = [[None] * 100 for _ in range(90)]
+        for i in range(90):
+            for j in range(100):
+                quads[i][j] = migrate_quad(save.quads[i * 100 + j], (j, i))
+        migrate_game_version(game_state, save)
+        game_state.players = save.players
+        for p in game_state.players:
+            # The list of tuples that is quads_seen needs special loading, as do a few other of the same type,
+            # because tuples do not exist in JSON, so they are represented as arrays, which will clearly not work.
+            for i in range(len(p.quads_seen)):
+                p.quads_seen[i] = (p.quads_seen[i][0], p.quads_seen[i][1])
+            p.quads_seen = set(p.quads_seen)
+            for idx, u in enumerate(p.units):
+                # We can do a direct conversion to Unit and UnitPlan objects for units.
+                p.units[idx] = migrate_unit(u)
+            for s in p.settlements:
+                # Make sure we remove the settlement's name so that we don't get duplicates.
+                namer.remove_settlement_name(s.name, s.quads[0].biome)
+                # Another tuple-array fix.
+                s.location = (s.location[0], s.location[1])
+                if s.current_work is not None:
+                    # Get the actual Improvement, Project, or UnitPlan objects for the current work. We use
+                    # hasattr() because improvements have an effect where projects do not, and projects have
+                    # a type where unit plans do not.
+                    if hasattr(s.current_work.construction, "effect"):
+                        s.current_work.construction = get_improvement(s.current_work.construction.name)
+                    elif hasattr(s.current_work.construction, "type"):
+                        s.current_work.construction = get_project(s.current_work.construction.name)
+                    else:
+                        s.current_work.construction = get_unit_plan(s.current_work.construction.name)
+                for idx, imp in enumerate(s.improvements):
+                    # Do another direct conversion for improvements.
+                    s.improvements[idx] = get_improvement(imp.name)
+                # Also convert all units in garrisons to Unit objects.
+                for idx, u in enumerate(s.garrison):
+                    s.garrison[idx] = migrate_unit(u)
+                s.harvest_status = HarvestStatus(s.harvest_status)
+                s.economic_status = EconomicStatus(s.economic_status)
+                migrate_settlement(s)
+            # We also do direct conversions to Blessing objects for the ongoing one, if there is one,
+            # as well as any previously-completed ones.
+            if p.ongoing_blessing:
+                p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
+            for idx, bls in enumerate(p.blessings):
+                p.blessings[idx] = get_blessing(bls.name)
+            imminent_victories: List[VictoryType] = []
+            for iv in p.imminent_victories:
+                imminent_victories.append(VictoryType(iv))
+            p.imminent_victories = set(imminent_victories)
+            migrate_player(p)
+
+        game_state.heathens = []
+        for h in save.heathens:
+            # Do another direct conversion for the heathens.
+            game_state.heathens.append(Heathen(h.health, h.remaining_stamina, (h.location[0], h.location[1]),
+                                               UnitPlan(h.plan.power, h.plan.max_health, h.plan.total_stamina,
+                                                        h.plan.name, None, 0),
+                                               h.has_attacked))
+
+        game_state.turn = save.turn
+        migrate_climatic_effects(game_state, save)
+        game_cfg = migrate_game_config(save.cfg)
+    save_file.close()
+    return game_cfg, quads
+
+
+def load_game(game_state: GameState, game_controller: GameController):
     """
     Loads the game with the given index from the saves/ directory.
     :param game_controller: The current GameController object.
@@ -191,81 +275,19 @@ def load_game(game_state, game_controller: GameController):
     saves = list(
         filter(lambda file_name: file_name.startswith("save-"),
                [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
-    autosaves.sort()
-    autosaves.reverse()
-    saves.sort()
-    saves.reverse()
+    autosaves.sort(reverse=True)
+    saves.sort(reverse=True)
     all_saves = autosaves + saves
 
     try:
-        with open(os.path.join(SAVES_DIR, all_saves[game_controller.menu.save_idx]), "r",
-                  encoding="utf-8") as save_file:
-            # Use a custom object hook when loading the JSON so that the resulting objects have attribute access.
-            save = json.loads(save_file.read(), object_hook=ObjectConverter)
-            # Load in the quads.
-            quads = [[None] * 100 for _ in range(90)]
-            for i in range(90):
-                for j in range(100):
-                    quads[i][j] = migrate_quad(save.quads[i * 100 + j], (j, i))
-            migrate_game_version(game_state, save)
-            game_state.players = save.players
-            # The list of tuples that is quads_seen needs special loading, as do a few other of the same type,
-            # because tuples do not exist in JSON, so they are represented as arrays, which will clearly not work.
-            for i in range(len(game_state.players[0].quads_seen)):
-                game_state.players[0].quads_seen[i] = (
-                    game_state.players[0].quads_seen[i][0], game_state.players[0].quads_seen[i][1])
-            game_state.players[0].quads_seen = set(game_state.players[0].quads_seen)
-            for p in game_state.players:
-                for idx, u in enumerate(p.units):
-                    # We can do a direct conversion to Unit and UnitPlan objects for units.
-                    p.units[idx] = migrate_unit(u)
-                for s in p.settlements:
-                    # Make sure we remove the settlement's name so that we don't get duplicates.
-                    game_controller.namer.remove_settlement_name(s.name, s.quads[0].biome)
-                    # Another tuple-array fix.
-                    s.location = (s.location[0], s.location[1])
-                    if s.current_work is not None:
-                        # Get the actual Improvement, Project, or UnitPlan objects for the current work. We use
-                        # hasattr() because improvements have an effect where projects do not, and projects have
-                        # a type where unit plans do not.
-                        if hasattr(s.current_work.construction, "effect"):
-                            s.current_work.construction = get_improvement(s.current_work.construction.name)
-                        elif hasattr(s.current_work.construction, "type"):
-                            s.current_work.construction = get_project(s.current_work.construction.name)
-                        else:
-                            s.current_work.construction = get_unit_plan(s.current_work.construction.name)
-                    for idx, imp in enumerate(s.improvements):
-                        # Do another direct conversion for improvements.
-                        s.improvements[idx] = get_improvement(imp.name)
-                    # Also convert all units in garrisons to Unit objects.
-                    for idx, u in enumerate(s.garrison):
-                        s.garrison[idx] = migrate_unit(u)
-                    migrate_settlement(s)
-                # We also do direct conversions to Blessing objects for the ongoing one, if there is one,
-                # as well as any previously-completed ones.
-                if p.ongoing_blessing:
-                    p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
-                for idx, bls in enumerate(p.blessings):
-                    p.blessings[idx] = get_blessing(bls.name)
-                migrate_player(p)
-            # For the AI players, we can just make quads_seen an empty set, as it's not used.
-            for i in range(1, len(game_state.players)):
-                game_state.players[i].quads_seen = set()
-
-            game_state.heathens = []
-            for h in save.heathens:
-                # Do another direct conversion for the heathens.
-                game_state.heathens.append(Heathen(h.health, h.remaining_stamina, (h.location[0], h.location[1]),
-                                                   UnitPlan(h.plan.power, h.plan.max_health, 2, h.plan.name, None, 0),
-                                                   h.has_attacked))
-
-            game_state.turn = save.turn
-            migrate_climatic_effects(game_state, save)
-            game_cfg = migrate_game_config(save.cfg)
-        save_file.close()
+        game_cfg, quads = load_save_file(game_state, game_controller.namer, all_saves[game_controller.menu.save_idx])
         # Now do all the same logic we do when starting a game.
         pyxel.mouse(visible=True)
         game_controller.last_turn_time = time.time()
+        # Because we only load single-player games using this function, we know that the player will be the first player
+        # in the players list in game state.
+        game_state.player_idx = 0
+        game_state.located_player_idx = True
         game_state.game_started = True
         game_state.on_menu = False
         game_state.board = Board(game_cfg, game_controller.namer, quads)
@@ -281,24 +303,20 @@ def load_game(game_state, game_controller: GameController):
         game_controller.menu.load_failed = True
 
 
-def get_saves(game_controller: GameController):
+def get_saves() -> List[str]:
     """
-    Get the prettified file names of each save file in the saves/ directory and pass them to the menu.
+    Get the prettified file names of each save file in the saves/ directory.
+    :return: The prettified file names of the available save files.
     """
-    game_controller.menu.saves = []
+    save_names: List[str] = []
     autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
     saves = list(filter(lambda file_name: file_name.startswith("save-"),
                         [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
-    # Default to a fake option if there are no saves available.
-    if len(autosaves) + len(saves) == 0:
-        game_controller.menu.save_idx = -1
-    else:
-        autosaves.sort()
-        autosaves.reverse()
-        saves.sort()
-        saves.reverse()
-        for f in autosaves:
-            game_controller.menu.saves.append(f[9:-5].replace("T", " ") + " (auto)")
-        for f in saves:
-            # Just show the date and time.
-            game_controller.menu.saves.append(f[5:-5].replace("T", " "))
+    autosaves.sort(reverse=True)
+    saves.sort(reverse=True)
+    for f in autosaves:
+        save_names.append(f[9:-5].replace("T", " ") + " (auto)")
+    for f in saves:
+        # Just show the date and time.
+        save_names.append(f[5:-5].replace("T", " "))
+    return save_names

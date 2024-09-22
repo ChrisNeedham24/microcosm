@@ -1,5 +1,5 @@
-import typing
 import unittest
+from typing import List, Tuple, Generator
 from unittest.mock import patch, MagicMock
 
 from source.foundation.catalogue import UNIT_PLANS, BLESSINGS, PROJECTS
@@ -7,7 +7,9 @@ from source.foundation.models import Biome, Unit, AttackData, HealData, Settleme
     Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing, \
     Quad, EconomicStatus, HarvestStatus, DeployerUnitPlan, DeployerUnit, ResourceCollection
 from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction, \
-    investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices
+    investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices, get_resources_for_settlement, \
+    player_has_resources_for_improvement, subtract_player_resources_for_improvement, split_list_into_chunks, \
+    update_player_quads_seen_around_point
 
 
 class CalculatorTest(unittest.TestCase):
@@ -23,7 +25,7 @@ class CalculatorTest(unittest.TestCase):
         Initialise our test models.
         """
         self.TEST_PLAYER = Player("TestMan", Faction.NOCTURNE, 0, wealth=self.ORIGINAL_WEALTH)
-        self.TEST_CONFIG = GameConfig(2, self.TEST_PLAYER.faction, True, True, True)
+        self.TEST_CONFIG = GameConfig(2, self.TEST_PLAYER.faction, True, True, True, False)
         self.TEST_UNIT_PLAN = UnitPlan(100, 100, 3, "TesterUnit", None, 25)
         self.ORIGINAL_PLAN_HEALTH = self.TEST_UNIT_PLAN.max_health
         self.ORIGINAL_PLAN_POWER = self.TEST_UNIT_PLAN.power
@@ -454,9 +456,9 @@ class CalculatorTest(unittest.TestCase):
         player = Player("Testerman", Faction.INFIDELS, 0, settlements=[setl])
 
         _, _, zeal, fortune = get_setl_totals(player, setl, False)
-        # A settlement will always produce at least 0.5 zeal and fortune when strict is False.
-        self.assertEqual(0.5, zeal)
-        self.assertEqual(0.5, fortune)
+        # A settlement will always produce at least 1 zeal and fortune when strict is False.
+        self.assertEqual(1, zeal)
+        self.assertEqual(1, fortune)
 
         _, _, zeal, fortune = get_setl_totals(player, setl, False, strict=True)
         # However, when strict is True, settlements can produce 0 zeal and fortune.
@@ -559,7 +561,7 @@ class CalculatorTest(unittest.TestCase):
         # We don't really care what the result is, just make sure it succeeded.
         self.assertNotEqual(InvestigationResult.NONE,
                             investigate_relic(test_player, self.TEST_UNIT, (9, 9),
-                                              GameConfig(2, test_player.faction, False, False, False)))
+                                              GameConfig(2, test_player.faction, False, False, False, False)))
 
     @patch("random.randint")
     def test_investigate_relic_without_blessing(self, random_mock: MagicMock):
@@ -598,8 +600,9 @@ class CalculatorTest(unittest.TestCase):
         random_mock.return_value = 25
 
         self.assertEqual(self.ORIGINAL_WEALTH, self.TEST_PLAYER.wealth)
-        result: InvestigationResult = investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9),
-                                                        GameConfig(2, self.TEST_PLAYER.faction, True, False, True))
+        result: InvestigationResult = \
+            investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9),
+                              GameConfig(2, self.TEST_PLAYER.faction, True, False, True, False))
         self.assertEqual(InvestigationResult.WEALTH, result)
         self.assertEqual(self.ORIGINAL_WEALTH + 25, self.TEST_PLAYER.wealth)
 
@@ -730,7 +733,7 @@ class CalculatorTest(unittest.TestCase):
         locations are generated.
         """
         central_loc: (int, int) = 5, 5
-        expected_indices: typing.List[typing.Tuple[int, int]] = [
+        expected_indices: List[Tuple[int, int]] = [
             central_loc,
             (central_loc[0] + 1, central_loc[1]),
             (central_loc[0] + 1, central_loc[1] + 1),
@@ -744,6 +747,113 @@ class CalculatorTest(unittest.TestCase):
         # The test does not have to be as thorough as verifying each and every index, we just want to make sure this
         # function is working at a basic level.
         self.assertTrue(all(index in gen_spiral_indices(central_loc) for index in expected_indices))
+
+    def test_get_resources_for_settlement(self):
+        """
+        Ensure that resource counts are determined correctly for settlements.
+        """
+        test_quads: List[List[Quad]] = [
+            [Quad(Biome.DESERT, 0, 0, 0, 0, (0, 0), ResourceCollection(ore=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (1, 0), ResourceCollection(timber=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (2, 0), ResourceCollection(magma=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (3, 0), ResourceCollection(aurora=1))],
+            [Quad(Biome.DESERT, 0, 0, 0, 0, (0, 1), ResourceCollection(bloodstone=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (1, 1), ResourceCollection(obsidian=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (2, 1), ResourceCollection(sunstone=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (3, 1), ResourceCollection(aurora=1))],
+            [Quad(Biome.DESERT, 0, 0, 0, 0, (0, 2), ResourceCollection(ore=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (1, 2), ResourceCollection(timber=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (2, 2), ResourceCollection(magma=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (3, 2), ResourceCollection(aurora=1))],
+            [Quad(Biome.DESERT, 0, 0, 0, 0, (0, 3), ResourceCollection(bloodstone=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (1, 3), ResourceCollection(obsidian=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (2, 3), ResourceCollection(sunstone=1)),
+             Quad(Biome.DESERT, 0, 0, 0, 0, (3, 3), ResourceCollection(aurora=1))]
+        ]
+        # Simulating a settlement belonging to The Concentrated, to ensure that there is no resource double-up.
+        test_setl_locs: List[Tuple[int, int]] = [(1, 1), (1, 2)]
+        # We expect the settlement to have the resources from all of the above quads apart from the ones at (3, 0),
+        # (3, 1), (3, 2), and (3, 3), as they are one quad away. As such, the resources should have no aurora since
+        # those quads are one away, nor any aquamarine, as none of the quads have that.
+        expected_resources: ResourceCollection = \
+            ResourceCollection(ore=2, timber=2, magma=2, aurora=0, bloodstone=2, obsidian=2, sunstone=2, aquamarine=0)
+        resources = get_resources_for_settlement(test_setl_locs, test_quads)
+        self.assertEqual(expected_resources, resources)
+
+    def test_player_has_resources_for_improvement(self):
+        """
+        Ensure that whether a player meets the resource requirements for an improvement is correctly determined.
+        """
+        test_no_resource_improvement: Improvement = \
+            Improvement(ImprovementType.MAGICAL, 0, "No", "Resources", Effect(), None, req_resources=None)
+        test_all_resources_improvement: Improvement = \
+            Improvement(ImprovementType.MAGICAL, 0, "All", "Resources", Effect(), None,
+                        req_resources=ResourceCollection(ore=1, timber=1, magma=1))
+
+        # With no resources, the player should be able to construct the improvement with no required resources, but not
+        # the one that requires one of each of the core resources.
+        self.TEST_PLAYER.resources = ResourceCollection()
+        self.assertTrue(player_has_resources_for_improvement(self.TEST_PLAYER, test_no_resource_improvement))
+        self.assertFalse(player_has_resources_for_improvement(self.TEST_PLAYER, test_all_resources_improvement))
+
+        # We expect the player to only be able to construct the improvement requiring all three core resources once they
+        # themselves have one of each of the core resources.
+        self.TEST_PLAYER.resources = ResourceCollection(ore=1)
+        self.assertFalse(player_has_resources_for_improvement(self.TEST_PLAYER, test_all_resources_improvement))
+        self.TEST_PLAYER.resources = ResourceCollection(ore=1, timber=1)
+        self.assertFalse(player_has_resources_for_improvement(self.TEST_PLAYER, test_all_resources_improvement))
+        self.TEST_PLAYER.resources = ResourceCollection(ore=1, timber=1, magma=1)
+        self.assertTrue(player_has_resources_for_improvement(self.TEST_PLAYER, test_all_resources_improvement))
+
+    def test_subtract_player_resources_for_improvement(self):
+        """
+        Ensure that player resources are correctly subtracted when constructing an improvement requiring them.
+        """
+        test_improvement: Improvement = \
+            Improvement(ImprovementType.MAGICAL, 0, "All", "Resources", Effect(), None,
+                        req_resources=ResourceCollection(ore=1, timber=2, magma=3))
+        self.TEST_PLAYER.resources = ResourceCollection(ore=5, timber=4, magma=10)
+        subtract_player_resources_for_improvement(self.TEST_PLAYER, test_improvement)
+        # Naturally the player's resources should have been subtracted by the required values for the test improvement.
+        self.assertEqual(ResourceCollection(ore=4, timber=2, magma=7), self.TEST_PLAYER.resources)
+
+    def test_split_list_into_chunks(self):
+        """
+        Ensure that lists are split into chunks correctly.
+        """
+        test_list: List[str] = ["a", "b", "c", "d", "e", "f", "g"]
+        chunked_list: Generator[list, None, None] = split_list_into_chunks(test_list, chunk_length=2)
+        # The created generator should yield sub-lists of two elements each time next() is called until the original
+        # elements are exhausted.
+        self.assertListEqual(["a", "b"], next(chunked_list))
+        self.assertListEqual(["c", "d"], next(chunked_list))
+        self.assertListEqual(["e", "f"], next(chunked_list))
+        # Because there aren't sufficient elements to fill out a whole two-element chunk, we only expect one.
+        self.assertListEqual(["g"], next(chunked_list))
+        # Since there are no elements left, calling next() should raise a StopIteration exception.
+        self.assertRaises(StopIteration, lambda: next(chunked_list))
+
+    def test_update_player_quads_seen_around_point(self):
+        """
+        Ensure that the seen quads for a player are correctly updated around a point with the specified range.
+        """
+        self.TEST_PLAYER.quads_seen = set()
+        update_player_quads_seen_around_point(self.TEST_PLAYER, point=(1, 1), vision_range=2)
+        # We expect the quads that would have been in the negatives, e.g. (-1, -1), which were technically within range,
+        # to not have been added because those quads don't exist.
+        self.assertSetEqual({(0, 0), (1, 0), (2, 0), (3, 0),
+                             (0, 1), (1, 1), (2, 1), (3, 1),
+                             (0, 2), (1, 2), (2, 2), (3, 2),
+                             (0, 3), (1, 3), (2, 3), (3, 3)}, self.TEST_PLAYER.quads_seen)
+
+        self.TEST_PLAYER.quads_seen = set()
+        update_player_quads_seen_around_point(self.TEST_PLAYER, point=(98, 88), vision_range=2)
+        # We expect the quads that would have been off the board, e.g. (100, 90), which were technically within range,
+        # to not have been added because those quads don't exist.
+        self.assertSetEqual({(96, 86), (97, 86), (98, 86), (99, 86),
+                             (96, 87), (97, 87), (98, 87), (99, 87),
+                             (96, 88), (97, 88), (98, 88), (99, 88),
+                             (96, 89), (97, 89), (98, 89), (99, 89)}, self.TEST_PLAYER.quads_seen)
 
 
 if __name__ == '__main__':

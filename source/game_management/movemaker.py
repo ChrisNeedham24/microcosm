@@ -1,10 +1,10 @@
 import operator
 import random
-import typing
+from typing import List, Tuple, Optional
 
 from source.util.calculator import get_player_totals, get_setl_totals, attack, complete_construction, clamp, \
     attack_setl, investigate_relic, heal, gen_spiral_indices, get_resources_for_settlement, \
-    subtract_player_resources_for_improvement
+    subtract_player_resources_for_improvement, update_player_quads_seen_around_point
 from source.foundation.catalogue import get_available_blessings, get_unlockable_improvements, get_unlockable_units, \
     get_available_improvements, get_available_unit_plans, Namer
 from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
@@ -25,7 +25,7 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
         # lacking in.
         match player_totals.index(min(player_totals)):
             case 0:
-                highest_wealth: (float, Blessing) = 0, avail_bless[0]
+                highest_wealth: Tuple[float, Blessing] = 0, avail_bless[0]
                 for bless in avail_bless:
                     cumulative_wealth: float = 0
                     for imp in get_unlockable_improvements(bless):
@@ -34,7 +34,7 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
                         highest_wealth = cumulative_wealth, bless
                 ideal = highest_wealth[1]
             case 1:
-                highest_harvest: (float, Blessing) = 0, avail_bless[0]
+                highest_harvest: Tuple[float, Blessing] = 0, avail_bless[0]
                 for bless in avail_bless:
                     cumulative_harvest: float = 0
                     for imp in get_unlockable_improvements(bless):
@@ -43,7 +43,7 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
                         highest_harvest = cumulative_harvest, bless
                 ideal = highest_harvest[1]
             case 2:
-                highest_zeal: (float, Blessing) = 0, avail_bless[0]
+                highest_zeal: Tuple[float, Blessing] = 0, avail_bless[0]
                 for bless in avail_bless:
                     cumulative_zeal: float = 0
                     for imp in get_unlockable_improvements(bless):
@@ -52,7 +52,7 @@ def set_blessing(player: Player, player_totals: (float, float, float, float)):
                         highest_zeal = cumulative_zeal, bless
                 ideal = highest_zeal[1]
             case 3:
-                highest_fortune: (float, Blessing) = 0, avail_bless[0]
+                highest_fortune: Tuple[float, Blessing] = 0, avail_bless[0]
                 for bless in avail_bless:
                     cumulative_fortune: float = 0
                     for imp in get_unlockable_improvements(bless):
@@ -148,7 +148,7 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
             # The improvement with the lowest cost and the highest combined satisfaction and harvest is chosen.
             imps = sat_imps + harv_imps
             # Combined benefit, cost, Improvement.
-            most_beneficial: (int, float, Improvement) = \
+            most_beneficial: Tuple[float, float, Improvement] = \
                 imps[0].effect.satisfaction + imps[0].effect.harvest, imps[0].cost, imps[0]
             for i in imps:
                 # Pick the improvement that yields the highest combined benefit while also not costing more than the
@@ -181,7 +181,7 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
 
 
 def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
-                        other_player_vics: typing.List[typing.Tuple[Player, int]]):
+                        other_player_vics: List[Tuple[Player, int]]):
     """
     Choose and begin a construction for the given AI player's settlement.
     :param player: The AI owner of the given settlement.
@@ -196,9 +196,9 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
         Returns the settlement level at which an AI player will construct a settler unit to found a new settlement.
         :return: The required level for a new settlement.
         """
-        if player.ai_playstyle.expansion is ExpansionPlaystyle.EXPANSIONIST:
+        if player.ai_playstyle.expansion == ExpansionPlaystyle.EXPANSIONIST:
             return 3
-        if player.ai_playstyle.expansion is ExpansionPlaystyle.NEUTRAL:
+        if player.ai_playstyle.expansion == ExpansionPlaystyle.NEUTRAL:
             return 5
         return 10
 
@@ -221,7 +221,7 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
     # expansion, choose that. Alternatively, if the AI is facing a situation where all of their settlements are
     # dissatisfied, and they can produce a settler, produce one regardless of whether they have produced one before.
     # Naturally, The Concentrated are exempt from this requirement.
-    elif player.faction is not Faction.CONCENTRATED and \
+    elif player.faction != Faction.CONCENTRATED and \
             ((setl.level >= get_expansion_lvl() and not setl.produced_settler) or
              (setl.level > 1 and all(setl.satisfaction < 40 for setl in player.settlements))):
         setl.current_work = Construction(settler_units[0])
@@ -266,7 +266,7 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
             # The improvement with the lowest cost and the highest combined satisfaction and harvest is chosen.
             imps = sat_imps + harv_imps
             # Combined benefit, cost, Improvement.
-            most_beneficial: (int, float, Improvement) = \
+            most_beneficial: Tuple[float, float, Improvement] = \
                 imps[0].effect.satisfaction + imps[0].effect.harvest, imps[0].cost, imps[0]
             for i in imps:
                 # Pick the improvement that yields the highest combined benefit while also not costing more than the
@@ -350,11 +350,11 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
 
 
 def search_for_relics_or_move(unit: Unit,
-                              quads: typing.List[typing.List[Quad]],
+                              quads: List[List[Quad]],
                               player: Player,
-                              other_units: typing.List[Unit],
-                              all_setls: typing.List[Settlement],
-                              cfg: GameConfig) -> None:
+                              other_units: List[Unit],
+                              all_setls: List[Settlement],
+                              cfg: GameConfig):
     """
     Units that have no action to take can look for relics, or just simply move randomly.
     :param unit: The unit to move.
@@ -367,33 +367,34 @@ def search_for_relics_or_move(unit: Unit,
     # The range in which a unit can investigate is actually further than its remaining stamina, as you only
     # have to be next to a relic to investigate it.
     investigate_range = unit.remaining_stamina + 1
-    for i in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
-        for j in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
+    for i in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
+        for j in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
             if 0 <= i <= 99 and 0 <= j <= 89 and quads[j][i].is_relic:
                 first_resort: (int, int)
-                second_resort = j, i + 1
-                third_resort = j, i - 1
-                if j - unit.location[0] < 0:
-                    first_resort = j + 1, i
+                second_resort = i, j + 1
+                third_resort = i, j - 1
+                if i - unit.location[0] < 0:
+                    first_resort = i + 1, j
                 else:
-                    first_resort = j - 1, i
+                    first_resort = i - 1, j
                 found_valid_loc = False
                 for loc in [first_resort, second_resort, third_resort]:
                     if not any(u.location == loc for u in player.units) and \
                             not any(other_u.location == loc for other_u in other_units) and \
                             not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
                         unit.location = loc
+                        update_player_quads_seen_around_point(player, loc)
                         found_valid_loc = True
+                        unit.remaining_stamina = 0
                         break
-                unit.remaining_stamina = 0
                 if found_valid_loc:
-                    investigate_relic(player, unit, (j, i), cfg)
+                    investigate_relic(player, unit, (i, j), cfg)
                     quads[j][i].is_relic = False
                     return
     # We only get to this point if a valid relic was not found. Make sure when moving randomly that the unit does not
-    # collide with other units or settlements.
-    found_valid_loc = False
-    while not found_valid_loc:
+    # collide with other units or settlements. We only try to move five times because technically a unit could have
+    # nowhere to move and this could loop forever.
+    for _ in range(5):
         x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
         rem_movement = unit.remaining_stamina - abs(x_movement)
         y_movement = random.choice([-rem_movement, rem_movement])
@@ -402,12 +403,13 @@ def search_for_relics_or_move(unit: Unit,
                 not any(other_u.location == loc for other_u in other_units) and \
                 not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
             unit.location = loc
-            found_valid_loc = True
+            update_player_quads_seen_around_point(player, loc)
             unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
+            break
 
 
-def move_healer_unit(player: Player, unit: Unit, other_units: typing.List[Unit],
-                     all_setls: typing.List[Settlement], quads: typing.List[typing.List[Quad]], cfg: GameConfig):
+def move_healer_unit(player: Player, unit: Unit, other_units: List[Unit],
+                     all_setls: List[Settlement], quads: List[List[Quad]], cfg: GameConfig):
     """
     Search for any friendly units within range that aren't at full health. If one is found, move next to it and
     heal it. Otherwise, the healer unit looks for relics or moves randomly.
@@ -419,7 +421,7 @@ def move_healer_unit(player: Player, unit: Unit, other_units: typing.List[Unit],
     :param quads: The quads on the board.
     :param cfg: The current game configuration.
     """
-    within_range: typing.Optional[Unit] = None
+    within_range: Optional[Unit] = None
     for player_u in player.units:
         if max(abs(unit.location[0] - player_u.location[0]),
                abs(unit.location[1] - player_u.location[1])) <= unit.remaining_stamina and \
@@ -444,9 +446,10 @@ def move_healer_unit(player: Player, unit: Unit, other_units: typing.List[Unit],
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
                 unit.location = loc
+                update_player_quads_seen_around_point(player, loc)
                 found_valid_loc = True
+                unit.remaining_stamina = 0
                 break
-        unit.remaining_stamina = 0
         # Assuming we found a valid location, the healing can take place.
         if found_valid_loc:
             heal(unit, within_range)
@@ -481,8 +484,8 @@ class MoveMaker:
         self.namer: Namer = namer
         self.board_ref = None
 
-    def make_move(self, player: Player, all_players: typing.List[Player], quads: typing.List[typing.List[Quad]],
-                  cfg: GameConfig, is_night: bool):
+    def make_move(self, player: Player, all_players: List[Player], quads: List[List[Quad]],
+                  cfg: GameConfig, is_night: bool, local_player_idx: Optional[int]):
         """
         Make a move for the given AI player.
         :param player: The AI player to make a move for.
@@ -490,6 +493,7 @@ class MoveMaker:
         :param quads: The 2D list of quads to use to search for relics.
         :param cfg: The game configuration.
         :param is_night: Whether it is night.
+        :param local_player_idx: The index of the player on this machine in the overall players list.
         """
         all_setls = []
         for pl in all_players:
@@ -503,7 +507,7 @@ class MoveMaker:
         for setl in player.settlements:
             if setl.current_work is None:
                 set_ai_construction(player, setl, is_night, other_player_vics)
-            elif player.faction is not Faction.FUNDAMENTALISTS:
+            elif player.faction != Faction.FUNDAMENTALISTS:
                 cons = setl.current_work.construction
                 # If the buyout cost for the settlement is less than a third of the player's wealth, buy it out. In
                 # circumstances where the settlement's satisfaction is less than 50 and the construction would yield
@@ -523,11 +527,12 @@ class MoveMaker:
                                             if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                             0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                     player.units.append(settler)
+                    update_player_quads_seen_around_point(player, settler.location)
                     setl.garrison.remove(settler)
             # Deploy a unit from the garrison if the AI is not defensive, or the settlement is under siege or attack, or
             # there are too many units garrisoned.
             if (len(setl.garrison) > 0 and
-                (player.ai_playstyle.attacking is not AttackPlaystyle.DEFENSIVE or setl.besieged
+                (player.ai_playstyle.attacking != AttackPlaystyle.DEFENSIVE or setl.besieged
                  or setl.strength < setl.max_strength / 2)) or len(setl.garrison) > 3:
                 deployed = setl.garrison.pop()
                 deployed.garrisoned = False
@@ -535,6 +540,7 @@ class MoveMaker:
                                          if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                          0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                 player.units.append(deployed)
+                update_player_quads_seen_around_point(player, deployed.location)
             # If another player is close to a victory, and there are deployer units in the garrison, deploy all of them.
             if other_player_vics and \
                     len(deployers := [unit for unit in setl.garrison if isinstance(unit, DeployerUnit)]) > 0:
@@ -544,26 +550,27 @@ class MoveMaker:
                                              if not any(setl_quad.location == loc for setl_quad in setl.quads) and
                                              0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                     player.units.append(deployer)
+                    update_player_quads_seen_around_point(player, deployer.location)
                     setl.garrison.remove(deployer)
         all_units = []
         for p in all_players:
             if p is not player:
                 for unit in p.units:
                     all_units.append(unit)
-        min_pow_health: (float, Unit) = 9999, None  # 9999 is arbitrary, but no unit will ever have this.
+        min_pow_health: Tuple[float, Unit] = 9999, None  # 9999 is arbitrary, but no unit will ever have this.
         # Move each deployed unit, and also work out which of the player's units has the lowest combined power and
         # health. This is subsequently used if we need to sell units due to negative wealth.
         for unit in player.units:
             if pow_health := (unit.health + unit.plan.power) < min_pow_health[0]:
                 min_pow_health = pow_health, unit
-            self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg, other_player_vics)
+            self.move_unit(player, unit, all_units, all_players, all_setls, quads, cfg, other_player_vics,
+                           local_player_idx)
             overall_wealth -= unit.plan.cost / 10
         if (player.wealth + overall_wealth < 0) and min_pow_health[1] in player.units:
             player.wealth += min_pow_health[1].plan.cost
             player.units.remove(min_pow_health[1])
 
-    def move_settler_unit(self, unit: Unit, player: Player, other_units: typing.List[Unit],
-                          all_setls: typing.List[Settlement]):
+    def move_settler_unit(self, unit: Unit, player: Player, other_units: List[Unit], all_setls: List[Settlement]):
         """
         Randomly move the given settler until it is both far enough away from any of the player's other settlements and
         next to one or more core resources, ensuring that it does not collide with any other units or settlements. Once
@@ -574,8 +581,9 @@ class MoveMaker:
         :param all_setls: All of the settlements in the game. Used to make sure no collisions occur between the settler
         and settlements.
         """
-        found_valid_loc = False
-        while not found_valid_loc:
+        # We only try to move five times because technically a unit could have nowhere to move and this could loop
+        # forever.
+        for _ in range(5):
             x_movement = random.randint(-unit.remaining_stamina, unit.remaining_stamina)
             rem_movement = unit.remaining_stamina - abs(x_movement)
             y_movement = random.choice([-rem_movement, rem_movement])
@@ -584,8 +592,9 @@ class MoveMaker:
                     not any(other_u.location == loc for other_u in other_units) and \
                     not any(any(setl_quad.location == loc for setl_quad in setl.quads) for setl in all_setls):
                 unit.location = loc
-                found_valid_loc = True
+                update_player_quads_seen_around_point(player, loc)
                 unit.remaining_stamina -= abs(x_movement) + abs(y_movement)
+                break
 
         should_settle = True
         for setl in player.settlements:
@@ -597,7 +606,7 @@ class MoveMaker:
             get_resources_for_settlement([prospective_quad.location], self.board_ref.quads)
         # We make sure that AI settler units only settle next to core resources so that they don't end up in a situation
         # where they are missing the necessary core resources to construct improvements, and as a result, are unable to
-        # effectively compete with the human player to win the game.
+        # effectively compete with human players to win the game.
         if not prospective_resources.ore and not prospective_resources.timber and not prospective_resources.magma:
             should_settle = False
         if should_settle:
@@ -605,20 +614,21 @@ class MoveMaker:
             setl_name = self.namer.get_settlement_name(quad_biome)
             setl_resources = get_resources_for_settlement([unit.location], self.board_ref.quads)
             new_settl = Settlement(setl_name, unit.location, [], [prospective_quad], setl_resources, [])
-            if player.faction is Faction.FRONTIERSMEN:
+            if player.faction == Faction.FRONTIERSMEN:
                 new_settl.satisfaction = 75
-            elif player.faction is Faction.IMPERIALS:
+            elif player.faction == Faction.IMPERIALS:
                 new_settl.strength /= 2
                 new_settl.max_strength /= 2
             if new_settl.resources.obsidian:
                 new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
                 new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
             player.settlements.append(new_settl)
+            update_player_quads_seen_around_point(player, new_settl.location)
             player.units.remove(unit)
 
-    def move_unit(self, player: Player, unit: Unit, other_units: typing.List[Unit], all_players: typing.List[Player],
-                  all_setls: typing.List[Settlement], quads: typing.List[typing.List[Quad]], cfg: GameConfig,
-                  other_player_vics: typing.List[typing.Tuple[Player, int]]):
+    def move_unit(self, player: Player, unit: Unit, other_units: List[Unit], all_players: List[Player],
+                  all_setls: List[Settlement], quads: List[List[Quad]], cfg: GameConfig,
+                  other_player_vics: List[Tuple[Player, int]], local_player_idx: Optional[int]):
         """
         Move the given unit, attacking if the right conditions are met.
         :param player: The AI owner of the unit being moved.
@@ -630,6 +640,7 @@ class MoveMaker:
         :param cfg: The game configuration.
         :param other_player_vics: A list of tuples of players and the number of imminent victories they have. Note that
         players without any imminent victories are not included in this list.
+        :param local_player_idx: The index of the player on this machine in the overall players list.
         """
         # If the unit can settle, randomly move it until it is far enough away from any of the player's other
         # settlements, ensuring that it does not collide with any other units or settlements. Once this has been
@@ -662,6 +673,7 @@ class MoveMaker:
                                    nearest_settlement[3] / nearest_settlement[1])
                         unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                          int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                        update_player_quads_seen_around_point(player, unit.location)
                         unit.remaining_stamina = 0
                 # Deployer units at max capacity move towards the weakest settlement belonging to the player with the
                 # most imminent victories.
@@ -683,17 +695,19 @@ class MoveMaker:
                                                          for setl in all_setls) and
                                                  0 <= loc[0] <= 99 and 0 <= loc[1] <= 89)
                         player.units.append(deployed)
+                        update_player_quads_seen_around_point(player, deployed.location)
                     elif len(unit.passengers) == unit.plan.max_capacity:
                         dir_vec = (x_diff / distance, y_diff / distance)
                         unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                          int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                        update_player_quads_seen_around_point(player, unit.location)
                         unit.remaining_stamina = 0
             # If there are no other players with imminent victories, deployer units can just explore.
             else:
                 search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)
         else:
             attack_over_siege = True  # If False, the unit will siege the settlement.
-            within_range: typing.Optional[Unit | Settlement] = None
+            within_range: Optional[Unit | Settlement] = None
             # If the unit cannot settle, then we must first check if it meets the criteria to attack another unit. A
             # unit can attack if one or more of the following apply:
             # - Any of its settlements are under siege or attack
@@ -705,7 +719,7 @@ class MoveMaker:
                 is_infidel = False
                 is_close_to_elimination_vic = False
                 for pl in all_players:
-                    if pl.faction is Faction.INFIDELS and other_u in pl.units:
+                    if pl.faction == Faction.INFIDELS and other_u in pl.units:
                         is_infidel = True
                         break
                     if VictoryType.ELIMINATION in pl.imminent_victories:
@@ -713,8 +727,8 @@ class MoveMaker:
                         break
                 could_attack: bool = any(setl.besieged or setl.strength < setl.max_strength / 2
                                          for setl in player.settlements) or \
-                    player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
-                    (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
+                    player.ai_playstyle.attacking == AttackPlaystyle.AGGRESSIVE or \
+                    (player.ai_playstyle.attacking == AttackPlaystyle.NEUTRAL and
                      unit.health >= other_u.health * 2) or is_infidel or is_close_to_elimination_vic
                 # Of course, the attacked unit has to be close enough.
                 if max(abs(unit.location[0] - other_u.location[0]),
@@ -734,11 +748,11 @@ class MoveMaker:
                         # Settlements are only attacked by AI players under strict conditions. Even aggressive AIs need
                         # to double the strength of the settlement in their health. However, these strict conditions are
                         # ignored in times of desperation, i.e. when the other player has an imminent victory.
-                        could_attack: bool = (player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE and
+                        could_attack: bool = (player.ai_playstyle.attacking == AttackPlaystyle.AGGRESSIVE and
                                               unit.health >= other_setl.strength * 2) or \
-                                             (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
+                                             (player.ai_playstyle.attacking == AttackPlaystyle.NEUTRAL and
                                               unit.health >= other_setl.strength * 10) or \
-                                             (player.ai_playstyle.attacking is AttackPlaystyle.DEFENSIVE and
+                                             (player.ai_playstyle.attacking == AttackPlaystyle.DEFENSIVE and
                                               other_setl.strength == 0) or setl_owner.imminent_victories
                         if could_attack:
                             if any(max(abs(unit.location[0] - setl_quad.location[0]),
@@ -750,8 +764,8 @@ class MoveMaker:
                             # If there are no attackable settlements, we check if the AI player can place any under
                             # siege. Aggressive AIs will place any settlement they can see under siege, and neutral AIs
                             # will do the same if they have the upper hand.
-                            could_siege: bool = player.ai_playstyle.attacking is AttackPlaystyle.AGGRESSIVE or \
-                                                (player.ai_playstyle.attacking is AttackPlaystyle.NEUTRAL and
+                            could_siege: bool = player.ai_playstyle.attacking == AttackPlaystyle.AGGRESSIVE or \
+                                                (player.ai_playstyle.attacking == AttackPlaystyle.NEUTRAL and
                                                  unit.health >= other_setl.strength * 2)
                             if could_siege:
                                 if any(max(abs(unit.location[0] - setl_quad.location[0]),
@@ -782,6 +796,7 @@ class MoveMaker:
                                 not any(any(setl_quad.location == loc for setl_quad in setl.quads)
                                         for setl in all_setls):
                             unit.location = loc
+                            update_player_quads_seen_around_point(player, unit.location)
                             unit.remaining_stamina = 0
                             found_valid_loc = True
                             break
@@ -795,8 +810,8 @@ class MoveMaker:
                             unit.besieging = False
                             data = attack(unit, within_range)
 
-                            # Show the attack notification if we attacked the player.
-                            if within_range in all_players[0].units:
+                            # Show the attack notification if we attacked the human player on this machine.
+                            if local_player_idx is not None and within_range in all_players[local_player_idx].units:
                                 self.board_ref.overlay.toggle_attack(data)
                             if within_range.health <= 0:
                                 for p in all_players:
@@ -817,8 +832,10 @@ class MoveMaker:
                             if setl_owner:
                                 data = attack_setl(unit, within_range, setl_owner)
 
-                                # Show the settlement attack notification if we attacked the player.
-                                if within_range in all_players[0].settlements:
+                                # Show the settlement attack notification if we attacked the human player on this
+                                # machine.
+                                if local_player_idx is not None and \
+                                        within_range in all_players[local_player_idx].settlements:
                                     self.board_ref.overlay.toggle_setl_attack(data)
                                 if data.attacker_was_killed:
                                     player.units.remove(data.attacker)
@@ -829,8 +846,9 @@ class MoveMaker:
                                                abs(u.location[1] - setl_quad.location[1]) <= 1
                                                for setl_quad in data.settlement.quads):
                                             u.besieging = False
-                                    if player.faction is not Faction.CONCENTRATED:
+                                    if player.faction != Faction.CONCENTRATED:
                                         player.settlements.append(data.settlement)
+                                        update_player_quads_seen_around_point(player, data.settlement.location)
                                     setl_owner.settlements.remove(data.settlement)
                     # If we have chosen to place a settlement under siege, and the unit is not already besieging another
                     # settlement, do so.
@@ -838,8 +856,10 @@ class MoveMaker:
                         unit.besieging = True
                         if not within_range.besieged:
                             within_range.besieged = True
-                            # Show the siege notification if we have placed one of the player's settlements under siege.
-                            if within_range in all_players[0].settlements:
+                            # Show the siege notification if we have placed a settlement under siege that belongs to the
+                            # human player on this machine.
+                            if local_player_idx is not None and \
+                                    within_range in all_players[local_player_idx].settlements:
                                 self.board_ref.overlay.toggle_siege_notif(within_range, player)
             # If a suitable unit or settlement was not found to attack, but there is another player with an imminent
             # victory, either move into a deployer unit or move towards the weakest settlement belonging to the player
@@ -867,6 +887,7 @@ class MoveMaker:
                     dir_vec = (x_diff / distance, y_diff / distance)
                     unit.location = (int(unit.location[0] + dir_vec[0] * unit.remaining_stamina),
                                      int(unit.location[1] + dir_vec[1] * unit.remaining_stamina))
+                    update_player_quads_seen_around_point(player, unit.location)
                     unit.remaining_stamina = 0
             # If there's nothing within range, look for relics or just move randomly.
             else:

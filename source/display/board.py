@@ -5,8 +5,11 @@ from enum import Enum
 
 import pyxel
 
+from source.networking.client import dispatch_event, get_identifier
+from source.networking.events import FoundSettlementEvent, EventType, UpdateAction, MoveUnitEvent, DeployUnitEvent, \
+    GarrisonUnitEvent, InvestigateEvent, AttackUnitEvent, HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent
 from source.util.calculator import calculate_yield_for_quad, attack, investigate_relic, heal, \
-    get_resources_for_settlement
+    get_resources_for_settlement, update_player_quads_seen_around_point
 from source.foundation.catalogue import get_default_unit, Namer
 from source.foundation.models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, \
     Faction, DeployerUnit, ResourceCollection
@@ -30,12 +33,16 @@ class Board:
     The class responsible for drawing everything in-game (i.e. not on menu).
     """
 
-    def __init__(self, cfg: GameConfig, namer: Namer, quads: typing.List[typing.List[Quad]] = None):
+    def __init__(self, cfg: GameConfig, namer: Namer, quads: typing.List[typing.List[Quad]] = None,
+                 player_idx: int = 0, game_name: typing.Optional[str] = None):
         """
         Initialises the board with the given config and quads, if supplied.
         :param cfg: The game config.
         :param namer: The Namer instance to use for settlement names.
         :param quads: The quads loaded in, if we are loading a game.
+        :param player_idx: The index of the player in the overall list of players. Will always be zero for single-player
+                           games, but will be variable for multiplayer ones.
+        :param game_name: The name of the current multiplayer game. Will be None for single-player games.
         """
         self.current_help = HelpOption.SETTLEMENT
         self.help_time_bank = 0
@@ -43,6 +50,7 @@ class Board:
         self.siege_time_bank = 0
         self.construction_prompt_time_bank = 0
         self.heal_time_bank = 0
+        self.player_change_time_bank = 0
 
         self.game_config: GameConfig = cfg
         self.namer: Namer = namer
@@ -62,6 +70,10 @@ class Board:
         self.deploying_army = False
         self.deploying_army_from_unit = False
         self.selected_unit: typing.Optional[Unit | Heathen] = None
+
+        self.player_idx: int = player_idx
+        self.game_name: typing.Optional[str] = game_name
+        self.waiting_for_other_players: bool = False
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
              is_night: bool, turns_until_change: int):  # pragma: no cover
@@ -84,34 +96,36 @@ class Board:
         # At nighttime, the player can only see a few quads around their settlements and units. However, players of the
         # Nocturne faction have no vision impacts at nighttime. In addition to this, settlements with one or more
         # sunstone resources have extended vision proportionate to the number of sunstone resources they have.
-        if is_night and players[0].faction is not Faction.NOCTURNE:
-            for setl in players[0].settlements:
+        if is_night and players[self.player_idx].faction != Faction.NOCTURNE:
+            for setl in players[self.player_idx].settlements:
                 vision_range = 3 * (1 + setl.resources.sunstone)
                 for setl_quad in setl.quads:
                     for i in range(setl_quad.location[0] - vision_range, setl_quad.location[0] + vision_range + 1):
                         for j in range(setl_quad.location[1] - vision_range, setl_quad.location[1] + vision_range + 1):
                             quads_to_show.add((i, j))
-            for unit in players[0].units:
+            for unit in players[self.player_idx].units:
                 for i in range(unit.location[0] - 3, unit.location[0] + 4):
                     for j in range(unit.location[1] - 3, unit.location[1] + 4):
                         quads_to_show.add((i, j))
             # Players of the Infidels faction share vision with Heathen units.
-            if players[0].faction is Faction.INFIDELS:
+            if players[self.player_idx].faction == Faction.INFIDELS:
                 for heathen in heathens:
                     for i in range(heathen.location[0] - 5, heathen.location[0] + 6):
                         for j in range(heathen.location[1] - 5, heathen.location[1] + 6):
                             quads_to_show.add((i, j))
         else:
-            quads_to_show = players[0].quads_seen
+            quads_to_show = players[self.player_idx].quads_seen
         fog_of_war_impacts: bool = self.game_config.fog_of_war or \
-            (is_night and players[0].faction is not Faction.NOCTURNE)
+            (is_night and players[self.player_idx].faction != Faction.NOCTURNE)
         # Draw the quads.
         for i in range(map_pos[0], map_pos[0] + 24):
             for j in range(map_pos[1], map_pos[1] + 22):
                 if 0 <= i <= 99 and 0 <= j <= 89:
                     # Draw the quad if fog of war is off, or if the player has seen the quad, or we're in the tutorial.
                     # This same logic applies to all subsequent draws.
-                    if (i, j) in quads_to_show or len(players[0].settlements) == 0 or not fog_of_war_impacts:
+                    if (i, j) in quads_to_show or \
+                            len(players[self.player_idx].settlements) == 0 or \
+                            not fog_of_war_impacts:
                         quad = self.quads[j][i]
                         match quad.biome:
                             case Biome.DESERT:
@@ -204,7 +218,7 @@ class Board:
                     pyxel.rectb((unit.location[0] - map_pos[0]) * 8 + 4,
                                 (unit.location[1] - map_pos[1]) * 8 + 4, 8, 8, player.colour)
                     # Highlight the player-selected unit, if there is one.
-                    if self.selected_unit is unit and unit in players[0].units:
+                    if self.selected_unit is unit and unit in players[self.player_idx].units:
                         movement = self.selected_unit.remaining_stamina
                         pyxel.rectb((self.selected_unit.location[0] - map_pos[0]) * 8 + 4 - (movement * 8),
                                     (self.selected_unit.location[1] - map_pos[1]) * 8 + 4 - (movement * 8),
@@ -278,7 +292,7 @@ class Board:
 
         # For the selected quad, display its yield.
         if self.quad_selected is not None and selected_quad_coords is not None and \
-                (selected_quad_coords in quads_to_show or len(players[0].settlements) == 0 or
+                (selected_quad_coords in quads_to_show or len(players[self.player_idx].settlements) == 0 or
                  not fog_of_war_impacts):
             x_offset = 30 if selected_quad_coords[0] - map_pos[0] <= 8 else 0
             y_offset = -34 if selected_quad_coords[1] - map_pos[1] >= 36 else 0
@@ -328,7 +342,8 @@ class Board:
                         pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_WHITE)
 
         # Also display the number of units the player can move at the bottom-right of the screen.
-        movable_units = [unit for unit in players[0].units if unit.remaining_stamina > 0 and not unit.besieging]
+        movable_units = [unit for unit in players[self.player_idx].units
+                         if unit.remaining_stamina > 0 and not unit.besieging]
         if len(movable_units) > 0:
             pluralisation = "s" if len(movable_units) > 1 else ""
             pyxel.rectb(150, 147, 40, 20, pyxel.COLOR_WHITE)
@@ -338,10 +353,14 @@ class Board:
             pyxel.text(161, 160, f"unit{pluralisation}", pyxel.COLOR_WHITE)
 
         pyxel.rect(0, 184, 200, 16, pyxel.COLOR_BLACK)
-        # If a unit is selected that can settle, override all other help text and alert the player as to the settle
-        # button. Alternatively, if a unit is selected that can heal other units, similarly alert the player as to how
-        # to heal other units.
-        if self.selected_unit is not None and self.selected_unit.plan.can_settle:
+        # There are a few situations in which we override the default help text:
+        # - If the current game has multiplayer enabled, and the player is waiting for other players to finish their
+        #   turn.
+        # - If a unit is selected that can settle, alerting the player as to the settle button.
+        # - If a unit is selected that can heal other units, alerting the player as to how to heal other units.
+        if self.game_config.multiplayer and self.waiting_for_other_players:
+            pyxel.text(2, 189, "Waiting for other players...", pyxel.COLOR_WHITE)
+        elif self.selected_unit is not None and self.selected_unit.plan.can_settle:
             pyxel.text(2, 189, "S: Found new settlement", pyxel.COLOR_WHITE)
         elif self.selected_unit is not None and self.selected_unit.plan.heals and not self.selected_unit.has_acted:
             pyxel.text(2, 189, "L CLICK: Heal adjacent unit", pyxel.COLOR_WHITE)
@@ -351,7 +370,7 @@ class Board:
         exclamation_offset: int = 0
         if self.game_config.climatic_effects:
             exclamation_offset += 12
-            if players[0].faction is Faction.NOCTURNE:
+            if players[self.player_idx].faction == Faction.NOCTURNE:
                 exclamation_offset += 17
                 pyxel.text(135, 190, f"({turns_until_change})", pyxel.COLOR_WHITE)
             if is_night:
@@ -360,10 +379,10 @@ class Board:
                 pyxel.blt(153, 188, 0, 0, 84, 8, 8)
         # If the player isn't undergoing a blessing, or has one or more settlements without a construction, display
         # exclamation marks in the status bar.
-        if any(setl.current_work is None for setl in players[0].settlements):
+        if any(setl.current_work is None for setl in players[self.player_idx].settlements):
             pyxel.blt(154 - exclamation_offset, 188, 0, 8, 124, 8, 8)
             exclamation_offset += 8
-        if players[0].ongoing_blessing is None:
+        if players[self.player_idx].ongoing_blessing is None:
             pyxel.blt(154 - exclamation_offset, 188, 0, 0, 124, 8, 8)
 
         pyxel.text(165, 189, f"Turn {turn}", pyxel.COLOR_WHITE)
@@ -420,6 +439,13 @@ class Board:
             if self.heal_time_bank > 3:
                 self.overlay.toggle_heal(None)
                 self.heal_time_bank = 0
+        # If a player has left or joined the current multiplayer game, display who left/joined for three seconds before
+        # disappearing, like the above alerts.
+        if self.overlay.is_player_change():
+            self.player_change_time_bank += elapsed_time
+            if self.player_change_time_bank > 3:
+                self.overlay.toggle_player_change(None, None)
+                self.player_change_time_bank = 0
 
     def generate_quads(self, biome_clustering: bool, climatic_effects: bool):
         """
@@ -457,7 +483,7 @@ class Board:
                 else:
                     # If we're not using biome clustering, just randomly choose one.
                     biome = random.choice(list(Biome))
-                quad_yield: (float, float, float, float) = calculate_yield_for_quad(biome)
+                quad_yield: typing.Tuple[int, int, int, int] = calculate_yield_for_quad(biome)
 
                 resource: typing.Optional[ResourceCollection] = None
                 # Each quad has a 1 in 20 chance of having a core resource, and a 1 in 100 chance of having a rare
@@ -542,7 +568,7 @@ class Board:
         :param mouse_x: The X coordinate of the mouse click.
         :param mouse_y: The Y coordinate of the mouse click.
         :param settled: Whether the player has founded a settlement yet.
-        :param player: The non-AI player.
+        :param player: The player making the click.
         :param map_pos: The current map position.
         :param heathens: The list of Heathens.
         :param all_units: The list of all Units in the game.
@@ -589,13 +615,18 @@ class Board:
                         new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
                     player.settlements.append(new_settl)
                     # Automatically add 5 quads in either direction to the player's seen.
-                    for i in range(adj_y - 5, adj_y + 6):
-                        for j in range(adj_x - 5, adj_x + 6):
-                            player.quads_seen.add((j, i))
+                    update_player_quads_seen_around_point(player, (adj_x, adj_y))
                     self.overlay.toggle_tutorial()
                     # Select the new settlement.
                     self.selected_settlement = new_settl
                     self.overlay.toggle_settlement(new_settl, player)
+                    # If we're in a multiplayer game, alert the server, which will alert other players.
+                    if self.game_config.multiplayer:
+                        fs_evt: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, get_identifier(),
+                                                                            UpdateAction.FOUND_SETTLEMENT,
+                                                                            self.game_name, player.faction, new_settl,
+                                                                            from_settler=False)
+                        dispatch_event(fs_evt)
                 else:
                     # If the player has selected a settlement, but has now clicked elsewhere, deselect the settlement.
                     if not self.deploying_army and \
@@ -603,7 +634,7 @@ class Board:
                             all(quad.location != (adj_x, adj_y) for quad in self.selected_settlement.quads):
                         self.selected_settlement = None
                         self.overlay.toggle_settlement(None, player)
-                    # If the player has selected neither a unit or settlement, and they have clicked on one of their
+                    # If the player has selected neither unit nor settlement, and they have clicked on one of their
                     # settlements, select it.
                     elif self.selected_unit is None and self.selected_settlement is None and \
                             any((to_select := setl) and any(setl_quad.location == (adj_x, adj_y)
@@ -628,6 +659,14 @@ class Board:
                         self.selected_unit.garrisoned = True
                         to_select.garrison.append(self.selected_unit)
                         player.units.remove(self.selected_unit)
+                        # If we're in a multiplayer game, alert the server, which will alert other players.
+                        if self.game_config.multiplayer:
+                            gu_evt: GarrisonUnitEvent = GarrisonUnitEvent(EventType.UPDATE, get_identifier(),
+                                                                          UpdateAction.GARRISON_UNIT, self.game_name,
+                                                                          player.faction, initial,
+                                                                          self.selected_unit.remaining_stamina,
+                                                                          to_select.name)
+                            dispatch_event(gu_evt)
                         # Deselect the unit now.
                         self.selected_unit = None
                         self.overlay.toggle_unit(None)
@@ -650,6 +689,13 @@ class Board:
                         self.selected_unit.remaining_stamina -= distance_travelled
                         to_select.passengers.append(self.selected_unit)
                         player.units.remove(self.selected_unit)
+                        # If we're in a multiplayer game, alert the server, which will alert other players.
+                        if self.game_config.multiplayer:
+                            bd_evt: BoardDeployerEvent = BoardDeployerEvent(EventType.UPDATE, get_identifier(),
+                                                                            UpdateAction.BOARD_DEPLOYER, self.game_name,
+                                                                            player.faction, initial, to_select.location,
+                                                                            self.selected_unit.remaining_stamina)
+                            dispatch_event(bd_evt)
                         # Deselect the unit now.
                         self.selected_unit = None
                         self.overlay.toggle_unit(None)
@@ -669,9 +715,14 @@ class Board:
                         deployed.location = adj_x, adj_y
                         player.units.append(deployed)
                         # Add the surrounding quads to the player's seen.
-                        for i in range(adj_y - 5, adj_y + 6):
-                            for j in range(adj_x - 5, adj_x + 6):
-                                player.quads_seen.add((j, i))
+                        update_player_quads_seen_around_point(player, (adj_x, adj_y))
+                        # If we're in a multiplayer game, alert the server, which will alert other players.
+                        if self.game_config.multiplayer:
+                            du_evt: DeployUnitEvent = DeployUnitEvent(EventType.UPDATE, get_identifier(),
+                                                                      UpdateAction.DEPLOY_UNIT, self.game_name,
+                                                                      player.faction, self.selected_settlement.name,
+                                                                      deployed.location)
+                            dispatch_event(du_evt)
                         self.deploying_army = False
                         # Select the unit and deselect the settlement.
                         self.selected_unit = deployed
@@ -695,9 +746,15 @@ class Board:
                         self.selected_unit.passengers[unit_idx:unit_idx + 1] = []
                         player.units.append(deployed)
                         # Add the surrounding quads to the player's seen.
-                        for i in range(adj_y - 5, adj_y + 6):
-                            for j in range(adj_x - 5, adj_x + 6):
-                                player.quads_seen.add((j, i))
+                        update_player_quads_seen_around_point(player, (adj_x, adj_y))
+                        # If we're in a multiplayer game, alert the server, which will alert other players.
+                        if self.game_config.multiplayer:
+                            dd_evt: DeployerDeployEvent = DeployerDeployEvent(EventType.UPDATE, get_identifier(),
+                                                                              UpdateAction.DEPLOYER_DEPLOY,
+                                                                              self.game_name, player.faction,
+                                                                              self.selected_unit.location, unit_idx,
+                                                                              deployed.location)
+                            dispatch_event(dd_evt)
                         # Reset the relevant deployer unit state.
                         self.deploying_army_from_unit = False
                         self.overlay.unit_passengers_idx = 0
@@ -706,8 +763,9 @@ class Board:
                         self.selected_unit = deployed
                         self.overlay.toggle_deployment()
                         self.overlay.update_unit(deployed)
-                    # If the player has not selected a unit and they've clicked on a heathen, select it.
+                    # If the player has not selected a unit and they've clicked on a visible heathen, select it.
                     elif self.selected_unit is None and \
+                            ((adj_x, adj_y) in player.quads_seen or not self.game_config.fog_of_war) and \
                             any((to_select := heathen).location == (adj_x, adj_y) for heathen in heathens):
                         self.selected_unit = to_select
                         self.overlay.toggle_unit(to_select)
@@ -722,6 +780,14 @@ class Board:
                                 abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
                                 abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
                             data = attack(self.selected_unit, other_unit, ai=False)
+                            # If we're in a multiplayer game, alert the server, which will alert other players.
+                            if self.game_config.multiplayer:
+                                au_evt: AttackUnitEvent = AttackUnitEvent(EventType.UPDATE, get_identifier(),
+                                                                          UpdateAction.ATTACK_UNIT,
+                                                                          self.game_name, player.faction,
+                                                                          self.selected_unit.location,
+                                                                          other_unit.location)
+                                dispatch_event(au_evt)
                             # Destroy the player's unit if it died.
                             if self.selected_unit.health <= 0:
                                 player.units.remove(self.selected_unit)
@@ -749,6 +815,13 @@ class Board:
                                     abs(self.selected_unit.location[0] - other_unit.location[0]) <= 1 and \
                                     abs(self.selected_unit.location[1] - other_unit.location[1]) <= 1:
                                 data = heal(self.selected_unit, other_unit, ai=False)
+                                # If we're in a multiplayer game, alert the server, which will alert other players.
+                                if self.game_config.multiplayer:
+                                    hu_evt: HealUnitEvent = HealUnitEvent(EventType.UPDATE, get_identifier(),
+                                                                          UpdateAction.HEAL_UNIT, self.game_name,
+                                                                          player.faction, self.selected_unit.location,
+                                                                          other_unit.location)
+                                    dispatch_event(hu_evt)
                                 self.overlay.toggle_heal(data)
                                 self.heal_time_bank = 0
                             else:
@@ -766,8 +839,9 @@ class Board:
                             for p in all_players:
                                 if to_attack in p.settlements:
                                     self.overlay.toggle_setl_click(to_attack, p)
-                    # If the player has not selected a unit and they click on one, select it.
+                    # If the player has not selected a unit and they click on a visible one, select it.
                     elif self.selected_unit is None and \
+                            ((adj_x, adj_y) in player.quads_seen or not self.game_config.fog_of_war) and \
                             any((to_select := unit).location == (adj_x, adj_y) for unit in all_units):
                         self.selected_unit = to_select
                         self.overlay.toggle_unit(to_select)
@@ -793,13 +867,19 @@ class Board:
                         found_besieged_setl = False
                         for setl in other_setls:
                             if setl.besieged and abs(self.selected_unit.location[0] - setl.location[0]) <= 1 and \
-                                        abs(self.selected_unit.location[1] - setl.location[1]) <= 1:
+                                    abs(self.selected_unit.location[1] - setl.location[1]) <= 1:
                                 found_besieged_setl = True
                         self.selected_unit.besieging = found_besieged_setl
                         # Update the player's seen quads.
-                        for i in range(adj_y - 5, adj_y + 6):
-                            for j in range(adj_x - 5, adj_x + 6):
-                                player.quads_seen.add((j, i))
+                        update_player_quads_seen_around_point(player, (adj_x, adj_y))
+                        # If we're in a multiplayer game, alert the server, which will alert other players.
+                        if self.game_config.multiplayer:
+                            mu_evt: MoveUnitEvent = MoveUnitEvent(EventType.UPDATE, get_identifier(),
+                                                                  UpdateAction.MOVE_UNIT, self.game_name,
+                                                                  player.faction, initial, self.selected_unit.location,
+                                                                  self.selected_unit.remaining_stamina,
+                                                                  self.selected_unit.besieging)
+                            dispatch_event(mu_evt)
                     # If the player has selected one of their units and clicked on a relic, investigate it, providing
                     # that their unit is close enough.
                     elif not self.deploying_army_from_unit and self.selected_unit is not None and \
@@ -812,6 +892,13 @@ class Board:
                                                                             self.game_config)
                             # Relics cease to exist once investigated.
                             self.quads[adj_y][adj_x].is_relic = False
+                            # If we're in a multiplayer game, alert the server, which will alert other players.
+                            if self.game_config.multiplayer:
+                                i_evt: InvestigateEvent = InvestigateEvent(EventType.UPDATE, get_identifier(),
+                                                                           UpdateAction.INVESTIGATE, self.game_name,
+                                                                           player.faction, self.selected_unit.location,
+                                                                           (adj_x, adj_y), result)
+                                dispatch_event(i_evt)
                             self.overlay.toggle_investigation(result)
                     # Lastly, if the player has selected a unit and they click elsewhere, deselect the unit.
                     elif not self.deploying_army_from_unit and self.selected_unit is not None and \
@@ -839,17 +926,24 @@ class Board:
             new_settl = Settlement(setl_name, self.selected_unit.location, [],
                                    [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]],
                                    setl_resources, [])
-            if player.faction is Faction.FRONTIERSMEN:
+            if player.faction == Faction.FRONTIERSMEN:
                 new_settl.satisfaction = 75
-            elif player.faction is Faction.IMPERIALS:
+            elif player.faction == Faction.IMPERIALS:
                 new_settl.strength /= 2
                 new_settl.max_strength /= 2
             if new_settl.resources.obsidian:
                 new_settl.strength *= (1 + 0.5 * new_settl.resources.obsidian)
                 new_settl.max_strength *= (1 + 0.5 * new_settl.resources.obsidian)
             player.settlements.append(new_settl)
+            update_player_quads_seen_around_point(player, new_settl.location)
             # Destroy the settler unit and select the new settlement.
             player.units.remove(self.selected_unit)
+            # If we're in a multiplayer game, alert the server, which will alert other players.
+            if self.game_config.multiplayer:
+                fs_evt: FoundSettlementEvent = FoundSettlementEvent(EventType.UPDATE, get_identifier(),
+                                                                    UpdateAction.FOUND_SETTLEMENT,
+                                                                    self.game_name, player.faction, new_settl)
+                dispatch_event(fs_evt)
             self.selected_unit = None
             self.overlay.toggle_unit(None)
             self.selected_settlement = new_settl

@@ -316,7 +316,11 @@ class SaveMigratorTest(unittest.TestCase):
             "biome": test_biome,
             "is_relic": True,
             "location": [1, 2],
-            "resource": test_loaded_resource
+            "resource": test_loaded_resource,
+            "wealth": 1,
+            "harvest": 2,
+            "zeal": 3,
+            "fortune": 4
         })
 
         migrated_quad: Quad = migrate_quad(test_loaded_quad, (0, 0))
@@ -327,11 +331,20 @@ class SaveMigratorTest(unittest.TestCase):
         # Note that we passed in (0, 0) as the backup location, but since the save had the location, we don't need it.
         self.assertTupleEqual((1, 2), migrated_quad.location)
         self.assertEqual(ResourceCollection(ore=1), migrated_quad.resource)
+        self.assertEqual(1, migrated_quad.wealth)
+        self.assertEqual(2, migrated_quad.harvest)
+        self.assertEqual(3, migrated_quad.zeal)
+        self.assertEqual(4, migrated_quad.fortune)
 
-        # Now if we delete the is_relic, location, and resource attributes, we are replicating an outdated save.
+        # Now if we delete the is_relic, location, and resource attributes, and use float values for the quad's yield,
+        # we are replicating an outdated save.
         delattr(test_loaded_quad, "is_relic")
         delattr(test_loaded_quad, "location")
         delattr(test_loaded_quad, "resource")
+        test_loaded_quad.wealth = 1.1
+        test_loaded_quad.harvest = 1.5
+        test_loaded_quad.zeal = 2.5
+        test_loaded_quad.fortune = 3.7
 
         outdated_quad: Quad = migrate_quad(test_loaded_quad, (0, 0))
 
@@ -340,6 +353,11 @@ class SaveMigratorTest(unittest.TestCase):
         # Similarly, the backup location passed through should be used instead.
         self.assertTupleEqual((0, 0), outdated_quad.location)
         self.assertIsNone(outdated_quad.resource)
+        # We expect the quad's yield values to have been appropriately rounded as well.
+        self.assertEqual(1, migrated_quad.wealth)
+        self.assertEqual(2, migrated_quad.harvest)
+        self.assertEqual(3, migrated_quad.zeal)
+        self.assertEqual(4, migrated_quad.fortune)
 
     def test_settlement(self):
         """
@@ -350,7 +368,11 @@ class SaveMigratorTest(unittest.TestCase):
             "under_siege_by": Unit(1, 2, (3, 4), False, UNIT_PLANS[0]),
             "location": [1, 2],
             "quads": [ObjectConverter({
-                "biome": Biome.FOREST.value
+                "biome": Biome.FOREST.value,
+                "wealth": 1.1,
+                "harvest": 2.2,
+                "zeal": 3.3,
+                "fortune": 4.4
             })]
         })
 
@@ -369,7 +391,11 @@ class SaveMigratorTest(unittest.TestCase):
             "under_siege_by": None,
             "location": [1, 2],
             "quads": [ObjectConverter({
-                "biome": Biome.FOREST.value
+                "biome": Biome.FOREST.value,
+                "wealth": 1.1,
+                "harvest": 2.2,
+                "zeal": 3.3,
+                "fortune": 4.4
             })]
         })
 
@@ -398,7 +424,11 @@ class SaveMigratorTest(unittest.TestCase):
             "besieged": False,
             "location": [1, 2],
             "quads": [ObjectConverter({
-                "biome": Biome.FOREST.value
+                "biome": Biome.FOREST.value,
+                "wealth": 1,
+                "harvest": 2,
+                "zeal": 3,
+                "fortune": 4
             })],
             "resources": test_loaded_resources
         })
@@ -423,8 +453,10 @@ class SaveMigratorTest(unittest.TestCase):
 
         outdated_config: GameConfig = migrate_game_config(test_loaded_config)
 
-        # Since this save was from before the introduction of climatic effects, it should have been mapped to False.
+        # Since this save was from before the introduction of climatic effects and multiplayer, both should have been
+        # mapped to False.
         self.assertFalse(outdated_config.climatic_effects)
+        self.assertFalse(outdated_config.multiplayer)
         # The player faction should have been determined from the player_colour attribute, which should have been
         # deleted.
         self.assertEqual(Faction.FUNDAMENTALISTS, outdated_config.player_faction)

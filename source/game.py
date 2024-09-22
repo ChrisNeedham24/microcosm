@@ -1,4 +1,5 @@
 import time
+from threading import Thread
 
 import pyxel
 from PIL import Image
@@ -9,6 +10,7 @@ from source.game_management.game_input_handler import on_key_arrow_down, on_key_
     on_key_d, on_key_tab, on_key_space, on_key_m, on_key_s, on_key_n, on_key_b, on_key_escape, on_key_a, on_key_j, \
     on_key_x
 from source.game_management.game_state import GameState
+from source.networking.event_listener import EventListener
 from source.saving.game_save_manager import init_app_data
 from source.util.converter import convert_image_to_pyxel_icon_data
 
@@ -32,6 +34,13 @@ class Game:
 
         self.game_controller = GameController()
         self.game_state = GameState()
+
+        # Start the multiplayer EventListener in another thread so that it doesn't block pyxel running. Since it is
+        # passed references to the game state and controller, it is still able to modify them while pyxel is running.
+        client_listener: EventListener = EventListener(game_states={"local": self.game_state},
+                                                       game_controller=self.game_controller)
+        listener_thread: Thread = Thread(target=client_listener.run)
+        listener_thread.start()
 
         pyxel.run(self.on_update, self.draw)
 
@@ -105,7 +114,7 @@ class Game:
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
             on_key_escape(self.game_state)
         elif pyxel.btnp(pyxel.KEY_A):
-            on_key_a(self.game_state)
+            on_key_a(self.game_controller, self.game_state)
         elif pyxel.btnp(pyxel.KEY_J):
             on_key_j(self.game_state)
         elif pyxel.btnp(pyxel.KEY_X):

@@ -10,6 +10,22 @@ from source.foundation.models import FactionDetail, Player, Improvement, Improve
     Achievement, HarvestStatus, EconomicStatus, ResourceCollection
 from source.util.calculator import player_has_resources_for_improvement
 
+
+# The list of multiplayer lobby names.
+LOBBY_NAMES = [
+    "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta", "Iota", "Kappa", "Lambda", "Mu", "Nu", "Xi",
+    "Omicron", "Pi", "Rho", "Sigma", "Tau", "Upsilon", "Phi", "Chi", "Psi", "Omega"
+]
+
+
+# The list of player names for multiplayer games.
+PLAYER_NAMES = [
+    "Ace", "Buster", "Chief", "Dingo", "E.T.", "Fang", "Ghost", "Hawk", "Iris", "Judge", "Kanga", "Laser", "Meteor",
+    "Neutron", "Ozone", "Pyro", "Quokka", "Reaper", "Snake", "Turbo", "Ultra", "Viper", "Wizard", "Xylo", "Yabby",
+    "Zulu"
+]
+
+
 # The list of settlement names, for each biome.
 SETL_NAMES = {
     Biome.DESERT: [
@@ -61,7 +77,7 @@ class Namer:
 
     def remove_settlement_name(self, name: str, biome: Biome):
         """
-        Removes a settlement name from the list. Used in loaded game cases.
+        Removes a settlement name from the list. Used in loaded game and multiplayer cases.
         :param name: The settlement name to remove.
         :param biome: The biome of the settlement. Used to locate the name in the dictionary.
         """
@@ -345,12 +361,13 @@ ACHIEVEMENTS: typing.List[Achievement] = [
     Achievement("Chicken Dinner", "Win a game.",
                 lambda _, stats: len(stats.victories) > 0),
     Achievement("Fully Improved", "Build every non-victory improvement in one game.",
-                lambda gs, _: sum(len(s.improvements) for s in gs.players[0].settlements) >= len(IMPROVEMENTS) - 1),
+                lambda gs, _: (sum(len(s.improvements)
+                                   for s in gs.players[gs.player_idx].settlements) >= len(IMPROVEMENTS) - 1)),
     Achievement("Harvest Galore", "Have at least 5 settlements with plentiful harvests.",
-                lambda gs, _: len([s for s in gs.players[0].settlements
+                lambda gs, _: len([s for s in gs.players[gs.player_idx].settlements
                                    if s.harvest_status == HarvestStatus.PLENTIFUL]) >= 5),
     Achievement("Mansa Musa", "Have at least 5 settlements with boom economies.",
-                lambda gs, _: len([s for s in gs.players[0].settlements
+                lambda gs, _: len([s for s in gs.players[gs.player_idx].settlements
                                    if s.economic_status == EconomicStatus.BOOM]) >= 5),
     Achievement("Last One Standing", "Achieve an elimination victory.",
                 lambda _, stats: VictoryType.ELIMINATION in stats.victories),
@@ -365,65 +382,65 @@ ACHIEVEMENTS: typing.List[Achievement] = [
     Achievement("Arduously Blessed", "Achieve a serendipity victory.",
                 lambda _, stats: VictoryType.SERENDIPITY in stats.victories),
     Achievement("Grow And Grow", "Win with the Agriculturists.",
-                lambda gs, _: gs.players[0].faction == Faction.AGRICULTURISTS, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.AGRICULTURISTS, post_victory=True),
     Achievement("Money Talks", "Win with the Capitalists.",
-                lambda gs, _: gs.players[0].faction == Faction.CAPITALISTS, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.CAPITALISTS, post_victory=True),
     Achievement("Telescopic", "Win with the Scrutineers.",
-                lambda gs, _: gs.players[0].faction == Faction.SCRUTINEERS, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.SCRUTINEERS, post_victory=True),
     Achievement("Suitably Skeptical", "Win with The Godless.",
-                lambda gs, _: gs.players[0].faction == Faction.GODLESS, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.GODLESS, post_victory=True),
     Achievement("Gallivanting Greed", "Win with The Ravenous.",
-                lambda gs, _: gs.players[0].faction == Faction.RAVENOUS, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.RAVENOUS, post_victory=True),
     Achievement("The Clang Of Iron", "Win with the Fundamentalists.",
-                lambda gs, _: gs.players[0].faction == Faction.FUNDAMENTALISTS, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.FUNDAMENTALISTS, post_victory=True),
     Achievement("The Passionate Eye", "Win with The Orthodox.",
-                lambda gs, _: gs.players[0].faction == Faction.ORTHODOX, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.ORTHODOX, post_victory=True),
     Achievement("Cloudscrapers", "Win with The Concentrated.",
-                lambda gs, _: gs.players[0].faction == Faction.CONCENTRATED, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.CONCENTRATED, post_victory=True),
     Achievement("Never Rest", "Win with the Frontiersmen.",
-                lambda gs, _: gs.players[0].faction == Faction.FRONTIERSMEN, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.FRONTIERSMEN, post_victory=True),
     Achievement("Empirical Evidence", "Win with the Imperials.",
-                lambda gs, _: gs.players[0].faction == Faction.IMPERIALS, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.IMPERIALS, post_victory=True),
     Achievement("The Singular Purpose", "Win with The Persistent.",
-                lambda gs, _: gs.players[0].faction == Faction.PERSISTENT, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.PERSISTENT, post_victory=True),
     Achievement("Cartographic Courage", "Win with the Explorers.",
-                lambda gs, _: gs.players[0].faction == Faction.EXPLORERS, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.EXPLORERS, post_victory=True),
     Achievement("Sub-Human, Super-Success", "Win with the Infidels.",
-                lambda gs, _: gs.players[0].faction == Faction.INFIDELS, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.INFIDELS, post_victory=True),
     Achievement("Shine In The Dark", "Win with The Nocturne.",
-                lambda gs, _: gs.players[0].faction == Faction.NOCTURNE, post_victory=True),
+                lambda gs, _: gs.players[gs.player_idx].faction == Faction.NOCTURNE, post_victory=True),
     Achievement("The Golden Quad", "Found a settlement on a quad with at least 19 total yield.",
                 lambda gs, _: any((setl.quads[0].wealth + setl.quads[0].harvest +
                                    setl.quads[0].zeal + setl.quads[0].fortune) >= 19
-                                  for setl in gs.players[0].settlements)),
+                                  for setl in gs.players[gs.player_idx].settlements)),
     Achievement("Wholly Blessed", "Undergo all non-victory blessings.",
-                lambda gs, _: len(gs.players[0].blessings) >= len(BLESSINGS) - 4),
+                lambda gs, _: len(gs.players[gs.player_idx].blessings) >= len(BLESSINGS) - 4),
     Achievement("Unstoppable Force", "Have 20 deployed units.",
-                lambda gs, _: len(gs.players[0].units) >= 20),
+                lambda gs, _: len(gs.players[gs.player_idx].units) >= 20),
     Achievement("Full House", "Besiege a settlement with 8 units at once.",
                 achievements.verify_full_house),
     Achievement("Sprawling Skyscrapers", "Fully expand a Concentrated settlement.",
-                lambda gs, _: (gs.players[0].faction == Faction.CONCENTRATED and
-                               any(setl.level == 10 for setl in gs.players[0].settlements))),
+                lambda gs, _: (gs.players[gs.player_idx].faction == Faction.CONCENTRATED and
+                               any(setl.level == 10 for setl in gs.players[gs.player_idx].settlements))),
     Achievement("Ready Reservists", "Accumulate 10 units in a garrison.",
-                lambda gs, _: any(len(setl.garrison) >= 10 for setl in gs.players[0].settlements)),
+                lambda gs, _: any(len(setl.garrison) >= 10 for setl in gs.players[gs.player_idx].settlements)),
     Achievement("The Big Wall", "Have a settlement reach 300 strength.",
-                lambda gs, _: any(setl.strength >= 300 for setl in gs.players[0].settlements)),
+                lambda gs, _: any(setl.strength >= 300 for setl in gs.players[gs.player_idx].settlements)),
     Achievement("Utopia", "Reach 100 satisfaction in a settlement.",
-                lambda gs, _: any(setl.satisfaction == 100 for setl in gs.players[0].settlements)),
+                lambda gs, _: any(setl.satisfaction == 100 for setl in gs.players[gs.player_idx].settlements)),
     Achievement("All Grown Up", "Reach level 10 in a settlement.",
-                lambda gs, _: any(setl.level == 10 for setl in gs.players[0].settlements)),
+                lambda gs, _: any(setl.level == 10 for setl in gs.players[gs.player_idx].settlements)),
     Achievement("Terra Nullius", "Found 10 settlements.",
-                lambda gs, _: len(gs.players[0].settlements) >= 10),
+                lambda gs, _: len(gs.players[gs.player_idx].settlements) >= 10),
     Achievement("All Is Revealed", "See all quads in a fog of war game.",
-                lambda gs, _: len(gs.players[0].quads_seen) == 9000),
+                lambda gs, _: len(gs.players[gs.player_idx].quads_seen) == 9000),
     Achievement("Player's Choice", "Have at least 3 imminent victories in one game.",
-                lambda gs, _: len(gs.players[0].imminent_victories) >= 3),
+                lambda gs, _: len(gs.players[gs.player_idx].imminent_victories) >= 3),
     # The below will need to be changed if extra factions are ever introduced.
     Achievement("Free For All", "Win a game with 14 players.",
                 lambda gs, _: len(gs.players) == 14, post_victory=True),
     Achievement("Sleepwalker", "Have 5 units deployed at nighttime.",
-                lambda gs, _: gs.nighttime_left > 0 and len(gs.players[0].units) >= 5),
+                lambda gs, _: gs.nighttime_left > 0 and len(gs.players[gs.player_idx].units) >= 5),
     Achievement("Just Before Bed", "Play for 1 hour total.",
                 lambda _, stats: int(stats.playtime // 3600) >= 1),
     Achievement("All Nighter", "Play for 5 hours total.",
@@ -441,26 +458,40 @@ ACHIEVEMENTS: typing.List[Achievement] = [
                 lambda _, stats: len(stats.factions) == 14),
     Achievement("Midnight Feast", "Achieve plentiful harvest in a settlement at nighttime.",
                 lambda gs, _: gs.nighttime_left > 0 and any(setl.harvest_status == HarvestStatus.PLENTIFUL
-                                                            for setl in gs.players[0].settlements)),
+                                                            for setl in gs.players[gs.player_idx].settlements)),
     Achievement("It's Worth It", "Build an improvement that decreases satisfaction.",
                 achievements.verify_its_worth_it),
     Achievement("On The Brink", "Found a settlement on the edge of the map.",
                 lambda gs, _: any(setl.location[0] == 0 or setl.location[0] == 99 or
                                   setl.location[1] == 0 or setl.location[1] == 89
-                                  for setl in gs.players[0].settlements)),
+                                  for setl in gs.players[gs.player_idx].settlements)),
     Achievement("Speed Run", "Win a 2 player game in 25 turns or less.",
                 lambda gs, _: len(gs.players) == 2 and gs.turn <= 25, post_victory=True),
     Achievement("Mighty Miner", "Have 100 ore.",
-                lambda gs, _: gs.players[0].resources.ore >= 100),
+                lambda gs, _: gs.players[gs.player_idx].resources.ore >= 100),
     Achievement("Lofty Lumberjack", "Have 100 timber.",
-                lambda gs, _: gs.players[0].resources.timber >= 100),
+                lambda gs, _: gs.players[gs.player_idx].resources.timber >= 100),
     Achievement("Molten Multitude", "Have 100 magma.",
-                lambda gs, _: gs.players[0].resources.magma >= 100),
+                lambda gs, _: gs.players[gs.player_idx].resources.magma >= 100),
     Achievement("The Third X", "Have a settlement with 4 or more resources.",
                 achievements.verify_the_third_x),
     Achievement("Luxuries Abound", "Have one of each rare resource.",
-                lambda gs, _: ((res := gs.players[0].resources).aurora and
-                               res.bloodstone and res.obsidian and res.sunstone and res.aquamarine))
+                lambda gs, _: ((res := gs.players[gs.player_idx].resources).aurora and
+                               res.bloodstone and res.obsidian and res.sunstone and res.aquamarine)),
+    Achievement("Going Online", "Win a multiplayer game.",
+                lambda gs, _: gs.board.game_config.multiplayer, post_victory=True),
+    Achievement("Big Game Hunter", "Win a 14 player multiplayer game.",
+                lambda gs, _: gs.board.game_config.multiplayer and len(gs.players) == 14, post_victory=True),
+    Achievement("Focus Victim", "Be eliminated first in a multiplayer game.",
+                lambda gs, _: (gs.board.game_config.multiplayer and
+                               gs.players[gs.player_idx].eliminated and
+                               len([p for p in gs.players if p.eliminated]) == 1 and
+                               len(gs.players) > 2)),
+    Achievement("Greetings Fellow Robots", "Win a multiplayer game as the only human.",
+                lambda gs, _: (gs.board.game_config.multiplayer and
+                               len([p for p in gs.players if not p.ai_playstyle]) == 1), post_victory=True),
+    Achievement("50 Hours Later", "Play 200 turns in a single multiplayer game.",
+                lambda gs, _: gs.board.game_config.multiplayer and gs.turn >= 200)
 ]
 
 
@@ -505,7 +536,7 @@ def get_available_improvements(player: Player,
     :return: A list of available improvements.
     """
     # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
-    if player.faction is Faction.FRONTIERSMEN and settlement.level >= 5:
+    if player.faction == Faction.FRONTIERSMEN and settlement.level >= 5:
         return []
     completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
     # An improvement is available if the improvement has not been built in this settlement yet, either the player has
@@ -534,10 +565,10 @@ def get_available_unit_plans(player: Player, setl: Settlement) -> typing.List[Un
         if unit_plan.prereq is None or unit_plan.prereq.name in completed_blessing_names:
             # Note that settlers can only be recruited in settlements of at least level 2. Additionally, users of The
             # Concentrated cannot construct settlers at all.
-            if unit_plan.can_settle and setl.level > 1 and player.faction is not Faction.CONCENTRATED:
+            if unit_plan.can_settle and setl.level > 1 and player.faction != Faction.CONCENTRATED:
                 unit_plans.append(unit_plan)
             # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
-            elif not unit_plan.can_settle and not (player.faction is Faction.FRONTIERSMEN and setl.level >= 5):
+            elif not unit_plan.can_settle and not (player.faction == Faction.FRONTIERSMEN and setl.level >= 5):
                 unit_plans.append(unit_plan)
 
     match player.faction:
@@ -572,7 +603,7 @@ def get_available_blessings(player: Player) -> typing.List[Blessing]:
     completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
     blessings = [bls for bls in deepcopy(BLESSINGS).values() if bls.name not in completed_blessing_names]
 
-    if player.faction is Faction.GODLESS:
+    if player.faction == Faction.GODLESS:
         for bls in blessings:
             bls.cost *= 1.5
 
@@ -612,7 +643,7 @@ def get_unlockable_units(blessing: Blessing) -> typing.List[UnitPlan]:
 
 def get_improvement(name: str) -> Improvement:
     """
-    Get the improvement with the given name. Used when loading games.
+    Get the improvement with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the improvement.
     :return: The Improvement with the given name.
     """
@@ -621,7 +652,7 @@ def get_improvement(name: str) -> Improvement:
 
 def get_project(name: str) -> Project:
     """
-    Get the project with the given name. Used when loading games.
+    Get the project with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the project.
     :return: The Project with the given name.
     """
@@ -630,7 +661,7 @@ def get_project(name: str) -> Project:
 
 def get_blessing(name: str) -> Blessing:
     """
-    Get the blessing with the given name. Used when loading games.
+    Get the blessing with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the blessing.
     :return: The Blessing with the given name.
     """
@@ -639,8 +670,9 @@ def get_blessing(name: str) -> Blessing:
 
 def get_unit_plan(name: str) -> UnitPlan:
     """
-    Get the unit plan with the given name. Used when loading games.
+    Get the unit plan with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the unit plan.
     :return: The UnitPlan with the given name.
     """
-    return next(up for up in UNIT_PLANS if up.name == name)
+    # We need to deepcopy so that changes to one UnitPlan don't affect all the others as well.
+    return deepcopy(next(up for up in UNIT_PLANS if up.name == name))

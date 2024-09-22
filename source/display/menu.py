@@ -1,5 +1,4 @@
 import random
-import typing
 from math import ceil
 from enum import Enum
 from typing import List, Optional, Tuple
@@ -7,11 +6,12 @@ from typing import List, Optional, Tuple
 import pyxel
 
 from source.display.display_utils import draw_paragraph
+from source.networking.client import get_identifier
 from source.util.calculator import clamp
 from source.foundation.catalogue import BLESSINGS, FACTION_DETAILS, VICTORY_TYPE_COLOURS, get_unlockable_improvements, \
     IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, PROJECTS, ACHIEVEMENTS
 from source.foundation.models import GameConfig, VictoryType, Faction, ProjectType, Statistics, UnitPlan, \
-    DeployerUnitPlan
+    DeployerUnitPlan, PlayerDetails, LobbyDetails, LoadedMultiplayerState
 
 
 class MainMenuOption(Enum):
@@ -20,6 +20,7 @@ class MainMenuOption(Enum):
     """
     NEW_GAME = "New Game"
     LOAD_GAME = "Load Game"
+    JOIN_GAME = "Join Game"
     STATISTICS = "Statistics"
     ACHIEVEMENTS = "Achievements"
     WIKI = "Wiki"
@@ -32,6 +33,7 @@ class SetupOption(Enum):
     """
     PLAYER_FACTION = "FACTION"
     PLAYER_COUNT = "COUNT"
+    MULTIPLAYER = "MULTI"
     BIOME_CLUSTERING = "BIOME"
     FOG_OF_WAR = "FOG"
     CLIMATIC_EFFECTS = "CLIMATE"
@@ -91,6 +93,7 @@ class Menu:
         self.setup_option = SetupOption.PLAYER_FACTION
         self.faction_idx = 0
         self.player_count = 2
+        self.multiplayer_enabled = False
         self.biome_clustering_enabled = True
         self.fog_of_war_enabled = True
         self.climatic_effects_enabled = True
@@ -101,13 +104,23 @@ class Menu:
         self.load_game_boundaries = 0, 9
         self.load_failed = False
         self.viewing_stats = False
-        self.player_stats: typing.Optional[Statistics] = None
+        self.player_stats: Optional[Statistics] = None
         self.wiki_units_option: WikiUnitsOption = WikiUnitsOption.ATTACKING
-        self.unit_plans_to_render: typing.List[UnitPlan] = \
+        self.unit_plans_to_render: List[UnitPlan] = \
             [up for up in UNIT_PLANS if not up.heals and not isinstance(up, DeployerUnitPlan)]
         self.viewing_achievements = False
         self.achievements_boundaries = 0, 3
         self.showing_rare_resources = False
+        self.multiplayer_lobby: Optional[LobbyDetails] = None
+        self.viewing_lobbies = False
+        self.multiplayer_lobbies: List[LobbyDetails] = []
+        self.lobby_index = 0
+        self.joining_game = False
+        self.available_multiplayer_factions: List[Tuple[Faction, int]] = []
+        self.lobby_player_boundaries = 0, 7
+        self.multiplayer_game_being_loaded: Optional[LoadedMultiplayerState] = None
+        self.loading_multiplayer_game = False
+        self.upnp_enabled: Optional[bool] = None  # None before a connection has been attempted.
 
     def draw(self):
         """
@@ -118,7 +131,65 @@ class Menu:
         pyxel.load(background_path)
         pyxel.blt(0, 0, self.image_bank % 3, 0, 0, 200, 200)
 
-        if self.in_game_setup:
+        if self.upnp_enabled is None:
+            pyxel.rectb(32, 80, 146, 26, pyxel.COLOR_WHITE)
+            pyxel.rect(33, 81, 144, 24, pyxel.COLOR_BLACK)
+            pyxel.text(60, 90, "Connecting to server...", pyxel.COLOR_WHITE)
+        elif game := self.multiplayer_game_being_loaded:
+            pyxel.rectb(30, 30, 140, 100, pyxel.COLOR_WHITE)
+            pyxel.rect(31, 31, 138, 98, pyxel.COLOR_BLACK)
+            pyxel.text(72, 35, f"Loading {self.multiplayer_lobby.name}...", pyxel.COLOR_WHITE)
+            pyxel.text(35, 50, "Quads", pyxel.COLOR_WHITE)
+            pyxel.text(140, 50, f"{int(game.quad_chunks_loaded / 90.0 * 100)}%",
+                       pyxel.COLOR_GREEN if game.quad_chunks_loaded == 90 else pyxel.COLOR_WHITE)
+            pyxel.text(35, 60, "Players", pyxel.COLOR_WHITE)
+            pyxel.text(140, 60, f"{int(game.players_loaded / self.multiplayer_lobby.cfg.player_count * 100)}%",
+                       pyxel.COLOR_GREEN if game.players_loaded == self.multiplayer_lobby.cfg.player_count
+                       else pyxel.COLOR_WHITE)
+            pyxel.text(35, 70, "Quads seen", pyxel.COLOR_WHITE)
+            if game.total_quads_seen:
+                pyxel.text(140, 70, f"{int(game.quads_seen_loaded / game.total_quads_seen * 100)}%",
+                           pyxel.COLOR_GREEN if game.quads_seen_loaded == game.total_quads_seen else pyxel.COLOR_WHITE)
+            pyxel.text(35, 80, "Heathens", pyxel.COLOR_WHITE)
+            pyxel.text(140, 80, "100%" if game.heathens_loaded else "0%",
+                       pyxel.COLOR_GREEN if game.heathens_loaded else pyxel.COLOR_WHITE)
+        elif lob := self.multiplayer_lobby:
+            pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
+            pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
+            pyxel.text(70, 25, "Multiplayer Lobby", pyxel.COLOR_WHITE)
+
+            pyxel.text(28, 40, "Lobby Name", pyxel.COLOR_WHITE)
+            lobby_offset = 50 - pow(len(lob.name), 1.4)
+            pyxel.text(100 + lobby_offset, 40, lob.name, pyxel.COLOR_GREEN)
+            pyxel.text(80, 50, f"{len(lob.current_players)}/{lob.cfg.player_count} players", pyxel.COLOR_WHITE)
+
+            pyxel.line(24, 58, 175, 58, pyxel.COLOR_GRAY)
+
+            players_on_screen = lob.current_players[self.lobby_player_boundaries[0]:self.lobby_player_boundaries[1]]
+            for idx, pl in enumerate(players_on_screen):
+                player_is_client: bool = get_identifier() == pl.id
+                name = pl.name
+                if player_is_client:
+                    name += " (you)"
+                elif not pl.id:
+                    name += " (AI)"
+                pyxel.text(28, 66 + idx * 10, name, pyxel.COLOR_GREEN if player_is_client else pyxel.COLOR_WHITE)
+                faction_offset = 50 - pow(len(pl.faction), 1.4)
+                pyxel.text(100 + faction_offset, 66 + idx * 10, pl.faction, FACTION_COLOURS[pl.faction])
+
+            pyxel.load("resources/sprites.pyxres")
+            if (len(self.multiplayer_lobby.current_players) - self.lobby_player_boundaries[1]) > 1:
+                pyxel.blt(165, 130, 0, 0, 76, 8, 8)
+            if self.lobby_player_boundaries[0] != 0:
+                pyxel.blt(165, 60, 0, 8, 76, 8, 8)
+
+            if len(lob.current_players) < lob.cfg.player_count:
+                pyxel.text(46, 140, "Waiting for other players...", pyxel.COLOR_GRAY)
+                pyxel.text(38, 150, "(Press A to generate AI players)", pyxel.COLOR_GRAY)
+            else:
+                pyxel.text(81, 150, "Start Game", self.get_option_colour(SetupOption.START_GAME))
+            pyxel.text(58, 160, "(Press SPACE to leave)", pyxel.COLOR_WHITE)
+        elif self.in_game_setup:
             pyxel.rectb(20, 20, 160, 154, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 152, pyxel.COLOR_BLACK)
             pyxel.text(81, 25, "Game Setup", pyxel.COLOR_WHITE)
@@ -143,16 +214,25 @@ class Menu:
                 case _:
                     pyxel.text(130, 65, f"<- {self.player_count} ->", pyxel.COLOR_WHITE)
 
-            pyxel.text(28, 85, "Biome Clustering", self.get_option_colour(SetupOption.BIOME_CLUSTERING))
+            if self.upnp_enabled:
+                pyxel.text(28, 80, "Multiplayer", self.get_option_colour(SetupOption.MULTIPLAYER))
+                if self.multiplayer_enabled:
+                    pyxel.text(125, 80, "<- Enabled", pyxel.COLOR_GREEN)
+                else:
+                    pyxel.text(125, 80, "Disabled ->", pyxel.COLOR_RED)
+            else:
+                pyxel.text(28, 80, "Multiplayer", pyxel.COLOR_GRAY)
+                pyxel.text(130, 80, "Disabled", pyxel.COLOR_GRAY)
+            pyxel.text(28, 95, "Biome Clustering", self.get_option_colour(SetupOption.BIOME_CLUSTERING))
             if self.biome_clustering_enabled:
-                pyxel.text(125, 85, "<- Enabled", pyxel.COLOR_GREEN)
+                pyxel.text(125, 95, "<- Enabled", pyxel.COLOR_GREEN)
             else:
-                pyxel.text(125, 85, "Disabled ->", pyxel.COLOR_RED)
-            pyxel.text(28, 105, "Fog of War", self.get_option_colour(SetupOption.FOG_OF_WAR))
+                pyxel.text(125, 95, "Disabled ->", pyxel.COLOR_RED)
+            pyxel.text(28, 110, "Fog of War", self.get_option_colour(SetupOption.FOG_OF_WAR))
             if self.fog_of_war_enabled:
-                pyxel.text(125, 105, "<- Enabled", pyxel.COLOR_GREEN)
+                pyxel.text(125, 110, "<- Enabled", pyxel.COLOR_GREEN)
             else:
-                pyxel.text(125, 105, "Disabled ->", pyxel.COLOR_RED)
+                pyxel.text(125, 110, "Disabled ->", pyxel.COLOR_RED)
             pyxel.text(28, 125, "Climatic Effects", self.get_option_colour(SetupOption.CLIMATIC_EFFECTS))
             if self.climatic_effects_enabled:
                 pyxel.text(125, 125, "<- Enabled", pyxel.COLOR_GREEN)
@@ -198,7 +278,10 @@ class Menu:
             else:
                 pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
                 pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
-                pyxel.text(81, 25, "Load Game", pyxel.COLOR_WHITE)
+                if self.loading_multiplayer_game:
+                    pyxel.text(60, 25, "Load Multiplayer Game", pyxel.COLOR_WHITE)
+                else:
+                    pyxel.text(81, 25, "Load Game", pyxel.COLOR_WHITE)
                 for idx, save in enumerate(self.saves):
                     if self.load_game_boundaries[0] <= idx <= self.load_game_boundaries[1]:
                         pyxel.text(25, 35 + (idx - self.load_game_boundaries[0]) * 10, save, pyxel.COLOR_WHITE)
@@ -208,6 +291,12 @@ class Menu:
                     draw_paragraph(147, 135, "More down!", 5)
                     pyxel.blt(167, 136, 0, 0, 76, 8, 8)
                 pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
+                if self.loading_multiplayer_game:
+                    pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
+                    pyxel.blt(35, 150, 0, 0, 140, 8, 8)
+                elif self.upnp_enabled:
+                    pyxel.blt(158, 150, 0, 8, 140, 8, 8)
+                    pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
         elif self.in_wiki:
             match self.wiki_showing:
                 case WikiOption.VICTORIES:
@@ -639,16 +728,92 @@ class Menu:
                 pyxel.blt(170, 151, 0, 0, 76, 8, 8)
 
             pyxel.text(58, 160, "Press SPACE to go back", pyxel.COLOR_WHITE)
+        elif self.joining_game:
+            pyxel.rectb(30, 30, 140, 100, pyxel.COLOR_WHITE)
+            pyxel.rect(31, 31, 138, 98, pyxel.COLOR_BLACK)
+            pyxel.text(72, 35, f"Joining {self.multiplayer_lobbies[self.lobby_index].name}", pyxel.COLOR_WHITE)
+            current_faction: (Faction, int) = self.available_multiplayer_factions[self.faction_idx]
+            faction_offset = 50 - pow(len(current_faction[0]), 1.4)
+            if len(self.available_multiplayer_factions) == 1:
+                pyxel.text(55, 60, "You will be joining as", pyxel.COLOR_WHITE)
+                pyxel.text(58 + faction_offset, 70, f"{current_faction[0].value}", current_faction[1])
+            else:
+                pyxel.text(62, 60, "Choose your faction", pyxel.COLOR_GREEN)
+                if self.faction_idx == 0:
+                    pyxel.text(60 + faction_offset, 70, f"{current_faction[0].value} ->", current_faction[1])
+                elif self.faction_idx == len(self.available_multiplayer_factions) - 1:
+                    pyxel.text(55 + faction_offset, 70, f"<- {current_faction[0].value}", current_faction[1])
+                else:
+                    pyxel.text(48 + faction_offset, 70, f"<- {current_faction[0].value} ->", current_faction[1])
+            pyxel.text(40, 80, "(Press F to show more details)", pyxel.COLOR_WHITE)
+            pyxel.text(58, 105, "Press ENTER to continue", pyxel.COLOR_WHITE)
+            pyxel.text(60, 115, "Press SPACE to go back", pyxel.COLOR_WHITE)
+
+            if self.showing_faction_details:
+                pyxel.load("resources/sprites.pyxres")
+                pyxel.rectb(30, 30, 140, 124, pyxel.COLOR_WHITE)
+                pyxel.rect(31, 31, 138, 122, pyxel.COLOR_BLACK)
+                pyxel.text(70, 35, "Faction Details", pyxel.COLOR_WHITE)
+                pyxel.text(35, 50, str(current_faction[0].value), current_faction[1])
+                pyxel.text(35, 110, "Recommended victory:", pyxel.COLOR_WHITE)
+
+                # Draw the buff and debuff text for the currently selected faction.
+                faction_detail = next(detail for detail in FACTION_DETAILS
+                                      if detail.faction == current_faction[0].value)
+                total_faction_idx = FACTION_DETAILS.index(faction_detail)
+                pyxel.text(35, 70, faction_detail.buff, pyxel.COLOR_GREEN)
+                pyxel.text(35, 90, faction_detail.debuff, pyxel.COLOR_RED)
+                pyxel.text(35, 120, faction_detail.rec_victory_type,
+                           VICTORY_TYPE_COLOURS[faction_detail.rec_victory_type])
+                pyxel.blt(150, 48, 0, total_faction_idx * 8, 92, 8, 8)
+                if self.faction_idx != 0:
+                    pyxel.text(35, 140, "<-", pyxel.COLOR_WHITE)
+                    prev_total_faction_idx = \
+                        self.faction_colours.index(self.available_multiplayer_factions[self.faction_idx - 1])
+                    pyxel.blt(45, 138, 0, prev_total_faction_idx * 8, 92, 8, 8)
+                pyxel.text(65, 140, "Press F to go back", pyxel.COLOR_WHITE)
+                if self.faction_idx != len(self.available_multiplayer_factions) - 1:
+                    next_total_faction_idx = \
+                        self.faction_colours.index(self.available_multiplayer_factions[self.faction_idx + 1])
+                    pyxel.blt(148, 138, 0, next_total_faction_idx * 8, 92, 8, 8)
+                    pyxel.text(158, 140, "->", pyxel.COLOR_WHITE)
+        elif self.viewing_lobbies:
+            pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
+            pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
+            pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
+            for idx, lobby in enumerate(self.multiplayer_lobbies):
+                human_players: List[PlayerDetails] = [p for p in lobby.current_players if p.id]
+                lobby_is_full: bool = len(human_players) == lobby.cfg.player_count
+                lobby_count_str: str = f"{len(human_players)}/{lobby.cfg.player_count}"
+                lobby_turn_str: str = "in lobby" if lobby.current_turn is None else f"turn {lobby.current_turn}"
+                pyxel.text(25, 35 + idx * 10,
+                           f"{lobby.name} - {lobby_count_str} - {lobby_turn_str}",
+                           pyxel.COLOR_RED if lobby_is_full else pyxel.COLOR_WHITE)
+                if lobby_is_full:
+                    pyxel.text(150, 35 + idx * 10, "Full",
+                               pyxel.COLOR_RED if self.lobby_index is idx else pyxel.COLOR_GRAY)
+                else:
+                    pyxel.text(150, 35 + idx * 10, "Join",
+                               pyxel.COLOR_RED if self.lobby_index is idx else pyxel.COLOR_WHITE)
+            pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
         else:
-            pyxel.rectb(72, 100, 56, 80, pyxel.COLOR_WHITE)
-            pyxel.rect(73, 101, 54, 78, pyxel.COLOR_BLACK)
-            pyxel.text(82, 105, "MICROCOSM", pyxel.COLOR_WHITE)
-            pyxel.text(85, 120, "New Game", self.get_option_colour(MainMenuOption.NEW_GAME))
-            pyxel.text(82, 130, "Load Game", self.get_option_colour(MainMenuOption.LOAD_GAME))
-            pyxel.text(80, 140, "Statistics", self.get_option_colour(MainMenuOption.STATISTICS))
-            pyxel.text(76, 150, "Achievements", self.get_option_colour(MainMenuOption.ACHIEVEMENTS))
-            pyxel.text(92, 160, "Wiki", self.get_option_colour(MainMenuOption.WIKI))
-            pyxel.text(92, 170, "Exit", self.get_option_colour(MainMenuOption.EXIT))
+            pyxel.rectb(72, 95, 56, 90, pyxel.COLOR_WHITE)
+            pyxel.rect(73, 96, 54, 88, pyxel.COLOR_BLACK)
+            pyxel.text(82, 100, "MICROCOSM", pyxel.COLOR_WHITE)
+            pyxel.text(85, 115, "New Game", self.get_option_colour(MainMenuOption.NEW_GAME))
+            pyxel.text(82, 125, "Load Game", self.get_option_colour(MainMenuOption.LOAD_GAME))
+            pyxel.text(82, 135, "Join Game",
+                       pyxel.COLOR_GRAY if not self.upnp_enabled else self.get_option_colour(MainMenuOption.JOIN_GAME))
+            pyxel.text(80, 145, "Statistics", self.get_option_colour(MainMenuOption.STATISTICS))
+            pyxel.text(76, 155, "Achievements", self.get_option_colour(MainMenuOption.ACHIEVEMENTS))
+            pyxel.text(92, 165, "Wiki", self.get_option_colour(MainMenuOption.WIKI))
+            pyxel.text(92, 175, "Exit", self.get_option_colour(MainMenuOption.EXIT))
+
+            if not self.upnp_enabled:
+                pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
+                pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
+                pyxel.text(65, 15, "UPnP not available!", pyxel.COLOR_RED)
+                pyxel.text(48, 25, "Multiplayer will be disabled.", pyxel.COLOR_WHITE)
 
     def navigate(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
         """
@@ -660,13 +825,21 @@ class Menu:
         """
         if down:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
-            if self.in_game_setup and not self.showing_faction_details:
-                self.next_menu_option(self.setup_option, wrap_around=True)
+            # Similarly ensure that they cannot navigate the menu while in a multiplayer lobby.
+            if self.in_game_setup and not self.showing_faction_details and not self.multiplayer_lobby:
+                self.next_menu_option(self.setup_option, wrap_around=True,
+                                      # If UPnP isn't enabled, then we want to skip over the Multiplayer option.
+                                      skip=self.setup_option == SetupOption.PLAYER_COUNT and not self.upnp_enabled)
             elif self.loading_game:
                 if self.save_idx == self.load_game_boundaries[1] and self.save_idx < len(self.saves) - 1:
                     self.load_game_boundaries = self.load_game_boundaries[0] + 1, self.load_game_boundaries[1] + 1
                 if 0 <= self.save_idx < len(self.saves) - 1:
                     self.save_idx += 1
+            elif self.multiplayer_lobby and \
+                    self.lobby_player_boundaries[1] < len(self.multiplayer_lobby.current_players) - 1:
+                self.lobby_player_boundaries = self.lobby_player_boundaries[0] + 1, self.lobby_player_boundaries[1] + 1
+            elif self.viewing_lobbies and self.lobby_index < len(self.multiplayer_lobbies) - 1:
+                self.lobby_index += 1
             elif self.viewing_achievements:
                 if self.achievements_boundaries[1] < len(ACHIEVEMENTS) - 1:
                     self.achievements_boundaries = \
@@ -686,16 +859,26 @@ class Menu:
                     case _:
                         self.next_menu_option(self.wiki_option, wrap_around=True)
             else:
-                self.next_menu_option(self.main_menu_option, wrap_around=True)
+                self.next_menu_option(self.main_menu_option, wrap_around=True,
+                                      # If UPnP isn't enabled, then we want to skip over the Join Game option.
+                                      skip=self.main_menu_option == MainMenuOption.LOAD_GAME and not self.upnp_enabled)
         if up:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
-            if self.in_game_setup and not self.showing_faction_details:
-                self.previous_menu_option(self.setup_option, wrap_around=True)
+            # Similarly ensure that they cannot navigate the menu while in a multiplayer lobby.
+            if self.in_game_setup and not self.showing_faction_details and not self.multiplayer_lobby:
+                self.previous_menu_option(self.setup_option, wrap_around=True,
+                                          # If UPnP isn't enabled, then we want to skip over the Multiplayer option.
+                                          skip=(self.setup_option == SetupOption.BIOME_CLUSTERING and
+                                                not self.upnp_enabled))
             elif self.loading_game:
                 if self.save_idx > 0 and self.save_idx == self.load_game_boundaries[0]:
                     self.load_game_boundaries = self.load_game_boundaries[0] - 1, self.load_game_boundaries[1] - 1
                 if self.save_idx > 0:
                     self.save_idx -= 1
+            elif self.multiplayer_lobby and self.lobby_player_boundaries[0] > 0:
+                self.lobby_player_boundaries = self.lobby_player_boundaries[0] - 1, self.lobby_player_boundaries[1] - 1
+            elif self.viewing_lobbies and self.lobby_index > 0:
+                self.lobby_index -= 1
             elif self.viewing_achievements:
                 if self.achievements_boundaries[0] > 0:
                     self.achievements_boundaries = \
@@ -715,7 +898,10 @@ class Menu:
                     case _:
                         self.previous_menu_option(self.wiki_option, wrap_around=True)
             else:
-                self.previous_menu_option(self.main_menu_option, wrap_around=True)
+                self.previous_menu_option(self.main_menu_option, wrap_around=True,
+                                          # If UPnP isn't enabled, then we want to skip over the Join Game option.
+                                          skip=(self.main_menu_option == MainMenuOption.STATISTICS and
+                                                not self.upnp_enabled))
         if left:
             if self.in_game_setup:
                 match self.setup_option:
@@ -723,12 +909,18 @@ class Menu:
                         self.faction_idx = clamp(self.faction_idx - 1, 0, len(self.faction_colours) - 1)
                     case SetupOption.PLAYER_COUNT:
                         self.player_count = max(2, self.player_count - 1)
+                    case SetupOption.MULTIPLAYER:
+                        self.multiplayer_enabled = False
                     case SetupOption.BIOME_CLUSTERING:
                         self.biome_clustering_enabled = False
                     case SetupOption.FOG_OF_WAR:
                         self.fog_of_war_enabled = False
                     case SetupOption.CLIMATIC_EFFECTS:
                         self.climatic_effects_enabled = False
+            elif self.loading_game:
+                self.loading_multiplayer_game = False
+            elif self.joining_game:
+                self.faction_idx = clamp(self.faction_idx - 1, 0, len(self.available_multiplayer_factions) - 1)
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:
                 self.previous_menu_option(self.victory_type)
             elif self.in_wiki and self.wiki_showing is WikiOption.FACTIONS and self.faction_wiki_idx != 0:
@@ -754,12 +946,16 @@ class Menu:
                         self.faction_idx = clamp(self.faction_idx + 1, 0, len(self.faction_colours) - 1)
                     case SetupOption.PLAYER_COUNT:
                         self.player_count = min(14, self.player_count + 1)
+                    case SetupOption.MULTIPLAYER:
+                        self.multiplayer_enabled = True
                     case SetupOption.BIOME_CLUSTERING:
                         self.biome_clustering_enabled = True
                     case SetupOption.FOG_OF_WAR:
                         self.fog_of_war_enabled = True
                     case SetupOption.CLIMATIC_EFFECTS:
                         self.climatic_effects_enabled = True
+            elif self.joining_game:
+                self.faction_idx = clamp(self.faction_idx + 1, 0, len(self.available_multiplayer_factions) - 1)
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:
                 self.next_menu_option(self.victory_type)
             elif self.in_wiki and self.wiki_showing is WikiOption.FACTIONS and \
@@ -785,41 +981,43 @@ class Menu:
         :return: The appropriate GameConfig object.
         """
         return GameConfig(self.player_count, self.faction_colours[self.faction_idx][0], self.biome_clustering_enabled,
-                          self.fog_of_war_enabled, self.climatic_effects_enabled)
+                          self.fog_of_war_enabled, self.climatic_effects_enabled, self.multiplayer_enabled)
 
-    def next_menu_option(self, current_option: MenuOptions, wrap_around: bool = False) -> None:
+    def next_menu_option(self, current_option: MenuOptions, wrap_around: bool = False, skip: bool = False) -> None:
         """
         Given a menu option, go to the next item within the list of the option's enums.
         :param current_option: The currently selected option.
         :param wrap_around: If true, then choosing to go the next option when at the end of the list will wrap around
                             to the start of the list.
+        :param skip: If true, then skip the next option and go to the one after.
         """
         current_option_idx = list(options_enum := type(current_option)).index(current_option)
 
         # Determine the index of the next option value.
-        target_option_idx = (current_option_idx + 1) % len(list(options_enum))
+        target_option_idx = (current_option_idx + (2 if skip else 1)) % len(list(options_enum))
         # If the currently selected option is the last option in the list and wrap-around is disabled, revert the index
         # to its original value. In other words, we're staying at the bottom of the list and not going back up.
-        if (current_option_idx + 1) == len(options_enum) and not wrap_around:
+        if (current_option_idx + (2 if skip else 1)) >= len(options_enum) and not wrap_around:
             target_option_idx = current_option_idx
 
         target_option = list(options_enum)[target_option_idx]
         self.change_menu_option(target_option)
 
-    def previous_menu_option(self, current_option: MenuOptions, wrap_around: bool = False) -> None:
+    def previous_menu_option(self, current_option: MenuOptions, wrap_around: bool = False, skip: bool = False) -> None:
         """
         Given a menu option, go to the previous item within the list of the option's enums.
         :param current_option: The currently selected option.
         :param wrap_around: If true, then choosing to go the previous option when at the start of the list will wrap
                             around to the end of the list.
+        :param skip: If true, then skip the previous option and go to the one before.
         """
         current_option_idx = list(options_enum := type(current_option)).index(current_option)
 
         # Determine the index of the previous option value.
-        target_option_idx = (current_option_idx - 1) % len(list(options_enum))
+        target_option_idx = (current_option_idx - (2 if skip else 1)) % len(list(options_enum))
         # If the currently selected option is the first option in the list and wrap-around is disabled, revert the
         # index to its original value. In other words, we're staying at the top of the list and not going back down.
-        if (current_option_idx - 1) < 0 and not wrap_around:
+        if (current_option_idx - (2 if skip else 1)) < 0 and not wrap_around:
             target_option_idx = current_option_idx
 
         target_option = list(options_enum)[target_option_idx]

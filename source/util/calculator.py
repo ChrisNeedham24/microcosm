@@ -1,44 +1,44 @@
 import random
-import typing
 from copy import deepcopy
+from typing import List, Tuple, Set, Generator
 
 from source.foundation.models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, \
     Settlement, Improvement, UnitPlan, SetlAttackData, GameConfig, InvestigationResult, Faction, Project, ProjectType, \
     HealData, DeployerUnitPlan, DeployerUnit, ResourceCollection, Quad
 
 
-def calculate_yield_for_quad(biome: Biome) -> (float, float, float, float):
+def calculate_yield_for_quad(biome: Biome) -> Tuple[int, int, int, int]:
     """
     Given the supplied biome, generate a random yield to be used for a quad.
     :param biome: The biome of the quad-to-be.
     :return: A tuple of wealth, harvest, zeal, and fortune.
     """
-    wealth: float = 0
-    harvest: float = 0
-    zeal: float = 0
-    fortune: float = 0
+    wealth: int = 0
+    harvest: int = 0
+    zeal: int = 0
+    fortune: int = 0
 
     match biome:
         case Biome.FOREST:
-            wealth = random.uniform(0.0, 2.0)
-            harvest = random.uniform(5.0, 9.0)
-            zeal = random.uniform(1.0, 4.0)
-            fortune = random.uniform(3.0, 6.0)
+            wealth = random.randint(0, 2)
+            harvest = random.randint(5, 9)
+            zeal = random.randint(1, 4)
+            fortune = random.randint(3, 6)
         case Biome.SEA:
-            wealth = random.uniform(1.0, 4.0)
-            harvest = random.uniform(3.0, 6.0)
-            zeal = random.uniform(0.0, 1.0)
-            fortune = random.uniform(5.0, 9.0)
+            wealth = random.randint(1, 4)
+            harvest = random.randint(3, 6)
+            zeal = random.randint(0, 1)
+            fortune = random.randint(5, 9)
         case Biome.DESERT:
-            wealth = random.uniform(5.0, 9.0)
-            harvest = random.uniform(0.0, 1.0)
-            zeal = random.uniform(3.0, 6.0)
-            fortune = random.uniform(1.0, 4.0)
+            wealth = random.randint(5, 9)
+            harvest = random.randint(0, 1)
+            zeal = random.randint(3, 6)
+            fortune = random.randint(1, 4)
         case Biome.MOUNTAIN:
-            wealth = random.uniform(3.0, 6.0)
-            harvest = random.uniform(1.0, 4.0)
-            zeal = random.uniform(5.0, 9.0)
-            fortune = random.uniform(0.0, 2.0)
+            wealth = random.randint(3, 6)
+            harvest = random.randint(1, 4)
+            zeal = random.randint(5, 9)
+            fortune = random.randint(0, 2)
 
     return wealth, harvest, zeal, fortune
 
@@ -139,13 +139,13 @@ def get_setl_totals(player: Player,
     :param player: The owner of the settlement.
     :param setl: The settlement to calculate totals for.
     :param is_night: Whether it is night. Used as harvest is halved and fortune increased by 10% at night.
-    :param strict: Whether the total should be 0 as opposed to 0.5 in situations where the total would be negative.
+    :param strict: Whether the total should be 0 as opposed to 1 in situations where the total would be negative.
     Only used for the settlement overlay, as we want users to make progress even if their zeal/fortune is 0.
     :return: A tuple containing the settlement's wealth, harvest, zeal, and fortune.
     """
 
     # For each of the four categories, add together the values for all of the settlement's quads and improvements. If
-    # negative, return 0 for wealth and harvest, and 0.5 for zeal and fortune. Also, use the settlement's level to add
+    # negative, return 0 for wealth and harvest, and 1 for zeal and fortune. Also, use the settlement's level to add
     # to each of the four categories. For example, a level 5 settlement with 10 total wealth will have its wealth
     # doubled to 20. Similarly, a level 10 settlement with 10 total wealth will have its wealth increased to 32.5. Also
     # note that wealth and harvest are special because they have additional conditions applied relating to the
@@ -153,11 +153,11 @@ def get_setl_totals(player: Player,
     # settlements with high satisfaction will yield 1.5 times the wealth and harvest.
 
     total_zeal = max(sum(quad.zeal for quad in setl.quads) +
-                     sum(imp.effect.zeal for imp in setl.improvements), 0 if strict else 0.5)
+                     sum(imp.effect.zeal for imp in setl.improvements), 0 if strict else 1)
     total_zeal += (setl.level - 1) * 0.25 * total_zeal
-    if player.faction is Faction.AGRICULTURISTS:
+    if player.faction == Faction.AGRICULTURISTS:
         total_zeal *= 0.75
-    elif player.faction is Faction.FUNDAMENTALISTS:
+    elif player.faction == Faction.FUNDAMENTALISTS:
         total_zeal *= 1.25
     total_wealth = max(sum(quad.wealth for quad in setl.quads) +
                        sum(imp.effect.wealth for imp in setl.improvements), 0)
@@ -169,9 +169,9 @@ def get_setl_totals(player: Player,
         total_wealth = 0
     elif setl.economic_status is EconomicStatus.BOOM:
         total_wealth *= 1.5
-    if player.faction is Faction.GODLESS:
+    if player.faction == Faction.GODLESS:
         total_wealth *= 1.25
-    elif player.faction is Faction.ORTHODOX:
+    elif player.faction == Faction.ORTHODOX:
         total_wealth *= 0.75
     if setl.resources.aurora:
         total_wealth *= (1 + 0.5 * setl.resources.aurora)
@@ -185,21 +185,21 @@ def get_setl_totals(player: Player,
         total_harvest = 0
     elif setl.harvest_status is HarvestStatus.PLENTIFUL:
         total_harvest *= 1.5
-    if player.faction is Faction.RAVENOUS:
+    if player.faction == Faction.RAVENOUS:
         total_harvest *= 1.25
-    if is_night and player.faction is not Faction.NOCTURNE and not setl.resources.sunstone:
+    if is_night and player.faction != Faction.NOCTURNE and not setl.resources.sunstone:
         total_harvest /= 2
     total_fortune = max(sum(quad.fortune for quad in setl.quads) +
-                        sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 0.5)
+                        sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 1)
     total_fortune += (setl.level - 1) * 0.25 * total_fortune
     if setl.current_work is not None and isinstance(setl.current_work.construction, Project) and \
             setl.current_work.construction.type is ProjectType.MAGICAL:
         total_fortune += total_zeal / 4
     if is_night:
         total_fortune *= 1.1
-    if player.faction is Faction.SCRUTINEERS:
+    if player.faction == Faction.SCRUTINEERS:
         total_fortune *= 0.75
-    elif player.faction is Faction.ORTHODOX:
+    elif player.faction == Faction.ORTHODOX:
         total_fortune *= 1.25
     if setl.resources.aquamarine:
         total_fortune *= (1 + 0.5 * setl.resources.aquamarine)
@@ -218,7 +218,7 @@ def complete_construction(setl: Settlement, player: Player):
     if isinstance(setl.current_work.construction, Improvement):
         setl.improvements.append(setl.current_work.construction)
         if setl.current_work.construction.effect.strength > 0:
-            strength_multiplier = 2 if player.faction is Faction.CONCENTRATED else 1
+            strength_multiplier = 2 if player.faction == Faction.CONCENTRATED else 1
             setl.strength += setl.current_work.construction.effect.strength * strength_multiplier
             setl.max_strength += setl.current_work.construction.effect.strength * strength_multiplier
         if setl.current_work.construction.effect.satisfaction != 0:
@@ -262,11 +262,11 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
     """
     random_chance = random.randint(0, 140)
     # Scrutineers always succeed when investigating.
-    was_successful = True if player.faction is Faction.SCRUTINEERS else random_chance < 100
+    was_successful = True if player.faction == Faction.SCRUTINEERS else random_chance < 100
     if was_successful:
         # For players of the Scrutineers faction, we need to scale down their random value, as if it was 100 or more,
         # then the result would always be the last investigation result.
-        if player.faction is Faction.SCRUTINEERS:
+        if player.faction == Faction.SCRUTINEERS:
             random_chance *= (100 / 140)
         if random_chance < 10 and player.ongoing_blessing is not None:
             player.ongoing_blessing.fortune_consumed += player.ongoing_blessing.blessing.cost / 5
@@ -275,9 +275,7 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
             player.wealth += 25
             return InvestigationResult.WEALTH
         if random_chance < 30 and cfg.fog_of_war:
-            for i in range(relic_loc[1] - 10, relic_loc[1] + 11):
-                for j in range(relic_loc[0] - 10, relic_loc[0] + 11):
-                    player.quads_seen.add((j, i))
+            update_player_quads_seen_around_point(player, relic_loc, vision_range=10)
             return InvestigationResult.VISION
         if random_chance < 40:
             unit.plan.max_health += 5
@@ -304,7 +302,7 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
     return InvestigationResult.NONE
 
 
-def gen_spiral_indices(initial_loc: (int, int)) -> typing.List[typing.Tuple[int, int]]:
+def gen_spiral_indices(initial_loc: (int, int)) -> List[Tuple[int, int]]:
     """
     Generate indices (or locations) around a supplied point in a spiral fashion. The below diagram indicates the order
     in which points should be returned.
@@ -324,7 +322,7 @@ def gen_spiral_indices(initial_loc: (int, int)) -> typing.List[typing.Tuple[int,
     :param initial_loc: The point to 'spiral' around.
     :return: A list of locations, in the order of the spiral.
     """
-    indices: typing.List[typing.Tuple[int, int]] = []
+    indices: List[Tuple[int, int]] = []
 
     x = 0
     y = 0
@@ -344,8 +342,8 @@ def gen_spiral_indices(initial_loc: (int, int)) -> typing.List[typing.Tuple[int,
     return indices
 
 
-def get_resources_for_settlement(setl_locs: typing.List[typing.Tuple[int, int]],
-                                 quads: typing.List[typing.List[Quad]]) -> ResourceCollection:
+def get_resources_for_settlement(setl_locs: List[Tuple[int, int]],
+                                 quads: List[List[Quad]]) -> ResourceCollection:
     """
     Determine and return the resources that a settlement with the given locations would be able to exploit.
     :param setl_locs: The locations of the quads belonging to the settlement.
@@ -355,7 +353,7 @@ def get_resources_for_settlement(setl_locs: typing.List[typing.Tuple[int, int]],
     setl_resources: ResourceCollection = ResourceCollection()
     # We need to keep track of the quads that we've already seen so that settlements with multiple quads don't double up
     # resources from the same quad.
-    found_locs: typing.Set[typing.Tuple[int, int]] = set()
+    found_locs: Set[Tuple[int, int]] = set()
     for setl_loc in setl_locs:
         for i in range(setl_loc[0] - 1, setl_loc[0] + 2):
             for j in range(setl_loc[1] - 1, setl_loc[1] + 2):
@@ -394,3 +392,27 @@ def subtract_player_resources_for_improvement(player: Player, improvement: Impro
     player.resources.ore -= improvement.req_resources.ore
     player.resources.timber -= improvement.req_resources.timber
     player.resources.magma -= improvement.req_resources.magma
+
+
+def split_list_into_chunks(list_to_split: list, chunk_length: int) -> Generator[list, None, None]:
+    """
+    Splits a list into chunks of a given size.
+    Once the Python version for Microcosm is upgraded to 3.12, itertools.batched() can be used instead of this.
+    :param list_to_split: The list to generate chunks from.
+    :param chunk_length: The size of each chunk to return.
+    :return: A generator that yields chunks of the given list with the given size.
+    """
+    for i in range(0, len(list_to_split), chunk_length):
+        yield list_to_split[i:i + chunk_length]
+
+
+def update_player_quads_seen_around_point(player: Player, point: (int, int), vision_range: int = 5):
+    """
+    Updates the seen quads for a player around the given point with the given range.
+    :param player: The player to update the seen quads for.
+    :param point: The point around which seen quads are to be added.
+    :param vision_range: The 'distance' from the point to add seen quads for.
+    """
+    for i in range(point[1] - vision_range, point[1] + vision_range + 1):
+        for j in range(point[0] - vision_range, point[0] + vision_range + 1):
+            player.quads_seen.add((clamp(j, 0, 99), clamp(i, 0, 89)))

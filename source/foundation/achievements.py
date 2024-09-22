@@ -24,7 +24,7 @@ def verify_full_house(game_state: GameState, _: Statistics) -> bool:
     for player in game_state.players:
         all_setls.extend(player.settlements)
 
-    for unit in game_state.players[0].units:
+    for unit in game_state.players[game_state.player_idx].units:
         if unit.besieging:
             for setl in all_setls:
                 for quad in setl.quads:
@@ -47,7 +47,7 @@ def verify_its_worth_it(game_state: GameState, _: Statistics) -> bool:
     """
     # If the player has constructed an improvement in any of their settlements that reduces satisfaction, they have met
     # the criterion for this achievement.
-    for setl in game_state.players[0].settlements:
+    for setl in game_state.players[game_state.player_idx].settlements:
         for imp in setl.improvements:
             if imp.effect.satisfaction < 0:
                 return True
@@ -63,7 +63,7 @@ def verify_the_third_x(game_state: GameState, _: Statistics) -> bool:
     """
     # If the player has a settlement with at least four resources of any kind, they have met the criterion for this
     # achievement.
-    for setl in game_state.players[0].settlements:
+    for setl in game_state.players[game_state.player_idx].settlements:
         rs = setl.resources
         if rs.ore + rs.timber + rs.magma + rs.aurora + rs.bloodstone + rs.obsidian + rs.sunstone + rs.aquamarine >= 4:
             return True

@@ -3,8 +3,8 @@ import unittest
 import pyxel
 
 from source.display.menu import Menu, SetupOption, WikiOption, MainMenuOption, WikiUnitsOption
-from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, ACHIEVEMENTS
-from source.foundation.models import VictoryType, GameConfig, DeployerUnitPlan
+from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, ACHIEVEMENTS, FACTION_COLOURS
+from source.foundation.models import VictoryType, GameConfig, DeployerUnitPlan, LobbyDetails, PlayerDetails, Faction
 
 
 class MenuTest(unittest.TestCase):
@@ -17,12 +17,53 @@ class MenuTest(unittest.TestCase):
         Instantiate a standard Menu object before each test.
         """
         self.menu = Menu()
+        self.menu.upnp_enabled = True  # In the vast majority of cases, players will have UPnP enabled.
 
     def test_navigate_setup(self):
         """
         Ensure that the player can correctly navigate down and up the game setup page.
         """
         self.menu.in_game_setup = True
+
+        self.assertEqual(SetupOption.PLAYER_FACTION, self.menu.setup_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.PLAYER_COUNT, self.menu.setup_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.MULTIPLAYER, self.menu.setup_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.BIOME_CLUSTERING, self.menu.setup_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.FOG_OF_WAR, self.menu.setup_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.CLIMATIC_EFFECTS, self.menu.setup_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.START_GAME, self.menu.setup_option)
+        # This time, it should wrap around, bringing the player back to the first option.
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.PLAYER_FACTION, self.menu.setup_option)
+
+        # Immediately, this should wrap around as well, going back to the bottom.
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.START_GAME, self.menu.setup_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.CLIMATIC_EFFECTS, self.menu.setup_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.FOG_OF_WAR, self.menu.setup_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.BIOME_CLUSTERING, self.menu.setup_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.MULTIPLAYER, self.menu.setup_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.PLAYER_COUNT, self.menu.setup_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.PLAYER_FACTION, self.menu.setup_option)
+
+    def test_navigate_setup_upnp_disabled(self):
+        """
+        Ensure that the player can correctly navigate down and up the game setup page when UPnP is disabled.
+        """
+        self.menu.in_game_setup = True
+        self.menu.upnp_enabled = False
 
         self.assertEqual(SetupOption.PLAYER_FACTION, self.menu.setup_option)
         self.menu.navigate(down=True)
@@ -89,6 +130,66 @@ class MenuTest(unittest.TestCase):
         self.menu.navigate(up=True)
         self.assertEqual(0, self.menu.save_idx)
         self.assertTupleEqual((0, 9), self.menu.load_game_boundaries)
+
+    def test_navigate_multiplayer_lobby_players(self):
+        """
+        Ensure that the player can correctly navigate down and up the list of players in a multiplayer lobby.
+        """
+        # Just fake some player data - obviously in reality we can't have 11 players of the same faction.
+        self.menu.multiplayer_lobby = LobbyDetails("Test", [PlayerDetails("Tester", Faction.CONCENTRATED, None)] * 11,
+                                                   GameConfig(11, Faction.CONCENTRATED, True, True, True, True), None)
+
+        self.assertTupleEqual((0, 7), self.menu.lobby_player_boundaries)
+
+        # Iterate through each player.
+        for i in range(8, 11):
+            self.menu.navigate(down=True)
+            self.assertTupleEqual((i - 7, i), self.menu.lobby_player_boundaries)
+        # Once we get down to the bottom, pressing down again shouldn't do anything.
+        self.assertTupleEqual((3, 10), self.menu.lobby_player_boundaries)
+        self.menu.navigate(down=True)
+        self.assertTupleEqual((3, 10), self.menu.lobby_player_boundaries)
+
+        # Go back up the page.
+        for i in range(2, -1, -1):
+            self.menu.navigate(up=True)
+            self.assertTupleEqual((i, i + 7), self.menu.lobby_player_boundaries)
+        # Now at the top, pressing up shouldn't do anything either.
+        self.assertTupleEqual((0, 7), self.menu.lobby_player_boundaries)
+        self.menu.navigate(up=True)
+        self.assertTupleEqual((0, 7), self.menu.lobby_player_boundaries)
+
+    def test_navigate_multiplayer_lobbies(self):
+        """
+        Ensure that the player can correctly navigate down and up the list of multiplayer lobbies.
+        """
+        self.menu.viewing_lobbies = True
+        # Just fake some player data - obviously in reality we can't have 11 lobbies with the same name, nor can we have
+        # 11 players of the same faction in each game.
+        self.menu.multiplayer_lobbies = \
+            [LobbyDetails("Test", [PlayerDetails("Tester", Faction.CONCENTRATED, None)] * 11,
+                          GameConfig(11, Faction.CONCENTRATED, True, True, True, True), None)] * 11
+
+        self.assertEqual(0, self.menu.lobby_index)
+        # Iterate through each of the lobbies.
+        for i in range(1, 10):
+            self.menu.navigate(down=True)
+            self.assertEqual(i, self.menu.lobby_index)
+        self.menu.navigate(down=True)
+        self.assertEqual(10, self.menu.lobby_index)
+        # Now at the bottom, pressing down should not do anything.
+        self.menu.navigate(down=True)
+        self.assertEqual(10, self.menu.lobby_index)
+
+        # Iterate back up the menu.
+        for i in range(9, 0, -1):
+            self.menu.navigate(up=True)
+            self.assertEqual(i, self.menu.lobby_index)
+        self.menu.navigate(up=True)
+        self.assertEqual(0, self.menu.lobby_index)
+        # Now at the top, pressing up should not do anything.
+        self.menu.navigate(up=True)
+        self.assertEqual(0, self.menu.lobby_index)
 
     def test_navigate_achievements(self):
         """
@@ -303,6 +404,45 @@ class MenuTest(unittest.TestCase):
         self.menu.navigate(down=True)
         self.assertEqual(MainMenuOption.LOAD_GAME, self.menu.main_menu_option)
         self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.JOIN_GAME, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.STATISTICS, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.ACHIEVEMENTS, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.WIKI, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.EXIT, self.menu.main_menu_option)
+        # This time, it should wrap around, bringing the player back to the first option.
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.NEW_GAME, self.menu.main_menu_option)
+
+        # Immediately, this should wrap around as well, going back to the bottom.
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.EXIT, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.WIKI, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.ACHIEVEMENTS, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.STATISTICS, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.JOIN_GAME, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.LOAD_GAME, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.NEW_GAME, self.menu.main_menu_option)
+
+    def test_navigate_main_menu_upnp_disabled(self):
+        """
+        Ensure that the player can successfully navigate up and down the main menu when UPnP is disabled.
+        """
+        self.menu.upnp_enabled = False
+
+        self.assertEqual(MainMenuOption.NEW_GAME, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.LOAD_GAME, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
         self.assertEqual(MainMenuOption.STATISTICS, self.menu.main_menu_option)
         self.menu.navigate(down=True)
         self.assertEqual(MainMenuOption.ACHIEVEMENTS, self.menu.main_menu_option)
@@ -380,6 +520,25 @@ class MenuTest(unittest.TestCase):
         self.menu.navigate(left=True)
         self.assertEqual(2, self.menu.player_count)
 
+    def test_navigate_setup_multiplayer(self):
+        """
+        Ensure that the player can correctly enable and disable multiplayer.
+        """
+        self.menu.in_game_setup = True
+        self.menu.setup_option = SetupOption.MULTIPLAYER
+
+        self.assertFalse(self.menu.multiplayer_enabled)
+        # Pressing left when already disabled should have no effect.
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.multiplayer_enabled)
+        self.menu.navigate(right=True)
+        self.assertTrue(self.menu.multiplayer_enabled)
+        # Similarly, pressing right when already enabled should have no effect.
+        self.menu.navigate(right=True)
+        self.assertTrue(self.menu.multiplayer_enabled)
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.multiplayer_enabled)
+
     def test_navigate_setup_clustering(self):
         """
         Ensure that the player can correctly enable and disable biome clustering.
@@ -436,6 +595,48 @@ class MenuTest(unittest.TestCase):
         self.assertFalse(self.menu.climatic_effects_enabled)
         self.menu.navigate(right=True)
         self.assertTrue(self.menu.climatic_effects_enabled)
+
+    def test_navigate_loading_multiplayer_game(self):
+        """
+        Ensure that the player can correctly toggle between loading single-player and multiplayer games. Note that we do
+        not test switching to loading multiplayer games, as this is handled in game_input_handler.py, and involves a
+        request to the server.
+        """
+        self.menu.loading_game = True
+        self.menu.loading_multiplayer_game = True
+
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.loading_multiplayer_game)
+        # Pressing left when already disabled should have no effect.
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.loading_multiplayer_game)
+
+    def test_navigate_joining_faction(self):
+        """
+        Ensure that the player can correctly iterate through the options when choosing their faction for a multiplayer
+        game.
+        """
+        self.menu.joining_game = True
+        self.menu.available_multiplayer_factions = FACTION_COLOURS.values()  # Just use all the factions.
+
+        self.assertEqual(0, self.menu.faction_idx)
+        # Iterate through each faction.
+        for i in range(1, len(self.menu.available_multiplayer_factions)):
+            self.menu.navigate(right=True)
+            self.assertEqual(i, self.menu.faction_idx)
+        # Once we get to the last faction, pressing right again should have no effect.
+        self.assertEqual(len(self.menu.available_multiplayer_factions) - 1, self.menu.faction_idx)
+        self.menu.navigate(right=True)
+        self.assertEqual(len(self.menu.available_multiplayer_factions) - 1, self.menu.faction_idx)
+
+        # Go back to the first faction.
+        for i in range(len(self.menu.available_multiplayer_factions) - 2, -1, -1):
+            self.menu.navigate(left=True)
+            self.assertEqual(i, self.menu.faction_idx)
+        # At the start again, pressing left should also have no effect.
+        self.assertEqual(0, self.menu.faction_idx)
+        self.menu.navigate(left=True)
+        self.assertEqual(0, self.menu.faction_idx)
 
     def test_navigate_wiki_victories(self):
         """
@@ -546,6 +747,7 @@ class MenuTest(unittest.TestCase):
         test_clustering = self.menu.biome_clustering_enabled = False
         test_fog_of_war = self.menu.fog_of_war_enabled = True
         test_climate = self.menu.climatic_effects_enabled = False
+        test_multiplayer = self.menu.multiplayer_enabled = True
 
         test_config: GameConfig = self.menu.get_game_config()
 
@@ -555,6 +757,7 @@ class MenuTest(unittest.TestCase):
         self.assertEqual(test_clustering, test_config.biome_clustering)
         self.assertEqual(test_fog_of_war, test_config.fog_of_war)
         self.assertEqual(test_climate, test_config.climatic_effects)
+        self.assertEqual(test_multiplayer, test_config.multiplayer)
 
     def test_option_colouring(self):
         """

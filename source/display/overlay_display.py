@@ -6,7 +6,7 @@ import pyxel
 from source.display.display_utils import draw_paragraph
 from source.util.calculator import get_setl_totals, player_has_resources_for_improvement, get_player_totals
 from source.foundation.catalogue import get_all_unlockable, get_unlockable_improvements, get_unlockable_units, \
-    ACHIEVEMENTS, BLESSINGS
+    ACHIEVEMENTS, BLESSINGS, FACTION_COLOURS
 from source.foundation.models import VictoryType, InvestigationResult, Heathen, EconomicStatus, ImprovementType, \
     OverlayType, SettlementAttackType, PauseOption, Faction, HarvestStatus, ConstructionMenu, ProjectType, Project, \
     DeployerUnitPlan, DeployerUnit, StandardOverlayView
@@ -16,12 +16,23 @@ from source.display.overlay import Overlay
 def display_overlay(overlay: Overlay, is_night: bool):
     """
     Display the given overlay to the screen.
-    :param overlay The Overlay to display.
-    :param is_night Whether it is night.
+    :param overlay: The Overlay to display.
+    :param is_night: Whether it is night.
     """
     pyxel.load("resources/sprites.pyxres")
+    # The achievement notification overlay displays any achievements that the player has obtained since the last turn.
+    if OverlayType.ACH_NOTIF in overlay.showing:
+        pyxel.load("resources/achievements.pyxres")
+        pyxel.rectb(12, 50, 176, 58, pyxel.COLOR_YELLOW)
+        pyxel.rect(13, 51, 174, 56, pyxel.COLOR_BLACK)
+        pyxel.text(60, 55, "Achievement unlocked!", pyxel.COLOR_YELLOW)
+        idx = ACHIEVEMENTS.index(overlay.new_achievements[-1])
+        pyxel.blt(35, 70, 0, (idx // 32) * 16, idx * 8 - (idx // 32) * 256, 8, 8)
+        pyxel.text(50, 68, overlay.new_achievements[-1].name, pyxel.COLOR_WHITE)
+        draw_paragraph(50, 76, overlay.new_achievements[-1].description, 30, pyxel.COLOR_WHITE)
+        pyxel.text(70, 95, "SPACE: Dismiss", pyxel.COLOR_WHITE)
     # The victory overlay displays the player who achieved the victory, as well as the type.
-    if OverlayType.VICTORY in overlay.showing:
+    elif OverlayType.VICTORY in overlay.showing:
         pyxel.rectb(12, 60, 176, 38, pyxel.COLOR_WHITE)
         pyxel.rect(13, 61, 174, 36, pyxel.COLOR_BLACK)
         if overlay.current_victory.player is overlay.current_player:
@@ -50,7 +61,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
         pyxel.rectb(12, 150, 176, 15, pyxel.COLOR_WHITE)
         pyxel.rect(13, 151, 174, 13, pyxel.COLOR_BLACK)
         pyxel.text(20, 153, "Click any white-bordered quad to deploy!", pyxel.COLOR_WHITE)
-    # The elimination overlay displays either game over if the player has been eliminated, or alternatively, any AI
+    # The elimination overlay displays either game over if the player has been eliminated, or alternatively, any other
     # players that have been eliminated since the last turn.
     elif OverlayType.ELIMINATION in overlay.showing:
         pyxel.rectb(12, 60, 176, 38, pyxel.COLOR_WHITE)
@@ -63,17 +74,6 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(56, 65, "Consigned to folklore", pyxel.COLOR_RED)
             pyxel.text(50, 75, f"{overlay.just_eliminated.name} has been eliminated.", overlay.just_eliminated.colour)
             pyxel.text(70, 85, "SPACE: Dismiss", pyxel.COLOR_WHITE)
-    # The achievement notification overlay displays any achievements that the player has obtained since the last turn.
-    elif OverlayType.ACH_NOTIF in overlay.showing:
-        pyxel.load("resources/achievements.pyxres")
-        pyxel.rectb(12, 50, 176, 58, pyxel.COLOR_YELLOW)
-        pyxel.rect(13, 51, 174, 56, pyxel.COLOR_BLACK)
-        pyxel.text(60, 55, "Achievement unlocked!", pyxel.COLOR_YELLOW)
-        idx = ACHIEVEMENTS.index(overlay.new_achievements[-1])
-        pyxel.blt(35, 70, 0, (idx // 32) * 16, idx * 8 - (idx // 32) * 256, 8, 8)
-        pyxel.text(50, 68, overlay.new_achievements[-1].name, pyxel.COLOR_WHITE)
-        draw_paragraph(50, 76, overlay.new_achievements[-1].description, 30, pyxel.COLOR_WHITE)
-        pyxel.text(70, 95, "SPACE: Dismiss", pyxel.COLOR_WHITE)
     # The night overlay alerts the player that night is either beginning or ending, and the effects of that.
     elif OverlayType.NIGHT in overlay.showing:
         pyxel.rectb(12, 50, 176, 58, pyxel.COLOR_WHITE)
@@ -82,7 +82,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(35, 55, "The everlasting night begins...", pyxel.COLOR_YELLOW)
             pyxel.text(63, 75, "Increased fortune", pyxel.COLOR_PURPLE)
             pyxel.text(55, 85, "Strengthened heathens", pyxel.COLOR_RED)
-            if overlay.current_player.faction is Faction.NOCTURNE:
+            if overlay.current_player.faction == Faction.NOCTURNE:
                 pyxel.text(52, 65, "Nocturne bonus to units", pyxel.COLOR_GREEN)
             else:
                 pyxel.text(45, 65, "Reduced vision and harvest", pyxel.COLOR_RED)
@@ -90,7 +90,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.text(42, 55, "The sun returns once more...", pyxel.COLOR_YELLOW)
             pyxel.text(67, 75, "Regular fortune", pyxel.COLOR_PURPLE)
             pyxel.text(62, 85, "Standard heathens", pyxel.COLOR_GREEN)
-            if overlay.current_player.faction is Faction.NOCTURNE:
+            if overlay.current_player.faction == Faction.NOCTURNE:
                 pyxel.text(45, 65, "Nocturne unit bonus removed", pyxel.COLOR_RED)
             else:
                 pyxel.text(45, 65, "Restored vision and harvest", pyxel.COLOR_GREEN)
@@ -284,13 +284,23 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(54, 15, f"A {att_name} (-{att_dmg}) attacked", pyxel.COLOR_WHITE)
             pyxel.text(72, 25, f"{setl_name} (-{setl_dmg})", overlay.setl_attack_data.setl_owner.colour)
         # The siege notification overlay notifies the player that one of their settlements has been placed under
-        # siege by an AI player.
+        # siege by another player.
         if OverlayType.SIEGE_NOTIF in overlay.showing:
             pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
             pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
             att_name = overlay.sieger_of_settlement.name
             setl_name = overlay.sieged_settlement.name
             pyxel.text(22, 15, f"{setl_name} was placed under siege by {att_name}", pyxel.COLOR_RED)
+        # The player change overlay notifies the player when another player leaves or joins their multiplayer game.
+        if OverlayType.PLAYER_CHANGE in overlay.showing:
+            pyxel.rectb(12, 10, 176, 16, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 11, 174, 14, pyxel.COLOR_BLACK)
+            if overlay.changed_player_is_leaving:
+                pyxel.text(22, 15, f"{overlay.player_changing.name} has left the game, replaced by AI",
+                           FACTION_COLOURS[overlay.player_changing.faction])
+            else:
+                pyxel.text(46, 15, f"{overlay.player_changing.name} has joined the game",
+                           FACTION_COLOURS[overlay.player_changing.faction])
         # The settlement overlay displays the currently-selected settlements name, statistics, current construction,
         # garrison, and resources.
         if OverlayType.SETTLEMENT in overlay.showing:
@@ -351,7 +361,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     overlay.current_player.wealth >= \
                     (overlay.current_settlement.current_work.construction.cost -
                      overlay.current_settlement.current_work.zeal_consumed) and \
-                    overlay.current_player.faction is not Faction.FUNDAMENTALISTS:
+                    overlay.current_player.faction != Faction.FUNDAMENTALISTS:
                 y_offset = 10
             pyxel.rectb(12, 130 - y_offset, 176, 40 + y_offset, pyxel.COLOR_WHITE)
             pyxel.rect(13, 131 - y_offset, 174, 38 + y_offset, pyxel.COLOR_BLACK)
@@ -362,16 +372,16 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     pyxel.text(20, 145 - y_offset, curr_work.construction.name, pyxel.COLOR_WHITE)
                     remaining_work = curr_work.construction.cost - curr_work.zeal_consumed
                     total_zeal = max(sum(quad.zeal for quad in overlay.current_settlement.quads) +
-                                     sum(imp.effect.zeal for imp in overlay.current_settlement.improvements), 0.5)
+                                     sum(imp.effect.zeal for imp in overlay.current_settlement.improvements), 1)
                     total_zeal += (overlay.current_settlement.level - 1) * 0.25 * total_zeal
-                    if overlay.current_player.faction is Faction.AGRICULTURISTS:
+                    if overlay.current_player.faction == Faction.AGRICULTURISTS:
                         total_zeal *= 0.75
-                    elif overlay.current_player.faction is Faction.FUNDAMENTALISTS:
+                    elif overlay.current_player.faction == Faction.FUNDAMENTALISTS:
                         total_zeal *= 1.25
                     remaining_turns = math.ceil(remaining_work / total_zeal)
                     pyxel.text(20, 155 - y_offset, f"{remaining_turns} turns remaining", pyxel.COLOR_WHITE)
                     if overlay.current_player.wealth >= remaining_work and \
-                            overlay.current_player.faction is not Faction.FUNDAMENTALISTS:
+                            overlay.current_player.faction != Faction.FUNDAMENTALISTS:
                         pyxel.blt(20, 153, 0, 0, 52, 8, 8)
                         pyxel.text(30, 155, "Buyout:", pyxel.COLOR_WHITE)
                         pyxel.blt(60, 153, 0, 0, 44, 8, 8)
@@ -472,10 +482,10 @@ def display_overlay(overlay: Overlay, is_night: bool):
             total_zeal = 0
             total_zeal += sum(quad.zeal for quad in overlay.current_settlement.quads)
             total_zeal += sum(imp.effect.zeal for imp in overlay.current_settlement.improvements)
-            total_zeal = max(0.5, total_zeal) + (overlay.current_settlement.level - 1) * 0.25 * total_zeal
-            if overlay.current_player.faction is Faction.AGRICULTURISTS:
+            total_zeal = max(1, total_zeal) + (overlay.current_settlement.level - 1) * 0.25 * total_zeal
+            if overlay.current_player.faction == Faction.AGRICULTURISTS:
                 total_zeal *= 0.75
-            elif overlay.current_player.faction is Faction.FUNDAMENTALISTS:
+            elif overlay.current_player.faction == Faction.FUNDAMENTALISTS:
                 total_zeal *= 1.25
             if overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
                 for idx, construction in enumerate(overlay.available_constructions):
@@ -695,11 +705,11 @@ def display_overlay(overlay: Overlay, is_night: bool):
                         if current_work is not None and not isinstance(current_work.construction, Project):
                             remaining_work = current_work.construction.cost - current_work.zeal_consumed
                             total_zeal = max(sum(quad.zeal for quad in setl.quads) +
-                                             sum(imp.effect.zeal for imp in setl.improvements), 0.5)
+                                             sum(imp.effect.zeal for imp in setl.improvements), 1)
                             total_zeal += (setl.level - 1) * 0.25 * total_zeal
-                            if overlay.current_player.faction is Faction.AGRICULTURISTS:
+                            if overlay.current_player.faction == Faction.AGRICULTURISTS:
                                 total_zeal *= 0.75
-                            elif overlay.current_player.faction is Faction.FUNDAMENTALISTS:
+                            elif overlay.current_player.faction == Faction.FUNDAMENTALISTS:
                                 total_zeal *= 1.25
                             remaining_turns = math.ceil(remaining_work / total_zeal)
                             pyxel.text(130, 65 + idx * 8, str(remaining_turns), pyxel.COLOR_WHITE)
@@ -737,7 +747,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     pyxel.text(140, 55,
                                f"{len(overlay.current_player.settlements)}/{overlay.total_settlement_count}",
                                pyxel.COLOR_WHITE)
-                    if overlay.current_player.faction is not Faction.CONCENTRATED:
+                    if overlay.current_player.faction != Faction.CONCENTRATED:
                         pyxel.text(30, 70, "Jubilation", pyxel.COLOR_GREEN)
                         if VictoryType.JUBILATION in overlay.current_player.imminent_victories:
                             pyxel.blt(72, 68, 0, 16, 124, 8, 8)

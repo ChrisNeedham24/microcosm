@@ -2,3 +2,8 @@ pyxel==1.9.0
 python-vlc==3.0.16120
 platformdirs==3.1.1
 Pillow==10.2.0
+# 2.0.2 is the last version of miniupnpc that was released in a .tar.gz format, allowing it to be built on UNIX systems.
+# All releases since have been for Windows only. As such, we pin different versions for Windows and non-Windows
+# machines.
+miniupnpc==2.0.2; platform_system != "Windows"
+miniupnpc==2.2.7; platform_system == "Windows"

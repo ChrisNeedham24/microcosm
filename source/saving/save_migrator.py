@@ -47,6 +47,11 @@ v3.0
   attribute to have empty ResourceCollections. In addition to these, the req_resources attribute was added to
   Improvements, which is migrated and removed for old saves, as they would have no way of obtaining the necessary
   resources.
+
+v4.0
+- Quad yields were adjusted to be integer values rather than float ones. Float values from previous versions are rounded
+  to the closest integer.
+- Multiplayer games were introduced; GameConfig objects from previous versions are naturally mapped to False.
 """
 
 
@@ -134,12 +139,12 @@ def migrate_climatic_effects(game_state, save):
 
 def migrate_quad(quad, location: (int, int)) -> Quad:
     """
-    Apply the is_relic, location, and resource migrations for Quads, if required.
+    Apply the is_relic, location, resource, and yield migrations for Quads, if required.
     :param quad: The loaded quad object.
     :param location: The backup location to use for the quad if it is from an outdated save.
     :return: An optionally-migrated Quad representation.
     """
-    new_quad = quad
+    new_quad: Quad = quad
     # The biomes require special loading.
     new_quad.biome = Biome[new_quad.biome]
     new_quad.is_relic = new_quad.is_relic if hasattr(new_quad, "is_relic") else False
@@ -151,7 +156,12 @@ def migrate_quad(quad, location: (int, int)) -> Quad:
                                                res.aurora, res.bloodstone, res.obsidian, res.sunstone, res.aquamarine)
     else:
         new_quad.resource = None
-    return new_quad
+    new_quad.wealth = round(new_quad.wealth)
+    new_quad.harvest = round(new_quad.harvest)
+    new_quad.zeal = round(new_quad.zeal)
+    new_quad.fortune = round(new_quad.fortune)
+    return Quad(new_quad.biome, new_quad.wealth, new_quad.harvest, new_quad.zeal, new_quad.fortune, new_quad.location,
+                new_quad.resource, is_relic=new_quad.is_relic)
 
 
 def migrate_settlement(settlement):
@@ -180,7 +190,7 @@ def migrate_settlement(settlement):
 
 def migrate_game_config(config) -> GameConfig:
     """
-    Apply the climatic_effects and player_faction migrations for game configuration, if required.
+    Apply the climatic_effects, player_faction, and multiplayer migrations for game configuration, if required.
     :param config: The loaded game configuration.
     :return: An optionally-migrated GameConfig representation.
     """
@@ -190,6 +200,8 @@ def migrate_game_config(config) -> GameConfig:
         config.player_faction = get_faction_for_colour(config.player_colour)
         # We now delete the old attribute so that it does not pollute future saves.
         delattr(config, "player_colour")
+    if not hasattr(config, "multiplayer"):
+        config.multiplayer = False
     return config
 
 

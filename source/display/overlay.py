@@ -17,7 +17,7 @@ class Overlay:
         """
         self.showing: typing.List[OverlayType] = []  # What the overlay is currently displaying.
         self.current_settlement: typing.Optional[Settlement] = None
-        self.current_player: typing.Optional[Player] = None  # Will always be the non-AI player.
+        self.current_player: typing.Optional[Player] = None  # Will always be the non-AI player on this machine.
         self.available_constructions: typing.List[Improvement] = []
         self.available_projects: typing.List[Project] = []
         self.available_unit_plans: typing.List[UnitPlan] = []
@@ -64,6 +64,8 @@ class Overlay:
         self.current_standard_overlay_view: StandardOverlayView = StandardOverlayView.BLESSINGS
         self.current_game_config: GameConfig = cfg
         self.total_settlement_count: int = 0
+        self.player_changing: typing.Optional[Player] = None
+        self.changed_player_is_leaving: typing.Optional[bool] = None  # False means they're joining.
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
@@ -253,7 +255,7 @@ class Overlay:
         """
         Toggle the settlement overlay.
         :param settlement: The selected settlement to display.
-        :param player: The current player. Will always be the non-AI player.
+        :param player: The current player. Will always be the non-AI player on this machine.
         """
         # Ensure that we can only remove the settlement overlay if the player is not choosing a construction.
         if OverlayType.SETTLEMENT in self.showing and not self.is_constructing():
@@ -757,6 +759,28 @@ class Overlay:
         :return: Whether the achievement notification overlay is being displayed.
         """
         return OverlayType.ACH_NOTIF in self.showing
+
+    def toggle_player_change(self,
+                             player_changing: typing.Optional[Player],
+                             changed_player_is_leaving: typing.Optional[bool]):
+        """
+        Toggle the player change overlay.
+        :param player_changing: The player either leaving or joining the game.
+        :param changed_player_is_leaving: Whether the player is leaving.
+        """
+        if OverlayType.PLAYER_CHANGE in self.showing:
+            self.showing.remove(OverlayType.PLAYER_CHANGE)
+        else:
+            self.showing.append(OverlayType.PLAYER_CHANGE)
+            self.player_changing = player_changing
+            self.changed_player_is_leaving = changed_player_is_leaving
+
+    def is_player_change(self):
+        """
+        Returns whether the player change overlay is currently being displayed.
+        :return: Whether the player change overlay is currently being displayed.
+        """
+        return OverlayType.PLAYER_CHANGE in self.showing
 
     def remove_layer(self) -> typing.Optional[OverlayType]:
         """

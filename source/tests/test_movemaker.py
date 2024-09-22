@@ -15,7 +15,7 @@ class MovemakerTest(unittest.TestCase):
     """
     The test class for movemaker.py.
     """
-    TEST_CONFIG = GameConfig(2, Faction.NOCTURNE, True, True, True)
+    TEST_CONFIG = GameConfig(2, Faction.NOCTURNE, True, True, True, False)
     TEST_BOARD = Board(TEST_CONFIG, Namer())
 
     def setUp(self) -> None:
@@ -43,7 +43,7 @@ class MovemakerTest(unittest.TestCase):
         self.relic_coords: (int, int) = -1, -1
         for i in range(2, 90):
             for j in range(2, 80):
-                if self.QUADS[i][j].is_relic:
+                if self.QUADS[j][i].is_relic:
                     self.relic_coords = i, j
                     break
             if self.relic_coords[0] != -1:
@@ -51,8 +51,8 @@ class MovemakerTest(unittest.TestCase):
         # More than one relic can make the tests unreliable, so remove all others.
         for i in range(90):
             for j in range(80):
-                if self.QUADS[i][j].is_relic and self.relic_coords != (i, j):
-                    self.QUADS[i][j].is_relic = False
+                if self.QUADS[j][i].is_relic and self.relic_coords != (i, j):
+                    self.QUADS[j][i].is_relic = False
 
         self.TEST_SETTLEMENT = Settlement("Obstructionville", (0, 0), [], [self.QUADS[0][0]], ResourceCollection(), [])
         self.TEST_SETTLEMENT_2 = Settlement("EnemyTown", (40, 40), [], [self.QUADS[40][40]], ResourceCollection(), [])
@@ -236,7 +236,7 @@ class MovemakerTest(unittest.TestCase):
         Ensure that when a player's settlement is lacking zeal, the correct improvement is selected for construction.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 2, 100, 1, 2, self.TEST_SETTLEMENT.location)]
         # We need to make sure the player has sufficient resources to construct the intended improvement.
         self.TEST_PLAYER.resources = ResourceCollection(timber=20)
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
@@ -257,7 +257,7 @@ class MovemakerTest(unittest.TestCase):
         :param imps_mock: The mock implementation of the get_available_improvements() function.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 1, 0, self.TEST_SETTLEMENT.location)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 2, 100, 2, 1, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = [BLESSINGS["beg_spl"]]
         # We need to mock out the available improvements so as to achieve full coverage, reaching a block where the
         # improvement with the most fortune is updated. We do this by simply switching the first two improvements in the
@@ -454,7 +454,7 @@ class MovemakerTest(unittest.TestCase):
         construction.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 2, 100, 1, 2, self.TEST_SETTLEMENT.location)]
         # We need to make sure the player has sufficient resources to construct the intended improvement.
         self.TEST_PLAYER.resources = ResourceCollection(timber=20)
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
@@ -476,7 +476,7 @@ class MovemakerTest(unittest.TestCase):
         :param imps_mock: The mock implementation of the get_available_improvements() function.
         """
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 1, 0, self.TEST_SETTLEMENT.location)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 2, 100, 2, 1, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = [BLESSINGS["beg_spl"]]
         # We need to mock out the available improvements so as to achieve full coverage, reaching a block where the
         # improvement with the most fortune is updated. We do this by simply switching the first two improvements in the
@@ -602,7 +602,7 @@ class MovemakerTest(unittest.TestCase):
         """
         self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.AGGRESSIVE
         # Harvest needs to be higher so that we are above the harvest boundary.
-        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 1, 100, 0, 1, self.TEST_SETTLEMENT.location)]
+        self.TEST_SETTLEMENT.quads = [Quad(Biome.SEA, 2, 100, 1, 2, self.TEST_SETTLEMENT.location)]
         self.TEST_PLAYER.blessings = list(BLESSINGS.values())
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False, [])
@@ -683,14 +683,16 @@ class MovemakerTest(unittest.TestCase):
         """
         self.TEST_UNIT.location = self.relic_coords[0] - 2, self.relic_coords[1]
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.assertTrue(self.TEST_UNIT.remaining_stamina)
-        self.assertTrue(self.QUADS[self.relic_coords[0]][self.relic_coords[1]].is_relic)
+        self.assertTrue(self.QUADS[self.relic_coords[1]][self.relic_coords[0]].is_relic)
         search_for_relics_or_move(self.TEST_UNIT, self.QUADS, self.TEST_PLAYER, [], [], self.TEST_CONFIG)
 
         # The unit should have moved directly to the left of the relic, and the quad should no longer have a relic.
         self.assertTupleEqual((self.relic_coords[0] - 1, self.relic_coords[1]), self.TEST_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT.remaining_stamina)
-        self.assertFalse(self.QUADS[self.relic_coords[0]][self.relic_coords[1]].is_relic)
+        self.assertFalse(self.QUADS[self.relic_coords[1]][self.relic_coords[0]].is_relic)
 
     @patch("source.game_management.movemaker.investigate_relic", lambda *args: None)
     def test_search_for_relics_success_right(self):
@@ -699,14 +701,16 @@ class MovemakerTest(unittest.TestCase):
         """
         self.TEST_UNIT.location = self.relic_coords[0] + 2, self.relic_coords[1]
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.assertTrue(self.TEST_UNIT.remaining_stamina)
-        self.assertTrue(self.QUADS[self.relic_coords[0]][self.relic_coords[1]].is_relic)
+        self.assertTrue(self.QUADS[self.relic_coords[1]][self.relic_coords[0]].is_relic)
         search_for_relics_or_move(self.TEST_UNIT, self.QUADS, self.TEST_PLAYER, [], [], self.TEST_CONFIG)
 
         # The unit should have moved directly to the right of the relic, and the quad should no longer have a relic.
         self.assertTupleEqual((self.relic_coords[0] + 1, self.relic_coords[1]), self.TEST_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT.remaining_stamina)
-        self.assertFalse(self.QUADS[self.relic_coords[0]][self.relic_coords[1]].is_relic)
+        self.assertFalse(self.QUADS[self.relic_coords[1]][self.relic_coords[0]].is_relic)
 
     @patch("source.game_management.movemaker.investigate_relic", lambda *args: None)
     def test_search_for_relics_obstructed(self):
@@ -718,16 +722,18 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER.units.append(self.TEST_UNIT_2)
         self.TEST_UNIT.location = self.relic_coords[0] - 2, self.relic_coords[1]
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.assertTrue(self.TEST_UNIT.remaining_stamina)
-        self.assertTrue(self.QUADS[self.relic_coords[0]][self.relic_coords[1]].is_relic)
+        self.assertTrue(self.QUADS[self.relic_coords[1]][self.relic_coords[0]].is_relic)
         search_for_relics_or_move(self.TEST_UNIT, self.QUADS, self.TEST_PLAYER, [self.TEST_UNIT_3],
                                   [self.TEST_SETTLEMENT], self.TEST_CONFIG)
 
         # Normally, the unit would move directly to the left of the relic, but it can't move there, and as such, the
         # quad should still have a relic.
         self.assertNotEqual((self.relic_coords[0] - 1, self.relic_coords[1]), self.TEST_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT.remaining_stamina)
-        self.assertTrue(self.QUADS[self.relic_coords[0]][self.relic_coords[1]].is_relic)
+        self.assertTrue(self.QUADS[self.relic_coords[1]][self.relic_coords[0]].is_relic)
 
     @patch("source.game_management.movemaker.investigate_relic", lambda *args: None)
     def test_search_for_relics_none_found(self):
@@ -737,8 +743,11 @@ class MovemakerTest(unittest.TestCase):
         # Remove the last relic from the board.
         self.QUADS[self.relic_coords[0]][self.relic_coords[1]].is_relic = False
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.assertTrue(self.TEST_UNIT.remaining_stamina)
         search_for_relics_or_move(self.TEST_UNIT, self.QUADS, self.TEST_PLAYER, [], [], self.TEST_CONFIG)
+        # The player should now have a few quads added to their set of seen quads, around the unit's new location.
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         # Make sure the unit exhausted its stamina.
         self.assertFalse(self.TEST_UNIT.remaining_stamina)
 
@@ -765,10 +774,12 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_HEALER_UNIT.location = self.TEST_UNIT.location[0] - 2, self.TEST_UNIT.location[1]
         self.TEST_PLAYER.units.append(self.TEST_HEALER_UNIT)
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         move_healer_unit(self.TEST_PLAYER, self.TEST_HEALER_UNIT, [], [], self.QUADS, self.TEST_CONFIG)
         # The healer should have moved directly to the left of the heal-able unit and healed it.
         self.assertTupleEqual((self.TEST_UNIT.location[0] - 1, self.TEST_UNIT.location[1]),
                               self.TEST_HEALER_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_HEALER_UNIT.remaining_stamina)
         heal_mock.assert_called_with(self.TEST_HEALER_UNIT, self.TEST_UNIT)
 
@@ -781,10 +792,12 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_HEALER_UNIT.location = self.TEST_UNIT.location[0] + 2, self.TEST_UNIT.location[1]
         self.TEST_PLAYER.units.append(self.TEST_HEALER_UNIT)
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         move_healer_unit(self.TEST_PLAYER, self.TEST_HEALER_UNIT, [], [], self.QUADS, self.TEST_CONFIG)
         # The healer should have moved directly to the right of the heal-able unit and healed it.
         self.assertTupleEqual((self.TEST_UNIT.location[0] + 1, self.TEST_UNIT.location[1]),
                               self.TEST_HEALER_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_HEALER_UNIT.remaining_stamina)
         heal_mock.assert_called_with(self.TEST_HEALER_UNIT, self.TEST_UNIT)
 
@@ -793,7 +806,7 @@ class MovemakerTest(unittest.TestCase):
         Ensure that when an AI player is making their move, if they have no ongoing blessing, one is set.
         """
         self.assertIsNone(self.TEST_PLAYER.ongoing_blessing)
-        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False, 0)
         self.assertIsNotNone(self.TEST_PLAYER.ongoing_blessing)
 
     def test_make_move_set_construction(self):
@@ -802,7 +815,7 @@ class MovemakerTest(unittest.TestCase):
         construction is set for that settlement.
         """
         self.assertIsNone(self.TEST_SETTLEMENT.current_work)
-        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False, 0)
         self.assertIsNotNone(self.TEST_SETTLEMENT.current_work)
 
     @patch("source.game_management.movemaker.investigate_relic", lambda *args: None)
@@ -815,7 +828,7 @@ class MovemakerTest(unittest.TestCase):
 
         self.assertFalse(self.TEST_SETTLEMENT.improvements)
 
-        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False, 0)
 
         # We expect the settlement to now have the improvement and the player's wealth to have been reduced
         # appropriately.
@@ -834,7 +847,7 @@ class MovemakerTest(unittest.TestCase):
 
         self.assertFalse(self.TEST_SETTLEMENT.improvements)
 
-        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False, 0)
 
         # We expect the settlement to now have the improvement.
         self.assertIn(IMPROVEMENTS[0], self.TEST_SETTLEMENT.improvements)
@@ -847,11 +860,13 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLEMENT.garrison = [self.TEST_SETTLER_UNIT]
 
         self.assertNotIn(self.TEST_SETTLER_UNIT, self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
 
-        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False, 0)
 
         self.assertFalse(self.TEST_SETTLER_UNIT.garrisoned)
         self.assertIn(self.TEST_SETTLER_UNIT, self.TEST_PLAYER.units)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_SETTLEMENT.garrison)
 
     def test_make_move_aggressive_ai_deploy_unit(self):
@@ -863,12 +878,14 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLEMENT.garrison = [self.TEST_UNIT_2]
 
         self.assertNotIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
 
-        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False, 0)
 
         self.assertFalse(self.TEST_UNIT_2.garrisoned)
         self.assertIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
         self.assertFalse(self.TEST_SETTLEMENT.garrison)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
 
     def test_make_move_neutral_ai_deploy_unit(self):
         """
@@ -880,12 +897,14 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLEMENT.garrison = [self.TEST_UNIT_2]
 
         self.assertNotIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
 
-        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False, 0)
 
         self.assertFalse(self.TEST_UNIT_2.garrisoned)
         self.assertIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
         self.assertFalse(self.TEST_SETTLEMENT.garrison)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
 
     def test_make_move_besieged_settlement_deploy_unit(self):
         """
@@ -899,13 +918,15 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLEMENT.besieged = True
 
         self.assertNotIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
 
-        self.movemaker.make_move(self.TEST_PLAYER, [self.TEST_PLAYER, self.TEST_PLAYER_2],
-                                 self.QUADS, self.TEST_CONFIG, False)
+        self.movemaker.make_move(self.TEST_PLAYER, [self.TEST_PLAYER, self.TEST_PLAYER_2], self.QUADS, self.TEST_CONFIG,
+                                 False, 0)
 
         self.assertFalse(self.TEST_UNIT_2.garrisoned)
         self.assertIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
         self.assertFalse(self.TEST_SETTLEMENT.garrison)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
 
     def test_make_move_weakened_settlement_deploy_unit(self):
         """
@@ -919,12 +940,14 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLEMENT.strength = 1
 
         self.assertNotIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
 
-        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False, 0)
 
         self.assertFalse(self.TEST_UNIT_2.garrisoned)
         self.assertIn(self.TEST_UNIT_2, self.TEST_PLAYER.units)
         self.assertFalse(self.TEST_SETTLEMENT.garrison)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
 
     def test_make_move_garrison_too_full_deploy_unit(self):
         """
@@ -943,12 +966,15 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_UNIT_3.garrisoned = True
         self.TEST_SETTLEMENT.garrison = [self.TEST_UNIT, self.TEST_UNIT_2, self.TEST_UNIT_3, extra_unit]
 
-        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False, 0)
 
         self.assertFalse(extra_unit.garrisoned)
         self.assertIn(extra_unit, self.TEST_PLAYER.units)
         # The remaining three units should still be in the garrison.
         self.assertEqual(3, len(self.TEST_SETTLEMENT.garrison))
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
 
     def test_make_move_deploy_deployer_unit_other_player_vic(self):
         """
@@ -962,11 +988,14 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLEMENT.garrison = [self.TEST_DEPLOYER_UNIT]
         self.TEST_PLAYER_2.imminent_victories = [VictoryType.AFFLUENCE]
 
-        self.movemaker.make_move(self.TEST_PLAYER, [self.TEST_PLAYER_2], self.QUADS, self.TEST_CONFIG, False)
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
+        self.movemaker.make_move(self.TEST_PLAYER, [self.TEST_PLAYER_2], self.QUADS, self.TEST_CONFIG, False, 0)
 
         # The deployer unit should no longer be garrisoned, and the garrison itself should be empty.
         self.assertFalse(self.TEST_DEPLOYER_UNIT.garrisoned)
         self.assertIn(self.TEST_DEPLOYER_UNIT, self.TEST_PLAYER.units)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_SETTLEMENT.garrison)
 
     def test_make_move_unit_is_moved(self):
@@ -977,14 +1006,14 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER_2.units = [self.TEST_UNIT_2]
         self.movemaker.move_unit = MagicMock()
 
-        self.movemaker.make_move(self.TEST_PLAYER, [self.TEST_PLAYER, self.TEST_PLAYER_2],
-                                 self.QUADS, self.TEST_CONFIG, False)
+        self.movemaker.make_move(self.TEST_PLAYER, [self.TEST_PLAYER, self.TEST_PLAYER_2], self.QUADS, self.TEST_CONFIG,
+                                 False, 0)
 
         self.assertEqual(1, self.movemaker.move_unit.call_count)
         self.movemaker.move_unit.assert_called_with(self.TEST_PLAYER, self.TEST_UNIT, [self.TEST_UNIT_2],
                                                     [self.TEST_PLAYER, self.TEST_PLAYER_2],
                                                     [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2],
-                                                    self.QUADS, self.TEST_CONFIG, [])
+                                                    self.QUADS, self.TEST_CONFIG, [], 0)
 
     @patch("source.game_management.movemaker.investigate_relic", lambda *args: None)
     def test_make_move_negative_wealth(self):
@@ -997,7 +1026,7 @@ class MovemakerTest(unittest.TestCase):
 
         self.assertTrue(self.TEST_PLAYER.units)
         self.assertFalse(self.TEST_PLAYER.wealth)
-        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False)
+        self.movemaker.make_move(self.TEST_PLAYER, [], self.QUADS, self.TEST_CONFIG, False, 0)
         self.assertEqual(self.TEST_UNIT.plan.cost, self.TEST_PLAYER.wealth)
         self.assertFalse(self.TEST_PLAYER.units)
 
@@ -1014,7 +1043,7 @@ class MovemakerTest(unittest.TestCase):
         infidel_player = Player("Inf", Faction.INFIDELS, 0, units=[self.TEST_UNIT_3])
 
         self.movemaker.make_move(self.TEST_PLAYER, [self.TEST_PLAYER, infidel_player], self.QUADS, self.TEST_CONFIG,
-                                 False)
+                                 False, 0)
 
         self.assertEqual(wealth_before_combat, self.TEST_PLAYER.wealth)
         self.assertFalse(self.TEST_PLAYER.units)
@@ -1031,9 +1060,11 @@ class MovemakerTest(unittest.TestCase):
 
         self.assertEqual(1, len(self.TEST_PLAYER.settlements))
         self.assertEqual(2, len(self.TEST_PLAYER.units))
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.movemaker.move_settler_unit(self.TEST_SETTLER_UNIT, self.TEST_PLAYER, [], [self.TEST_SETTLEMENT])
         # The unit should have moved and used its stamina, but should not have founded a settlement.
         self.assertNotEqual(self.TEST_SETTLEMENT.location, self.TEST_SETTLER_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_SETTLER_UNIT.remaining_stamina)
         self.assertEqual(1, len(self.TEST_PLAYER.settlements))
         self.assertEqual(2, len(self.TEST_PLAYER.units))
@@ -1054,10 +1085,12 @@ class MovemakerTest(unittest.TestCase):
 
         self.assertEqual(1, len(self.TEST_PLAYER.settlements))
         self.assertEqual(2, len(self.TEST_PLAYER.units))
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.movemaker.move_settler_unit(self.TEST_SETTLER_UNIT, self.TEST_PLAYER, [], [self.TEST_SETTLEMENT])
         # The unit should have moved and used its stamina, but should not have founded a settlement due to the fact that
         # no quads have resources on the board.
         self.assertNotEqual(self.TEST_SETTLEMENT.location, self.TEST_SETTLER_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_SETTLER_UNIT.remaining_stamina)
         self.assertEqual(1, len(self.TEST_PLAYER.settlements))
         self.assertEqual(2, len(self.TEST_PLAYER.units))
@@ -1083,9 +1116,11 @@ class MovemakerTest(unittest.TestCase):
 
         self.assertEqual(1, len(self.TEST_PLAYER.settlements))
         self.assertEqual(2, len(self.TEST_PLAYER.units))
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.movemaker.move_settler_unit(self.TEST_SETTLER_UNIT, self.TEST_PLAYER, [], [self.TEST_SETTLEMENT])
         # The settler should have moved away from the settlement and used all of its stamina.
         self.assertNotEqual(self.TEST_SETTLEMENT.location, self.TEST_SETTLER_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_SETTLER_UNIT.remaining_stamina)
         # However, since it's also now far enough away, a new settlement should have been founded and the unit should
         # have been disassociated with the player.
@@ -1115,9 +1150,11 @@ class MovemakerTest(unittest.TestCase):
 
         self.assertEqual(1, len(self.TEST_PLAYER.settlements))
         self.assertEqual(2, len(self.TEST_PLAYER.units))
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.movemaker.move_settler_unit(self.TEST_SETTLER_UNIT, self.TEST_PLAYER, [], [self.TEST_SETTLEMENT])
         # The settler should have moved away from the settlement and used all of its stamina.
         self.assertNotEqual(self.TEST_SETTLEMENT.location, self.TEST_SETTLER_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_SETTLER_UNIT.remaining_stamina)
         # However, since it's also now far enough away, a new settlement should have been founded and the unit should
         # have been disassociated with the player.
@@ -1162,9 +1199,11 @@ class MovemakerTest(unittest.TestCase):
 
         self.assertEqual(1, len(self.TEST_PLAYER.settlements))
         self.assertEqual(2, len(self.TEST_PLAYER.units))
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.movemaker.move_settler_unit(self.TEST_SETTLER_UNIT, self.TEST_PLAYER, [], [self.TEST_SETTLEMENT])
         # The settler should have moved away from the settlement and used all of its stamina.
         self.assertNotEqual(self.TEST_SETTLEMENT.location, self.TEST_SETTLER_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_SETTLER_UNIT.remaining_stamina)
         # However, since it's also now far enough away, a new settlement should have been founded and the unit should
         # have been disassociated with the player.
@@ -1181,7 +1220,8 @@ class MovemakerTest(unittest.TestCase):
         Ensure that when a settler unit is being moved, the appropriate method is called.
         """
         self.movemaker.move_settler_unit = MagicMock()
-        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_SETTLER_UNIT, [], [], [], self.QUADS, self.TEST_CONFIG, [])
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_SETTLER_UNIT, [], [], [], self.QUADS, self.TEST_CONFIG, [],
+                                 0)
         self.movemaker.move_settler_unit.assert_called_with(self.TEST_SETTLER_UNIT, self.TEST_PLAYER, [], [])
 
     @patch("source.game_management.movemaker.move_healer_unit")
@@ -1190,7 +1230,8 @@ class MovemakerTest(unittest.TestCase):
         Ensure that when a healer unit is being moved, the appropriate method is called.
         :param move_healer_mock: The mock implementation of the move_healer_unit() function.
         """
-        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_HEALER_UNIT, [], [], [], self.QUADS, self.TEST_CONFIG, [])
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_HEALER_UNIT, [], [], [], self.QUADS, self.TEST_CONFIG, [],
+                                 0)
         move_healer_mock.assert_called_with(self.TEST_PLAYER, self.TEST_HEALER_UNIT, [], [],
                                             self.QUADS, self.TEST_CONFIG)
 
@@ -1206,11 +1247,13 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_DEPLOYER_UNIT.remaining_stamina = 5
         self.TEST_DEPLOYER_UNIT.passengers = []
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
                                  [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_4], self.QUADS, self.TEST_CONFIG,
-                                 [(self.TEST_PLAYER_2, 2)])
+                                 [(self.TEST_PLAYER_2, 2)], 0)
         # After the first move, the deployer unit should have moved in the direction of TEST_SETTLEMENT_2.
         self.assertTupleEqual((45, 45), self.TEST_DEPLOYER_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_DEPLOYER_UNIT.remaining_stamina)
 
         # Reset stamina, simulating the next turn.
@@ -1218,7 +1261,7 @@ class MovemakerTest(unittest.TestCase):
 
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
                                  [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_4], self.QUADS, self.TEST_CONFIG,
-                                 [(self.TEST_PLAYER_2, 2)])
+                                 [(self.TEST_PLAYER_2, 2)], 0)
         # After the second move, the deployer unit should now be diagonally-adjacent to TEST_SETTLEMENT_2.
         self.assertTupleEqual((41, 41), self.TEST_DEPLOYER_UNIT.location)
         self.assertFalse(self.TEST_DEPLOYER_UNIT.remaining_stamina)
@@ -1228,7 +1271,7 @@ class MovemakerTest(unittest.TestCase):
 
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
                                  [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_4], self.QUADS, self.TEST_CONFIG,
-                                 [(self.TEST_PLAYER_2, 2)])
+                                 [(self.TEST_PLAYER_2, 2)], 0)
         # Now that the deployer unit is close enough to the nearest settlement, we do not expect it to move any further.
         self.assertTupleEqual((41, 41), self.TEST_DEPLOYER_UNIT.location)
         self.assertTrue(self.TEST_DEPLOYER_UNIT.remaining_stamina)
@@ -1252,13 +1295,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_DEPLOYER_UNIT.plan.max_capacity = 1
         self.TEST_DEPLOYER_UNIT.passengers = [self.TEST_UNIT]
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [],
                                  [self.TEST_PLAYER, self.TEST_PLAYER_2, self.TEST_PLAYER_3],
-                                 [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_3, self.TEST_SETTLEMENT_4],
-                                 self.QUADS, self.TEST_CONFIG, [(self.TEST_PLAYER_2, 2), (self.TEST_PLAYER_3, 1)])
+                                 [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_3, self.TEST_SETTLEMENT_4], self.QUADS,
+                                 self.TEST_CONFIG, [(self.TEST_PLAYER_2, 2), (self.TEST_PLAYER_3, 1)], 0)
 
         # Beginning at (30, 31), we expect the deployer unit to move towards TEST_SETTLEMENT_3.
         self.assertTupleEqual((31, 40), self.TEST_DEPLOYER_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_DEPLOYER_UNIT.remaining_stamina)
 
     def test_deployer_unit_under_capacity_does_not_move_other_player_vic(self):
@@ -1269,8 +1315,8 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_DEPLOYER_UNIT.location = (80, 90)
         self.TEST_PLAYER.units = [self.TEST_DEPLOYER_UNIT]
 
-        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER_2],
-                                 [], self.QUADS, self.TEST_CONFIG, [(self.TEST_PLAYER_2, 1)])
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER_2], [], self.QUADS,
+                                 self.TEST_CONFIG, [(self.TEST_PLAYER_2, 1)], 0)
 
         # The deployer unit's state should have remained the same.
         self.assertTupleEqual((80, 90), self.TEST_DEPLOYER_UNIT.location)
@@ -1289,8 +1335,10 @@ class MovemakerTest(unittest.TestCase):
             self.TEST_SETTLEMENT_2.location[0] - 2, self.TEST_SETTLEMENT_2.location[1] - 2
         self.TEST_PLAYER.units = [self.TEST_DEPLOYER_UNIT]
 
-        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER_2],
-                                 [], self.QUADS, self.TEST_CONFIG, [(self.TEST_PLAYER_2, 1)])
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [self.TEST_PLAYER_2], [], self.QUADS,
+                                 self.TEST_CONFIG, [(self.TEST_PLAYER_2, 1)], 0)
 
         # We expect the deployer unit to not have moved, preserving its stamina.
         self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] - 2, self.TEST_SETTLEMENT_2.location[1] - 2),
@@ -1301,6 +1349,7 @@ class MovemakerTest(unittest.TestCase):
         self.assertTupleEqual((self.TEST_DEPLOYER_UNIT.location[0] + 1, self.TEST_DEPLOYER_UNIT.location[1]),
                               self.TEST_UNIT.location)
         self.assertIn(self.TEST_UNIT, self.TEST_PLAYER.units)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
 
     @patch("source.game_management.movemaker.search_for_relics_or_move")
     def test_deployer_unit_no_other_player_vic(self, search_or_move_mock: MagicMock):
@@ -1309,8 +1358,8 @@ class MovemakerTest(unittest.TestCase):
         """
         self.TEST_PLAYER.units = [self.TEST_DEPLOYER_UNIT]
 
-        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT,
-                                 [], [], [], self.QUADS, self.TEST_CONFIG, [])
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_DEPLOYER_UNIT, [], [], [], self.QUADS, self.TEST_CONFIG,
+                                 [], 0)
 
         search_or_move_mock.assert_called_with(self.TEST_DEPLOYER_UNIT, self.QUADS,
                                                self.TEST_PLAYER, [], [], self.TEST_CONFIG)
@@ -1325,13 +1374,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER.units.append(self.TEST_UNIT_4)
         infidel_player = Player("Inf", Faction.INFIDELS, 0, units=[self.TEST_UNIT_5])
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_4, [self.TEST_UNIT_5],
-                                 [self.TEST_PLAYER, infidel_player], [], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_PLAYER, infidel_player], [], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the infidel unit, and for an attack to have been made, killing both
         # units.
         self.assertTupleEqual((self.TEST_UNIT_5.location[0] - 1, self.TEST_UNIT_5.location[1]),
                               self.TEST_UNIT_4.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT_4.remaining_stamina)
         self.assertFalse(infidel_player.units)
         self.assertNotIn(self.TEST_UNIT_4, self.TEST_PLAYER.units)
@@ -1348,13 +1400,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER_2.imminent_victories = [VictoryType.ELIMINATION]
         self.TEST_PLAYER_2.units = [self.TEST_UNIT_5]
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_4, [self.TEST_UNIT_5],
-                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the AI player's unit, and for an attack to have been made, killing
         # both units.
         self.assertTupleEqual((self.TEST_UNIT_5.location[0] - 1, self.TEST_UNIT_5.location[1]),
                               self.TEST_UNIT_4.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT_4.remaining_stamina)
         self.assertFalse(self.TEST_PLAYER_2.units)
         self.assertFalse(self.TEST_PLAYER.units)
@@ -1371,13 +1426,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER.units = [self.TEST_UNIT_5]
         self.TEST_PLAYER_2.units = [self.TEST_UNIT_4]
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_5, [self.TEST_UNIT_4],
-                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the other unit, and for an attack to have been made, killing both
         # units.
         self.assertTupleEqual((self.TEST_UNIT_4.location[0] + 1, self.TEST_UNIT_4.location[1]),
                               self.TEST_UNIT_5.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT_5.remaining_stamina)
         self.assertFalse(self.TEST_PLAYER_2.units)
         self.assertFalse(self.TEST_PLAYER.units)
@@ -1393,13 +1451,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER.units = [self.TEST_UNIT_5]
         self.TEST_PLAYER_2.units = [self.TEST_UNIT_4]
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_5, [self.TEST_UNIT_4],
-                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the other unit, and for an attack to have been made, killing both
         # units.
         self.assertTupleEqual((self.TEST_UNIT_4.location[0] + 1, self.TEST_UNIT_4.location[1]),
                               self.TEST_UNIT_5.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT_5.remaining_stamina)
         self.assertFalse(self.TEST_PLAYER_2.units)
         self.assertFalse(self.TEST_PLAYER.units)
@@ -1414,13 +1475,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER.units = [self.TEST_UNIT_4]
         self.movemaker.board_ref.overlay.toggle_attack = MagicMock()
 
+        self.assertFalse(self.TEST_PLAYER_2.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER_2, self.TEST_UNIT_5, [self.TEST_UNIT_4],
-                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the other unit, and for an attack to have been made, killing both
         # units.
         self.assertTupleEqual((self.TEST_UNIT_4.location[0] + 1, self.TEST_UNIT_4.location[1]),
                               self.TEST_UNIT_5.location)
+        self.assertTrue(self.TEST_PLAYER_2.quads_seen)
         self.assertFalse(self.TEST_UNIT_5.remaining_stamina)
         # Because the 'human' player in this test is being attacked, we also expect the overlay to have been toggled.
         self.movemaker.board_ref.overlay.toggle_attack.assert_called()
@@ -1437,13 +1501,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER.units = [self.TEST_UNIT_5]
         self.TEST_PLAYER_2.units = [self.TEST_UNIT_4]
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_5, [self.TEST_UNIT_4],
-                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the other unit, and for an attack to have been made, killing both
         # units.
         self.assertTupleEqual((self.TEST_UNIT_4.location[0] + 1, self.TEST_UNIT_4.location[1]),
                               self.TEST_UNIT_5.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT_5.remaining_stamina)
         self.assertFalse(self.TEST_PLAYER_2.units)
         self.assertFalse(self.TEST_PLAYER.units)
@@ -1460,7 +1527,7 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_UNIT_5.location = self.TEST_UNIT_4.location[0] - 1, self.TEST_UNIT_4.location[1]
 
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_5, [self.TEST_UNIT_4],
-                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have remained next to the other unit, and for an attack to have been made, killing both
         # units. However, since the unit did not move, we expect it to still retain stamina.
@@ -1481,13 +1548,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLEMENT_2.strength = 50
         self.movemaker.board_ref.overlay.toggle_setl_attack = MagicMock()
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER_2, self.TEST_PLAYER],
-                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the settlement, and for an attack to have been made, harming both
         # the unit and the settlement.
         self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] - 1, self.TEST_SETTLEMENT_2.location[1]),
                               self.TEST_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT.remaining_stamina)
         self.assertLess(self.TEST_UNIT.health, 100)
         self.assertLess(self.TEST_SETTLEMENT_2.strength, 50)
@@ -1513,13 +1583,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLEMENT_2.strength = 5
         self.movemaker.board_ref.overlay.toggle_setl_attack = MagicMock()
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER_2, self.TEST_PLAYER],
-                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the settlement, and for an attack to have been made, killing the unit
         # and damaging the settlement.
         self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] - 1, self.TEST_SETTLEMENT_2.location[1]),
                               self.TEST_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT.remaining_stamina)
         self.assertFalse(self.TEST_PLAYER.units)
         self.assertLess(self.TEST_SETTLEMENT_2.strength, 50)
@@ -1538,13 +1611,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLEMENT_2.strength = 10
         self.TEST_SETTLEMENT_2.besieged = True
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
-                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the settlement, and for an attack to have been made, taking the
         # settlement for the player and ending the siege.
         self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] + 1, self.TEST_SETTLEMENT_2.location[1]),
                               self.TEST_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT.remaining_stamina)
         self.assertFalse(self.TEST_SETTLEMENT_2.besieged)
         self.assertFalse(self.TEST_UNIT.besieging)
@@ -1563,13 +1639,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLEMENT_2.strength = 0
         self.TEST_SETTLEMENT_2.besieged = True
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
-                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the settlement, and for an attack to have been made, taking the
         # settlement for the player and ending the siege.
         self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] + 1, self.TEST_SETTLEMENT_2.location[1]),
                               self.TEST_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT.remaining_stamina)
         self.assertFalse(self.TEST_SETTLEMENT_2.besieged)
         self.assertFalse(self.TEST_UNIT.besieging)
@@ -1591,13 +1670,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLEMENT_2.strength = 55
         self.TEST_PLAYER_2.imminent_victories = [VictoryType.SERENDIPITY]
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
-                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the settlement, and for an attack to have been made, harming both
         # the unit and the settlement.
         self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] - 1, self.TEST_SETTLEMENT_2.location[1]),
                               self.TEST_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT.remaining_stamina)
         self.assertLess(self.TEST_UNIT.health, 100)
         self.assertLess(self.TEST_SETTLEMENT_2.strength, 50)
@@ -1616,13 +1698,15 @@ class MovemakerTest(unittest.TestCase):
 
         self.assertFalse(self.TEST_UNIT.besieging)
         self.assertFalse(self.TEST_SETTLEMENT_2.besieged)
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
 
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER_2, self.TEST_PLAYER],
-                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the settlement, and for a siege to have been begun.
         self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] - 1, self.TEST_SETTLEMENT_2.location[1]),
                               self.TEST_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT.remaining_stamina)
         self.assertTrue(self.TEST_UNIT.besieging)
         self.assertTrue(self.TEST_SETTLEMENT_2.besieged)
@@ -1642,13 +1726,15 @@ class MovemakerTest(unittest.TestCase):
 
         self.assertFalse(self.TEST_UNIT.besieging)
         self.assertFalse(self.TEST_SETTLEMENT_2.besieged)
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
 
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [self.TEST_PLAYER, self.TEST_PLAYER_2],
-                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [])
+                                 [self.TEST_SETTLEMENT, self.TEST_SETTLEMENT_2], self.QUADS, self.TEST_CONFIG, [], 0)
 
         # We expect the unit to have moved next to the settlement, and for a siege to have been begun.
         self.assertTupleEqual((self.TEST_SETTLEMENT_2.location[0] + 1, self.TEST_SETTLEMENT_2.location[1]),
                               self.TEST_UNIT.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT.remaining_stamina)
         self.assertTrue(self.TEST_UNIT.besieging)
         self.assertTrue(self.TEST_SETTLEMENT_2.besieged)
@@ -1664,7 +1750,7 @@ class MovemakerTest(unittest.TestCase):
 
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_4, [self.TEST_DEPLOYER_UNIT],
                                  [self.TEST_PLAYER, self.TEST_PLAYER_2], [], self.QUADS, self.TEST_CONFIG,
-                                 [(self.TEST_PLAYER_2, 1)])
+                                 [(self.TEST_PLAYER_2, 1)], 0)
 
         # The unit should now be a passenger of the deployer unit.
         self.assertFalse(self.TEST_UNIT_4.remaining_stamina)
@@ -1688,13 +1774,16 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_SETTLEMENT_3.location = 40, 80
         self.TEST_PLAYER.units = [self.TEST_UNIT_4]
 
+        self.assertFalse(self.TEST_PLAYER.quads_seen)
+
         self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT_4, [],
                                  [self.TEST_PLAYER, self.TEST_PLAYER_2, self.TEST_PLAYER_3],
-                                 [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_3, self.TEST_SETTLEMENT_4],
-                                 self.QUADS, self.TEST_CONFIG, [(self.TEST_PLAYER_2, 2), (self.TEST_PLAYER_3, 1)])
+                                 [self.TEST_SETTLEMENT_2, self.TEST_SETTLEMENT_3, self.TEST_SETTLEMENT_4], self.QUADS,
+                                 self.TEST_CONFIG, [(self.TEST_PLAYER_2, 2), (self.TEST_PLAYER_3, 1)], 0)
 
         # Beginning at (21, 22), we expect the unit to move towards TEST_SETTLEMENT_3.
         self.assertTupleEqual((27, 41), self.TEST_UNIT_4.location)
+        self.assertTrue(self.TEST_PLAYER.quads_seen)
         self.assertFalse(self.TEST_UNIT_4.remaining_stamina)
 
     @patch("source.game_management.movemaker.search_for_relics_or_move")
@@ -1704,7 +1793,7 @@ class MovemakerTest(unittest.TestCase):
         for an attack or siege, the correct search/move function is called.
         :param search_or_move_mock: The mock implementation of the search_for_relics_or_move() function.
         """
-        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [], [], self.QUADS, self.TEST_CONFIG, [])
+        self.movemaker.move_unit(self.TEST_PLAYER, self.TEST_UNIT, [], [], [], self.QUADS, self.TEST_CONFIG, [], 0)
         search_or_move_mock.assert_called_with(self.TEST_UNIT, self.QUADS, self.TEST_PLAYER, [], [], self.TEST_CONFIG)
 
 
