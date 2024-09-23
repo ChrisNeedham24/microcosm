@@ -7,7 +7,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-13, ubuntu-latest, windows-latest]
+        os: [macos-12, ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -24,7 +24,7 @@ jobs:
         run: |
           python -m nuitka --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --macos-create-app-bundle --macos-app-icon=source/resources/icon.png --noinclude-setuptools-mode=nofollow microcosm.py
           ditto -c -k --sequesterRsrc --keepParent microcosm.app microcosm-osx.zip
-        if: matrix.os == 'macos-13'
+        if: matrix.os == 'macos-12'
       - name: Bundle (Ubuntu)
         run: |
           python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png --noinclude-setuptools-mode=nofollow -o microcosm microcosm.py
@@ -44,7 +44,7 @@ jobs:
         with:
           name: microcosm-osx
           path: microcosm-osx.zip
-        if: matrix.os == 'macos-13'
+        if: matrix.os == 'macos-12'
       - name: Upload artifact (Ubuntu)
         uses: actions/upload-artifact@v3
         with:
