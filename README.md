@@ -24,6 +24,8 @@ Begin by downloading the [latest release](https://github.com/ChrisNeedham24/micr
 2. An application will be extracted - right click it and select Open.
 3. In the displayed security-related dialog, press the Open button again to start the game.
 
+Please note that only ARM64 architectures are supported.
+
 ### Linux
 
 In terms of Linux distros, Fedora is explicitly supported and Ubuntu is built for, but the build is not tested. Other distros should find success in one of these two.
