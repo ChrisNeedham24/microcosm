@@ -9,11 +9,11 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
       - name: Install requirements
@@ -40,19 +40,19 @@ jobs:
           python -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --mingw64 --windows-icon-from-ico=source/resources/icon.png --user-package-configuration-file=windows-nuitka-package.config.yml --noinclude-setuptools-mode=nofollow microcosm.py
         if: matrix.os == 'windows-latest'
       - name: Upload artifact (MacOS)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: microcosm-osx
           path: microcosm-osx.zip
         if: matrix.os == 'macos-latest'
       - name: Upload artifact (Ubuntu)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: microcosm-ubuntu-x86
           path: microcosm.tar.gz
         if: matrix.os == 'ubuntu-latest'
       - name: Upload artifact (Windows)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: microcosm-windows
           path: microcosm.exe
@@ -61,11 +61,11 @@ jobs:
     runs-on: ubuntu-latest
     container: fedora
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
       - name: Install system packages
@@ -82,7 +82,7 @@ jobs:
           chmod 744 microcosm
           tar -czvf microcosm.tar.gz microcosm
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: microcosm-fedora-x86
           path: microcosm.tar.gz
