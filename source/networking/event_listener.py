@@ -741,24 +741,25 @@ class RequestHandler(socketserver.BaseRequestHandler):
         gc: GameController = self.server.game_controller_ref
         gs: GameState = gsrs[evt.lobby_name if self.server.is_server else "local"]
         if self.server.is_server:
-            player_name: str
-            # If the player is joining an ongoing game, then they can just take the name of the AI player they're
-            # replacing.
-            if gs.game_started:
-                replaced_player: Player = next(p for p in gs.players if p.faction == evt.player_faction)
-                replaced_player.ai_playstyle = None
-                player_name = replaced_player.name
-            # Otherwise, we just have to keep generating one for them until they get one that's not taken.
-            else:
-                # If the player joining would take the player count above its max, then remove an AI player.
-                if len(gs.players) == self.server.lobbies_ref[evt.lobby_name].player_count:
-                    gs.players.remove(next(p for p in gs.players if p.ai_playstyle))
-                player_name = random.choice(PLAYER_NAMES)
-                while any(player.name == player_name for player in self.server.game_clients_ref[evt.lobby_name]):
+            if not any(pd.id == evt.identifier for pd in self.server.game_clients_ref[evt.lobby_name]):
+                player_name: str
+                # If the player is joining an ongoing game, then they can just take the name of the AI player they're
+                # replacing.
+                if gs.game_started:
+                    replaced_player: Player = next(p for p in gs.players if p.faction == evt.player_faction)
+                    replaced_player.ai_playstyle = None
+                    player_name = replaced_player.name
+                # Otherwise, we just have to keep generating one for them until they get one that's not taken.
+                else:
+                    # If the player joining would take the player count above its max, then remove an AI player.
+                    if len(gs.players) == self.server.lobbies_ref[evt.lobby_name].player_count:
+                        gs.players.remove(next(p for p in gs.players if p.ai_playstyle))
                     player_name = random.choice(PLAYER_NAMES)
-                gs.players.append(Player(player_name, Faction(evt.player_faction), FACTION_COLOURS[evt.player_faction]))
-            self.server.game_clients_ref[evt.lobby_name].append(PlayerDetails(player_name, evt.player_faction,
-                                                                              evt.identifier))
+                    while any(player.name == player_name for player in self.server.game_clients_ref[evt.lobby_name]):
+                        player_name = random.choice(PLAYER_NAMES)
+                    gs.players.append(Player(player_name, Faction(evt.player_faction), FACTION_COLOURS[evt.player_faction]))
+                self.server.game_clients_ref[evt.lobby_name].append(PlayerDetails(player_name, evt.player_faction,
+                                                                                  evt.identifier))
             # We can't just combine the player details from game_clients_ref and manually make the AI players' ones
             # because order matters for this - the player joining needs to get their player index right.
             player_details: List[PlayerDetails] = []
@@ -772,8 +773,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                              player_details,
                                              self.server.lobbies_ref[evt.lobby_name],
                                              current_turn=None if not gs.game_started else gs.turn)
-            self._forward_packet(evt, evt.lobby_name, sock,
-                                 gate=lambda pd: pd.faction != evt.player_faction or not gs.game_started)
+            if not any(pd.id == evt.identifier for pd in self.server.game_clients_ref[evt.lobby_name]):
+                self._forward_packet(evt, evt.lobby_name, sock,
+                                     gate=lambda pd: pd.faction != evt.player_faction or not gs.game_started)
             # If the player is joining an ongoing game, then we need to forward all the game state to them.
             if gs.game_started:
                 quads_list: List[Quad] = list(chain.from_iterable(gs.board.quads))
@@ -989,6 +991,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             save_game(gs, auto=True)
             gs.process_heathens()
             gs.process_ais(self.server.move_makers_ref[evt.game_name])
+        evt.game_state_hash = 0
         # Alert all players that the turn has ended.
         self._forward_packet(evt, evt.game_name, sock)
         # Since we're in a new turn, there are no longer any players ready to end their turn.
@@ -1052,6 +1055,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gs.board.overlay.total_settlement_count = sum(len(p.settlements) for p in gs.players)
                 gs.process_heathens()
                 gs.process_ais(gc.move_maker)
+            if evt.game_state_hash != hash(gs):
+                gs.board.overlay.toggle_desync()
             gs.board.waiting_for_other_players = False
             gs.processing_turn = False
 

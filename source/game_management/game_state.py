@@ -1,8 +1,12 @@
+import hashlib
+import json
 import random
+from itertools import chain
 from typing import Optional, List, Set, Tuple
 
 from source.display.board import Board
 from source.saving.game_save_manager import save_stats_achievements
+from source.saving.save_encoder import SaveEncoder
 from source.util.calculator import clamp, attack, get_setl_totals, complete_construction, \
     get_resources_for_settlement, update_player_quads_seen_around_point
 from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
@@ -52,6 +56,23 @@ class GameState:
         self.ready_players: Set[int] = set()
         # Whether the previous turn is being processed.
         self.processing_turn: bool = False
+
+    def __hash__(self) -> int:
+        players_bytes: bytes = json.dumps(self.players, separators=(",", ":"), cls=SaveEncoder).encode()
+        heathens_bytes: bytes = json.dumps(self.heathens, separators=(",", ":"), cls=SaveEncoder).encode()
+        turn_bytes: bytes = str(self.turn).encode()
+        until_night_bytes: bytes = str(self.until_night).encode()
+        nighttime_left_bytes: bytes = str(self.nighttime_left).encode()
+        quads_bytes: bytes = json.dumps(list(chain.from_iterable(self.board.quads)),
+                                        separators=(",", ":"), cls=SaveEncoder).encode()
+        sha256_hash = hashlib.sha256()
+        sha256_hash.update(players_bytes)
+        sha256_hash.update(heathens_bytes)
+        sha256_hash.update(turn_bytes)
+        sha256_hash.update(until_night_bytes)
+        sha256_hash.update(nighttime_left_bytes)
+        sha256_hash.update(quads_bytes)
+        return int(sha256_hash.hexdigest(), 16)
 
     def reset_state(self):
         """

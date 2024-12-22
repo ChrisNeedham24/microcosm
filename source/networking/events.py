@@ -303,6 +303,7 @@ class EndTurnEvent(Event):
     The event containing the required data to end a turn.
     """
     game_name: str
+    game_state_hash: Optional[int] = None
 
 
 @dataclass

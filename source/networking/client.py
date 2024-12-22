@@ -8,7 +8,7 @@ from source.saving.save_encoder import SaveEncoder
 
 
 # The IP address of the game server, and the port it is reachable on.
-HOST, PORT = "170.64.142.122", 9999
+HOST, PORT = "localhost", 9999
 
 
 def dispatch_event(evt: Event):

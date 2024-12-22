@@ -31,6 +31,11 @@ def display_overlay(overlay: Overlay, is_night: bool):
         pyxel.text(50, 68, overlay.new_achievements[-1].name, pyxel.COLOR_WHITE)
         draw_paragraph(50, 76, overlay.new_achievements[-1].description, 30, pyxel.COLOR_WHITE)
         pyxel.text(70, 95, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+    elif OverlayType.DESYNC in overlay.showing:
+        pyxel.rectb(12, 60, 176, 38, pyxel.COLOR_WHITE)
+        pyxel.rect(13, 61, 174, 36, pyxel.COLOR_BLACK)
+        pyxel.text(46, 65, "Desync with server detected!", pyxel.COLOR_RED)
+        pyxel.text(38, 80, "Press ENTER to re-load the game.", pyxel.COLOR_WHITE)
     # The victory overlay displays the player who achieved the victory, as well as the type.
     elif OverlayType.VICTORY in overlay.showing:
         pyxel.rectb(12, 60, 176, 38, pyxel.COLOR_WHITE)

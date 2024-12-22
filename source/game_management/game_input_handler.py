@@ -276,6 +276,18 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.menu.in_wiki = True
                 case MainMenuOption.EXIT:
                     pyxel.quit()
+    elif game_state.game_started and game_state.board.overlay.is_desync():
+        menu = game_controller.menu
+        lobby_join_event: JoinEvent = JoinEvent(EventType.JOIN, get_identifier(), menu.multiplayer_lobby.name,
+                                                game_state.board.game_config.player_faction)
+        dispatch_event(lobby_join_event)
+        game_state.game_started = False
+        game_state.on_menu = True
+        game_state.reset_state()
+        # Normally we would make changes to the game state or controller in the event listener, but because multiple
+        # packets are sent back to the client when joining a game, we can't reset the namer in there, otherwise it
+        # would be reset every time a new packet is received.
+        game_controller.namer.reset()
     elif game_state.game_started and not game_state.board.overlay.is_ach_notif() and \
             (game_state.board.overlay.is_victory() or
              game_state.board.overlay.is_elimination() and game_state.players[game_state.player_idx].eliminated):

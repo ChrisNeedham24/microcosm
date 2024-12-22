@@ -161,6 +161,7 @@ class OverlayType(Enum):
     NIGHT = "NIGHT"
     ACH_NOTIF = "ACH_NOTIF"
     PLAYER_CHANGE = "PLAYER_CHANGE"
+    DESYNC = "DESYNC"
 
 
 class SettlementAttackType(Enum):
