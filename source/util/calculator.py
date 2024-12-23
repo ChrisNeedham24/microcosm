@@ -224,9 +224,9 @@ def complete_construction(setl: Settlement, player: Player):
         if setl.current_work.construction.effect.satisfaction != 0:
             setl.satisfaction += setl.current_work.construction.effect.satisfaction
             if setl.satisfaction < 0:
-                setl.satisfaction = 0
+                setl.satisfaction = 0.0
             elif setl.satisfaction > 100:
-                setl.satisfaction = 100
+                setl.satisfaction = 100.0
     # If a unit is being completed, add it to the garrison, and reduce the settlement's level if it was a settler.
     else:
         plan: UnitPlan = setl.current_work.construction

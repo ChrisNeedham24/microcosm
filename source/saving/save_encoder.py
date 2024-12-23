@@ -17,7 +17,9 @@ class SaveEncoder(JSONEncoder):
             return dataclasses.asdict(o)
         # Sets must be represented as lists, no real difference anyway.
         if isinstance(o, set):
-            return list(o)
+            set_as_list: list = list(o)
+            set_as_list.sort()
+            return set_as_list
         # ObjectConvertors, which are defined below, are essentially dicts with attributes anyway, so just return their
         # dict.
         if isinstance(o, ObjectConverter):

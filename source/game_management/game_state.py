@@ -628,7 +628,7 @@ class GameState:
                         new_settl.strength *= 2
                         new_settl.max_strength *= 2
                     case Faction.FRONTIERSMEN:
-                        new_settl.satisfaction = 75
+                        new_settl.satisfaction = 75.0
                     case Faction.IMPERIALS:
                         new_settl.strength /= 2
                         new_settl.max_strength /= 2

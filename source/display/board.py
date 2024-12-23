@@ -333,12 +333,13 @@ class Board:
             for setl_quad in self.selected_settlement.quads:
                 for i in range(setl_quad.location[0] - 1, setl_quad.location[0] + 2):
                     for j in range(setl_quad.location[1] - 1, setl_quad.location[1] + 2):
-                        if not any(s_q.location == (i, j) for s_q in self.selected_settlement.quads):
+                        if not any(s_q.location == (i, j) for s_q in self.selected_settlement.quads) and \
+                                0 <= i <= 99 and 0 <= j <= 89:
                             pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_WHITE)
         if self.deploying_army_from_unit:
             for i in range(self.selected_unit.location[0] - 1, self.selected_unit.location[0] + 2):
                 for j in range(self.selected_unit.location[1] - 1, self.selected_unit.location[1] + 2):
-                    if self.selected_unit.location != (i, j):
+                    if self.selected_unit.location != (i, j) and 0 <= i <= 99 and 0 <= j <= 89:
                         pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_WHITE)
 
         # Also display the number of units the player can move at the bottom-right of the screen.
@@ -606,7 +607,7 @@ class Board:
                             new_settl.strength *= 2
                             new_settl.max_strength *= 2
                         case Faction.FRONTIERSMEN:
-                            new_settl.satisfaction = 75
+                            new_settl.satisfaction = 75.0
                         case Faction.IMPERIALS:
                             new_settl.strength /= 2
                             new_settl.max_strength /= 2
@@ -927,7 +928,7 @@ class Board:
                                    [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]],
                                    setl_resources, [])
             if player.faction == Faction.FRONTIERSMEN:
-                new_settl.satisfaction = 75
+                new_settl.satisfaction = 75.0
             elif player.faction == Faction.IMPERIALS:
                 new_settl.strength /= 2
                 new_settl.max_strength /= 2

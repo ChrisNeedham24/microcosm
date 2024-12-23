@@ -288,6 +288,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         # packets are sent back to the client when joining a game, we can't reset the namer in there, otherwise it
         # would be reset every time a new packet is received.
         game_controller.namer.reset()
+        game_controller.music_player.stop_game_music()
+        game_controller.music_player.play_menu_music()
     elif game_state.game_started and not game_state.board.overlay.is_ach_notif() and \
             (game_state.board.overlay.is_victory() or
              game_state.board.overlay.is_elimination() and game_state.players[game_state.player_idx].eliminated):

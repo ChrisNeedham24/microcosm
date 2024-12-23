@@ -741,7 +741,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
         gc: GameController = self.server.game_controller_ref
         gs: GameState = gsrs[evt.lobby_name if self.server.is_server else "local"]
         if self.server.is_server:
-            if not any(pd.id == evt.identifier for pd in self.server.game_clients_ref[evt.lobby_name]):
+            client_is_rejoining: bool = \
+                any(pd.id == evt.identifier for pd in self.server.game_clients_ref[evt.lobby_name])
+            if not client_is_rejoining:
                 player_name: str
                 # If the player is joining an ongoing game, then they can just take the name of the AI player they're
                 # replacing.
@@ -773,7 +775,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                              player_details,
                                              self.server.lobbies_ref[evt.lobby_name],
                                              current_turn=None if not gs.game_started else gs.turn)
-            if not any(pd.id == evt.identifier for pd in self.server.game_clients_ref[evt.lobby_name]):
+            if not client_is_rejoining:
                 self._forward_packet(evt, evt.lobby_name, sock,
                                      gate=lambda pd: pd.faction != evt.player_faction or not gs.game_started)
             # If the player is joining an ongoing game, then we need to forward all the game state to them.
@@ -991,7 +993,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             save_game(gs, auto=True)
             gs.process_heathens()
             gs.process_ais(self.server.move_makers_ref[evt.game_name])
-        evt.game_state_hash = 0
+        evt.game_state_hash = hash(gs)
         # Alert all players that the turn has ended.
         self._forward_packet(evt, evt.game_name, sock)
         # Since we're in a new turn, there are no longer any players ready to end their turn.
