@@ -249,9 +249,9 @@ def load_save_file(game_state: GameState,
         game_state.heathens = []
         for h in save.heathens:
             # Do another direct conversion for the heathens.
-            game_state.heathens.append(Heathen(h.health, h.remaining_stamina, (h.location[0], h.location[1]),
-                                               UnitPlan(h.plan.power, h.plan.max_health, h.plan.total_stamina,
-                                                        h.plan.name, None, 0),
+            game_state.heathens.append(Heathen(float(h.health), h.remaining_stamina, (h.location[0], h.location[1]),
+                                               UnitPlan(float(h.plan.power), float(h.plan.max_health),
+                                                        h.plan.total_stamina, h.plan.name, None, 0),
                                                h.has_attacked))
 
         game_state.turn = save.turn

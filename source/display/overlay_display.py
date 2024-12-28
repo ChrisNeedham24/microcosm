@@ -512,35 +512,35 @@ def display_overlay(overlay: Overlay, is_night: bool):
                         if construction.effect.wealth != 0:
                             sign = "+" if construction.effect.wealth > 0 else "-"
                             pyxel.text(30 + effects * 25, 42 + adj_idx * 18,
-                                       f"{sign}{abs(construction.effect.wealth)}", pyxel.COLOR_YELLOW)
+                                       f"{sign}{abs(round(construction.effect.wealth))}", pyxel.COLOR_YELLOW)
                             effects += 1
                         if construction.effect.harvest != 0:
                             sign = "+" if construction.effect.harvest > 0 else "-"
                             pyxel.text(30 + effects * 25, 42 + adj_idx * 18,
-                                       f"{sign}{abs(construction.effect.harvest)}", pyxel.COLOR_GREEN)
+                                       f"{sign}{abs(round(construction.effect.harvest))}", pyxel.COLOR_GREEN)
                             effects += 1
                         if construction.effect.zeal != 0:
                             sign = "+" if construction.effect.zeal > 0 else "-"
                             pyxel.text(30 + effects * 25, 42 + adj_idx * 18,
-                                       f"{sign}{abs(construction.effect.zeal)}", pyxel.COLOR_RED)
+                                       f"{sign}{abs(round(construction.effect.zeal))}", pyxel.COLOR_RED)
                             effects += 1
                         if construction.effect.fortune != 0:
                             sign = "+" if construction.effect.fortune > 0 else "-"
                             pyxel.text(30 + effects * 25, 42 + adj_idx * 18,
-                                       f"{sign}{abs(construction.effect.fortune)}", pyxel.COLOR_PURPLE)
+                                       f"{sign}{abs(round(construction.effect.fortune))}", pyxel.COLOR_PURPLE)
                             effects += 1
                         if construction.effect.strength != 0:
                             sign = "+" if construction.effect.strength > 0 else "-"
                             pyxel.blt(30 + effects * 25, 42 + adj_idx * 18, 0, 0, 28, 8, 8)
                             pyxel.text(40 + effects * 25, 42 + adj_idx * 18,
-                                       f"{sign}{abs(construction.effect.strength)}", pyxel.COLOR_WHITE)
+                                       f"{sign}{abs(round(construction.effect.strength))}", pyxel.COLOR_WHITE)
                             effects += 1
                         if construction.effect.satisfaction != 0:
                             sign = "+" if construction.effect.satisfaction > 0 else "-"
                             satisfaction_u = 8 if construction.effect.satisfaction >= 0 else 16
                             pyxel.blt(30 + effects * 25, 42 + adj_idx * 18, 0, satisfaction_u, 28, 8, 8)
                             pyxel.text(40 + effects * 25, 42 + adj_idx * 18,
-                                       f"{sign}{abs(construction.effect.satisfaction)}", pyxel.COLOR_WHITE)
+                                       f"{sign}{abs(round(construction.effect.satisfaction))}", pyxel.COLOR_WHITE)
                 if overlay.selected_construction is not None and overlay.selected_construction.req_resources:
                     idx = overlay.available_constructions.index(overlay.selected_construction)
                     adj_idx = idx - overlay.construction_boundaries[0]

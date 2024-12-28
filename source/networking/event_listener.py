@@ -439,7 +439,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 unit.plan.total_stamina += 1
                 unit.remaining_stamina = unit.plan.total_stamina
             case InvestigationResult.UPKEEP:
-                unit.plan.cost = 0
+                unit.plan.cost = 0.0
             case InvestigationResult.ORE:
                 player.resources.ore += 10
             case InvestigationResult.TIMBER:

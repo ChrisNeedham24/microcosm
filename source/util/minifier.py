@@ -37,7 +37,7 @@ def minify_unit_plan(unit_plan: UnitPlan) -> str:
     :param unit_plan: The unit plan object to minify.
     :return: A minified string representation of the unit plan.
     """
-    return f"{unit_plan.power}/{unit_plan.max_health}/{unit_plan.total_stamina}/{unit_plan.name}"
+    return f"{unit_plan.power}/{unit_plan.max_health}/{unit_plan.total_stamina}/{unit_plan.cost}/{unit_plan.name}"
 
 
 def minify_unit(unit: Unit) -> str:
@@ -192,6 +192,7 @@ def inflate_unit_plan(up_str: str) -> UnitPlan:
     unit_plan.power = float(split_up[0])
     unit_plan.max_health = float(split_up[1])
     unit_plan.total_stamina = int(split_up[2])
+    unit_plan.cost = float(split_up[3])
     return unit_plan
 
 

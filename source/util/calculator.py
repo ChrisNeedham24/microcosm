@@ -289,7 +289,7 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
             unit.remaining_stamina = unit.plan.total_stamina
             return InvestigationResult.STAMINA
         if random_chance < 70:
-            unit.plan.cost = 0
+            unit.plan.cost = 0.0
             return InvestigationResult.UPKEEP
         if random_chance < 80:
             player.resources.ore += 10
