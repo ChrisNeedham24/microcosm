@@ -240,6 +240,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     break
             # Enter the game once all data has been received.
             if quads_populated:
+                for p in gsrs["local"].players:
+                    for s in p.settlements:
+                        s.quads = [gsrs["local"].board.quads[s.location[1]][s.location[0]]]
                 pyxel.mouse(visible=True)
                 gc.last_turn_time = time.time()
                 gsrs["local"].game_started = True

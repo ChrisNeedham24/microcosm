@@ -106,17 +106,17 @@ def attack_setl(attacker: Unit, setl: Settlement, setl_owner: Player, ai=True) -
                           attacker.health <= 0, setl.strength <= 0)
 
 
-def get_player_totals(player: Player, is_night: bool) -> (float, float, float, float):
+def get_player_totals(player: Player, is_night: bool) -> Tuple[float, float, float, float]:
     """
     Get the wealth, harvest, zeal, and fortune totals for the given player.
     :param player: The player to calculate totals for.
     :param is_night: Whether it is night.
     :return: A tuple containing the player's wealth, harvest, zeal, and fortune.
     """
-    overall_wealth = 0
-    overall_harvest = 0
-    overall_zeal = 0
-    overall_fortune = 0
+    overall_wealth: float = 0.0
+    overall_harvest: float = 0.0
+    overall_zeal: float = 0.0
+    overall_fortune: float = 0.0
 
     # Just add together the stats for each of the player's settlements.
     for setl in player.settlements:
@@ -133,7 +133,7 @@ def get_player_totals(player: Player, is_night: bool) -> (float, float, float, f
 def get_setl_totals(player: Player,
                     setl: Settlement,
                     is_night: bool,
-                    strict: bool = False) -> (float, float, float, float):
+                    strict: bool = False) -> Tuple[float, float, float, float]:
     """
     Get the wealth, harvest, zeal, and fortune totals for the given Settlement.
     :param player: The owner of the settlement.
@@ -152,21 +152,21 @@ def get_setl_totals(player: Player,
     # satisfaction of the settlement. Essentially, settlements with low satisfaction will yield no wealth/harvest, and
     # settlements with high satisfaction will yield 1.5 times the wealth and harvest.
 
-    total_zeal = max(sum(quad.zeal for quad in setl.quads) +
-                     sum(imp.effect.zeal for imp in setl.improvements), 0 if strict else 1)
+    total_zeal: float = float(max(sum(quad.zeal for quad in setl.quads) +
+                                  sum(imp.effect.zeal for imp in setl.improvements), 0 if strict else 1))
     total_zeal += (setl.level - 1) * 0.25 * total_zeal
     if player.faction == Faction.AGRICULTURISTS:
         total_zeal *= 0.75
     elif player.faction == Faction.FUNDAMENTALISTS:
         total_zeal *= 1.25
-    total_wealth = max(sum(quad.wealth for quad in setl.quads) +
-                       sum(imp.effect.wealth for imp in setl.improvements), 0)
+    total_wealth: float = float(max(sum(quad.wealth for quad in setl.quads) +
+                                    sum(imp.effect.wealth for imp in setl.improvements), 0))
     total_wealth += (setl.level - 1) * 0.25 * total_wealth
     if setl.current_work is not None and isinstance(setl.current_work.construction, Project) and \
             setl.current_work.construction.type is ProjectType.ECONOMICAL:
         total_wealth += total_zeal / 4
     if setl.economic_status is EconomicStatus.RECESSION:
-        total_wealth = 0
+        total_wealth = 0.0
     elif setl.economic_status is EconomicStatus.BOOM:
         total_wealth *= 1.5
     if player.faction == Faction.GODLESS:
@@ -175,22 +175,22 @@ def get_setl_totals(player: Player,
         total_wealth *= 0.75
     if setl.resources.aurora:
         total_wealth *= (1 + 0.5 * setl.resources.aurora)
-    total_harvest = max(sum(quad.harvest for quad in setl.quads) +
-                        sum(imp.effect.harvest for imp in setl.improvements), 0)
+    total_harvest: float = float(max(sum(quad.harvest for quad in setl.quads) +
+                                     sum(imp.effect.harvest for imp in setl.improvements), 0))
     total_harvest += (setl.level - 1) * 0.25 * total_harvest
     if setl.current_work is not None and isinstance(setl.current_work.construction, Project) and \
             setl.current_work.construction.type is ProjectType.BOUNTIFUL:
         total_harvest += total_zeal / 4
     if setl.harvest_status is HarvestStatus.POOR or setl.besieged:
-        total_harvest = 0
+        total_harvest = 0.0
     elif setl.harvest_status is HarvestStatus.PLENTIFUL:
         total_harvest *= 1.5
     if player.faction == Faction.RAVENOUS:
         total_harvest *= 1.25
     if is_night and player.faction != Faction.NOCTURNE and not setl.resources.sunstone:
         total_harvest /= 2
-    total_fortune = max(sum(quad.fortune for quad in setl.quads) +
-                        sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 1)
+    total_fortune: float = float(max(sum(quad.fortune for quad in setl.quads) +
+                                     sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 1))
     total_fortune += (setl.level - 1) * 0.25 * total_fortune
     if setl.current_work is not None and isinstance(setl.current_work.construction, Project) and \
             setl.current_work.construction.type is ProjectType.MAGICAL:
@@ -232,7 +232,7 @@ def complete_construction(setl: Settlement, player: Player):
         plan: UnitPlan = setl.current_work.construction
         if plan.can_settle:
             setl.level -= 1
-            setl.harvest_reserves = pow(setl.level - 1, 2) * 25
+            setl.harvest_reserves = pow(setl.level - 1, 2) * 25.0
             setl.produced_settler = True
         if isinstance(plan, DeployerUnitPlan):
             setl.garrison.append(DeployerUnit(plan.max_health, plan.total_stamina, setl.location, True, deepcopy(plan)))
