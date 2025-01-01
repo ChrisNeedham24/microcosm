@@ -58,15 +58,15 @@ class EventListenerTest(unittest.TestCase):
             Settlement("Testville", (0, 0), [], [self.TEST_QUAD], ResourceCollection(), [])
         self.TEST_SETTLEMENT_2: Settlement = \
             Settlement("EvilTown", (5, 5), [], [self.TEST_QUAD_2], ResourceCollection(), [])
-        self.TEST_UNIT: Unit = Unit(50, 2, (4, 4), False, deepcopy(UNIT_PLANS[0]))
-        self.TEST_UNIT_2: Unit = Unit(50, 2, (8, 8), False, deepcopy(UNIT_PLANS[0]))
+        self.TEST_UNIT: Unit = Unit(50.0, 2, (4, 4), False, deepcopy(UNIT_PLANS[0]))
+        self.TEST_UNIT_2: Unit = Unit(50.0, 2, (8, 8), False, deepcopy(UNIT_PLANS[0]))
         # The unit plan used is the first one that can heal.
-        self.TEST_HEALER_UNIT: Unit = Unit(20, 20, (5, 5), False, deepcopy(UNIT_PLANS[6]))
+        self.TEST_HEALER_UNIT: Unit = Unit(20.0, 20, (5, 5), False, deepcopy(UNIT_PLANS[6]))
         # The unit plan used is the first deployer one.
-        self.TEST_DEPLOYER_UNIT: DeployerUnit = DeployerUnit(60, 60, (6, 6), False, deepcopy(UNIT_PLANS[9]))
+        self.TEST_DEPLOYER_UNIT: DeployerUnit = DeployerUnit(60.0, 60, (6, 6), False, deepcopy(UNIT_PLANS[9]))
         # The unit plan used is the settler unit plan.
-        self.TEST_SETTLER_UNIT: Unit = Unit(5, 5, (7, 7), False, deepcopy(UNIT_PLANS[3]))
-        self.TEST_HEATHEN: Heathen = Heathen(40, 3, (9, 9), get_heathen_plan(0))
+        self.TEST_SETTLER_UNIT: Unit = Unit(5.0, 5, (7, 7), False, deepcopy(UNIT_PLANS[3]))
+        self.TEST_HEATHEN: Heathen = Heathen(40.0, 3, (9, 9), get_heathen_plan(0))
         self.TEST_GAME_STATE: GameState = GameState()
         self.TEST_GAME_STATE.players = [
             Player("Uno", Faction.AGRICULTURISTS, FACTION_COLOURS[Faction.AGRICULTURISTS],
@@ -1219,7 +1219,7 @@ class EventListenerTest(unittest.TestCase):
         """
         player: Player = self.TEST_GAME_STATE.players[0]
         setl: Settlement = player.settlements[0]
-        setl.current_work = Construction(IMPROVEMENTS[0], zeal_consumed=1)
+        setl.current_work = Construction(IMPROVEMENTS[0], zeal_consumed=1.0)
         player.wealth = 2
         test_event: BuyoutConstructionEvent = BuyoutConstructionEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
                                                                       UpdateAction.BUYOUT_CONSTRUCTION,
@@ -1248,7 +1248,7 @@ class EventListenerTest(unittest.TestCase):
         """
         player: Player = self.TEST_GAME_STATE.players[0]
         setl: Settlement = player.settlements[0]
-        setl.current_work = Construction(IMPROVEMENTS[0], zeal_consumed=1)
+        setl.current_work = Construction(IMPROVEMENTS[0], zeal_consumed=1.0)
         player.wealth = 2
         test_event: BuyoutConstructionEvent = BuyoutConstructionEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
                                                                       UpdateAction.BUYOUT_CONSTRUCTION,

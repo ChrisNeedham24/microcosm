@@ -20,11 +20,11 @@ class SaveMigratorTest(unittest.TestCase):
         """
         Ensure that migrations occur correctly for UnitPlans.
         """
-        test_power = 100
-        test_max_health = 200
+        test_power = 100.0
+        test_max_health = 200.0
         test_total_stamina = 4
         test_name = "Bob"
-        test_cost = 350
+        test_cost = 350.0
 
         # Simulate an up-to-date loaded unit plan.
         test_loaded_plan: ObjectConverter = ObjectConverter({
@@ -61,11 +61,11 @@ class SaveMigratorTest(unittest.TestCase):
         """
         Ensure that migrations occur correctly for DeployerUnitPlans.
         """
-        test_power = 100
-        test_max_health = 200
+        test_power = 100.0
+        test_max_health = 200.0
         test_total_stamina = 4
         test_name = "Bob"
-        test_cost = 350
+        test_cost = 350.0
         test_max_capacity = 7
 
         # Simulate a loaded deployer unit plan.
@@ -99,7 +99,7 @@ class SaveMigratorTest(unittest.TestCase):
         """
         Ensure that migrations occur correctly for Units.
         """
-        test_health = 300
+        test_health = 300.0
         test_remaining_stamina = 3
         test_location = [1, 2]
 
@@ -144,7 +144,7 @@ class SaveMigratorTest(unittest.TestCase):
         """
         Ensure that migrations occur correctly for DeployerUnits.
         """
-        test_health = 300
+        test_health = 300.0
         test_remaining_stamina = 3
         test_location = [1, 2]
         test_health_passenger = 600

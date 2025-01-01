@@ -22,27 +22,24 @@ class MinifierTest(unittest.TestCase):
     TEST_RESOURCE_COLLECTION: ResourceCollection = \
         ResourceCollection(ore=1, timber=2, magma=3, aurora=4, bloodstone=5, obsidian=6, sunstone=7, aquamarine=8)
     MINIFIED_RESOURCE_COLLECTION: str = "1+2+3+4+5+6+7+8"
-    # We can't just use UNIT_PLANS[0] here because it doesn't actually declare its power and max health as floats (which
-    # it should).
-    TEST_UNIT_PLAN: UnitPlan = UnitPlan(float(UNIT_PLANS[0].power), float(UNIT_PLANS[0].max_health),
-                                        UNIT_PLANS[0].total_stamina, UNIT_PLANS[0].name, None, 25)
-    MINIFIED_UNIT_PLAN: str = "100.0/100.0/3/Warrior"
+    TEST_UNIT_PLAN: UnitPlan = UNIT_PLANS[0]
+    MINIFIED_UNIT_PLAN: str = "100.0/100.0/3/25.0/Warrior"
     TEST_IMPROVEMENT: Improvement = IMPROVEMENTS[-1]
     MINIFIED_IMPROVEMENT: str = "HS"
     TEST_UNIT: Unit = Unit(10.0, 20, (30, 40), False, TEST_UNIT_PLAN, has_acted=True, besieging=True)
     TEST_GARRISONED_UNIT: Unit = Unit(10.0, 20, (30, 40), True, TEST_UNIT_PLAN, has_acted=True, besieging=True)
     MINIFIED_UNIT: str = f"10.0|20|30-40|{MINIFIED_UNIT_PLAN}|True|True"
     # Yes, technically the unit plan used here isn't one for a deployer, but it doesn't matter in this case.
-    TEST_DEPLOYER_UNIT: DeployerUnit = DeployerUnit(50, 60, (70, 80), False, TEST_UNIT_PLAN, True, True,
+    TEST_DEPLOYER_UNIT: DeployerUnit = DeployerUnit(50.0, 60, (70, 80), False, TEST_UNIT_PLAN, True, True,
                                                     passengers=[TEST_UNIT])
-    MINIFIED_DEPLOYER_UNIT: str = f"50|60|70-80|{MINIFIED_UNIT_PLAN}|True|True|{MINIFIED_UNIT}^"
+    MINIFIED_DEPLOYER_UNIT: str = f"50.0|60|70-80|{MINIFIED_UNIT_PLAN}|True|True|{MINIFIED_UNIT}^"
     TEST_QUAD: Quad = Quad(Biome.DESERT, 1, 2, 3, 4, (0, 0))
     MINIFIED_QUAD: str = "D1234"
-    TEST_HEATHEN_PLAN: UnitPlan = UnitPlan(10, 20, 30, "Forty", None, 0)
+    TEST_HEATHEN_PLAN: UnitPlan = UnitPlan(10.0, 20.0, 30, "Forty", None, 0.0)
     # We don't actually need to have multiple heathens here because the joining comma is added even if there's only
     # the one.
-    TEST_HEATHENS: List[Heathen] = [Heathen(50, 60, (70, 80), TEST_HEATHEN_PLAN, True)]
-    MINIFIED_HEATHENS: str = "50*60*70-80*10*20*30*Forty*True,"
+    TEST_HEATHENS: List[Heathen] = [Heathen(50.0, 60, (70, 80), TEST_HEATHEN_PLAN, True)]
+    MINIFIED_HEATHENS: str = "50.0*60*70-80*10.0*20.0*30*Forty*True,"
 
     def setUp(self):
         """

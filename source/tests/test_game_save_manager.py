@@ -34,7 +34,7 @@ class GameSaveManagerTest(unittest.TestCase):
         self.game_state.board = Board(self.TEST_CONFIG, Namer())
         self.game_state.gen_players(self.TEST_CONFIG)
         self.game_state.player_idx = 0
-        self.game_state.heathens = [Heathen(1, 2, (3, 4), get_heathen_plan(1))]
+        self.game_state.heathens = [Heathen(1.0, 2, (3, 4), get_heathen_plan(1))]
         self.game_controller = GameController()
 
     @patch("os.path.exists", lambda *args: False)
