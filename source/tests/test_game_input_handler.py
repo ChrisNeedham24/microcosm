@@ -816,7 +816,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertTrue(self.game_controller.menu.in_wiki)
 
     @patch("pyxel.quit")
-    def test_return_select_main_menu_option(self, quit_mock: MagicMock):
+    def test_return_select_main_menu_option_exit(self, quit_mock: MagicMock):
         """
         Ensure that the game is exited after pressing the return key on the main menu with the Exit option selected.
         :param quit_mock: The mock implementation of pyxel.quit().
@@ -825,6 +825,41 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.menu.main_menu_option = MainMenuOption.EXIT
         on_key_return(self.game_controller, self.game_state)
         quit_mock.assert_called()
+
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_return_back_to_menu_desync_multiplayer(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that the player is brought back to the main menu when pressing the return key after a desync has occurred
+        in a multiplayer game.
+        """
+        self.game_state.game_started = True
+        self.game_state.board.overlay.showing = [OverlayType.DESYNC]
+        self.game_state.board.game_config = self.TEST_MULTIPLAYER_CONFIG
+        lobby_name = "Large Lobby"
+        # Obviously this lobby is not realistic since it has no players, but it's enough for our testing purposes.
+        self.game_controller.menu.multiplayer_lobby = LobbyDetails(lobby_name, [], self.TEST_MULTIPLAYER_CONFIG, 99)
+        self.game_controller.namer.reset = MagicMock()
+        self.game_controller.music_player.stop_game_music = MagicMock()
+        self.game_controller.music_player.play_menu_music = MagicMock()
+
+        self.assertFalse(self.game_state.on_menu)
+
+        on_key_return(self.game_controller, self.game_state)
+
+        # We expect an event with the appropriate attributes to have been dispatched to the game server. Note that we
+        # expect this in all cases, since a desync can only occur in multiplayer games.
+        expected_event = \
+            JoinEvent(EventType.JOIN, self.TEST_IDENTIFIER, lobby_name, self.TEST_MULTIPLAYER_CONFIG.player_faction)
+        dispatch_mock.assert_called_with(expected_event)
+
+        self.assertFalse(self.game_state.game_started)
+        self.assertTrue(self.game_state.on_menu)
+        self.assertIsNone(self.game_state.board)
+        self.assertFalse(self.game_state.players)
+        self.game_controller.namer.reset.assert_called()
+        self.game_controller.music_player.stop_game_music.assert_called()
+        self.game_controller.music_player.play_menu_music.assert_called()
 
     def test_return_back_to_menu_victory(self):
         """

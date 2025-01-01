@@ -72,7 +72,7 @@ class GameState:
         sha256_hash.update(until_night_bytes)
         sha256_hash.update(nighttime_left_bytes)
         sha256_hash.update(quads_bytes)
-        return int(sha256_hash.hexdigest(), 16)
+        return int.from_bytes(sha256_hash.digest()[:8], byteorder="big", signed=True)
 
     def reset_state(self):
         """

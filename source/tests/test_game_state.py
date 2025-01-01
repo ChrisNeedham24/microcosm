@@ -1,3 +1,4 @@
+import random
 import typing
 import unittest
 from unittest.mock import MagicMock, patch
@@ -46,6 +47,21 @@ class GameStateTest(unittest.TestCase):
         self.game_state.located_player_idx = True
         self.game_state.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
         self.game_state.heathens = [self.TEST_HEATHEN]
+
+    def test_hash(self):
+        """
+        Ensure that the hash is correctly generated for a given GameState object.
+        """
+        self.game_state.turn = 99
+        self.game_state.until_night = 11
+        self.game_state.nighttime_left = 0
+        # We need to seed the random number generator so that the generated quads are always the same - otherwise the
+        # hash would be different on each test run.
+        random.seed(0)
+        # Regenerate the quads with our new seeded random number generator to guarantee consistency.
+        self.game_state.board.generate_quads(self.TEST_CONFIG.biome_clustering, self.TEST_CONFIG.climatic_effects)
+        # That's the hash of our game state - if this test fails, something is probably wrong with the hash function.
+        self.assertEqual(7965399155685503228, hash(self.game_state))
 
     @patch("random.randint")
     @patch("random.seed")

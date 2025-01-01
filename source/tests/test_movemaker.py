@@ -1474,6 +1474,8 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER_2.units = [self.TEST_UNIT_5]
         self.TEST_PLAYER.units = [self.TEST_UNIT_4]
         self.movemaker.board_ref.overlay.toggle_attack = MagicMock()
+        self.movemaker.board_ref.overlay.selected_unit = self.TEST_UNIT_4
+        self.movemaker.board_ref.overlay.toggle_unit = MagicMock()
 
         self.assertFalse(self.TEST_PLAYER_2.quads_seen)
 
@@ -1488,6 +1490,10 @@ class MovemakerTest(unittest.TestCase):
         self.assertFalse(self.TEST_UNIT_5.remaining_stamina)
         # Because the 'human' player in this test is being attacked, we also expect the overlay to have been toggled.
         self.movemaker.board_ref.overlay.toggle_attack.assert_called()
+        # Additionally, since the 'human' player's unit was initially selected on the board and was then killed, we
+        # also expect the unit overlay to have been toggled.
+        self.assertIsNone(self.movemaker.board_ref.overlay.selected_unit)
+        self.movemaker.board_ref.overlay.toggle_unit.assert_called_with(None)
         self.assertFalse(self.TEST_PLAYER_2.units)
         self.assertFalse(self.TEST_PLAYER.units)
 

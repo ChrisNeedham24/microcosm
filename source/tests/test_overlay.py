@@ -958,6 +958,15 @@ class OverlayTest(unittest.TestCase):
         self.overlay.navigate_unit(down=False)
         self.assertEqual(0, self.overlay.unit_passengers_idx)
 
+    def test_toggle_desync(self):
+        """
+        Ensure that the Desync overlay can be toggled on correctly. Note that the Desync overlay is a special
+        case in that, like the Victory overlay, it can only be toggled on.
+        """
+        self.assertFalse(self.overlay.is_desync())
+        self.overlay.toggle_desync()
+        self.assertTrue(self.overlay.is_desync())
+
 
 if __name__ == '__main__':
     unittest.main()
