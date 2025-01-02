@@ -813,7 +813,8 @@ class MoveMaker:
                             # Show the attack notification if we attacked the human player on this machine.
                             if local_player_idx is not None and within_range in all_players[local_player_idx].units:
                                 self.board_ref.overlay.toggle_attack(data)
-                                if within_range.health <= 0:
+                                # Also deselect the unit if it was killed while selected.
+                                if within_range.health <= 0 and self.board_ref.overlay.selected_unit is within_range:
                                     self.board_ref.overlay.selected_unit = None
                                     self.board_ref.overlay.toggle_unit(None)
                             if within_range.health <= 0:

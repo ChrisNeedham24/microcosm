@@ -303,6 +303,8 @@ class EndTurnEvent(Event):
     The event containing the required data to end a turn.
     """
     game_name: str
+    # The below is only populated when the server responds to all players with the hash of the server's game state, for
+    # synchronisation purposes.
     game_state_hash: Optional[int] = None
 
 

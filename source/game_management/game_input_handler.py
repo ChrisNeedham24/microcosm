@@ -278,9 +278,12 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     pyxel.quit()
     elif game_state.game_started and game_state.board.overlay.is_desync():
         menu = game_controller.menu
+        # We don't need to check whether the current game is a multiplayer game since desync can only occur in
+        # multiplayer games.
         lobby_join_event: JoinEvent = JoinEvent(EventType.JOIN, get_identifier(), menu.multiplayer_lobby.name,
                                                 game_state.board.game_config.player_faction)
         dispatch_event(lobby_join_event)
+        # We only need to do limited resetting of game state since we'll be rejoining the game immediately.
         game_state.game_started = False
         game_state.on_menu = True
         game_state.reset_state()
@@ -288,6 +291,8 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         # packets are sent back to the client when joining a game, we can't reset the namer in there, otherwise it
         # would be reset every time a new packet is received.
         game_controller.namer.reset()
+        # Technically this does mean that the menu music only plays for a very short time while the player is rejoining,
+        # but I found that it sounded better than just leaving the game music playing.
         game_controller.music_player.stop_game_music()
         game_controller.music_player.play_menu_music()
     elif game_state.game_started and not game_state.board.overlay.is_ach_notif() and \

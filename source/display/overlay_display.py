@@ -31,6 +31,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
         pyxel.text(50, 68, overlay.new_achievements[-1].name, pyxel.COLOR_WHITE)
         draw_paragraph(50, 76, overlay.new_achievements[-1].description, 30, pyxel.COLOR_WHITE)
         pyxel.text(70, 95, "SPACE: Dismiss", pyxel.COLOR_WHITE)
+    # The desync overlay alerts the player to the fact that they have lost sync with the server in a multiplayer game.
     elif OverlayType.DESYNC in overlay.showing:
         pyxel.rectb(12, 60, 176, 38, pyxel.COLOR_WHITE)
         pyxel.rect(13, 61, 174, 36, pyxel.COLOR_BLACK)

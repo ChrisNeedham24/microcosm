@@ -119,8 +119,10 @@ class Overlay:
                 self.settlement_status_boundaries = \
                     self.settlement_status_boundaries[0] - 1, self.settlement_status_boundaries[1] - 1
 
-    def toggle_construction(self, available_constructions: List[Improvement],
-                            available_projects: List[Project], available_unit_plans: List[UnitPlan]):
+    def toggle_construction(self,
+                            available_constructions: List[Improvement],
+                            available_projects: List[Project],
+                            available_unit_plans: List[UnitPlan]):
         """
         Toggle the construction overlay.
         :param available_constructions: The available improvements that the player can select from.
@@ -781,11 +783,18 @@ class Overlay:
         :return: Whether the player change overlay is currently being displayed.
         """
         return OverlayType.PLAYER_CHANGE in self.showing
-    
+
     def toggle_desync(self):
+        """
+        Toggle the desync overlay.
+        """
         self.showing.append(OverlayType.DESYNC)
-    
+
     def is_desync(self):
+        """
+        Returns whether the desync overlay is currently being displayed.
+        :return: Whether the desync overlay is being displayed.
+        """
         return OverlayType.DESYNC in self.showing
 
     def remove_layer(self) -> Optional[OverlayType]:

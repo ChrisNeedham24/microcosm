@@ -240,6 +240,14 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     break
             # Enter the game once all data has been received.
             if quads_populated:
+                # Before we enter the game, we need to link the quad for each AI-generated settlement to the quads on
+                # the actual board, so that changes to the quad on the board also affect the quad belonging to the
+                # settlement. This does not occur normally because each settlement's quads will just be a deep copy by
+                # default. This was noticed when desync was occurring because settlements were founded on top of
+                # relics, which were then subsequently investigated and removed. But this would only affect the quads on
+                # the board, and not the ones belonging to the settlements, due to the original deep copy
+                # implementation. Also note that this cannot be done when processing FoundSettlementEvents because when
+                # the AI settlements are generated, the quads for the board do not yet exist client-side.
                 for p in gsrs["local"].players:
                     for s in p.settlements:
                         s.quads = [gsrs["local"].board.quads[s.location[1]][s.location[0]]]
@@ -744,6 +752,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
         gc: GameController = self.server.game_controller_ref
         gs: GameState = gsrs[evt.lobby_name if self.server.is_server else "local"]
         if self.server.is_server:
+            # Clients can rejoin ongoing games - in these cases, player details don't need to be changed as no AI
+            # players are being replaced.
             client_is_rejoining: bool = \
                 any(pd.id == evt.identifier for pd in self.server.game_clients_ref[evt.lobby_name])
             if not client_is_rejoining:
@@ -762,7 +772,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     player_name = random.choice(PLAYER_NAMES)
                     while any(player.name == player_name for player in self.server.game_clients_ref[evt.lobby_name]):
                         player_name = random.choice(PLAYER_NAMES)
-                    gs.players.append(Player(player_name, Faction(evt.player_faction), FACTION_COLOURS[evt.player_faction]))
+                    gs.players.append(Player(player_name,
+                                             Faction(evt.player_faction),
+                                             FACTION_COLOURS[evt.player_faction]))
                 self.server.game_clients_ref[evt.lobby_name].append(PlayerDetails(player_name, evt.player_faction,
                                                                                   evt.identifier))
             # We can't just combine the player details from game_clients_ref and manually make the AI players' ones
@@ -778,6 +790,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                              player_details,
                                              self.server.lobbies_ref[evt.lobby_name],
                                              current_turn=None if not gs.game_started else gs.turn)
+            # Alert the other players that a new player has joined, but only if they're not rejoining - other players
+            # don't need to be alerted in these cases.
             if not client_is_rejoining:
                 self._forward_packet(evt, evt.lobby_name, sock,
                                      gate=lambda pd: pd.faction != evt.player_faction or not gs.game_started)
@@ -996,6 +1010,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
             save_game(gs, auto=True)
             gs.process_heathens()
             gs.process_ais(self.server.move_makers_ref[evt.game_name])
+        # Pass the hash of the server's game state to clients so that they can validate that they're still in sync with
+        # the server.
         evt.game_state_hash = hash(gs)
         # Alert all players that the turn has ended.
         self._forward_packet(evt, evt.game_name, sock)
@@ -1060,7 +1076,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gs.board.overlay.total_settlement_count = sum(len(p.settlements) for p in gs.players)
                 gs.process_heathens()
                 gs.process_ais(gc.move_maker)
-            if evt.game_state_hash != hash(gs):
+            # Ensure that the client is still in sync with the server - if it's not, display the desync overlay,
+            # prompting the player to rejoin the game.
+            if hash(gs) != evt.game_state_hash:
                 gs.board.overlay.toggle_desync()
             gs.board.waiting_for_other_players = False
             gs.processing_turn = False
