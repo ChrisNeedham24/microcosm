@@ -474,9 +474,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                        pyxel.COLOR_WHITE)
             if overlay.selected_unit in overlay.current_player.units:
                 pyxel.blt(20, 150, 0, 0, 44, 8, 8)
-                pyxel.text(30, 152,
-                           f"{overlay.selected_unit.plan.cost} (-{round(overlay.selected_unit.plan.cost / 10)}/T)",
-                           pyxel.COLOR_WHITE)
+                cost: float = overlay.selected_unit.plan.cost
+                pyxel.text(30, 152, f"{round(cost)} (-{round(cost / 10)}/T)", pyxel.COLOR_WHITE)
                 pyxel.blt(20, 160, 0, 8, 52, 8, 8)
                 pyxel.text(30, 162, "Disb. (X)", pyxel.COLOR_RED)
         # The construction overlay displays the available improvements and unit plans available for construction in

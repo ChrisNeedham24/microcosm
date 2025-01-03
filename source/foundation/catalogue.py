@@ -267,7 +267,7 @@ IMPROVEMENTS = [
                 Effect(harvest=25.0, zeal=-5.0, fortune=-2.0), BLESSINGS["art_pht"],
                 req_resources=ResourceCollection(magma=20)),
     Improvement(ImprovementType.BOUNTIFUL, 1080.0, "Impenetrable Stores", "Unprecedented control over stock.",
-                Effect(wealth=-1.0, harvest=25.0, strength=5.0, satisfaction=-5), BLESSINGS["sl_vau"],
+                Effect(wealth=-1.0, harvest=25.0, strength=5.0, satisfaction=-5.0), BLESSINGS["sl_vau"],
                 req_resources=ResourceCollection(ore=20)),
     Improvement(ImprovementType.BOUNTIFUL, 1080.0, "Genetic Clinics", "Change me for the better.",
                 Effect(harvest=15.0, zeal=15.0), BLESSINGS["met_alt"]),
