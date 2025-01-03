@@ -1,6 +1,6 @@
 import random
-import typing
 from copy import deepcopy
+from typing import Dict, List, Optional
 
 import pyxel
 
@@ -8,7 +8,8 @@ from source.foundation import achievements
 from source.foundation.models import FactionDetail, Player, Improvement, ImprovementType, Effect, Blessing, \
     Settlement, UnitPlan, Unit, Biome, Heathen, Faction, Project, ProjectType, VictoryType, DeployerUnitPlan, \
     Achievement, HarvestStatus, EconomicStatus, ResourceCollection
-from source.util.calculator import player_has_resources_for_improvement
+from source.util.calculator import player_has_resources_for_improvement, scale_unit_plan_attributes, \
+    scale_blessing_attributes
 
 
 # The list of multiplayer lobby names.
@@ -333,7 +334,7 @@ UNIT_PLANS = [
 ]
 
 # A map of factions to their respective colours.
-FACTION_COLOURS: typing.Dict[Faction, int] = {
+FACTION_COLOURS: Dict[Faction, int] = {
     Faction.AGRICULTURISTS: pyxel.COLOR_GREEN,
     Faction.CAPITALISTS: pyxel.COLOR_YELLOW,
     Faction.SCRUTINEERS: pyxel.COLOR_LIGHT_BLUE,
@@ -351,7 +352,7 @@ FACTION_COLOURS: typing.Dict[Faction, int] = {
 }
 
 # A map of victory types to their respective colours.
-VICTORY_TYPE_COLOURS: typing.Dict[VictoryType, int] = {
+VICTORY_TYPE_COLOURS: Dict[VictoryType, int] = {
     VictoryType.ELIMINATION: pyxel.COLOR_RED,
     VictoryType.JUBILATION: pyxel.COLOR_GREEN,
     VictoryType.GLUTTONY: pyxel.COLOR_GREEN,
@@ -361,7 +362,7 @@ VICTORY_TYPE_COLOURS: typing.Dict[VictoryType, int] = {
 }
 
 # The list of achievements that the player can obtain.
-ACHIEVEMENTS: typing.List[Achievement] = [
+ACHIEVEMENTS: List[Achievement] = [
     Achievement("Chicken Dinner", "Win a game.",
                 lambda _, stats: len(stats.victories) > 0),
     Achievement("Fully Improved", "Build every non-victory improvement in one game.",
@@ -506,7 +507,7 @@ def get_heathen_plan(turn: int) -> UnitPlan:
     :param turn: The game's current turn.
     :return: The UnitPlan to use for the created Heathen.
     """
-    return UnitPlan(80 + 10 * (turn // 40), 80 + 10 * (turn // 40), 2, "Heathen" + "+" * (turn // 40), None, 0)
+    return UnitPlan(80.0 + 10 * (turn // 40), 80.0 + 10 * (turn // 40), 2, "Heathen" + "+" * (turn // 40), None, 0.0)
 
 
 def get_heathen(location: (int, int), turn: int) -> Heathen:
@@ -531,7 +532,7 @@ def get_default_unit(location: (int, int)) -> Unit:
 
 def get_available_improvements(player: Player,
                                settlement: Settlement,
-                               strict: bool = False) -> typing.List[Improvement]:
+                               strict: bool = False) -> List[Improvement]:
     """
     Retrieves the available improvements for the given player's settlement.
     :param player: The owner of the given settlement.
@@ -555,7 +556,7 @@ def get_available_improvements(player: Player,
     return imps
 
 
-def get_available_unit_plans(player: Player, setl: Settlement) -> typing.List[UnitPlan]:
+def get_available_unit_plans(player: Player, setl: Settlement) -> List[UnitPlan]:
     """
     Retrieves the available unit plans for the given player and settlement level.
     :param player: The player viewing the available units.
@@ -574,60 +575,40 @@ def get_available_unit_plans(player: Player, setl: Settlement) -> typing.List[Un
             # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
             elif not unit_plan.can_settle and not (player.faction == Faction.FRONTIERSMEN and setl.level >= 5):
                 unit_plans.append(unit_plan)
-
-    match player.faction:
-        case Faction.IMPERIALS:
-            for unit_plan in unit_plans:
-                unit_plan.power *= 1.5
-        case Faction.PERSISTENT:
-            for unit_plan in unit_plans:
-                unit_plan.max_health *= 1.5
-                unit_plan.power *= 0.75
-        case Faction.EXPLORERS:
-            for unit_plan in unit_plans:
-                unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
-                unit_plan.max_health *= 0.75
-
-    if setl.resources.bloodstone:
-        for unit_plan in unit_plans:
-            unit_plan.power *= (1 + 0.5 * setl.resources.bloodstone)
-            unit_plan.max_health *= (1 + 0.5 * setl.resources.bloodstone)
+        scale_unit_plan_attributes(unit_plan, player.faction, setl.resources)
 
     # Sort unit plans by cost.
     unit_plans.sort(key=lambda up: up.cost)
     return unit_plans
 
 
-def get_available_blessings(player: Player) -> typing.List[Blessing]:
+def get_available_blessings(player: Player) -> List[Blessing]:
     """
     Retrieves the available blessings for the given player.
     :param player: The player viewing the available blessings.
     :return: A list of available blessings.
     """
     completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
-    blessings = [bls for bls in deepcopy(BLESSINGS).values() if bls.name not in completed_blessing_names]
-
-    if player.faction == Faction.GODLESS:
-        for bls in blessings:
-            bls.cost *= 1.5
+    blessings = [scale_blessing_attributes(bls, player.faction) for bls in deepcopy(BLESSINGS).values()
+                 if bls.name not in completed_blessing_names]
 
     # Sort blessings by cost.
     blessings.sort(key=lambda b: b.cost)
     return blessings
 
 
-def get_all_unlockable(blessing: Blessing) -> typing.List[Improvement | UnitPlan]:
+def get_all_unlockable(blessing: Blessing) -> List[Improvement | UnitPlan]:
     """
     Retrieves all unlockable improvements and unit plans for the given blessing.
     :param blessing: The blessing to search pre-requisites for.
     :return: A list of unlockable improvements and unit plans.
     """
-    unlockable: typing.List[Improvement | UnitPlan] = get_unlockable_improvements(blessing)
+    unlockable: List[Improvement | UnitPlan] = get_unlockable_improvements(blessing)
     unlockable.extend(get_unlockable_units(blessing))
     return unlockable
 
 
-def get_unlockable_improvements(blessing: Blessing) -> typing.List[Improvement]:
+def get_unlockable_improvements(blessing: Blessing) -> List[Improvement]:
     """
     Retrieves all unlockable improvements for the given blessing.
     :param blessing: The blessing to search pre-requisites for.
@@ -636,7 +617,7 @@ def get_unlockable_improvements(blessing: Blessing) -> typing.List[Improvement]:
     return [imp for imp in IMPROVEMENTS if (imp.prereq is not None) and (imp.prereq.name == blessing.name)]
 
 
-def get_unlockable_units(blessing: Blessing) -> typing.List[UnitPlan]:
+def get_unlockable_units(blessing: Blessing) -> List[UnitPlan]:
     """
     Retrieves all unlockable unit plans for the given blessing.
     :param blessing: The blessing to search pre-requisites for.
@@ -663,20 +644,33 @@ def get_project(name: str) -> Project:
     return next(prj for prj in PROJECTS if prj.name == name)
 
 
-def get_blessing(name: str) -> Blessing:
+# TODO tests
+def get_blessing(name: str, faction: Faction) -> Blessing:
     """
     Get the blessing with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the blessing.
+    :param faction: The faction of the player retrieving the blessing.
     :return: The Blessing with the given name.
     """
-    return next(bls for bls in BLESSINGS.values() if bls.name == name)
+    # We need to deepcopy so that changes to one Blessing don't affect all the others as well.
+    blessing: Blessing = deepcopy(next(bls for bls in BLESSINGS.values() if bls.name == name))
+    scale_blessing_attributes(blessing, faction)
+    return blessing
 
 
-def get_unit_plan(name: str) -> UnitPlan:
+# TODO tests
+def get_unit_plan(name: str, faction: Faction, setl_resources: Optional[ResourceCollection] = None) -> UnitPlan:
     """
     Get the unit plan with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the unit plan.
+    :param faction: The faction of the player retrieving the unit plan.
+    :param setl_resources: The optionally-supplied resource collection of the settlement that this unit plan will be
+                           constructed in. Naturally unsupplied if the unit plan is not under construction.
     :return: The UnitPlan with the given name.
     """
     # We need to deepcopy so that changes to one UnitPlan don't affect all the others as well.
-    return deepcopy(next(up for up in UNIT_PLANS if up.name == name))
+    unit_plan: UnitPlan = deepcopy(next(up for up in UNIT_PLANS if up.name == name))
+    scale_unit_plan_attributes(unit_plan, faction, setl_resources)
+    if unit_plan.prereq is not None:
+        scale_blessing_attributes(unit_plan.prereq, faction)
+    return unit_plan

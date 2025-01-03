@@ -281,7 +281,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         # We don't need to check whether the current game is a multiplayer game since desync can only occur in
         # multiplayer games.
         lobby_join_event: JoinEvent = JoinEvent(EventType.JOIN, get_identifier(), menu.multiplayer_lobby.name,
-                                                game_state.board.game_config.player_faction)
+                                                game_state.players[game_state.player_idx].faction)
         dispatch_event(lobby_join_event)
         # We only need to do limited resetting of game state since we'll be rejoining the game immediately.
         game_state.game_started = False

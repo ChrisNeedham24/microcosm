@@ -1,10 +1,10 @@
 import random
 from copy import deepcopy
-from typing import List, Tuple, Set, Generator
+from typing import List, Tuple, Set, Generator, Optional
 
 from source.foundation.models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, \
     Settlement, Improvement, UnitPlan, SetlAttackData, GameConfig, InvestigationResult, Faction, Project, ProjectType, \
-    HealData, DeployerUnitPlan, DeployerUnit, ResourceCollection, Quad
+    HealData, DeployerUnitPlan, DeployerUnit, ResourceCollection, Quad, Blessing
 
 
 def calculate_yield_for_quad(biome: Biome) -> Tuple[int, int, int, int]:
@@ -416,3 +416,33 @@ def update_player_quads_seen_around_point(player: Player, point: (int, int), vis
     for i in range(point[1] - vision_range, point[1] + vision_range + 1):
         for j in range(point[0] - vision_range, point[0] + vision_range + 1):
             player.quads_seen.add((clamp(j, 0, 99), clamp(i, 0, 89)))
+
+
+# TODO tests
+# TODO doco
+def scale_unit_plan_attributes(unit_plan: UnitPlan,
+                               faction: Faction,
+                               setl_resources: Optional[ResourceCollection]) -> UnitPlan:
+    match faction:
+        case Faction.IMPERIALS:
+            unit_plan.power *= 1.5
+        case Faction.PERSISTENT:
+            unit_plan.max_health *= 1.5
+            unit_plan.power *= 0.75
+        case Faction.EXPLORERS:
+            unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
+            unit_plan.max_health *= 0.75
+
+    if setl_resources is not None and setl_resources.bloodstone:
+        unit_plan.power *= (1 + 0.5 * setl_resources.bloodstone)
+        unit_plan.max_health *= (1 + 0.5 * setl_resources.bloodstone)
+
+    return unit_plan
+
+
+# TODO tests
+# TODO doco
+def scale_blessing_attributes(blessing: Blessing, faction: Faction) -> Blessing:
+    if faction == Faction.GODLESS:
+        blessing.cost *= 1.5
+    return blessing

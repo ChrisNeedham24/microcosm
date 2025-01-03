@@ -317,7 +317,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         migrate_settlement(evt.settlement)
         # We need this for the initial settlements, which contain a unit in the garrison.
         for idx, u in enumerate(evt.settlement.garrison):
-            evt.settlement.garrison[idx] = migrate_unit(u)
+            evt.settlement.garrison[idx] = migrate_unit(u, evt.player_faction)
         player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
         player.settlements.append(evt.settlement)
         update_player_quads_seen_around_point(player, evt.settlement.location)
@@ -343,7 +343,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
-        player.ongoing_blessing = OngoingBlessing(get_blessing(evt.blessing.blessing.name))
+        player.ongoing_blessing = OngoingBlessing(get_blessing(evt.blessing.blessing.name, player.faction))
         if self.server.is_server:
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
@@ -365,7 +365,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         elif hasattr(evt.construction.construction, "type"):
             setl.current_work.construction = get_project(evt.construction.construction.name)
         else:
-            setl.current_work.construction = get_unit_plan(evt.construction.construction.name)
+            setl.current_work.construction = get_unit_plan(evt.construction.construction.name, player.faction, setl)
         if self.server.is_server:
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
@@ -1012,6 +1012,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gs.process_ais(self.server.move_makers_ref[evt.game_name])
         # Pass the hash of the server's game state to clients so that they can validate that they're still in sync with
         # the server.
+        # TODO could we pass a deepcopy through here to avoid it changing mid-hash?
         evt.game_state_hash = hash(gs)
         # Alert all players that the turn has ended.
         self._forward_packet(evt, evt.game_name, sock)

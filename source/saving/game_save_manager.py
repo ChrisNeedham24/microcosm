@@ -209,7 +209,7 @@ def load_save_file(game_state: GameState,
             p.quads_seen = set(p.quads_seen)
             for idx, u in enumerate(p.units):
                 # We can do a direct conversion to Unit and UnitPlan objects for units.
-                p.units[idx] = migrate_unit(u)
+                p.units[idx] = migrate_unit(u, p.faction)
             for s in p.settlements:
                 # Make sure we remove the settlement's name so that we don't get duplicates.
                 namer.remove_settlement_name(s.name, s.quads[0].biome)
@@ -224,22 +224,22 @@ def load_save_file(game_state: GameState,
                     elif hasattr(s.current_work.construction, "type"):
                         s.current_work.construction = get_project(s.current_work.construction.name)
                     else:
-                        s.current_work.construction = get_unit_plan(s.current_work.construction.name)
+                        s.current_work.construction = get_unit_plan(s.current_work.construction.name, p.faction, s)
                 for idx, imp in enumerate(s.improvements):
                     # Do another direct conversion for improvements.
                     s.improvements[idx] = get_improvement(imp.name)
                 # Also convert all units in garrisons to Unit objects.
                 for idx, u in enumerate(s.garrison):
-                    s.garrison[idx] = migrate_unit(u)
+                    s.garrison[idx] = migrate_unit(u, p.faction)
                 s.harvest_status = HarvestStatus(s.harvest_status)
                 s.economic_status = EconomicStatus(s.economic_status)
                 migrate_settlement(s)
             # We also do direct conversions to Blessing objects for the ongoing one, if there is one,
             # as well as any previously-completed ones.
             if p.ongoing_blessing:
-                p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name)
+                p.ongoing_blessing.blessing = get_blessing(p.ongoing_blessing.blessing.name, p.faction)
             for idx, bls in enumerate(p.blessings):
-                p.blessings[idx] = get_blessing(bls.name)
+                p.blessings[idx] = get_blessing(bls.name, p.faction)
             imminent_victories: List[VictoryType] = []
             for iv in p.imminent_victories:
                 imminent_victories.append(VictoryType(iv))
@@ -251,7 +251,7 @@ def load_save_file(game_state: GameState,
             # Do another direct conversion for the heathens.
             game_state.heathens.append(Heathen(float(h.health), h.remaining_stamina, (h.location[0], h.location[1]),
                                                UnitPlan(float(h.plan.power), float(h.plan.max_health),
-                                                        h.plan.total_stamina, h.plan.name, None, 0),
+                                                        h.plan.total_stamina, h.plan.name, None, 0.0),
                                                h.has_attacked))
 
         game_state.turn = save.turn

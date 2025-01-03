@@ -181,14 +181,18 @@ def inflate_quad(quad_str: str, location: (int, int)) -> Quad:
     return inflated_quad
 
 
-def inflate_unit_plan(up_str: str) -> UnitPlan:
+# TODO tests
+def inflate_unit_plan(up_str: str, faction: Faction) -> UnitPlan:
     """
     Inflate the given minified unit plan string into a unit plan object.
     :param up_str: The minified unit plan to inflate.
+    :param faction: The faction the inflated unit plan will belong to.
     :return: An inflated unit plan object.
     """
     split_up: List[str] = up_str.split("/")
-    unit_plan: UnitPlan = get_unit_plan(split_up[-1])
+    # TODO doco explaining why we don't care about the settlement (or even faction really here) (it's because any
+    #  changes would already be included in the power/max_health/total_stamina anyway) (it's just for the prereq)
+    unit_plan: UnitPlan = get_unit_plan(split_up[-1], faction)
     unit_plan.power = float(split_up[0])
     unit_plan.max_health = float(split_up[1])
     unit_plan.total_stamina = int(split_up[2])
@@ -196,7 +200,9 @@ def inflate_unit_plan(up_str: str) -> UnitPlan:
     return unit_plan
 
 
-def inflate_unit(unit_str: str, garrisoned: bool) -> Unit:
+# TODO tests
+# TODO doco
+def inflate_unit(unit_str: str, garrisoned: bool, faction: Faction) -> Unit:
     """
     Inflate the given minified unit string into a unit object.
     :param unit_str: The minified unit to inflate.
@@ -213,15 +219,15 @@ def inflate_unit(unit_str: str, garrisoned: bool) -> Unit:
     unit_loc: (int, int) = int(split_unit[2].split("-")[0]), int(split_unit[2].split("-")[1])
     # If the minified unit only has six parts, then it is a standard non-deployer unit.
     if len(split_unit) == 6:
-        return Unit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3]),
+        return Unit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3], faction),
                     unit_has_acted, unit_is_besieging)
     # Otherwise, it must be a deployer unit.
     passengers_str: str = "|".join(split_unit[6:])
     # Because we add a carat per passenger, there will be an extra one on the end. As such, we discard the last
     # split element.
     split_passengers: List[str] = passengers_str.split("^")[:-1]
-    passengers: List[Unit] = [inflate_unit(sp, garrisoned=False) for sp in split_passengers]
-    return DeployerUnit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3]),
+    passengers: List[Unit] = [inflate_unit(sp, garrisoned=False, faction=faction) for sp in split_passengers]
+    return DeployerUnit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3], faction),
                         unit_has_acted, unit_is_besieging, passengers)
 
 
@@ -235,7 +241,9 @@ def inflate_improvement(improvement_str: str) -> Improvement:
     return next(imp for imp in IMPROVEMENTS if minify_improvement(imp) == improvement_str)
 
 
-def inflate_settlement(setl_str: str, quads: List[List[Quad]]) -> Settlement:
+# TODO tests
+# TODO doco
+def inflate_settlement(setl_str: str, quads: List[List[Quad]], faction: Faction) -> Settlement:
     """
     Inflate the given minified settlement string into a settlement object.
     :param setl_str: The minified settlement to inflate.
@@ -256,7 +264,7 @@ def inflate_settlement(setl_str: str, quads: List[List[Quad]]) -> Settlement:
     garrison: List[Unit] = []
     if split_setl[5]:
         for unit in split_setl[5].split(","):
-            garrison.append(inflate_unit(unit, garrisoned=True))
+            garrison.append(inflate_unit(unit, garrisoned=True, faction=faction))
     strength: float = float(split_setl[6])
     max_strength: float = float(split_setl[7])
     satisfaction: float = float(split_setl[8])
@@ -269,7 +277,7 @@ def inflate_settlement(setl_str: str, quads: List[List[Quad]]) -> Settlement:
             case "Project":
                 current_work = Construction(get_project(work_details[1]), float(work_details[2]))
             case "UnitPlan":
-                current_work = Construction(get_unit_plan(work_details[1]), float(work_details[2]))
+                current_work = Construction(get_unit_plan(work_details[1], faction, resources), float(work_details[2]))
     level: int = int(split_setl[10])
     harvest_reserves: float = float(split_setl[11])
     harvest_status: HarvestStatus = HarvestStatus(split_setl[12])
@@ -297,15 +305,15 @@ def inflate_player(player_str: str, quads: List[List[Quad]]) -> Player:
     settlements: List[Settlement] = []
     if split_pl[3]:
         for mini_setl in split_pl[3].split("!"):
-            settlements.append(inflate_settlement(mini_setl, quads))
+            settlements.append(inflate_settlement(mini_setl, quads, faction))
     units: List[Unit] = []
     if split_pl[4]:
         for mini_unit in split_pl[4].split("&"):
-            units.append(inflate_unit(mini_unit, garrisoned=False))
+            units.append(inflate_unit(mini_unit, garrisoned=False, faction=faction))
     blessings: List[Blessing] = []
     if split_pl[5]:
         for bls in split_pl[5].split(","):
-            blessings.append(get_blessing(bls))
+            blessings.append(get_blessing(bls, faction))
     resources: ResourceCollection = inflate_resource_collection(split_pl[6])
     imminent_victories: Set[VictoryType] = set()
     if split_pl[7]:
@@ -313,7 +321,8 @@ def inflate_player(player_str: str, quads: List[List[Quad]]) -> Player:
             imminent_victories.add(VictoryType(vic))
     ongoing_blessing: Optional[OngoingBlessing] = None
     if split_pl[8]:
-        ongoing_blessing = OngoingBlessing(get_blessing(split_pl[8].split(">")[0]), float(split_pl[8].split(">")[1]))
+        ongoing_blessing = OngoingBlessing(get_blessing(split_pl[8].split(">")[0], faction),
+                                           float(split_pl[8].split(">")[1]))
     ai_playstyle: Optional[AIPlaystyle] = None
     if split_pl[9]:
         ai_playstyle = AIPlaystyle(AttackPlaystyle(split_pl[9].split("-")[0]),
@@ -355,7 +364,7 @@ def inflate_heathens(heathens_str: str) -> List[Heathen]:
         # We don't use inflate_unit_plan() here because that will attempt to retrieve the non-heathen plan for this
         # unit, which of course does not exist.
         unit_plan: UnitPlan = UnitPlan(float(split_heathen[3]), float(split_heathen[4]), int(split_heathen[5]),
-                                       split_heathen[6], None, 0)
+                                       split_heathen[6], None, 0.0)
         # We need to do a string comparison against "True" here because if we just do 'is True' here instead, then
         # everything will evaluate to True. This is because any string that isn't empty is considered to be 'True'.
         has_attacked: bool = split_heathen[7] == "True"
