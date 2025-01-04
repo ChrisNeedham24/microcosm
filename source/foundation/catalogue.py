@@ -1,6 +1,6 @@
 import random
-import typing
 from copy import deepcopy
+from typing import Dict, List, Optional
 
 import pyxel
 
@@ -8,7 +8,8 @@ from source.foundation import achievements
 from source.foundation.models import FactionDetail, Player, Improvement, ImprovementType, Effect, Blessing, \
     Settlement, UnitPlan, Unit, Biome, Heathen, Faction, Project, ProjectType, VictoryType, DeployerUnitPlan, \
     Achievement, HarvestStatus, EconomicStatus, ResourceCollection
-from source.util.calculator import player_has_resources_for_improvement
+from source.util.calculator import player_has_resources_for_improvement, scale_unit_plan_attributes, \
+    scale_blessing_attributes
 
 
 # The list of multiplayer lobby names.
@@ -188,114 +189,118 @@ FACTION_DETAILS = [
 
 # The list of blessings that can be undergone.
 BLESSINGS = {
-    "beg_spl": Blessing("Beginner Spells", "Everyone has to start somewhere, right?", 100),
-    "div_arc": Blessing("Divine Architecture", "As the holy ones intended.", 500),
-    "inh_luc": Blessing("Inherent Luck", "Better lucky than good.", 2500),
-    "rud_exp": Blessing("Rudimentary Explosives", "Nothing can go wrong with this.", 100),
-    "rob_exp": Blessing("Robotic Experiments", "The artificial eye only stares back.", 500),
-    "res_rep": Blessing("Resource Replenishment", "Never run out of what you need.", 2500),
-    "adv_trd": Blessing("Advanced Trading", "You could base a society on this.", 100),
-    "sl_vau": Blessing("Self-locking Vaults", "Nothing's getting in or out.", 500),
-    "eco_mov": Blessing("Economic Movements", "Know the inevitable before it occurs.", 2500),
-    "prf_nec": Blessing("Profitable Necessities", "The irresistible appeal of a quick buck.", 100),
-    "art_pht": Blessing("Hollow Photosynthesis", "Moonlight is just as good.", 500),
-    "met_alt": Blessing("Metabolic Alterations", "I feel full already!", 2500),
-    "tor_tec": Blessing("Torture Techniques", "There's got to be something better.", 100),
-    "apr_ref": Blessing("Aperture Refinement", "Picture perfect.", 500),
-    "psy_sup": Blessing("Psychic Supervision", "I won't do what you tell me.", 2500),
-    "grt_goo": Blessing("The Greater Good", "The benefit of helping others.", 100),
-    "ref_prc": Blessing("Reformist Principles", "Maybe another system could be better.", 500),
-    "brd_fan": Blessing("Broad Fanaticism", "Maybe I can do no wrong.", 2500),
-    "anc_his": Blessing("Ancient History", "Guide us to the light.", 25000),
-    "ard_one": Blessing("Piece of Strength", "The mighty will prevail.", 15000),
-    "ard_two": Blessing("Piece of Passion", "Only the passionate will remain.", 15000),
-    "ard_three": Blessing("Piece of Divinity", "Everything is revealed.", 15000)
+    "beg_spl": Blessing("Beginner Spells", "Everyone has to start somewhere, right?", 100.0),
+    "div_arc": Blessing("Divine Architecture", "As the holy ones intended.", 500.0),
+    "inh_luc": Blessing("Inherent Luck", "Better lucky than good.", 2500.0),
+    "rud_exp": Blessing("Rudimentary Explosives", "Nothing can go wrong with this.", 100.0),
+    "rob_exp": Blessing("Robotic Experiments", "The artificial eye only stares back.", 500.0),
+    "res_rep": Blessing("Resource Replenishment", "Never run out of what you need.", 2500.0),
+    "adv_trd": Blessing("Advanced Trading", "You could base a society on this.", 100.0),
+    "sl_vau": Blessing("Self-locking Vaults", "Nothing's getting in or out.", 500.0),
+    "eco_mov": Blessing("Economic Movements", "Know the inevitable before it occurs.", 2500.0),
+    "prf_nec": Blessing("Profitable Necessities", "The irresistible appeal of a quick buck.", 100.0),
+    "art_pht": Blessing("Hollow Photosynthesis", "Moonlight is just as good.", 500.0),
+    "met_alt": Blessing("Metabolic Alterations", "I feel full already!", 2500.0),
+    "tor_tec": Blessing("Torture Techniques", "There's got to be something better.", 100.0),
+    "apr_ref": Blessing("Aperture Refinement", "Picture perfect.", 500.0),
+    "psy_sup": Blessing("Psychic Supervision", "I won't do what you tell me.", 2500.0),
+    "grt_goo": Blessing("The Greater Good", "The benefit of helping others.", 100.0),
+    "ref_prc": Blessing("Reformist Principles", "Maybe another system could be better.", 500.0),
+    "brd_fan": Blessing("Broad Fanaticism", "Maybe I can do no wrong.", 2500.0),
+    "anc_his": Blessing("Ancient History", "Guide us to the light.", 25000.0),
+    "ard_one": Blessing("Piece of Strength", "The mighty will prevail.", 15000.0),
+    "ard_two": Blessing("Piece of Passion", "Only the passionate will remain.", 15000.0),
+    "ard_three": Blessing("Piece of Divinity", "Everything is revealed.", 15000.0)
 }
 
 # The list of improvements that can be built.
 IMPROVEMENTS = [
-    Improvement(ImprovementType.MAGICAL, 30, "Melting Pot", "A starting pot to conduct concoctions.",
-                Effect(fortune=5, satisfaction=2), None, req_resources=ResourceCollection(magma=5)),
-    Improvement(ImprovementType.MAGICAL, 180, "Haunted Forest", "The branches shake, yet there's no wind.",
-                Effect(harvest=1, fortune=8, satisfaction=-5), BLESSINGS["beg_spl"]),
-    Improvement(ImprovementType.MAGICAL, 180, "Occult Bartering", "Dealing with both dead and alive.",
-                Effect(wealth=1, fortune=8, satisfaction=-1), BLESSINGS["adv_trd"]),
-    Improvement(ImprovementType.MAGICAL, 1080, "Ancient Shrine", "Some say it emanates an invigorating aura.",
-                Effect(wealth=2, zeal=-2, fortune=20, satisfaction=10), BLESSINGS["div_arc"],
+    Improvement(ImprovementType.MAGICAL, 30.0, "Melting Pot", "A starting pot to conduct concoctions.",
+                Effect(fortune=5.0, satisfaction=2.0), None, req_resources=ResourceCollection(magma=5)),
+    Improvement(ImprovementType.MAGICAL, 180.0, "Haunted Forest", "The branches shake, yet there's no wind.",
+                Effect(harvest=1.0, fortune=8.0, satisfaction=-5.0), BLESSINGS["beg_spl"]),
+    Improvement(ImprovementType.MAGICAL, 180.0, "Occult Bartering", "Dealing with both dead and alive.",
+                Effect(wealth=1.0, fortune=8.0, satisfaction=-1.0), BLESSINGS["adv_trd"]),
+    Improvement(ImprovementType.MAGICAL, 1080.0, "Ancient Shrine", "Some say it emanates an invigorating aura.",
+                Effect(wealth=2.0, zeal=-2.0, fortune=20.0, satisfaction=10.0), BLESSINGS["div_arc"],
                 req_resources=ResourceCollection(timber=20)),
-    Improvement(ImprovementType.MAGICAL, 1080, "Dimensional imagery", "See into another world.",
-                Effect(fortune=25, satisfaction=2), BLESSINGS["apr_ref"]),
-    Improvement(ImprovementType.MAGICAL, 1080, "Fortune Distillery", "Straight from the mouth.",
-                Effect(zeal=-2, fortune=25, strength=-10, satisfaction=5), BLESSINGS["inh_luc"],
+    Improvement(ImprovementType.MAGICAL, 1080.0, "Dimensional imagery", "See into another world.",
+                Effect(fortune=25.0, satisfaction=2.0), BLESSINGS["apr_ref"]),
+    Improvement(ImprovementType.MAGICAL, 1080.0, "Fortune Distillery", "Straight from the mouth.",
+                Effect(zeal=-2.0, fortune=25.0, strength=-10.0, satisfaction=5.0), BLESSINGS["inh_luc"],
                 req_resources=ResourceCollection(ore=20)),
-    Improvement(ImprovementType.INDUSTRIAL, 30, "Local Forge", "Just a mum-and-dad-type operation.",
-                Effect(wealth=2, zeal=5), None, req_resources=ResourceCollection(ore=5)),
-    Improvement(ImprovementType.INDUSTRIAL, 180, "Weapons Factory", "Made to kill outsiders. Mostly.",
-                Effect(wealth=2, zeal=5, strength=25, satisfaction=-2), BLESSINGS["rud_exp"],
+    Improvement(ImprovementType.INDUSTRIAL, 30.0, "Local Forge", "Just a mum-and-dad-type operation.",
+                Effect(wealth=2.0, zeal=5.0), None, req_resources=ResourceCollection(ore=5)),
+    Improvement(ImprovementType.INDUSTRIAL, 180.0, "Weapons Factory", "Made to kill outsiders. Mostly.",
+                Effect(wealth=2.0, zeal=5.0, strength=25.0, satisfaction=-2.0), BLESSINGS["rud_exp"],
                 req_resources=ResourceCollection(ore=10)),
-    Improvement(ImprovementType.INDUSTRIAL, 180, "Enslaved Workforce", "Gets the job done.",
-                Effect(wealth=2, harvest=-1, zeal=6, fortune=-2, satisfaction=-5), BLESSINGS["tor_tec"]),
-    Improvement(ImprovementType.INDUSTRIAL, 1080, "Automated Production", "In and out, no fuss.",
-                Effect(wealth=3, zeal=30, satisfaction=-10), BLESSINGS["rob_exp"]),
-    Improvement(ImprovementType.INDUSTRIAL, 1080, "Lab-grown Workers", "Human or not, they work the same.",
-                Effect(wealth=3, harvest=-2, zeal=30, fortune=-5, strength=2, satisfaction=-10), BLESSINGS["art_pht"]),
-    Improvement(ImprovementType.INDUSTRIAL, 1080, "Endless Mine", "Hang on, didn't I just remove that?",
-                Effect(wealth=5, zeal=25, fortune=-2), BLESSINGS["res_rep"],
+    Improvement(ImprovementType.INDUSTRIAL, 180.0, "Enslaved Workforce", "Gets the job done.",
+                Effect(wealth=2.0, harvest=-1.0, zeal=6.0, fortune=-2.0, satisfaction=-5.0), BLESSINGS["tor_tec"]),
+    Improvement(ImprovementType.INDUSTRIAL, 1080.0, "Automated Production", "In and out, no fuss.",
+                Effect(wealth=3.0, zeal=30.0, satisfaction=-10.0), BLESSINGS["rob_exp"]),
+    Improvement(ImprovementType.INDUSTRIAL, 1080.0, "Lab-grown Workers", "Human or not, they work the same.",
+                Effect(wealth=3.0, harvest=-2.0, zeal=30.0, fortune=-5.0, strength=2.0, satisfaction=-10.0),
+                BLESSINGS["art_pht"]),
+    Improvement(ImprovementType.INDUSTRIAL, 1080.0, "Endless Mine", "Hang on, didn't I just remove that?",
+                Effect(wealth=5.0, zeal=25.0, fortune=-2.0), BLESSINGS["res_rep"],
                 req_resources=ResourceCollection(timber=20)),
-    Improvement(ImprovementType.ECONOMICAL, 30, "City Market", "Pockets empty, but friend or foe?",
-                Effect(wealth=5, harvest=2, zeal=2, fortune=-1, satisfaction=2), None),
-    Improvement(ImprovementType.ECONOMICAL, 180, "State Bank", "You're not the first to try your luck.",
-                Effect(wealth=8, fortune=-2, strength=5, satisfaction=2), BLESSINGS["adv_trd"]),
-    Improvement(ImprovementType.ECONOMICAL, 180, "Harvest Levy", "Definitely only for times of need.",
-                Effect(wealth=8, harvest=2, zeal=-1, fortune=-1, satisfaction=-2), BLESSINGS["prf_nec"]),
-    Improvement(ImprovementType.ECONOMICAL, 1080, "National Mint", "Gold as far as the eye can see.",
-                Effect(wealth=30, fortune=-5, strength=10, satisfaction=5), BLESSINGS["sl_vau"],
+    Improvement(ImprovementType.ECONOMICAL, 30.0, "City Market", "Pockets empty, but friend or foe?",
+                Effect(wealth=5.0, harvest=2.0, zeal=2.0, fortune=-1.0, satisfaction=2.0), None),
+    Improvement(ImprovementType.ECONOMICAL, 180.0, "State Bank", "You're not the first to try your luck.",
+                Effect(wealth=8.0, fortune=-2.0, strength=5.0, satisfaction=2.0), BLESSINGS["adv_trd"]),
+    Improvement(ImprovementType.ECONOMICAL, 180.0, "Harvest Levy", "Definitely only for times of need.",
+                Effect(wealth=8.0, harvest=2.0, zeal=-1.0, fortune=-1.0, satisfaction=-2.0), BLESSINGS["prf_nec"]),
+    Improvement(ImprovementType.ECONOMICAL, 1080.0, "National Mint", "Gold as far as the eye can see.",
+                Effect(wealth=30.0, fortune=-5.0, strength=10.0, satisfaction=5.0), BLESSINGS["sl_vau"],
                 req_resources=ResourceCollection(magma=20)),
-    Improvement(ImprovementType.ECONOMICAL, 1080, "Federal Museum", "Cataloguing all that was left for us.",
-                Effect(wealth=10, fortune=10, satisfaction=4), BLESSINGS["div_arc"]),
-    Improvement(ImprovementType.ECONOMICAL, 1080, "Planned Economy", "Under the watchful eye.",
-                Effect(wealth=20, harvest=5, zeal=5, satisfaction=-2), BLESSINGS["eco_mov"]),
-    Improvement(ImprovementType.BOUNTIFUL, 30, "Collectivised Farms", "Well, the shelves will be stocked.",
-                Effect(wealth=2, harvest=10, zeal=-2, satisfaction=-2), None),
-    Improvement(ImprovementType.BOUNTIFUL, 180, "Supermarket Chains", "On every street corner.",
-                Effect(harvest=8, satisfaction=2), BLESSINGS["prf_nec"], req_resources=ResourceCollection(timber=10)),
-    Improvement(ImprovementType.BOUNTIFUL, 180, "Distributed Rations", "Everyone gets their fair share.",
-                Effect(harvest=8, zeal=-1, fortune=1, satisfaction=-1), BLESSINGS["grt_goo"]),
-    Improvement(ImprovementType.BOUNTIFUL, 1080, "Sunken Greenhouses", "The glass is just for show.",
-                Effect(harvest=25, zeal=-5, fortune=-2), BLESSINGS["art_pht"],
-                req_resources=ResourceCollection(magma=20)),
-    Improvement(ImprovementType.BOUNTIFUL, 1080, "Impenetrable Stores", "Unprecedented control over stock.",
-                Effect(wealth=-1, harvest=25, strength=5, satisfaction=-5), BLESSINGS["sl_vau"],
-                req_resources=ResourceCollection(ore=20)),
-    Improvement(ImprovementType.BOUNTIFUL, 1080, "Genetic Clinics", "Change me for the better.",
-                Effect(harvest=15, zeal=15), BLESSINGS["met_alt"]),
-    Improvement(ImprovementType.INTIMIDATORY, 30, "Insurmountable Walls", "Quite the view from up here.",
-                Effect(strength=25, satisfaction=2), None),
-    Improvement(ImprovementType.INTIMIDATORY, 180, "Intelligence Academy", "What's learnt in here, stays in here.",
-                Effect(strength=30, satisfaction=-2), BLESSINGS["tor_tec"]),
-    Improvement(ImprovementType.INTIMIDATORY, 180, "Minefields", "Cross if you dare.",
-                Effect(harvest=-1, strength=30, satisfaction=-1), BLESSINGS["rud_exp"]),
-    Improvement(ImprovementType.INTIMIDATORY, 1080, "CCTV Cameras", "Big Brother's always watching.",
-                Effect(zeal=5, fortune=-2, strength=50, satisfaction=-2), BLESSINGS["apr_ref"]),
-    Improvement(ImprovementType.INTIMIDATORY, 1080, "Cult of Personality", "The supreme leader can do no wrong.",
-                Effect(wealth=2, harvest=2, zeal=2, fortune=2, strength=50, satisfaction=5), BLESSINGS["ref_prc"]),
-    Improvement(ImprovementType.INTIMIDATORY, 1080, "Omniscient Police", "Not even jaywalking is allowed.",
-                Effect(wealth=-2, zeal=-2, fortune=-5, strength=100, satisfaction=-10), BLESSINGS["psy_sup"]),
-    Improvement(ImprovementType.PANDERING, 30, "Aqueduct", "Water from there to here.",
-                Effect(harvest=2, fortune=-1, satisfaction=5), None),
-    Improvement(ImprovementType.PANDERING, 180, "Soup Kitchen", "No one's going hungry here.",
-                Effect(wealth=-1, zeal=2, fortune=2, satisfaction=6), BLESSINGS["grt_goo"],
-                req_resources=ResourceCollection(magma=10)),
-    Improvement(ImprovementType.PANDERING, 180, "Puppet Shows", "Putting those spells to use.",
-                Effect(wealth=1, zeal=-1, fortune=1, satisfaction=6), BLESSINGS["beg_spl"],
+    Improvement(ImprovementType.ECONOMICAL, 1080.0, "Federal Museum", "Cataloguing all that was left for us.",
+                Effect(wealth=10.0, fortune=10.0, satisfaction=4.0), BLESSINGS["div_arc"]),
+    Improvement(ImprovementType.ECONOMICAL, 1080.0, "Planned Economy", "Under the watchful eye.",
+                Effect(wealth=20.0, harvest=5.0, zeal=5.0, satisfaction=-2.0), BLESSINGS["eco_mov"]),
+    Improvement(ImprovementType.BOUNTIFUL, 30.0, "Collectivised Farms", "Well, the shelves will be stocked.",
+                Effect(wealth=2.0, harvest=10.0, zeal=-2.0, satisfaction=-2.0), None),
+    Improvement(ImprovementType.BOUNTIFUL, 180.0, "Supermarket Chains", "On every street corner.",
+                Effect(harvest=8.0, satisfaction=2.0), BLESSINGS["prf_nec"],
                 req_resources=ResourceCollection(timber=10)),
-    Improvement(ImprovementType.PANDERING, 1080, "Common Chief Yield", "Utopian in more ways than one.",
-                Effect(wealth=-5, harvest=2, zeal=2, fortune=2, strength=2, satisfaction=10), BLESSINGS["ref_prc"]),
-    Improvement(ImprovementType.PANDERING, 1080, "Infinite Disport", "Where the robots are the stars.",
-                Effect(zeal=2, fortune=-1, satisfaction=12), BLESSINGS["rob_exp"]),
-    Improvement(ImprovementType.PANDERING, 1080, "Free Expression", "Say what we know you'll say.",
-                Effect(satisfaction=15), BLESSINGS["brd_fan"]),
-    Improvement(ImprovementType.INDUSTRIAL, 20000, "Holy Sanctum", "To converse with the holy ones.",
+    Improvement(ImprovementType.BOUNTIFUL, 180.0, "Distributed Rations", "Everyone gets their fair share.",
+                Effect(harvest=8.0, zeal=-1.0, fortune=1.0, satisfaction=-1.0), BLESSINGS["grt_goo"]),
+    Improvement(ImprovementType.BOUNTIFUL, 1080.0, "Sunken Greenhouses", "The glass is just for show.",
+                Effect(harvest=25.0, zeal=-5.0, fortune=-2.0), BLESSINGS["art_pht"],
+                req_resources=ResourceCollection(magma=20)),
+    Improvement(ImprovementType.BOUNTIFUL, 1080.0, "Impenetrable Stores", "Unprecedented control over stock.",
+                Effect(wealth=-1.0, harvest=25.0, strength=5.0, satisfaction=-5.0), BLESSINGS["sl_vau"],
+                req_resources=ResourceCollection(ore=20)),
+    Improvement(ImprovementType.BOUNTIFUL, 1080.0, "Genetic Clinics", "Change me for the better.",
+                Effect(harvest=15.0, zeal=15.0), BLESSINGS["met_alt"]),
+    Improvement(ImprovementType.INTIMIDATORY, 30.0, "Insurmountable Walls", "Quite the view from up here.",
+                Effect(strength=25.0, satisfaction=2.0), None),
+    Improvement(ImprovementType.INTIMIDATORY, 180.0, "Intelligence Academy", "What's learnt in here, stays in here.",
+                Effect(strength=30.0, satisfaction=-2.0), BLESSINGS["tor_tec"]),
+    Improvement(ImprovementType.INTIMIDATORY, 180.0, "Minefields", "Cross if you dare.",
+                Effect(harvest=-1.0, strength=30.0, satisfaction=-1.0), BLESSINGS["rud_exp"]),
+    Improvement(ImprovementType.INTIMIDATORY, 1080.0, "CCTV Cameras", "Big Brother's always watching.",
+                Effect(zeal=5.0, fortune=-2.0, strength=50.0, satisfaction=-2.0), BLESSINGS["apr_ref"]),
+    Improvement(ImprovementType.INTIMIDATORY, 1080.0, "Cult of Personality", "The supreme leader can do no wrong.",
+                Effect(wealth=2.0, harvest=2.0, zeal=2.0, fortune=2.0, strength=50.0, satisfaction=5.0),
+                BLESSINGS["ref_prc"]),
+    Improvement(ImprovementType.INTIMIDATORY, 1080.0, "Omniscient Police", "Not even jaywalking is allowed.",
+                Effect(wealth=-2.0, zeal=-2.0, fortune=-5.0, strength=100.0, satisfaction=-10.0), BLESSINGS["psy_sup"]),
+    Improvement(ImprovementType.PANDERING, 30.0, "Aqueduct", "Water from there to here.",
+                Effect(harvest=2.0, fortune=-1.0, satisfaction=5.0), None),
+    Improvement(ImprovementType.PANDERING, 180.0, "Soup Kitchen", "No one's going hungry here.",
+                Effect(wealth=-1.0, zeal=2.0, fortune=2.0, satisfaction=6.0), BLESSINGS["grt_goo"],
+                req_resources=ResourceCollection(magma=10)),
+    Improvement(ImprovementType.PANDERING, 180.0, "Puppet Shows", "Putting those spells to use.",
+                Effect(wealth=1.0, zeal=-1.0, fortune=1.0, satisfaction=6.0), BLESSINGS["beg_spl"],
+                req_resources=ResourceCollection(timber=10)),
+    Improvement(ImprovementType.PANDERING, 1080.0, "Common Chief Yield", "Utopian in more ways than one.",
+                Effect(wealth=-5.0, harvest=2.0, zeal=2.0, fortune=2.0, strength=2.0, satisfaction=10.0),
+                BLESSINGS["ref_prc"]),
+    Improvement(ImprovementType.PANDERING, 1080.0, "Infinite Disport", "Where the robots are the stars.",
+                Effect(zeal=2.0, fortune=-1.0, satisfaction=12.0), BLESSINGS["rob_exp"]),
+    Improvement(ImprovementType.PANDERING, 1080.0, "Free Expression", "Say what we know you'll say.",
+                Effect(satisfaction=15.0), BLESSINGS["brd_fan"]),
+    Improvement(ImprovementType.INDUSTRIAL, 20000.0, "Holy Sanctum", "To converse with the holy ones.",
                 Effect(), BLESSINGS["anc_his"])
 ]
 
@@ -308,28 +313,28 @@ PROJECTS = [
 
 # The list of unit plans that units can be recruited according to.
 UNIT_PLANS = [
-    UnitPlan(100, 100, 3, "Warrior", None, 25),
-    UnitPlan(125, 50, 5, "Bowman", None, 25),
-    UnitPlan(75, 125, 2, "Shielder", None, 25),
-    UnitPlan(25, 25, 6, "Settler", None, 50, can_settle=True),
-    UnitPlan(150, 75, 4, "Mage", BLESSINGS["beg_spl"], 50),
-    UnitPlan(50, 50, 10, "Locksmith", BLESSINGS["sl_vau"], 75),
-    UnitPlan(20, 50, 6, "Shaman", BLESSINGS["beg_spl"], 75, heals=True),
-    UnitPlan(200, 40, 2, "Grenadier", BLESSINGS["rud_exp"], 100),
-    UnitPlan(50, 200, 2, "Flagellant", BLESSINGS["tor_tec"], 200),
-    DeployerUnitPlan(0, 80, 8, "Trojan Horse", BLESSINGS["sl_vau"], 300),
-    UnitPlan(150, 125, 3, "Sniper", BLESSINGS["apr_ref"], 400),
-    UnitPlan(50, 60, 8, "MediBot", BLESSINGS["rob_exp"], 500, heals=True),
-    UnitPlan(150, 150, 5, "Drone", BLESSINGS["rob_exp"], 800),
-    UnitPlan(100, 75, 10, "Narcotician", BLESSINGS["brd_fan"], 1000, heals=True),
-    DeployerUnitPlan(0, 125, 12, "Golden Van", BLESSINGS["inh_luc"], 1100, max_capacity=5),
-    UnitPlan(200, 200, 4, "Herculeum", BLESSINGS["met_alt"], 1200),
-    UnitPlan(300, 50, 3, "Haruspex", BLESSINGS["psy_sup"], 1200),
-    UnitPlan(40, 400, 2, "Fanatic", BLESSINGS["brd_fan"], 1200)
+    UnitPlan(100.0, 100.0, 3, "Warrior", None, 25.0),
+    UnitPlan(125.0, 50.0, 5, "Bowman", None, 25.0),
+    UnitPlan(75.0, 125.0, 2, "Shielder", None, 25.0),
+    UnitPlan(25.0, 25.0, 6, "Settler", None, 50.0, can_settle=True),
+    UnitPlan(150.0, 75.0, 4, "Mage", BLESSINGS["beg_spl"], 50.0),
+    UnitPlan(50.0, 50.0, 10, "Locksmith", BLESSINGS["sl_vau"], 75.0),
+    UnitPlan(20.0, 50.0, 6, "Shaman", BLESSINGS["beg_spl"], 75.0, heals=True),
+    UnitPlan(200.0, 40.0, 2, "Grenadier", BLESSINGS["rud_exp"], 100.0),
+    UnitPlan(50.0, 200.0, 2, "Flagellant", BLESSINGS["tor_tec"], 200.0),
+    DeployerUnitPlan(0.0, 80.0, 8, "Trojan Horse", BLESSINGS["sl_vau"], 300.0),
+    UnitPlan(150.0, 125.0, 3, "Sniper", BLESSINGS["apr_ref"], 400.0),
+    UnitPlan(50.0, 60.0, 8, "MediBot", BLESSINGS["rob_exp"], 500.0, heals=True),
+    UnitPlan(150.0, 150.0, 5, "Drone", BLESSINGS["rob_exp"], 800.0),
+    UnitPlan(100.0, 75.0, 10, "Narcotician", BLESSINGS["brd_fan"], 1000.0, heals=True),
+    DeployerUnitPlan(0.0, 125.0, 12, "Golden Van", BLESSINGS["inh_luc"], 1100.0, max_capacity=5),
+    UnitPlan(200.0, 200.0, 4, "Herculeum", BLESSINGS["met_alt"], 1200.0),
+    UnitPlan(300.0, 50.0, 3, "Haruspex", BLESSINGS["psy_sup"], 1200.0),
+    UnitPlan(40.0, 400.0, 2, "Fanatic", BLESSINGS["brd_fan"], 1200.0)
 ]
 
 # A map of factions to their respective colours.
-FACTION_COLOURS: typing.Dict[Faction, int] = {
+FACTION_COLOURS: Dict[Faction, int] = {
     Faction.AGRICULTURISTS: pyxel.COLOR_GREEN,
     Faction.CAPITALISTS: pyxel.COLOR_YELLOW,
     Faction.SCRUTINEERS: pyxel.COLOR_LIGHT_BLUE,
@@ -347,7 +352,7 @@ FACTION_COLOURS: typing.Dict[Faction, int] = {
 }
 
 # A map of victory types to their respective colours.
-VICTORY_TYPE_COLOURS: typing.Dict[VictoryType, int] = {
+VICTORY_TYPE_COLOURS: Dict[VictoryType, int] = {
     VictoryType.ELIMINATION: pyxel.COLOR_RED,
     VictoryType.JUBILATION: pyxel.COLOR_GREEN,
     VictoryType.GLUTTONY: pyxel.COLOR_GREEN,
@@ -357,7 +362,7 @@ VICTORY_TYPE_COLOURS: typing.Dict[VictoryType, int] = {
 }
 
 # The list of achievements that the player can obtain.
-ACHIEVEMENTS: typing.List[Achievement] = [
+ACHIEVEMENTS: List[Achievement] = [
     Achievement("Chicken Dinner", "Win a game.",
                 lambda _, stats: len(stats.victories) > 0),
     Achievement("Fully Improved", "Build every non-victory improvement in one game.",
@@ -502,7 +507,7 @@ def get_heathen_plan(turn: int) -> UnitPlan:
     :param turn: The game's current turn.
     :return: The UnitPlan to use for the created Heathen.
     """
-    return UnitPlan(80 + 10 * (turn // 40), 80 + 10 * (turn // 40), 2, "Heathen" + "+" * (turn // 40), None, 0)
+    return UnitPlan(80.0 + 10 * (turn // 40), 80.0 + 10 * (turn // 40), 2, "Heathen" + "+" * (turn // 40), None, 0.0)
 
 
 def get_heathen(location: (int, int), turn: int) -> Heathen:
@@ -527,7 +532,7 @@ def get_default_unit(location: (int, int)) -> Unit:
 
 def get_available_improvements(player: Player,
                                settlement: Settlement,
-                               strict: bool = False) -> typing.List[Improvement]:
+                               strict: bool = False) -> List[Improvement]:
     """
     Retrieves the available improvements for the given player's settlement.
     :param player: The owner of the given settlement.
@@ -551,7 +556,7 @@ def get_available_improvements(player: Player,
     return imps
 
 
-def get_available_unit_plans(player: Player, setl: Settlement) -> typing.List[UnitPlan]:
+def get_available_unit_plans(player: Player, setl: Settlement) -> List[UnitPlan]:
     """
     Retrieves the available unit plans for the given player and settlement level.
     :param player: The player viewing the available units.
@@ -570,60 +575,40 @@ def get_available_unit_plans(player: Player, setl: Settlement) -> typing.List[Un
             # Once frontier settlements reach level 5, they can only construct settler units, and no improvements.
             elif not unit_plan.can_settle and not (player.faction == Faction.FRONTIERSMEN and setl.level >= 5):
                 unit_plans.append(unit_plan)
-
-    match player.faction:
-        case Faction.IMPERIALS:
-            for unit_plan in unit_plans:
-                unit_plan.power *= 1.5
-        case Faction.PERSISTENT:
-            for unit_plan in unit_plans:
-                unit_plan.max_health *= 1.5
-                unit_plan.power *= 0.75
-        case Faction.EXPLORERS:
-            for unit_plan in unit_plans:
-                unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
-                unit_plan.max_health *= 0.75
-
-    if setl.resources.bloodstone:
-        for unit_plan in unit_plans:
-            unit_plan.power *= (1 + 0.5 * setl.resources.bloodstone)
-            unit_plan.max_health *= (1 + 0.5 * setl.resources.bloodstone)
+        scale_unit_plan_attributes(unit_plan, player.faction, setl.resources)
 
     # Sort unit plans by cost.
     unit_plans.sort(key=lambda up: up.cost)
     return unit_plans
 
 
-def get_available_blessings(player: Player) -> typing.List[Blessing]:
+def get_available_blessings(player: Player) -> List[Blessing]:
     """
     Retrieves the available blessings for the given player.
     :param player: The player viewing the available blessings.
     :return: A list of available blessings.
     """
     completed_blessing_names = list(map(lambda blessing: blessing.name, player.blessings))
-    blessings = [bls for bls in deepcopy(BLESSINGS).values() if bls.name not in completed_blessing_names]
-
-    if player.faction == Faction.GODLESS:
-        for bls in blessings:
-            bls.cost *= 1.5
+    blessings = [scale_blessing_attributes(bls, player.faction) for bls in deepcopy(BLESSINGS).values()
+                 if bls.name not in completed_blessing_names]
 
     # Sort blessings by cost.
     blessings.sort(key=lambda b: b.cost)
     return blessings
 
 
-def get_all_unlockable(blessing: Blessing) -> typing.List[Improvement | UnitPlan]:
+def get_all_unlockable(blessing: Blessing) -> List[Improvement | UnitPlan]:
     """
     Retrieves all unlockable improvements and unit plans for the given blessing.
     :param blessing: The blessing to search pre-requisites for.
     :return: A list of unlockable improvements and unit plans.
     """
-    unlockable: typing.List[Improvement | UnitPlan] = get_unlockable_improvements(blessing)
+    unlockable: List[Improvement | UnitPlan] = get_unlockable_improvements(blessing)
     unlockable.extend(get_unlockable_units(blessing))
     return unlockable
 
 
-def get_unlockable_improvements(blessing: Blessing) -> typing.List[Improvement]:
+def get_unlockable_improvements(blessing: Blessing) -> List[Improvement]:
     """
     Retrieves all unlockable improvements for the given blessing.
     :param blessing: The blessing to search pre-requisites for.
@@ -632,7 +617,7 @@ def get_unlockable_improvements(blessing: Blessing) -> typing.List[Improvement]:
     return [imp for imp in IMPROVEMENTS if (imp.prereq is not None) and (imp.prereq.name == blessing.name)]
 
 
-def get_unlockable_units(blessing: Blessing) -> typing.List[UnitPlan]:
+def get_unlockable_units(blessing: Blessing) -> List[UnitPlan]:
     """
     Retrieves all unlockable unit plans for the given blessing.
     :param blessing: The blessing to search pre-requisites for.
@@ -659,20 +644,31 @@ def get_project(name: str) -> Project:
     return next(prj for prj in PROJECTS if prj.name == name)
 
 
-def get_blessing(name: str) -> Blessing:
+def get_blessing(name: str, faction: Faction) -> Blessing:
     """
     Get the blessing with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the blessing.
-    :return: The Blessing with the given name.
+    :param faction: The faction of the player retrieving the blessing.
+    :return: The Blessing with the given name, with scaled attributes if necessary.
     """
-    return next(bls for bls in BLESSINGS.values() if bls.name == name)
+    # We need to deepcopy so that changes to one Blessing don't affect all the others as well.
+    blessing: Blessing = deepcopy(next(bls for bls in BLESSINGS.values() if bls.name == name))
+    scale_blessing_attributes(blessing, faction)
+    return blessing
 
 
-def get_unit_plan(name: str) -> UnitPlan:
+def get_unit_plan(name: str, faction: Faction, setl_resources: Optional[ResourceCollection] = None) -> UnitPlan:
     """
     Get the unit plan with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the unit plan.
-    :return: The UnitPlan with the given name.
+    :param faction: The faction of the player retrieving the unit plan.
+    :param setl_resources: The optionally-supplied resource collection of the settlement that this unit plan will be
+                           constructed in. Naturally unsupplied if the unit plan is not under construction.
+    :return: The UnitPlan with the given name, with scaled attributes if necessary.
     """
     # We need to deepcopy so that changes to one UnitPlan don't affect all the others as well.
-    return deepcopy(next(up for up in UNIT_PLANS if up.name == name))
+    unit_plan: UnitPlan = deepcopy(next(up for up in UNIT_PLANS if up.name == name))
+    scale_unit_plan_attributes(unit_plan, faction, setl_resources)
+    if unit_plan.prereq is not None:
+        scale_blessing_attributes(unit_plan.prereq, faction)
+    return unit_plan

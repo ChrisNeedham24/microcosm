@@ -1,4 +1,5 @@
 import unittest
+from copy import deepcopy
 from typing import Set, Tuple, List
 
 from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, PROJECTS
@@ -22,27 +23,24 @@ class MinifierTest(unittest.TestCase):
     TEST_RESOURCE_COLLECTION: ResourceCollection = \
         ResourceCollection(ore=1, timber=2, magma=3, aurora=4, bloodstone=5, obsidian=6, sunstone=7, aquamarine=8)
     MINIFIED_RESOURCE_COLLECTION: str = "1+2+3+4+5+6+7+8"
-    # We can't just use UNIT_PLANS[0] here because it doesn't actually declare its power and max health as floats (which
-    # it should).
-    TEST_UNIT_PLAN: UnitPlan = UnitPlan(float(UNIT_PLANS[0].power), float(UNIT_PLANS[0].max_health),
-                                        UNIT_PLANS[0].total_stamina, UNIT_PLANS[0].name, None, 25)
-    MINIFIED_UNIT_PLAN: str = "100.0/100.0/3/Warrior"
+    TEST_UNIT_PLAN: UnitPlan = UNIT_PLANS[0]
+    MINIFIED_UNIT_PLAN: str = "100.0/100.0/3/25.0/Warrior"
     TEST_IMPROVEMENT: Improvement = IMPROVEMENTS[-1]
     MINIFIED_IMPROVEMENT: str = "HS"
     TEST_UNIT: Unit = Unit(10.0, 20, (30, 40), False, TEST_UNIT_PLAN, has_acted=True, besieging=True)
     TEST_GARRISONED_UNIT: Unit = Unit(10.0, 20, (30, 40), True, TEST_UNIT_PLAN, has_acted=True, besieging=True)
     MINIFIED_UNIT: str = f"10.0|20|30-40|{MINIFIED_UNIT_PLAN}|True|True"
     # Yes, technically the unit plan used here isn't one for a deployer, but it doesn't matter in this case.
-    TEST_DEPLOYER_UNIT: DeployerUnit = DeployerUnit(50, 60, (70, 80), False, TEST_UNIT_PLAN, True, True,
+    TEST_DEPLOYER_UNIT: DeployerUnit = DeployerUnit(50.0, 60, (70, 80), False, TEST_UNIT_PLAN, True, True,
                                                     passengers=[TEST_UNIT])
-    MINIFIED_DEPLOYER_UNIT: str = f"50|60|70-80|{MINIFIED_UNIT_PLAN}|True|True|{MINIFIED_UNIT}^"
+    MINIFIED_DEPLOYER_UNIT: str = f"50.0|60|70-80|{MINIFIED_UNIT_PLAN}|True|True|{MINIFIED_UNIT}^"
     TEST_QUAD: Quad = Quad(Biome.DESERT, 1, 2, 3, 4, (0, 0))
     MINIFIED_QUAD: str = "D1234"
-    TEST_HEATHEN_PLAN: UnitPlan = UnitPlan(10, 20, 30, "Forty", None, 0)
+    TEST_HEATHEN_PLAN: UnitPlan = UnitPlan(10.0, 20.0, 30, "Forty", None, 0.0)
     # We don't actually need to have multiple heathens here because the joining comma is added even if there's only
     # the one.
-    TEST_HEATHENS: List[Heathen] = [Heathen(50, 60, (70, 80), TEST_HEATHEN_PLAN, True)]
-    MINIFIED_HEATHENS: str = "50*60*70-80*10*20*30*Forty*True,"
+    TEST_HEATHENS: List[Heathen] = [Heathen(50.0, 60, (70, 80), TEST_HEATHEN_PLAN, True)]
+    MINIFIED_HEATHENS: str = "50.0*60*70-80*10.0*20.0*30*Forty*True,"
 
     def setUp(self):
         """
@@ -192,17 +190,19 @@ class MinifierTest(unittest.TestCase):
         """
         Ensure that unit plans are correctly inflated.
         """
-        self.assertEqual(self.TEST_UNIT_PLAN, inflate_unit_plan(self.MINIFIED_UNIT_PLAN))
+        self.assertEqual(self.TEST_UNIT_PLAN, inflate_unit_plan(self.MINIFIED_UNIT_PLAN, Faction.AGRICULTURISTS))
 
     def test_inflate_unit(self):
         """
         Ensure that units are correctly inflated.
         """
         # The standard unit.
-        self.assertEqual(self.TEST_UNIT, inflate_unit(self.MINIFIED_UNIT, self.TEST_UNIT.garrisoned))
+        self.assertEqual(self.TEST_UNIT,
+                         inflate_unit(self.MINIFIED_UNIT, self.TEST_UNIT.garrisoned, Faction.AGRICULTURISTS))
         # The deployer unit, which has one passenger unit.
-        self.assertEqual(self.TEST_DEPLOYER_UNIT,
-                         inflate_unit(self.MINIFIED_DEPLOYER_UNIT, self.TEST_DEPLOYER_UNIT.garrisoned))
+        self.assertEqual(self.TEST_DEPLOYER_UNIT, inflate_unit(self.MINIFIED_DEPLOYER_UNIT,
+                                                               self.TEST_DEPLOYER_UNIT.garrisoned,
+                                                               Faction.AGRICULTURISTS))
 
     def test_inflate_improvement(self):
         """
@@ -214,7 +214,9 @@ class MinifierTest(unittest.TestCase):
         """
         Ensure that settlements are correctly inflated.
         """
-        self.assertEqual(self.TEST_SETTLEMENT, inflate_settlement(self.MINIFIED_SETTLEMENT, quads=[[self.TEST_QUAD]]))
+        self.assertEqual(self.TEST_SETTLEMENT, inflate_settlement(self.MINIFIED_SETTLEMENT,
+                                                                  quads=[[self.TEST_QUAD]],
+                                                                  faction=Faction.AGRICULTURISTS))
 
         # For the below three cases, when the settlement is currently constructing an improvement, project, or unit
         # plan, we expect those details to be transferred to the Settlement object as well. Note that with the expected
@@ -224,20 +226,28 @@ class MinifierTest(unittest.TestCase):
         self.TEST_SETTLEMENT.current_work = Construction(self.TEST_IMPROVEMENT, zeal_consumed=1.1)
         minified_setl_improvement: str = \
             self.MINIFIED_SETTLEMENT.replace(";;", ";Improvement%Holy Sanctum%1.1;")
-        self.assertEqual(self.TEST_SETTLEMENT,
-                         inflate_settlement(minified_setl_improvement, quads=[[self.TEST_QUAD]]))
+        self.assertEqual(self.TEST_SETTLEMENT, inflate_settlement(minified_setl_improvement,
+                                                                  quads=[[self.TEST_QUAD]],
+                                                                  faction=Faction.AGRICULTURISTS))
 
         self.TEST_SETTLEMENT.current_work = Construction(PROJECTS[1], zeal_consumed=1.1)
         minified_setl_project: str = \
             self.MINIFIED_SETTLEMENT.replace(";;", ";Project%Inflation by Design%1.1;")
-        self.assertEqual(self.TEST_SETTLEMENT,
-                         inflate_settlement(minified_setl_project, quads=[[self.TEST_QUAD]]))
+        self.assertEqual(self.TEST_SETTLEMENT, inflate_settlement(minified_setl_project,
+                                                                  quads=[[self.TEST_QUAD]],
+                                                                  faction=Faction.AGRICULTURISTS))
 
-        self.TEST_SETTLEMENT.current_work = Construction(self.TEST_UNIT_PLAN, zeal_consumed=1.1)
+        # Because our test settlement has five bloodstone, the power and max health of the inflated unit under
+        # construction is scaled.
+        scaled_unit_plan: UnitPlan = deepcopy(self.TEST_UNIT_PLAN)
+        scaled_unit_plan.power *= (1 + self.TEST_RESOURCE_COLLECTION.bloodstone * 0.5)
+        scaled_unit_plan.max_health *= (1 + self.TEST_RESOURCE_COLLECTION.bloodstone * 0.5)
+        self.TEST_SETTLEMENT.current_work = Construction(scaled_unit_plan, zeal_consumed=1.1)
         minified_setl_unit_plan: str = \
             self.MINIFIED_SETTLEMENT.replace(";;", ";UnitPlan%Warrior%1.1;")
-        self.assertEqual(self.TEST_SETTLEMENT,
-                         inflate_settlement(minified_setl_unit_plan, quads=[[self.TEST_QUAD]]))
+        self.assertEqual(self.TEST_SETTLEMENT, inflate_settlement(minified_setl_unit_plan,
+                                                                  quads=[[self.TEST_QUAD]],
+                                                                  faction=Faction.AGRICULTURISTS))
 
     def test_inflate_player(self):
         """

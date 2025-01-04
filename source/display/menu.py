@@ -519,7 +519,7 @@ class Menu:
                         if self.blessing_boundaries[0] <= idx <= self.blessing_boundaries[1]:
                             adj_idx = idx - self.blessing_boundaries[0]
                             pyxel.text(20, 50 + adj_idx * 25, str(blessing.name), pyxel.COLOR_WHITE)
-                            pyxel.text(160, 50 + adj_idx * 25, str(blessing.cost), pyxel.COLOR_WHITE)
+                            pyxel.text(160, 50 + adj_idx * 25, str(round(blessing.cost)), pyxel.COLOR_WHITE)
                             pyxel.text(20, 57 + adj_idx * 25, str(blessing.description), pyxel.COLOR_WHITE)
                             imps = get_unlockable_improvements(blessing)
                             pyxel.blt(20, 64 + adj_idx * 25, 0, 32, 44, 8, 8)
@@ -550,7 +550,7 @@ class Menu:
                         if self.improvement_boundaries[0] <= idx <= self.improvement_boundaries[1]:
                             adj_offset = (idx - self.improvement_boundaries[0]) * 25
                             pyxel.text(20, 50 + adj_offset, str(imp.name), pyxel.COLOR_WHITE)
-                            cost_str: str = str(imp.cost)
+                            cost_str: str = str(round(imp.cost))
                             if res := imp.req_resources:
                                 if res.ore:
                                     cost_str += f", {res.ore} ore"
@@ -561,23 +561,23 @@ class Menu:
                             pyxel.text(125, 50 + adj_offset, cost_str, pyxel.COLOR_WHITE)
                             pyxel.text(20, 57 + adj_offset, str(imp.description), pyxel.COLOR_WHITE)
                             effects = 0
-                            if (wealth := imp.effect.wealth) != 0:
+                            if (wealth := round(imp.effect.wealth)) != 0:
                                 pyxel.text(20 + effects * 25, 64 + adj_offset, f"{wealth:+}", pyxel.COLOR_YELLOW)
                                 effects += 1
-                            if (harvest := imp.effect.harvest) != 0:
+                            if (harvest := round(imp.effect.harvest)) != 0:
                                 pyxel.text(20 + effects * 25, 64 + adj_offset, f"{harvest:+}", pyxel.COLOR_GREEN)
                                 effects += 1
-                            if (zeal := imp.effect.zeal) != 0:
+                            if (zeal := round(imp.effect.zeal)) != 0:
                                 pyxel.text(20 + effects * 25, 64 + adj_offset, f"{zeal:+}", pyxel.COLOR_RED)
                                 effects += 1
-                            if (fortune := imp.effect.fortune) != 0:
+                            if (fortune := round(imp.effect.fortune)) != 0:
                                 pyxel.text(20 + effects * 25, 64 + adj_offset, f"{fortune:+}", pyxel.COLOR_PURPLE)
                                 effects += 1
-                            if (strength := imp.effect.strength) != 0:
+                            if (strength := round(imp.effect.strength)) != 0:
                                 pyxel.blt(20 + effects * 25, 64 + adj_offset, 0, 0, 28, 8, 8)
                                 pyxel.text(30 + effects * 25, 64 + adj_offset, f"{strength:+}", pyxel.COLOR_WHITE)
                                 effects += 1
-                            if (satisfaction := imp.effect.satisfaction) != 0:
+                            if (satisfaction := round(imp.effect.satisfaction)) != 0:
                                 satisfaction_u = 8 if satisfaction >= 0 else 16
                                 pyxel.blt(20 + effects * 25, 64 + adj_offset, 0, satisfaction_u, 28, 8, 8)
                                 pyxel.text(30 + effects * 25, 64 + adj_offset, f"{satisfaction:+}", pyxel.COLOR_WHITE)
@@ -639,10 +639,11 @@ class Menu:
                         if self.unit_boundaries[0] <= idx <= self.unit_boundaries[1]:
                             adj_idx = idx - self.unit_boundaries[0]
                             pyxel.text(20, 50 + adj_idx * 10, str(unit.name), pyxel.COLOR_WHITE)
-                            pyxel.text(160, 50 + adj_idx * 10, str(unit.cost), pyxel.COLOR_WHITE)
-                            pyxel.text(88, 50 + adj_idx * 10, str(unit.max_health), pyxel.COLOR_WHITE)
+                            pyxel.text(160, 50 + adj_idx * 10, str(round(unit.cost)), pyxel.COLOR_WHITE)
+                            pyxel.text(88, 50 + adj_idx * 10, str(round(unit.max_health)), pyxel.COLOR_WHITE)
                             pyxel.text(108, 50 + adj_idx * 10,
-                                       str(unit.max_capacity if isinstance(unit, DeployerUnitPlan) else unit.power),
+                                       str(unit.max_capacity if isinstance(unit, DeployerUnitPlan)
+                                           else round(unit.power)),
                                        pyxel.COLOR_WHITE)
                             pyxel.text(132, 50 + adj_idx * 10, str(unit.total_stamina), pyxel.COLOR_WHITE)
                 case _:

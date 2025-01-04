@@ -74,6 +74,7 @@ class Board:
         self.player_idx: int = player_idx
         self.game_name: typing.Optional[str] = game_name
         self.waiting_for_other_players: bool = False
+        self.checking_game_sync: bool = False
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
              is_night: bool, turns_until_change: int):  # pragma: no cover
@@ -190,6 +191,7 @@ class Board:
                           (heathen.location[1] - map_pos[1]) * 8 + 4, 0, heathen_x, 60, 8, 8)
                 # Outline a heathen if the player can attack it.
                 if self.selected_unit is not None and not isinstance(self.selected_unit, Heathen) and \
+                        self.selected_unit in players[self.player_idx].units and \
                         not self.selected_unit.has_acted and \
                         abs(self.selected_unit.location[0] - heathen.location[0]) <= 1 and \
                         abs(self.selected_unit.location[1] - heathen.location[1]) <= 1:
@@ -333,12 +335,13 @@ class Board:
             for setl_quad in self.selected_settlement.quads:
                 for i in range(setl_quad.location[0] - 1, setl_quad.location[0] + 2):
                     for j in range(setl_quad.location[1] - 1, setl_quad.location[1] + 2):
-                        if not any(s_q.location == (i, j) for s_q in self.selected_settlement.quads):
+                        if not any(s_q.location == (i, j) for s_q in self.selected_settlement.quads) and \
+                                0 <= i <= 99 and 0 <= j <= 89:
                             pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_WHITE)
         if self.deploying_army_from_unit:
             for i in range(self.selected_unit.location[0] - 1, self.selected_unit.location[0] + 2):
                 for j in range(self.selected_unit.location[1] - 1, self.selected_unit.location[1] + 2):
-                    if self.selected_unit.location != (i, j):
+                    if self.selected_unit.location != (i, j) and 0 <= i <= 99 and 0 <= j <= 89:
                         pyxel.rectb((i - map_pos[0]) * 8 + 4, (j - map_pos[1]) * 8 + 4, 8, 8, pyxel.COLOR_WHITE)
 
         # Also display the number of units the player can move at the bottom-right of the screen.
@@ -356,10 +359,14 @@ class Board:
         # There are a few situations in which we override the default help text:
         # - If the current game has multiplayer enabled, and the player is waiting for other players to finish their
         #   turn.
+        # - If the current game has multiplayer enabled, and the player's local game state is being validated to ensure
+        #   that it is in sync with the game server.
         # - If a unit is selected that can settle, alerting the player as to the settle button.
         # - If a unit is selected that can heal other units, alerting the player as to how to heal other units.
         if self.game_config.multiplayer and self.waiting_for_other_players:
             pyxel.text(2, 189, "Waiting for other players...", pyxel.COLOR_WHITE)
+        elif self.game_config.multiplayer and self.checking_game_sync:
+            pyxel.text(2, 189, "Checking game sync, please wait...", pyxel.COLOR_WHITE)
         elif self.selected_unit is not None and self.selected_unit.plan.can_settle:
             pyxel.text(2, 189, "S: Found new settlement", pyxel.COLOR_WHITE)
         elif self.selected_unit is not None and self.selected_unit.plan.heals and not self.selected_unit.has_acted:
@@ -606,7 +613,7 @@ class Board:
                             new_settl.strength *= 2
                             new_settl.max_strength *= 2
                         case Faction.FRONTIERSMEN:
-                            new_settl.satisfaction = 75
+                            new_settl.satisfaction = 75.0
                         case Faction.IMPERIALS:
                             new_settl.strength /= 2
                             new_settl.max_strength /= 2
@@ -927,7 +934,7 @@ class Board:
                                    [self.quads[self.selected_unit.location[1]][self.selected_unit.location[0]]],
                                    setl_resources, [])
             if player.faction == Faction.FRONTIERSMEN:
-                new_settl.satisfaction = 75
+                new_settl.satisfaction = 75.0
             elif player.faction == Faction.IMPERIALS:
                 new_settl.strength /= 2
                 new_settl.max_strength /= 2

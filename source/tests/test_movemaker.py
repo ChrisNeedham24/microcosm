@@ -559,7 +559,8 @@ class MovemakerTest(unittest.TestCase):
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False, [(self.TEST_PLAYER_2, 1)])
         # We expect a Golden Van to be constructed because it has the highest max capacity for a deployer unit, and the
         # AI player has undergone all blessings, thus unlocking it.
-        self.assertEqual(get_unit_plan("Golden Van"), self.TEST_SETTLEMENT.current_work.construction)
+        self.assertEqual(get_unit_plan("Golden Van", Faction.AGRICULTURISTS),
+                         self.TEST_SETTLEMENT.current_work.construction)
 
     def test_set_ai_construction_aggressive_healer(self):
         """
@@ -575,7 +576,8 @@ class MovemakerTest(unittest.TestCase):
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False, [])
         # We expect the Narcotician unit plan to be selected, as it has the greatest healing ability of all units.
-        self.assertEqual(get_unit_plan("Narcotician"), self.TEST_SETTLEMENT.current_work.construction)
+        self.assertEqual(get_unit_plan("Narcotician", Faction.AGRICULTURISTS),
+                         self.TEST_SETTLEMENT.current_work.construction)
 
     def test_set_ai_construction_aggressive_unit(self):
         """
@@ -593,7 +595,8 @@ class MovemakerTest(unittest.TestCase):
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False, [])
         # We expect the Haruspex unit plan to be selected, as it has the greatest power of all units.
-        self.assertEqual(get_unit_plan("Haruspex"), self.TEST_SETTLEMENT.current_work.construction)
+        self.assertEqual(get_unit_plan("Haruspex", Faction.AGRICULTURISTS),
+                         self.TEST_SETTLEMENT.current_work.construction)
 
     def test_set_ai_construction_aggressive_enough_units(self):
         """
@@ -624,7 +627,8 @@ class MovemakerTest(unittest.TestCase):
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False, [])
         # We expect the Narcotician unit plan to be selected, as it has the greatest healing ability of all units.
-        self.assertEqual(get_unit_plan("Narcotician"), self.TEST_SETTLEMENT.current_work.construction)
+        self.assertEqual(get_unit_plan("Narcotician", Faction.AGRICULTURISTS),
+                         self.TEST_SETTLEMENT.current_work.construction)
 
     def test_set_ai_construction_defensive_unit(self):
         """
@@ -642,7 +646,8 @@ class MovemakerTest(unittest.TestCase):
 
         set_ai_construction(self.TEST_PLAYER, self.TEST_SETTLEMENT, False, [])
         # We expect the Fanatic unit plan to be selected, as it has the greatest health of all units.
-        self.assertEqual(get_unit_plan("Fanatic"), self.TEST_SETTLEMENT.current_work.construction)
+        self.assertEqual(get_unit_plan("Fanatic", Faction.AGRICULTURISTS),
+                         self.TEST_SETTLEMENT.current_work.construction)
 
     def test_set_ai_construction_defensive_strength_improvement(self):
         """
@@ -1474,6 +1479,8 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER_2.units = [self.TEST_UNIT_5]
         self.TEST_PLAYER.units = [self.TEST_UNIT_4]
         self.movemaker.board_ref.overlay.toggle_attack = MagicMock()
+        self.movemaker.board_ref.overlay.selected_unit = self.TEST_UNIT_4
+        self.movemaker.board_ref.overlay.toggle_unit = MagicMock()
 
         self.assertFalse(self.TEST_PLAYER_2.quads_seen)
 
@@ -1488,6 +1495,10 @@ class MovemakerTest(unittest.TestCase):
         self.assertFalse(self.TEST_UNIT_5.remaining_stamina)
         # Because the 'human' player in this test is being attacked, we also expect the overlay to have been toggled.
         self.movemaker.board_ref.overlay.toggle_attack.assert_called()
+        # Additionally, since the 'human' player's unit was initially selected on the board and was then killed, we
+        # also expect the unit overlay to have been toggled.
+        self.movemaker.board_ref.overlay.toggle_unit.assert_called_with(None)
+        self.assertIsNone(self.movemaker.board_ref.overlay.selected_unit)
         self.assertFalse(self.TEST_PLAYER_2.units)
         self.assertFalse(self.TEST_PLAYER.units)
 

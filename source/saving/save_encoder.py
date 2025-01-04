@@ -15,9 +15,12 @@ class SaveEncoder(JSONEncoder):
         # Data classes have their own dictionary representations.
         if dataclasses.is_dataclass(o):
             return dataclasses.asdict(o)
-        # Sets must be represented as lists, no real difference anyway.
+        # Sets must be represented as lists, no real difference anyway. We sort the resulting lists to ensure that
+        # encoding is stable.
         if isinstance(o, set):
-            return list(o)
+            set_as_list: list = list(o)
+            set_as_list.sort()
+            return set_as_list
         # ObjectConvertors, which are defined below, are essentially dicts with attributes anyway, so just return their
         # dict.
         if isinstance(o, ObjectConverter):

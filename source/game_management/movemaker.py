@@ -615,7 +615,7 @@ class MoveMaker:
             setl_resources = get_resources_for_settlement([unit.location], self.board_ref.quads)
             new_settl = Settlement(setl_name, unit.location, [], [prospective_quad], setl_resources, [])
             if player.faction == Faction.FRONTIERSMEN:
-                new_settl.satisfaction = 75
+                new_settl.satisfaction = 75.0
             elif player.faction == Faction.IMPERIALS:
                 new_settl.strength /= 2
                 new_settl.max_strength /= 2
@@ -813,6 +813,10 @@ class MoveMaker:
                             # Show the attack notification if we attacked the human player on this machine.
                             if local_player_idx is not None and within_range in all_players[local_player_idx].units:
                                 self.board_ref.overlay.toggle_attack(data)
+                                # Also deselect the unit if it was killed while selected.
+                                if within_range.health <= 0 and self.board_ref.overlay.selected_unit is within_range:
+                                    self.board_ref.overlay.toggle_unit(None)
+                                    self.board_ref.overlay.selected_unit = None
                             if within_range.health <= 0:
                                 for p in all_players:
                                     if within_range in p.units:

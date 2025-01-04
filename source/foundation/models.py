@@ -161,6 +161,7 @@ class OverlayType(Enum):
     NIGHT = "NIGHT"
     ACH_NOTIF = "ACH_NOTIF"
     PLAYER_CHANGE = "PLAYER_CHANGE"
+    DESYNC = "DESYNC"
 
 
 class SettlementAttackType(Enum):
@@ -392,9 +393,9 @@ class Settlement:
     # Resources can be exploited by a settlement if they are within 1 quad.
     resources: ResourceCollection
     garrison: List[Unit]
-    strength: float = 100
-    max_strength: float = 100
-    satisfaction: float = 50
+    strength: float = 100.0
+    max_strength: float = 100.0
+    satisfaction: float = 50.0
     current_work: Optional[Construction] = None
     level: int = 1
     """
@@ -443,7 +444,7 @@ class Player:
     name: str
     faction: Faction
     colour: int  # Refers to pyxel's colours, which resolve to integers.
-    wealth: float = 0
+    wealth: float = 0.0
     settlements: List[Settlement] = field(default_factory=lambda: [])
     units: List[Unit] = field(default_factory=lambda: [])
     blessings: List[Blessing] = field(default_factory=lambda: [])
@@ -525,7 +526,7 @@ class Statistics:
     """
     The statistics loaded from statistics.json.
     """
-    playtime: float = 0
+    playtime: float = 0.0
     turns_played: int = 0
     victories: Dict[VictoryType, int] = field(default_factory=lambda: {})
     defeats: int = 0

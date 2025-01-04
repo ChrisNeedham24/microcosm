@@ -55,28 +55,29 @@ v4.0
 """
 
 
-def migrate_unit_plan(unit_plan) -> UnitPlan:
+def migrate_unit_plan(unit_plan, faction: Faction) -> UnitPlan:
     """
     Apply the heals attribute migration for UnitPlans, if required.
     :param unit_plan: The loaded unit plan object.
+    :param faction: The faction unit plan belongs to.
     :return: An optionally-migrated UnitPlan representation.
     """
-    plan_prereq = None if unit_plan.prereq is None else get_blessing(unit_plan.prereq.name)
+    plan_prereq = None if unit_plan.prereq is None else get_blessing(unit_plan.prereq.name, faction)
     will_heal: bool = unit_plan.heals if hasattr(unit_plan, "heals") else False
 
     if hasattr(unit_plan, "max_capacity"):
-        return DeployerUnitPlan(unit_plan.power, unit_plan.max_health, unit_plan.total_stamina,
-                                unit_plan.name, plan_prereq, unit_plan.cost, unit_plan.can_settle,
-                                will_heal, unit_plan.max_capacity)
-    return UnitPlan(unit_plan.power, unit_plan.max_health, unit_plan.total_stamina,
-                    unit_plan.name, plan_prereq, unit_plan.cost, unit_plan.can_settle,
-                    will_heal)
+        return DeployerUnitPlan(float(unit_plan.power), float(unit_plan.max_health), unit_plan.total_stamina,
+                                unit_plan.name, plan_prereq, unit_plan.cost, unit_plan.can_settle, will_heal,
+                                unit_plan.max_capacity)
+    return UnitPlan(float(unit_plan.power), float(unit_plan.max_health), unit_plan.total_stamina, unit_plan.name,
+                    plan_prereq, unit_plan.cost, unit_plan.can_settle, will_heal)
 
 
-def migrate_unit(unit) -> Unit:
+def migrate_unit(unit, faction: Faction) -> Unit:
     """
     Apply the has_attacked to has_acted and sieging to besieging migrations for Units, if required.
     :param unit: The loaded unit object.
+    :param faction: The faction the unit belongs to.
     :return: An optionally-migrated Unit representation.
     """
     # Note for the below migrations that if we detect an outdated attribute, we migrate it and then delete it so that it
@@ -96,11 +97,12 @@ def migrate_unit(unit) -> Unit:
     if hasattr(unit, "passengers"):
         # We need to migrate each of the passengers for DeployerUnits as well.
         for idx, p in enumerate(unit.passengers):
-            unit.passengers[idx] = migrate_unit(p)
-        return DeployerUnit(unit.health, unit.remaining_stamina, (unit.location[0], unit.location[1]), unit.garrisoned,
-                            migrate_unit_plan(unit.plan), will_have_acted, will_be_besieging, unit.passengers)
-    return Unit(unit.health, unit.remaining_stamina, (unit.location[0], unit.location[1]), unit.garrisoned,
-                migrate_unit_plan(unit.plan), will_have_acted, will_be_besieging)
+            unit.passengers[idx] = migrate_unit(p, faction)
+        return DeployerUnit(float(unit.health), unit.remaining_stamina, (unit.location[0], unit.location[1]),
+                            unit.garrisoned, migrate_unit_plan(unit.plan, faction), will_have_acted, will_be_besieging,
+                            unit.passengers)
+    return Unit(float(unit.health), unit.remaining_stamina, (unit.location[0], unit.location[1]), unit.garrisoned,
+                migrate_unit_plan(unit.plan, faction), will_have_acted, will_be_besieging)
 
 
 def migrate_player(player):

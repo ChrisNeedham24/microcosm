@@ -9,7 +9,7 @@ from unittest.mock import patch, MagicMock, mock_open
 from source.display.board import Board
 from source.foundation.catalogue import Namer, get_heathen_plan, ACHIEVEMENTS
 from source.foundation.models import GameConfig, Faction, Heathen, Project, UnitPlan, Improvement, Unit, Blessing, \
-    AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, VictoryType, HarvestStatus, EconomicStatus
+    AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, VictoryType, HarvestStatus, EconomicStatus, Quad
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game, save_stats_achievements, \
@@ -34,7 +34,7 @@ class GameSaveManagerTest(unittest.TestCase):
         self.game_state.board = Board(self.TEST_CONFIG, Namer())
         self.game_state.gen_players(self.TEST_CONFIG)
         self.game_state.player_idx = 0
-        self.game_state.heathens = [Heathen(1, 2, (3, 4), get_heathen_plan(1))]
+        self.game_state.heathens = [Heathen(1.0, 2, (3, 4), get_heathen_plan(1))]
         self.game_controller = GameController()
 
     @patch("os.path.exists", lambda *args: False)
@@ -291,6 +291,7 @@ class GameSaveManagerTest(unittest.TestCase):
         # - The human player's first garrison has a unit present, but the second does not, while the AI player's has
         #   none either.
         # - All settlements in the game have standard harvest and economic statuses.
+        # - All settlements in the game have only a single quad.
         # - Both players have ongoing blessings.
         # - The human player has completed two blessings, but the AI player has not completed any.
         # - Naturally, the human player has no AI playstyle, but the AI player does have one.
@@ -360,6 +361,16 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertTrue(isinstance(human.settlements[1].economic_status, EconomicStatus))
         self.assertTrue(isinstance(ai.settlements[0].economic_status, EconomicStatus))
 
+        self.assertEqual(human.settlements[0].quads[0],
+                         quads[human.settlements[0].location[1]][human.settlements[0].location[0]])
+        self.assertTrue(isinstance(human.settlements[0].quads[0], Quad))
+        self.assertEqual(human.settlements[1].quads[0],
+                         quads[human.settlements[1].location[1]][human.settlements[1].location[0]])
+        self.assertTrue(isinstance(human.settlements[1].quads[0], Quad))
+        self.assertEqual(ai.settlements[0].quads[0],
+                         quads[ai.settlements[0].location[1]][ai.settlements[0].location[0]])
+        self.assertTrue(isinstance(ai.settlements[0].quads[0], Quad))
+
         self.assertTrue(isinstance(human.ongoing_blessing.blessing, Blessing))
         self.assertTrue(isinstance(ai.ongoing_blessing.blessing, Blessing))
 
@@ -420,6 +431,7 @@ class GameSaveManagerTest(unittest.TestCase):
         # - The human player's first garrison has a unit present, but the second does not, while the AI player's has
         #   none either.
         # - All settlements in the game have standard harvest and economic statuses.
+        # - All settlements in the game have only a single quad.
         # - Both players have ongoing blessings.
         # - The human player has completed two blessings, but the AI player has not completed any.
         # - Naturally, the human player has no AI playstyle, but the AI player does have one.
@@ -495,6 +507,20 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertTrue(isinstance(human.settlements[0].economic_status, EconomicStatus))
         self.assertTrue(isinstance(human.settlements[1].economic_status, EconomicStatus))
         self.assertTrue(isinstance(ai.settlements[0].economic_status, EconomicStatus))
+
+        self.assertEqual(
+            human.settlements[0].quads[0],
+            self.game_state.board.quads[human.settlements[0].location[1]][human.settlements[0].location[0]]
+        )
+        self.assertTrue(isinstance(human.settlements[0].quads[0], Quad))
+        self.assertEqual(
+            human.settlements[1].quads[0],
+            self.game_state.board.quads[human.settlements[1].location[1]][human.settlements[1].location[0]]
+        )
+        self.assertTrue(isinstance(human.settlements[1].quads[0], Quad))
+        self.assertEqual(ai.settlements[0].quads[0],
+                         self.game_state.board.quads[ai.settlements[0].location[1]][ai.settlements[0].location[0]])
+        self.assertTrue(isinstance(ai.settlements[0].quads[0], Quad))
 
         self.assertTrue(isinstance(human.ongoing_blessing.blessing, Blessing))
         self.assertTrue(isinstance(ai.ongoing_blessing.blessing, Blessing))

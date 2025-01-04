@@ -240,6 +240,17 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     break
             # Enter the game once all data has been received.
             if quads_populated:
+                # Before we enter the game, we need to link the quad for each AI-generated settlement to the quads on
+                # the actual board, so that changes to the quad on the board also affect the quad belonging to the
+                # settlement. This does not occur normally because each settlement's quads will just be a deep copy by
+                # default. This was noticed when desync was occurring because settlements were founded on top of
+                # relics, which were then subsequently investigated and removed. But this would only affect the quads on
+                # the board, and not the ones belonging to the settlements, due to the original deep copy
+                # implementation. Also note that this cannot be done when processing FoundSettlementEvents because when
+                # the AI settlements are generated, the quads for the board do not yet exist client-side.
+                for p in gsrs["local"].players:
+                    for s in p.settlements:
+                        s.quads = [gsrs["local"].board.quads[s.location[1]][s.location[0]]]
                 pyxel.mouse(visible=True)
                 gc.last_turn_time = time.time()
                 gsrs["local"].game_started = True
@@ -306,7 +317,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         migrate_settlement(evt.settlement)
         # We need this for the initial settlements, which contain a unit in the garrison.
         for idx, u in enumerate(evt.settlement.garrison):
-            evt.settlement.garrison[idx] = migrate_unit(u)
+            evt.settlement.garrison[idx] = migrate_unit(u, evt.player_faction)
         player = next(pl for pl in gsrs[game_name].players if pl.faction == evt.player_faction)
         player.settlements.append(evt.settlement)
         update_player_quads_seen_around_point(player, evt.settlement.location)
@@ -332,7 +343,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
         game_name: str = evt.game_name if self.server.is_server else "local"
         player = next(pl for pl in self.server.game_states_ref[game_name].players
                       if pl.faction == evt.player_faction)
-        player.ongoing_blessing = OngoingBlessing(get_blessing(evt.blessing.blessing.name))
+        player.ongoing_blessing = OngoingBlessing(get_blessing(evt.blessing.blessing.name, player.faction))
         if self.server.is_server:
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
@@ -354,7 +365,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
         elif hasattr(evt.construction.construction, "type"):
             setl.current_work.construction = get_project(evt.construction.construction.name)
         else:
-            setl.current_work.construction = get_unit_plan(evt.construction.construction.name)
+            setl.current_work.construction = \
+                get_unit_plan(evt.construction.construction.name, player.faction, setl.resources)
         if self.server.is_server:
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
@@ -439,7 +451,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 unit.plan.total_stamina += 1
                 unit.remaining_stamina = unit.plan.total_stamina
             case InvestigationResult.UPKEEP:
-                unit.plan.cost = 0
+                unit.plan.cost = 0.0
             case InvestigationResult.ORE:
                 player.resources.ore += 10
             case InvestigationResult.TIMBER:
@@ -741,24 +753,31 @@ class RequestHandler(socketserver.BaseRequestHandler):
         gc: GameController = self.server.game_controller_ref
         gs: GameState = gsrs[evt.lobby_name if self.server.is_server else "local"]
         if self.server.is_server:
-            player_name: str
-            # If the player is joining an ongoing game, then they can just take the name of the AI player they're
-            # replacing.
-            if gs.game_started:
-                replaced_player: Player = next(p for p in gs.players if p.faction == evt.player_faction)
-                replaced_player.ai_playstyle = None
-                player_name = replaced_player.name
-            # Otherwise, we just have to keep generating one for them until they get one that's not taken.
-            else:
-                # If the player joining would take the player count above its max, then remove an AI player.
-                if len(gs.players) == self.server.lobbies_ref[evt.lobby_name].player_count:
-                    gs.players.remove(next(p for p in gs.players if p.ai_playstyle))
-                player_name = random.choice(PLAYER_NAMES)
-                while any(player.name == player_name for player in self.server.game_clients_ref[evt.lobby_name]):
+            # Clients can rejoin ongoing games - in these cases, player details don't need to be changed as no AI
+            # players are being replaced.
+            client_is_rejoining: bool = \
+                any(pd.id == evt.identifier for pd in self.server.game_clients_ref[evt.lobby_name])
+            if not client_is_rejoining:
+                player_name: str
+                # If the player is joining an ongoing game, then they can just take the name of the AI player they're
+                # replacing.
+                if gs.game_started:
+                    replaced_player: Player = next(p for p in gs.players if p.faction == evt.player_faction)
+                    replaced_player.ai_playstyle = None
+                    player_name = replaced_player.name
+                # Otherwise, we just have to keep generating one for them until they get one that's not taken.
+                else:
+                    # If the player joining would take the player count above its max, then remove an AI player.
+                    if len(gs.players) == self.server.lobbies_ref[evt.lobby_name].player_count:
+                        gs.players.remove(next(p for p in gs.players if p.ai_playstyle))
                     player_name = random.choice(PLAYER_NAMES)
-                gs.players.append(Player(player_name, Faction(evt.player_faction), FACTION_COLOURS[evt.player_faction]))
-            self.server.game_clients_ref[evt.lobby_name].append(PlayerDetails(player_name, evt.player_faction,
-                                                                              evt.identifier))
+                    while any(player.name == player_name for player in self.server.game_clients_ref[evt.lobby_name]):
+                        player_name = random.choice(PLAYER_NAMES)
+                    gs.players.append(Player(player_name,
+                                             Faction(evt.player_faction),
+                                             FACTION_COLOURS[evt.player_faction]))
+                self.server.game_clients_ref[evt.lobby_name].append(PlayerDetails(player_name, evt.player_faction,
+                                                                                  evt.identifier))
             # We can't just combine the player details from game_clients_ref and manually make the AI players' ones
             # because order matters for this - the player joining needs to get their player index right.
             player_details: List[PlayerDetails] = []
@@ -772,8 +791,11 @@ class RequestHandler(socketserver.BaseRequestHandler):
                                              player_details,
                                              self.server.lobbies_ref[evt.lobby_name],
                                              current_turn=None if not gs.game_started else gs.turn)
-            self._forward_packet(evt, evt.lobby_name, sock,
-                                 gate=lambda pd: pd.faction != evt.player_faction or not gs.game_started)
+            # Alert the other players that a new player has joined, but only if they're not rejoining - other players
+            # don't need to be alerted in these cases.
+            if not client_is_rejoining:
+                self._forward_packet(evt, evt.lobby_name, sock,
+                                     gate=lambda pd: pd.faction != evt.player_faction or not gs.game_started)
             # If the player is joining an ongoing game, then we need to forward all the game state to them.
             if gs.game_started:
                 quads_list: List[Quad] = list(chain.from_iterable(gs.board.quads))
@@ -989,6 +1011,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
             save_game(gs, auto=True)
             gs.process_heathens()
             gs.process_ais(self.server.move_makers_ref[evt.game_name])
+        # Pass the hash of the server's game state to clients so that they can validate that they're still in sync with
+        # the server.
+        evt.game_state_hash = hash(gs)
         # Alert all players that the turn has ended.
         self._forward_packet(evt, evt.game_name, sock)
         # Since we're in a new turn, there are no longer any players ready to end their turn.
@@ -1053,6 +1078,12 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gs.process_heathens()
                 gs.process_ais(gc.move_maker)
             gs.board.waiting_for_other_players = False
+            # Ensure that the client is still in sync with the server - if it's not, display the desync overlay,
+            # prompting the player to rejoin the game.
+            gs.board.checking_game_sync = True
+            if hash(gs) != evt.game_state_hash:
+                gs.board.overlay.toggle_desync()
+            gs.board.checking_game_sync = False
             gs.processing_turn = False
 
     def process_unready_event(self, evt: UnreadyEvent):

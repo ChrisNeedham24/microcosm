@@ -58,15 +58,15 @@ class EventListenerTest(unittest.TestCase):
             Settlement("Testville", (0, 0), [], [self.TEST_QUAD], ResourceCollection(), [])
         self.TEST_SETTLEMENT_2: Settlement = \
             Settlement("EvilTown", (5, 5), [], [self.TEST_QUAD_2], ResourceCollection(), [])
-        self.TEST_UNIT: Unit = Unit(50, 2, (4, 4), False, deepcopy(UNIT_PLANS[0]))
-        self.TEST_UNIT_2: Unit = Unit(50, 2, (8, 8), False, deepcopy(UNIT_PLANS[0]))
+        self.TEST_UNIT: Unit = Unit(50.0, 2, (4, 4), False, deepcopy(UNIT_PLANS[0]))
+        self.TEST_UNIT_2: Unit = Unit(50.0, 2, (8, 8), False, deepcopy(UNIT_PLANS[0]))
         # The unit plan used is the first one that can heal.
-        self.TEST_HEALER_UNIT: Unit = Unit(20, 20, (5, 5), False, deepcopy(UNIT_PLANS[6]))
+        self.TEST_HEALER_UNIT: Unit = Unit(20.0, 20, (5, 5), False, deepcopy(UNIT_PLANS[6]))
         # The unit plan used is the first deployer one.
-        self.TEST_DEPLOYER_UNIT: DeployerUnit = DeployerUnit(60, 60, (6, 6), False, deepcopy(UNIT_PLANS[9]))
+        self.TEST_DEPLOYER_UNIT: DeployerUnit = DeployerUnit(60.0, 60, (6, 6), False, deepcopy(UNIT_PLANS[9]))
         # The unit plan used is the settler unit plan.
-        self.TEST_SETTLER_UNIT: Unit = Unit(5, 5, (7, 7), False, deepcopy(UNIT_PLANS[3]))
-        self.TEST_HEATHEN: Heathen = Heathen(40, 3, (9, 9), get_heathen_plan(0))
+        self.TEST_SETTLER_UNIT: Unit = Unit(5.0, 5, (7, 7), False, deepcopy(UNIT_PLANS[3]))
+        self.TEST_HEATHEN: Heathen = Heathen(40.0, 3, (9, 9), get_heathen_plan(0))
         self.TEST_GAME_STATE: GameState = GameState()
         self.TEST_GAME_STATE.players = [
             Player("Uno", Faction.AGRICULTURISTS, FACTION_COLOURS[Faction.AGRICULTURISTS],
@@ -396,6 +396,11 @@ class EventListenerTest(unittest.TestCase):
             test_event.quad_chunk_idx = i
             self.request_handler.process_init_event(test_event, self.mock_socket)
 
+        # Prior to entering the game, we expect the quad for each generated settlement to have been linked to the quads
+        # on the actual board, rather than just being a deep copy.
+        for p in gs.players:
+            for s in p.settlements:
+                self.assertIs(s.quads[0], gs.board.quads[s.location[1]][s.location[0]])
         # Since the board has now been fully populated with quads, we expect the client to have entered the game.
         pyxel_mouse_mock.assert_called_with(visible=True)
         self.assertGreater(gc.last_turn_time, initial_last_turn_time)
@@ -1219,7 +1224,7 @@ class EventListenerTest(unittest.TestCase):
         """
         player: Player = self.TEST_GAME_STATE.players[0]
         setl: Settlement = player.settlements[0]
-        setl.current_work = Construction(IMPROVEMENTS[0], zeal_consumed=1)
+        setl.current_work = Construction(IMPROVEMENTS[0], zeal_consumed=1.0)
         player.wealth = 2
         test_event: BuyoutConstructionEvent = BuyoutConstructionEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
                                                                       UpdateAction.BUYOUT_CONSTRUCTION,
@@ -1248,7 +1253,7 @@ class EventListenerTest(unittest.TestCase):
         """
         player: Player = self.TEST_GAME_STATE.players[0]
         setl: Settlement = player.settlements[0]
-        setl.current_work = Construction(IMPROVEMENTS[0], zeal_consumed=1)
+        setl.current_work = Construction(IMPROVEMENTS[0], zeal_consumed=1.0)
         player.wealth = 2
         test_event: BuyoutConstructionEvent = BuyoutConstructionEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
                                                                       UpdateAction.BUYOUT_CONSTRUCTION,
@@ -2139,6 +2144,165 @@ class EventListenerTest(unittest.TestCase):
         self.assertEqual(minify_heathens(gs.heathens), heathens_packets[0].heathens_chunk)
         self.assertEqual(len(gs.heathens), heathens_packets[0].total_heathens)
 
+    @patch("time.sleep", lambda *args: None)
+    def test_process_join_event_server_game_started_client_is_rejoining(self):
+        """
+        Ensure that the game server correctly processes join events when the game being joined is already underway, and
+        the client is rejoining the game.
+        """
+        gs: GameState = self.TEST_GAME_STATE
+        # To verify that AI and human player details are returned differently, we need an AI player in the game as well.
+        ai_player: Player = Player("Mr. Roboto", Faction.FUNDAMENTALISTS, FACTION_COLOURS[Faction.FUNDAMENTALISTS],
+                                   ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL))
+        gs.players.append(ai_player)
+        # Give each player some seen quads so we can see the minified packet representations them being sent back to the
+        # rejoining client. We use a list here so that the order is consistent.
+        test_seen_quads: List[Tuple[int, int]] = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
+        for p in gs.players:
+            p.quads_seen = test_seen_quads
+        gs.game_started = True
+        # The below values obviously can't occur simultaneously, but we want to show that the server responds correctly
+        # and assigns these values to the forwarded event.
+        gs.until_night = 1
+        gs.nighttime_left = 1
+        # Simulate a situation in which the first player is rejoining the game after losing sync with the server.
+        rejoining_player: Player = gs.players[0]
+        # For this test, we actually need an initialised board.
+        gs.board = Board(self.TEST_GAME_CONFIG, Namer())
+
+        test_event: JoinEvent = JoinEvent(EventType.JOIN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME,
+                                          rejoining_player.faction)
+        self.mock_server.is_server = True
+        self.mock_server.game_states_ref[self.TEST_GAME_NAME] = gs
+        # Out of the three players in the game, two are currently human players.
+        rejoining_client_details: PlayerDetails = PlayerDetails("Uno", Faction.AGRICULTURISTS, self.TEST_IDENTIFIER)
+        other_client_details: PlayerDetails = PlayerDetails("Dos", Faction.FRONTIERSMEN, self.TEST_IDENTIFIER_2)
+        # Since the third player is an AI, they shouldn't be in the game clients.
+        self.mock_server.game_clients_ref = {
+            self.TEST_GAME_NAME: [rejoining_client_details, other_client_details]
+        }
+        # Use a different GameConfig that allows for three players.
+        three_player_conf: GameConfig = GameConfig(3, Faction.AGRICULTURISTS, True, True, True, True)
+        self.mock_server.lobbies_ref[self.TEST_GAME_NAME] = three_player_conf
+
+        # Process our test event.
+        self.request_handler.process_join_event(test_event, self.mock_socket)
+
+        # Declare some of the more complicated expected state separately for clarity.
+        # The AI player's details shouldn't have an identifier.
+        expected_ai_player_details: PlayerDetails = PlayerDetails(ai_player.name, ai_player.faction, id=None)
+        # The lobby should have the name from the event, the expected details from each player, and the correct
+        # configuration and turn.
+        expected_lobby_details: LobbyDetails = \
+            LobbyDetails(test_event.lobby_name,
+                         [rejoining_client_details, other_client_details, expected_ai_player_details],
+                         three_player_conf,
+                         gs.turn)
+
+        # The game clients for this game should be unchanged, as the client was rejoining.
+        self.assertListEqual([rejoining_client_details, other_client_details],
+                             self.mock_server.game_clients_ref[test_event.lobby_name])
+        self.assertEqual(expected_lobby_details, test_event.lobby_details)
+
+        # Because there are a number of different types of JoinEvents fired off by the server to clients, we need to
+        # distinguish the five types using separate methods.
+
+        def is_standard_packet(c: call) -> bool:
+            """
+            Get whether the supplied mock call to the mock socket was representative of a standard JoinEvent with no
+            extra fields. This standard type is sent to all clients already in the game the new client is joining.
+            :param c: The mock call being checked.
+            :return: Whether the mock call originates from a standard JoinEvent.
+            """
+            evt: JoinEvent = json.loads(c.args[0], object_hook=ObjectConverter)
+            return evt.quad_chunk is None and \
+                evt.player_chunk is None and \
+                evt.quads_seen_chunk is None and \
+                evt.heathens_chunk is None
+
+        def is_quad_and_cfg_packet(c: call) -> bool:
+            """
+            Get whether the supplied mock call to the mock socket was representative of a JoinEvent containing quad and
+            overall game configuration data. This type is sent only to the client joining the game.
+            :param c: The mock call being checked.
+            :return: Whether the mock call originates from a quad and config JoinEvent.
+            """
+            evt: JoinEvent = json.loads(c.args[0], object_hook=ObjectConverter)
+            return evt.quad_chunk is not None
+
+        def is_player_packet(c: call) -> bool:
+            """
+            Get whether the supplied mock call to the mock socket was representative of a JoinEvent containing player
+            data. This type is sent only to the client joining the game.
+            :param c: The mock call being checked.
+            :return: Whether the mock call originates from a player JoinEvent.
+            """
+            evt: JoinEvent = json.loads(c.args[0], object_hook=ObjectConverter)
+            return evt.player_chunk is not None
+
+        def is_quads_seen_packet(c: call) -> bool:
+            """
+            Get whether the supplied mock call to the mock socket was representative of a JoinEvent containing seen
+            quads data for each player. This type is sent only to the client joining the game.
+            :param c: The mock call being checked.
+            :return: Whether the mock call originates from a seen quads JoinEvent.
+            """
+            evt: JoinEvent = json.loads(c.args[0], object_hook=ObjectConverter)
+            return evt.quads_seen_chunk is not None
+
+        def is_heathens_packet(c: call) -> bool:
+            """
+            Get whether the supplied mock call to the mock socket was representative of a JoinEvent containing heathen
+            data. This type is sent only to the client joining the game.
+            :param c: The mock call being checked.
+            :return: Whether the mock call originates from a heathen JoinEvent.
+            """
+            evt: JoinEvent = json.loads(c.args[0], object_hook=ObjectConverter)
+            return evt.heathens_chunk is not None
+
+        # We expect the other client not to have been notified, since the client was only rejoining.
+        standard_packets: List[call] = [c for c in self.mock_socket.sendto.mock_calls if is_standard_packet(c)]
+        self.assertFalse(standard_packets)
+
+        quad_and_cfg_packets: List[JoinEvent] = [json.loads(c.args[0], object_hook=ObjectConverter)
+                                                 for c in self.mock_socket.sendto.mock_calls
+                                                 if is_quad_and_cfg_packet(c)]
+        # We expect there to have been 90 packets sent back to the rejoining client with quad data. This is because
+        # there are 9000 quads on the board, and they are sent in chunks of 100.
+        self.assertEqual(90, len(quad_and_cfg_packets))
+        for pkt in quad_and_cfg_packets:
+            # Validate that the game configuration was appropriately returned.
+            self.assertEqual(gs.until_night, pkt.until_night)
+            self.assertEqual(gs.nighttime_left, pkt.nighttime_left)
+            # We need to compare the object's dictionary forms as one is a GameConfig and one is an ObjectConverter.
+            self.assertEqual(three_player_conf.__dict__, pkt.cfg.__dict__)
+
+        player_packets: List[JoinEvent] = [json.loads(c.args[0], object_hook=ObjectConverter)
+                                           for c in self.mock_socket.sendto.mock_calls if is_player_packet(c)]
+        # The rejoining client should have been sent three packets of player data, each containing the data for a single
+        # player in the game.
+        self.assertEqual(3, len(player_packets))
+        for i in range(len(player_packets)):
+            self.assertEqual(minify_player(gs.players[i]), player_packets[i].player_chunk)
+            self.assertEqual(i, player_packets[i].player_chunk_idx)
+
+        quads_seen_packets: List[JoinEvent] = [json.loads(c.args[0], object_hook=ObjectConverter)
+                                               for c in self.mock_socket.sendto.mock_calls if is_quads_seen_packet(c)]
+        # The rejoining client should have been sent three packets of seen quad data, each containing the data for a
+        # single player's seen quads.
+        self.assertEqual(3, len(quads_seen_packets))
+        for i in range(len(quads_seen_packets)):
+            self.assertEqual(minify_quads_seen(set(gs.players[i].quads_seen)), quads_seen_packets[i].quads_seen_chunk)
+            self.assertEqual(i, quads_seen_packets[i].player_chunk_idx)
+
+        heathens_packets: List[JoinEvent] = [json.loads(c.args[0], object_hook=ObjectConverter)
+                                             for c in self.mock_socket.sendto.mock_calls if is_heathens_packet(c)]
+        # Lastly, we expect the rejoining client to have been sent a single packet containing data about the heathens
+        # currently in the game.
+        self.assertEqual(1, len(heathens_packets))
+        self.assertEqual(minify_heathens(gs.heathens), heathens_packets[0].heathens_chunk)
+        self.assertEqual(len(gs.heathens), heathens_packets[0].total_heathens)
+
     def test_process_join_event_client_joining_lobby(self):
         """
         Ensure that game clients process join events correctly when the client is joining an existing lobby.
@@ -2488,12 +2652,20 @@ class EventListenerTest(unittest.TestCase):
         self.assertTupleEqual((self.request_handler.client_address[0], test_event.port),
                               self.mock_server.clients_ref[test_event.identifier])
 
+    @patch.object(GameState, "__hash__")
     @patch("source.networking.event_listener.save_game")
     @patch("random.seed")
-    def test_process_end_turn_event_server(self, random_seed_mock: MagicMock, save_game_mock: MagicMock):
+    def test_process_end_turn_event_server(self,
+                                           random_seed_mock: MagicMock,
+                                           save_game_mock: MagicMock,
+                                           game_state_hash_mock: MagicMock):
         """
         Ensure that the game server correctly processes end turn events.
         """
+        # Mock out the actual hash value of the game state to avoid having to account for the inherent randomness of the
+        # game state between test runs.
+        test_game_state_hash: int = 1234
+        game_state_hash_mock.return_value = test_game_state_hash
         # For this test, we actually need an initialised board.
         self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
         # Reduce the test heathen's stamina and health so we can see them both being replenished.
@@ -2540,15 +2712,22 @@ class EventListenerTest(unittest.TestCase):
         save_game_mock.assert_called_with(self.TEST_GAME_STATE, auto=True)
         self.TEST_GAME_STATE.process_heathens.assert_called()
         self.TEST_GAME_STATE.process_ais.assert_called_with(test_movemaker)
+        # We also expect the game state hash to have been set to our mocked hash value from the server's side, to be
+        # used for synchronisation purposes by clients.
+        self.assertEqual(test_game_state_hash, test_event.game_state_hash)
         # We also expect all game clients to have been alerted that the turn has ended, not just clients other than the
         # one that dispatched the event.
         self.assertEqual(2, len(self.mock_socket.sendto.mock_calls))
         # The server's ready players should also have been reset, since a new turn has begun.
         self.assertFalse(self.TEST_GAME_STATE.ready_players)
 
+    @patch.object(GameState, "__hash__")
     @patch("source.networking.event_listener.save_stats_achievements")
     @patch("random.seed")
-    def test_process_end_turn_event_client_victory(self, random_seed_mock: MagicMock, achievements_mock: MagicMock):
+    def test_process_end_turn_event_client_victory(self,
+                                                   random_seed_mock: MagicMock,
+                                                   achievements_mock: MagicMock,
+                                                   game_state_hash_mock: MagicMock):
         """
         Ensure that game clients correctly process end turn events where the client has achieved a victory.
         """
@@ -2557,6 +2736,7 @@ class EventListenerTest(unittest.TestCase):
         self.TEST_GAME_STATE.board.overlay.remove_warning_if_possible = MagicMock()
         self.TEST_GAME_STATE.board.overlay.toggle_victory = MagicMock()
         self.TEST_GAME_STATE.board.overlay.toggle_ach_notif = MagicMock()
+        self.TEST_GAME_STATE.board.overlay.toggle_desync = MagicMock()
         # If the client is waiting for the server to end the turn, then they will be waiting for other players.
         self.TEST_GAME_STATE.board.waiting_for_other_players = True
         # Mock that an achievement is returned when the client wins the game.
@@ -2571,7 +2751,13 @@ class EventListenerTest(unittest.TestCase):
         self.TEST_GAME_STATE.turn = 5
         # Remove the other player's settlement to trigger an elimination victory.
         self.TEST_GAME_STATE.players[1].settlements = []
-        test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
+        # Mock out the actual hash value of the game state to avoid having to account for the inherent randomness of the
+        # game state between test runs.
+        test_game_state_hash: int = 1234
+        game_state_hash_mock.return_value = test_game_state_hash
+        # The server will have tacked on the hash of its game state in its forwarded packet.
+        test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME,
+                                                game_state_hash=test_game_state_hash)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
 
@@ -2597,14 +2783,21 @@ class EventListenerTest(unittest.TestCase):
         self.TEST_GAME_STATE.board.overlay.toggle_victory.assert_called_with(Victory(self.TEST_GAME_STATE.players[0],
                                                                                      VictoryType.ELIMINATION))
         self.TEST_GAME_STATE.board.overlay.toggle_ach_notif.assert_called_with([ACHIEVEMENTS[0]])
+        # Since the hash received by the client in the server's packet is identical to the client's one, the desync
+        # overlay should not be displayed.
+        self.TEST_GAME_STATE.board.overlay.toggle_desync.assert_not_called()
         # The client should now also no longer be waiting for other players.
         self.assertFalse(self.TEST_GAME_STATE.board.waiting_for_other_players)
         # Since this is a client, no packets should have been forwarded.
         self.mock_socket.sendto.assert_not_called()
 
+    @patch.object(GameState, "__hash__")
     @patch("source.networking.event_listener.save_stats_achievements")
     @patch("random.seed")
-    def test_process_end_turn_event_client_defeat(self, random_seed_mock: MagicMock, achievements_mock: MagicMock):
+    def test_process_end_turn_event_client_defeat(self,
+                                                  random_seed_mock: MagicMock,
+                                                  achievements_mock: MagicMock,
+                                                  game_state_hash_mock: MagicMock):
         """
         Ensure that game clients correctly process end turn events where another client has achieved a victory.
         """
@@ -2613,6 +2806,7 @@ class EventListenerTest(unittest.TestCase):
         self.TEST_GAME_STATE.board.overlay.remove_warning_if_possible = MagicMock()
         self.TEST_GAME_STATE.board.overlay.toggle_victory = MagicMock()
         self.TEST_GAME_STATE.board.overlay.toggle_ach_notif = MagicMock()
+        self.TEST_GAME_STATE.board.overlay.toggle_desync = MagicMock()
         # If the client is waiting for the server to end the turn, then they will be waiting for other players.
         self.TEST_GAME_STATE.board.waiting_for_other_players = True
         # Mock that an achievement is returned when the client is defeated.
@@ -2627,7 +2821,13 @@ class EventListenerTest(unittest.TestCase):
         self.TEST_GAME_STATE.turn = 5
         # Give the other player sufficient accumulated wealth to trigger an affluence victory.
         self.TEST_GAME_STATE.players[1].accumulated_wealth = 100000
-        test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
+        # Mock out the actual hash value of the game state to avoid having to account for the inherent randomness of the
+        # game state between test runs.
+        test_game_state_hash: int = 1234
+        game_state_hash_mock.return_value = test_game_state_hash
+        # The server will have tacked on the hash of its game state in its forwarded packet.
+        test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME,
+                                                game_state_hash=test_game_state_hash)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
 
@@ -2653,14 +2853,21 @@ class EventListenerTest(unittest.TestCase):
         self.TEST_GAME_STATE.board.overlay.toggle_victory.assert_called_with(Victory(self.TEST_GAME_STATE.players[1],
                                                                                      VictoryType.AFFLUENCE))
         self.TEST_GAME_STATE.board.overlay.toggle_ach_notif.assert_called_with([ACHIEVEMENTS[-3]])
+        # Since the hash received by the client in the server's packet is identical to the client's one, the desync
+        # overlay should not be displayed.
+        self.TEST_GAME_STATE.board.overlay.toggle_desync.assert_not_called()
         # The client should now also no longer be waiting for other players.
         self.assertFalse(self.TEST_GAME_STATE.board.waiting_for_other_players)
         # Since this is a client, no packets should have been forwarded.
         self.mock_socket.sendto.assert_not_called()
 
+    @patch.object(GameState, "__hash__")
     @patch("source.networking.event_listener.save_stats_achievements")
     @patch("random.seed")
-    def test_process_end_turn_event_client_no_victory(self, random_seed_mock: MagicMock, achievements_mock: MagicMock):
+    def test_process_end_turn_event_client_no_victory(self,
+                                                      random_seed_mock: MagicMock,
+                                                      achievements_mock: MagicMock,
+                                                      game_state_hash_mock: MagicMock):
         """
         Ensure that game clients correctly process end turn events where no victory is achieved.
         """
@@ -2668,6 +2875,7 @@ class EventListenerTest(unittest.TestCase):
         self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
         self.TEST_GAME_STATE.board.overlay.remove_warning_if_possible = MagicMock()
         self.TEST_GAME_STATE.board.overlay.toggle_ach_notif = MagicMock()
+        self.TEST_GAME_STATE.board.overlay.toggle_desync = MagicMock()
         # If the client is waiting for the server to end the turn, then they will be waiting for other players.
         self.TEST_GAME_STATE.board.waiting_for_other_players = True
         # Mock that an achievement is returned when the next turn begins.
@@ -2685,7 +2893,13 @@ class EventListenerTest(unittest.TestCase):
         # Set an initial last turn time so we can see it being updated later.
         initial_last_turn_time: float = 0
         self.TEST_GAME_CONTROLLER.last_turn_time = initial_last_turn_time
-        test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME)
+        # Mock out the actual hash value of the game state to avoid having to account for the inherent randomness of the
+        # game state between test runs.
+        test_game_state_hash: int = 1234
+        game_state_hash_mock.return_value = test_game_state_hash
+        # The server will have tacked on the hash of its game state in its forwarded packet.
+        test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME,
+                                                game_state_hash=test_game_state_hash)
         self.mock_server.is_server = False
         self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
 
@@ -2714,6 +2928,86 @@ class EventListenerTest(unittest.TestCase):
         # Since the game is continuing, we expect the turns for heathens and AI players to have been processed.
         self.TEST_GAME_STATE.process_heathens.assert_called()
         self.TEST_GAME_STATE.process_ais.assert_called_with(self.TEST_GAME_CONTROLLER.move_maker)
+        # Since the hash received by the client in the server's packet is identical to the client's one, the desync
+        # overlay should not be displayed.
+        self.TEST_GAME_STATE.board.overlay.toggle_desync.assert_not_called()
+        # The client should now also no longer be waiting for other players.
+        self.assertFalse(self.TEST_GAME_STATE.board.waiting_for_other_players)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+
+    @patch.object(GameState, "__hash__")
+    @patch("source.networking.event_listener.save_stats_achievements")
+    @patch("random.seed")
+    def test_process_end_turn_event_client_no_victory_desync(self,
+                                                             random_seed_mock: MagicMock,
+                                                             achievements_mock: MagicMock,
+                                                             game_state_hash_mock: MagicMock):
+        """
+        Ensure that game clients correctly process end turn events where no victory is achieved, and the client has lost
+        sync with the server.
+        """
+        # For this test, we actually need an initialised board.
+        self.TEST_GAME_STATE.board = Board(self.TEST_GAME_CONFIG, Namer())
+        self.TEST_GAME_STATE.board.overlay.remove_warning_if_possible = MagicMock()
+        self.TEST_GAME_STATE.board.overlay.toggle_ach_notif = MagicMock()
+        self.TEST_GAME_STATE.board.overlay.toggle_desync = MagicMock()
+        # If the client is waiting for the server to end the turn, then they will be waiting for other players.
+        self.TEST_GAME_STATE.board.waiting_for_other_players = True
+        # Mock that an achievement is returned when the next turn begins.
+        achievements_mock.return_value = [ACHIEVEMENTS[2]]
+        # Reduce the test heathen's stamina and health so we can see them both being replenished.
+        self.TEST_HEATHEN.remaining_stamina = 0
+        self.TEST_HEATHEN.health = 1
+        # Mock out all the more complicated processing methods - testing their logic isn't the point of this test.
+        self.TEST_GAME_STATE.process_player = MagicMock()
+        self.TEST_GAME_STATE.process_climatic_effects = MagicMock()
+        self.TEST_GAME_STATE.process_heathens = MagicMock()
+        self.TEST_GAME_STATE.process_ais = MagicMock()
+        # Set the turn to 5 so that a heathen will be spawned.
+        self.TEST_GAME_STATE.turn = 5
+        # Set an initial last turn time so we can see it being updated later.
+        initial_last_turn_time: float = 0
+        self.TEST_GAME_CONTROLLER.last_turn_time = initial_last_turn_time
+        # Mock out the actual hash value of the game state to avoid having to account for the inherent randomness of the
+        # game state between test runs.
+        test_game_state_hash: int = 1234
+        game_state_hash_mock.return_value = test_game_state_hash
+        # The server will have tacked on the hash of its game state in its forwarded packet. For this test, we want the
+        # client and the server to be out of sync, so we just subtract one from the simulated server hash.
+        test_event: EndTurnEvent = EndTurnEvent(EventType.END_TURN, self.TEST_IDENTIFIER, self.TEST_GAME_NAME,
+                                                game_state_hash=test_game_state_hash - 1)
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+
+        # Process our test event.
+        self.request_handler.process_end_turn_event(test_event, self.mock_socket)
+
+        # We expect the random number generator to have been seeded with the turn we specified earlier, for
+        # synchronisation purposes.
+        random_seed_mock.assert_called_with(5)
+        # We expect each player to be processed.
+        self.assertEqual(len(self.TEST_GAME_STATE.players), self.TEST_GAME_STATE.process_player.call_count)
+        # We also expect a new heathen to be spawned, and for all existing heathens to have their stamina reset and
+        # their health partly replenished.
+        self.assertEqual(2, len(self.TEST_GAME_STATE.heathens))
+        self.assertTrue(self.TEST_HEATHEN.remaining_stamina)
+        self.assertGreater(self.TEST_HEATHEN.health, 1)
+        self.TEST_GAME_STATE.board.overlay.remove_warning_if_possible.assert_called()
+        # The turn should also be incremented and climatic effects processed, since our test game configuration has them
+        # enabled.
+        self.assertEqual(6, self.TEST_GAME_STATE.turn)
+        self.TEST_GAME_STATE.process_climatic_effects.assert_called_with(reseed_random=False)
+        self.assertGreater(self.TEST_GAME_CONTROLLER.last_turn_time, initial_last_turn_time)
+        # The relevant overlay related updates should have occurred.
+        self.TEST_GAME_STATE.board.overlay.toggle_ach_notif.assert_called_with([ACHIEVEMENTS[2]])
+        self.assertEqual(2, self.TEST_GAME_STATE.board.overlay.total_settlement_count)
+        # Since the game is continuing, we expect the turns for heathens and AI players to have been processed.
+        self.TEST_GAME_STATE.process_heathens.assert_called()
+        self.TEST_GAME_STATE.process_ais.assert_called_with(self.TEST_GAME_CONTROLLER.move_maker)
+        # Since the hash received by the client in the server's packet is one off its own generated game state hash, the
+        # desync overlay should be displayed.
+        self.TEST_GAME_STATE.board.overlay.toggle_desync.assert_called()
         # The client should now also no longer be waiting for other players.
         self.assertFalse(self.TEST_GAME_STATE.board.waiting_for_other_players)
         # Since this is a client, no packets should have been forwarded.

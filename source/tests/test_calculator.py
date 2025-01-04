@@ -1,15 +1,16 @@
 import unittest
+from copy import deepcopy
 from typing import List, Tuple, Generator
 from unittest.mock import patch, MagicMock
 
 from source.foundation.catalogue import UNIT_PLANS, BLESSINGS, PROJECTS
 from source.foundation.models import Biome, Unit, AttackData, HealData, Settlement, SetlAttackData, Player, Faction, \
     Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing, \
-    Quad, EconomicStatus, HarvestStatus, DeployerUnitPlan, DeployerUnit, ResourceCollection
+    Quad, EconomicStatus, HarvestStatus, DeployerUnitPlan, DeployerUnit, ResourceCollection, Blessing
 from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction, \
     investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices, get_resources_for_settlement, \
     player_has_resources_for_improvement, subtract_player_resources_for_improvement, split_list_into_chunks, \
-    update_player_quads_seen_around_point
+    update_player_quads_seen_around_point, scale_unit_plan_attributes, scale_blessing_attributes
 
 
 class CalculatorTest(unittest.TestCase):
@@ -854,6 +855,43 @@ class CalculatorTest(unittest.TestCase):
                              (96, 87), (97, 87), (98, 87), (99, 87),
                              (96, 88), (97, 88), (98, 88), (99, 88),
                              (96, 89), (97, 89), (98, 89), (99, 89)}, self.TEST_PLAYER.quads_seen)
+
+    def test_scale_unit_plan_attributes(self):
+        """
+        Ensure that unit plan attributes are scaled correctly, based on faction and the resources of the settlement
+        they're being constructed in.
+        """
+        test_unit_plan: UnitPlan = UnitPlan(10.0, 20.0, 30, "Plan of unit", None, 0.0)
+        imperials_unit_plan: UnitPlan = UnitPlan(15.0, 20.0, 30, "Plan of unit", None, 0.0)
+        persistent_unit_plan: UnitPlan = UnitPlan(7.5, 30.0, 30, "Plan of unit", None, 0.0)
+        explorers_unit_plan: UnitPlan = UnitPlan(10.0, 15.0, 45, "Plan of unit", None, 0.0)
+        bloodstone_unit_plan: UnitPlan = UnitPlan(20.0, 40.0, 30, "Plan of unit", None, 0.0)
+        imperials_bloodstone_unit_plan: UnitPlan = UnitPlan(30.0, 40.0, 30, "Plan of unit", None, 0.0)
+
+        self.assertEqual(test_unit_plan,
+                         scale_unit_plan_attributes(deepcopy(test_unit_plan), Faction.AGRICULTURISTS, None))
+        self.assertEqual(imperials_unit_plan,
+                         scale_unit_plan_attributes(deepcopy(test_unit_plan), Faction.IMPERIALS, None))
+        self.assertEqual(persistent_unit_plan,
+                         scale_unit_plan_attributes(deepcopy(test_unit_plan), Faction.PERSISTENT, None))
+        self.assertEqual(explorers_unit_plan,
+                         scale_unit_plan_attributes(deepcopy(test_unit_plan), Faction.EXPLORERS, None))
+        self.assertEqual(bloodstone_unit_plan, scale_unit_plan_attributes(deepcopy(test_unit_plan),
+                                                                          Faction.AGRICULTURISTS,
+                                                                          ResourceCollection(bloodstone=2)))
+        self.assertEqual(imperials_bloodstone_unit_plan, scale_unit_plan_attributes(deepcopy(test_unit_plan),
+                                                                                    Faction.IMPERIALS,
+                                                                                    ResourceCollection(bloodstone=2)))
+
+    def test_scale_blessing_attributes(self):
+        """
+        Ensure that blessing attributes are scaled correctly, based on faction.
+        """
+        test_blessing: Blessing = Blessing("Tester", "Blessing", 1.0)
+        godless_blessing: Blessing = Blessing("Tester", "Blessing", 1.5)
+
+        self.assertEqual(test_blessing, scale_blessing_attributes(test_blessing, Faction.AGRICULTURISTS))
+        self.assertEqual(godless_blessing, scale_blessing_attributes(test_blessing, Faction.GODLESS))
 
 
 if __name__ == '__main__':

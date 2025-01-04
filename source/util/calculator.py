@@ -1,10 +1,10 @@
 import random
 from copy import deepcopy
-from typing import List, Tuple, Set, Generator
+from typing import List, Tuple, Set, Generator, Optional
 
 from source.foundation.models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, \
     Settlement, Improvement, UnitPlan, SetlAttackData, GameConfig, InvestigationResult, Faction, Project, ProjectType, \
-    HealData, DeployerUnitPlan, DeployerUnit, ResourceCollection, Quad
+    HealData, DeployerUnitPlan, DeployerUnit, ResourceCollection, Quad, Blessing
 
 
 def calculate_yield_for_quad(biome: Biome) -> Tuple[int, int, int, int]:
@@ -106,17 +106,17 @@ def attack_setl(attacker: Unit, setl: Settlement, setl_owner: Player, ai=True) -
                           attacker.health <= 0, setl.strength <= 0)
 
 
-def get_player_totals(player: Player, is_night: bool) -> (float, float, float, float):
+def get_player_totals(player: Player, is_night: bool) -> Tuple[float, float, float, float]:
     """
     Get the wealth, harvest, zeal, and fortune totals for the given player.
     :param player: The player to calculate totals for.
     :param is_night: Whether it is night.
     :return: A tuple containing the player's wealth, harvest, zeal, and fortune.
     """
-    overall_wealth = 0
-    overall_harvest = 0
-    overall_zeal = 0
-    overall_fortune = 0
+    overall_wealth: float = 0.0
+    overall_harvest: float = 0.0
+    overall_zeal: float = 0.0
+    overall_fortune: float = 0.0
 
     # Just add together the stats for each of the player's settlements.
     for setl in player.settlements:
@@ -133,7 +133,7 @@ def get_player_totals(player: Player, is_night: bool) -> (float, float, float, f
 def get_setl_totals(player: Player,
                     setl: Settlement,
                     is_night: bool,
-                    strict: bool = False) -> (float, float, float, float):
+                    strict: bool = False) -> Tuple[float, float, float, float]:
     """
     Get the wealth, harvest, zeal, and fortune totals for the given Settlement.
     :param player: The owner of the settlement.
@@ -152,21 +152,21 @@ def get_setl_totals(player: Player,
     # satisfaction of the settlement. Essentially, settlements with low satisfaction will yield no wealth/harvest, and
     # settlements with high satisfaction will yield 1.5 times the wealth and harvest.
 
-    total_zeal = max(sum(quad.zeal for quad in setl.quads) +
-                     sum(imp.effect.zeal for imp in setl.improvements), 0 if strict else 1)
+    total_zeal: float = float(max(sum(quad.zeal for quad in setl.quads) +
+                                  sum(imp.effect.zeal for imp in setl.improvements), 0 if strict else 1))
     total_zeal += (setl.level - 1) * 0.25 * total_zeal
     if player.faction == Faction.AGRICULTURISTS:
         total_zeal *= 0.75
     elif player.faction == Faction.FUNDAMENTALISTS:
         total_zeal *= 1.25
-    total_wealth = max(sum(quad.wealth for quad in setl.quads) +
-                       sum(imp.effect.wealth for imp in setl.improvements), 0)
+    total_wealth: float = float(max(sum(quad.wealth for quad in setl.quads) +
+                                    sum(imp.effect.wealth for imp in setl.improvements), 0))
     total_wealth += (setl.level - 1) * 0.25 * total_wealth
     if setl.current_work is not None and isinstance(setl.current_work.construction, Project) and \
             setl.current_work.construction.type is ProjectType.ECONOMICAL:
         total_wealth += total_zeal / 4
     if setl.economic_status is EconomicStatus.RECESSION:
-        total_wealth = 0
+        total_wealth = 0.0
     elif setl.economic_status is EconomicStatus.BOOM:
         total_wealth *= 1.5
     if player.faction == Faction.GODLESS:
@@ -175,22 +175,22 @@ def get_setl_totals(player: Player,
         total_wealth *= 0.75
     if setl.resources.aurora:
         total_wealth *= (1 + 0.5 * setl.resources.aurora)
-    total_harvest = max(sum(quad.harvest for quad in setl.quads) +
-                        sum(imp.effect.harvest for imp in setl.improvements), 0)
+    total_harvest: float = float(max(sum(quad.harvest for quad in setl.quads) +
+                                     sum(imp.effect.harvest for imp in setl.improvements), 0))
     total_harvest += (setl.level - 1) * 0.25 * total_harvest
     if setl.current_work is not None and isinstance(setl.current_work.construction, Project) and \
             setl.current_work.construction.type is ProjectType.BOUNTIFUL:
         total_harvest += total_zeal / 4
     if setl.harvest_status is HarvestStatus.POOR or setl.besieged:
-        total_harvest = 0
+        total_harvest = 0.0
     elif setl.harvest_status is HarvestStatus.PLENTIFUL:
         total_harvest *= 1.5
     if player.faction == Faction.RAVENOUS:
         total_harvest *= 1.25
     if is_night and player.faction != Faction.NOCTURNE and not setl.resources.sunstone:
         total_harvest /= 2
-    total_fortune = max(sum(quad.fortune for quad in setl.quads) +
-                        sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 1)
+    total_fortune: float = float(max(sum(quad.fortune for quad in setl.quads) +
+                                     sum(imp.effect.fortune for imp in setl.improvements), 0 if strict else 1))
     total_fortune += (setl.level - 1) * 0.25 * total_fortune
     if setl.current_work is not None and isinstance(setl.current_work.construction, Project) and \
             setl.current_work.construction.type is ProjectType.MAGICAL:
@@ -224,15 +224,15 @@ def complete_construction(setl: Settlement, player: Player):
         if setl.current_work.construction.effect.satisfaction != 0:
             setl.satisfaction += setl.current_work.construction.effect.satisfaction
             if setl.satisfaction < 0:
-                setl.satisfaction = 0
+                setl.satisfaction = 0.0
             elif setl.satisfaction > 100:
-                setl.satisfaction = 100
+                setl.satisfaction = 100.0
     # If a unit is being completed, add it to the garrison, and reduce the settlement's level if it was a settler.
     else:
         plan: UnitPlan = setl.current_work.construction
         if plan.can_settle:
             setl.level -= 1
-            setl.harvest_reserves = pow(setl.level - 1, 2) * 25
+            setl.harvest_reserves = pow(setl.level - 1, 2) * 25.0
             setl.produced_settler = True
         if isinstance(plan, DeployerUnitPlan):
             setl.garrison.append(DeployerUnit(plan.max_health, plan.total_stamina, setl.location, True, deepcopy(plan)))
@@ -289,7 +289,7 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
             unit.remaining_stamina = unit.plan.total_stamina
             return InvestigationResult.STAMINA
         if random_chance < 70:
-            unit.plan.cost = 0
+            unit.plan.cost = 0.0
             return InvestigationResult.UPKEEP
         if random_chance < 80:
             player.resources.ore += 10
@@ -416,3 +416,44 @@ def update_player_quads_seen_around_point(player: Player, point: (int, int), vis
     for i in range(point[1] - vision_range, point[1] + vision_range + 1):
         for j in range(point[0] - vision_range, point[0] + vision_range + 1):
             player.quads_seen.add((clamp(j, 0, 99), clamp(i, 0, 89)))
+
+
+def scale_unit_plan_attributes(unit_plan: UnitPlan,
+                               faction: Faction,
+                               setl_resources: Optional[ResourceCollection]) -> UnitPlan:
+    """
+    Scale the attributes of the given unit plan, based on the supplied faction and, optionally, the resources of the
+    settlement they're being constructed in.
+    :param unit_plan: The unit plan to scale the attributes for.
+    :param faction: The faction the unit plan belongs to.
+    :param setl_resources: The optionally-supplied resource collection of the settlement that this unit plan will be
+                           constructed in. Naturally unsupplied if the unit plan is not under construction.
+    :return: The supplied unit plan, with scaled attributes if necessary.
+    """
+    match faction:
+        case Faction.IMPERIALS:
+            unit_plan.power *= 1.5
+        case Faction.PERSISTENT:
+            unit_plan.max_health *= 1.5
+            unit_plan.power *= 0.75
+        case Faction.EXPLORERS:
+            unit_plan.total_stamina = round(1.5 * unit_plan.total_stamina)
+            unit_plan.max_health *= 0.75
+
+    if setl_resources is not None and setl_resources.bloodstone:
+        unit_plan.power *= (1 + 0.5 * setl_resources.bloodstone)
+        unit_plan.max_health *= (1 + 0.5 * setl_resources.bloodstone)
+
+    return unit_plan
+
+
+def scale_blessing_attributes(blessing: Blessing, faction: Faction) -> Blessing:
+    """
+    Scale the attributes of the given blessing, based on the supplied faction.
+    :param blessing: The blessing to scale the attributes for.
+    :param faction: The faction the blessing belongs to.
+    :return: The supplied blessing, with scaled attributes if necessary.
+    """
+    if faction == Faction.GODLESS:
+        blessing.cost *= 1.5
+    return blessing

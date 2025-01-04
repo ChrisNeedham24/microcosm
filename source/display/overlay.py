@@ -1,4 +1,4 @@
-import typing
+from typing import List, Optional, Tuple
 
 from source.foundation.models import Settlement, Player, Improvement, Unit, Blessing, CompletedConstruction, UnitPlan, \
     Heathen, AttackData, SetlAttackData, Victory, InvestigationResult, OverlayType, SettlementAttackType, PauseOption, \
@@ -15,57 +15,57 @@ class Overlay:
         Initialise the many variables used by the overlay to keep track of game state.
         :param cfg: The configuration for the current game.
         """
-        self.showing: typing.List[OverlayType] = []  # What the overlay is currently displaying.
-        self.current_settlement: typing.Optional[Settlement] = None
-        self.current_player: typing.Optional[Player] = None  # Will always be the non-AI player on this machine.
-        self.available_constructions: typing.List[Improvement] = []
-        self.available_projects: typing.List[Project] = []
-        self.available_unit_plans: typing.List[UnitPlan] = []
-        self.selected_construction: typing.Optional[Improvement | Project | UnitPlan] = None
+        self.showing: List[OverlayType] = []  # What the overlay is currently displaying.
+        self.current_settlement: Optional[Settlement] = None
+        self.current_player: Optional[Player] = None  # Will always be the non-AI player on this machine.
+        self.available_constructions: List[Improvement] = []
+        self.available_projects: List[Project] = []
+        self.available_unit_plans: List[UnitPlan] = []
+        self.selected_construction: Optional[Improvement | Project | UnitPlan] = None
         # These boundaries are used to keep track of which improvements/units/blessings are currently displayed. This is
         # for scrolling functionality to work.
-        self.construction_boundaries: typing.Tuple[int, int] = 0, 5
-        self.unit_plan_boundaries: typing.Tuple[int, int] = 0, 5
+        self.construction_boundaries: Tuple[int, int] = 0, 5
+        self.unit_plan_boundaries: Tuple[int, int] = 0, 5
         self.current_construction_menu: ConstructionMenu = ConstructionMenu.IMPROVEMENTS
-        self.selected_unit: typing.Optional[Unit | Heathen] = None
-        self.available_blessings: typing.List[Blessing] = []
-        self.selected_blessing: typing.Optional[Blessing] = None
-        self.blessing_boundaries: typing.Tuple[int, int] = 0, 5
-        self.problematic_settlements: typing.List[Settlement] = []  # Settlements with no construction.
+        self.selected_unit: Optional[Unit | Heathen] = None
+        self.available_blessings: List[Blessing] = []
+        self.selected_blessing: Optional[Blessing] = None
+        self.blessing_boundaries: Tuple[int, int] = 0, 5
+        self.problematic_settlements: List[Settlement] = []  # Settlements with no construction.
         self.has_no_blessing: bool = False  # Whether the player is not undergoing a blessing currently.
         self.will_have_negative_wealth = False  # If the player will go into negative wealth if they end their turn.
         # Any blessings or constructions that have just completed, or any settlements that have levelled up.
-        self.completed_blessing: typing.Optional[Blessing] = None
-        self.completed_constructions: typing.List[CompletedConstruction] = []
-        self.levelled_up_settlements: typing.List[Settlement] = []
+        self.completed_blessing: Optional[Blessing] = None
+        self.completed_constructions: List[CompletedConstruction] = []
+        self.levelled_up_settlements: List[Settlement] = []
         # Data to display from attacks or healing actions.
-        self.attack_data: typing.Optional[AttackData] = None
-        self.heal_data: typing.Optional[HealData] = None
-        self.setl_attack_data: typing.Optional[SetlAttackData] = None
+        self.attack_data: Optional[AttackData] = None
+        self.heal_data: Optional[HealData] = None
+        self.setl_attack_data: Optional[SetlAttackData] = None
         # The option that the player has selected when attacking a settlement.
-        self.setl_attack_opt: typing.Optional[SettlementAttackType] = None
-        self.attacked_settlement: typing.Optional[Settlement] = None
-        self.attacked_settlement_owner: typing.Optional[Player] = None
-        self.sieged_settlement: typing.Optional[Settlement] = None
-        self.sieger_of_settlement: typing.Optional[Player] = None
+        self.setl_attack_opt: Optional[SettlementAttackType] = None
+        self.attacked_settlement: Optional[Settlement] = None
+        self.attacked_settlement_owner: Optional[Player] = None
+        self.sieged_settlement: Optional[Settlement] = None
+        self.sieger_of_settlement: Optional[Player] = None
         self.pause_option: PauseOption = PauseOption.RESUME
         self.has_saved: bool = False
-        self.current_victory: typing.Optional[Victory] = None  # Victory data, if one has been achieved.
-        self.just_eliminated: typing.Optional[Player] = None
-        self.close_to_vics: typing.List[Victory] = []
-        self.investigation_result: typing.Optional[InvestigationResult] = None
+        self.current_victory: Optional[Victory] = None  # Victory data, if one has been achieved.
+        self.just_eliminated: Optional[Player] = None
+        self.close_to_vics: List[Victory] = []
+        self.investigation_result: Optional[InvestigationResult] = None
         self.night_beginning: bool = False
-        self.settlement_status_boundaries: typing.Tuple[int, int] = 0, 9
+        self.settlement_status_boundaries: Tuple[int, int] = 0, 9
         self.show_auto_construction_prompt: bool = False
         self.show_additional_controls: bool = False
         self.show_unit_passengers: bool = False
         self.unit_passengers_idx: int = 0
-        self.new_achievements: typing.List[Achievement] = []
+        self.new_achievements: List[Achievement] = []
         self.current_standard_overlay_view: StandardOverlayView = StandardOverlayView.BLESSINGS
         self.current_game_config: GameConfig = cfg
         self.total_settlement_count: int = 0
-        self.player_changing: typing.Optional[Player] = None
-        self.changed_player_is_leaving: typing.Optional[bool] = None  # False means they're joining.
+        self.player_changing: Optional[Player] = None
+        self.changed_player_is_leaving: Optional[bool] = None  # False means they're joining.
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
@@ -119,8 +119,10 @@ class Overlay:
                 self.settlement_status_boundaries = \
                     self.settlement_status_boundaries[0] - 1, self.settlement_status_boundaries[1] - 1
 
-    def toggle_construction(self, available_constructions: typing.List[Improvement],
-                            available_projects: typing.List[Project], available_unit_plans: typing.List[UnitPlan]):
+    def toggle_construction(self,
+                            available_constructions: List[Improvement],
+                            available_projects: List[Project],
+                            available_unit_plans: List[UnitPlan]):
         """
         Toggle the construction overlay.
         :param available_constructions: The available improvements that the player can select from.
@@ -198,7 +200,7 @@ class Overlay:
         """
         return OverlayType.CONSTRUCTION in self.showing
 
-    def toggle_blessing(self, available_blessings: typing.List[Blessing]):
+    def toggle_blessing(self, available_blessings: List[Blessing]):
         """
         Toggle the blessings overlay.
         :param available_blessings: The available blessings for the player to select from.
@@ -251,7 +253,7 @@ class Overlay:
         """
         return OverlayType.BLESSING in self.showing
 
-    def toggle_settlement(self, settlement: typing.Optional[Settlement], player: Player):
+    def toggle_settlement(self, settlement: Optional[Settlement], player: Player):
         """
         Toggle the settlement overlay.
         :param settlement: The selected settlement to display.
@@ -303,7 +305,7 @@ class Overlay:
         """
         return OverlayType.DEPLOYMENT in self.showing
 
-    def toggle_unit(self, unit: typing.Optional[Unit | Heathen]):
+    def toggle_unit(self, unit: Optional[Unit | Heathen]):
         """
         Toggle the unit overlay.
         :param unit: The currently-selected unit to display in the overlay.
@@ -378,7 +380,7 @@ class Overlay:
         """
         return OverlayType.SETTLEMENT in self.showing
 
-    def toggle_warning(self, settlements: typing.List[Settlement], no_blessing: bool, will_have_negative_wealth: bool):
+    def toggle_warning(self, settlements: List[Settlement], no_blessing: bool, will_have_negative_wealth: bool):
         """
         Toggle the warning overlay.
         :param settlements: The player settlements that have no construction.
@@ -408,7 +410,7 @@ class Overlay:
         if OverlayType.WARNING in self.showing:
             self.showing.remove(OverlayType.WARNING)
 
-    def toggle_blessing_notification(self, blessing: typing.Optional[Blessing]):
+    def toggle_blessing_notification(self, blessing: Optional[Blessing]):
         """
         Toggle the blessing notification overlay.
         :param blessing: The blessing completed by the player.
@@ -426,7 +428,7 @@ class Overlay:
         """
         return OverlayType.BLESS_NOTIF in self.showing
 
-    def toggle_construction_notification(self, constructions: typing.List[CompletedConstruction]):
+    def toggle_construction_notification(self, constructions: List[CompletedConstruction]):
         """
         Toggle the construction notification overlay.
         :param constructions: The list of constructions that were completed in the last turn.
@@ -444,7 +446,7 @@ class Overlay:
         """
         return OverlayType.CONSTR_NOTIF in self.showing
 
-    def toggle_level_up_notification(self, settlements: typing.List[Settlement]):
+    def toggle_level_up_notification(self, settlements: List[Settlement]):
         """
         Toggle the level up notification overlay.
         :param settlements: The list of settlements that levelled up in the last turn.
@@ -462,7 +464,7 @@ class Overlay:
         """
         return OverlayType.LEVEL_NOTIF in self.showing
 
-    def toggle_attack(self, attack_data: typing.Optional[AttackData]):
+    def toggle_attack(self, attack_data: Optional[AttackData]):
         """
         Toggle the attack overlay.
         :param attack_data: The data for the overlay to display.
@@ -484,7 +486,7 @@ class Overlay:
         """
         return OverlayType.ATTACK in self.showing
 
-    def toggle_heal(self, heal_data: typing.Optional[HealData]):
+    def toggle_heal(self, heal_data: Optional[HealData]):
         """
         Toggle the heal overlay.
         :param heal_data: The data for the overlay to display.
@@ -506,7 +508,7 @@ class Overlay:
         """
         return OverlayType.HEAL in self.showing
 
-    def toggle_setl_attack(self, attack_data: typing.Optional[SetlAttackData]):
+    def toggle_setl_attack(self, attack_data: Optional[SetlAttackData]):
         """
         Toggle the settlement attack overlay.
         :param attack_data: The data for the overlay to display.
@@ -528,7 +530,7 @@ class Overlay:
         """
         return OverlayType.SETL_ATTACK in self.showing
 
-    def toggle_siege_notif(self, sieged: typing.Optional[Settlement], sieger: typing.Optional[Player]):
+    def toggle_siege_notif(self, sieged: Optional[Settlement], sieger: Optional[Player]):
         """
         Toggle the siege notification overlay.
         :param sieged: The settlement being placed under siege.
@@ -563,7 +565,7 @@ class Overlay:
         """
         return OverlayType.VICTORY in self.showing
 
-    def toggle_setl_click(self, att_setl: typing.Optional[Settlement], owner: typing.Optional[Player]):
+    def toggle_setl_click(self, att_setl: Optional[Settlement], owner: Optional[Player]):
         """
         Toggle the settlement click overlay.
         :param att_setl: The settlement clicked on by the player.
@@ -662,7 +664,7 @@ class Overlay:
         """
         return OverlayType.CONTROLS in self.showing
 
-    def toggle_elimination(self, eliminated: typing.Optional[Player]):
+    def toggle_elimination(self, eliminated: Optional[Player]):
         """
         Toggle the elimination overlay.
         :param eliminated: The player that has just been eliminated.
@@ -680,7 +682,7 @@ class Overlay:
         """
         return OverlayType.ELIMINATION in self.showing
 
-    def toggle_close_to_vic(self, close_to_vics: typing.List[Victory]):
+    def toggle_close_to_vic(self, close_to_vics: List[Victory]):
         """
         Toggle the close-to-victory overlay.
         :param close_to_vics: The victories that are close to being achieved, and the players close to achieving them.
@@ -698,7 +700,7 @@ class Overlay:
         """
         return OverlayType.CLOSE_TO_VIC in self.showing
 
-    def toggle_investigation(self, inv_res: typing.Optional[InvestigationResult]):
+    def toggle_investigation(self, inv_res: Optional[InvestigationResult]):
         """
         Toggle the investigation overlay.
         :param inv_res: The result of a just-executed investigation on a relic.
@@ -719,7 +721,7 @@ class Overlay:
         """
         return OverlayType.INVESTIGATION in self.showing
 
-    def toggle_night(self, beginning: typing.Optional[bool]):
+    def toggle_night(self, beginning: Optional[bool]):
         """
         Toggle the night overlay.
         :param beginning: Whether the night is beginning (will be False if dawn has broken).
@@ -737,7 +739,7 @@ class Overlay:
         """
         return OverlayType.NIGHT in self.showing
 
-    def toggle_ach_notif(self, new_achievements: typing.List[Achievement]):
+    def toggle_ach_notif(self, new_achievements: List[Achievement]):
         """
         Toggle the achievement notification overlay.
         :param new_achievements: Any new achievements to notify the player of.
@@ -761,8 +763,8 @@ class Overlay:
         return OverlayType.ACH_NOTIF in self.showing
 
     def toggle_player_change(self,
-                             player_changing: typing.Optional[Player],
-                             changed_player_is_leaving: typing.Optional[bool]):
+                             player_changing: Optional[Player],
+                             changed_player_is_leaving: Optional[bool]):
         """
         Toggle the player change overlay.
         :param player_changing: The player either leaving or joining the game.
@@ -782,7 +784,20 @@ class Overlay:
         """
         return OverlayType.PLAYER_CHANGE in self.showing
 
-    def remove_layer(self) -> typing.Optional[OverlayType]:
+    def toggle_desync(self):
+        """
+        Toggle the desync overlay.
+        """
+        self.showing.append(OverlayType.DESYNC)
+
+    def is_desync(self):
+        """
+        Returns whether the desync overlay is currently being displayed.
+        :return: Whether the desync overlay is being displayed.
+        """
+        return OverlayType.DESYNC in self.showing
+
+    def remove_layer(self) -> Optional[OverlayType]:
         """
         Remove a layer of the overlay, where possible.
         :return: An OverlayType, if the given type requires further action. More specifically, when toggling the unit

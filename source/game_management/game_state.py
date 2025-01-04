@@ -1,8 +1,12 @@
+import hashlib
+import json
 import random
+from itertools import chain
 from typing import Optional, List, Set, Tuple
 
 from source.display.board import Board
 from source.saving.game_save_manager import save_stats_achievements
+from source.saving.save_encoder import SaveEncoder
 from source.util.calculator import clamp, attack, get_setl_totals, complete_construction, \
     get_resources_for_settlement, update_player_quads_seen_around_point
 from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
@@ -52,6 +56,44 @@ class GameState:
         self.ready_players: Set[int] = set()
         # Whether the previous turn is being processed.
         self.processing_turn: bool = False
+
+    def __hash__(self) -> int:
+        """
+        Generate a hash for the game state.
+
+        This is currently only used to ensure that there is synchronisation between the game server and clients in
+        multiplayer games.
+
+        The components that make up the hash are those that make up a standard save file, and that also change during
+        the course of a game. As such, the game config and version are not included, excluded along with other fields
+        such as whether the user is on the menu, the set of ready players, etc.
+        """
+        # Each component of the hash needs to be bytes (or bytes-like) to be included in the hash. We use json.dumps()
+        # because Player, Heathen, Quad, and the dataclasses that make them up, are unhashable by default. Rather than
+        # implement a __hash__ function for each of them, it's easier to isolate that here.
+        players_bytes: bytes = json.dumps(self.players, separators=(",", ":"), cls=SaveEncoder).encode()
+        heathens_bytes: bytes = json.dumps(self.heathens, separators=(",", ":"), cls=SaveEncoder).encode()
+        turn_bytes: bytes = str(self.turn).encode()
+        until_night_bytes: bytes = str(self.until_night).encode()
+        nighttime_left_bytes: bytes = str(self.nighttime_left).encode()
+        # We use chain.from_iterable() here because the quads array is 2D.
+        quads_bytes: bytes = json.dumps(list(chain.from_iterable(self.board.quads)),
+                                        separators=(",", ":"), cls=SaveEncoder).encode()
+        # We generate a SHA256 hash here rather than just using the built-in hash() function with a tuple of the above.
+        # We do this because, since Python 3.3, the built-in function gives different results for the same data based on
+        # a random hash seed. This is done to address a vulnerability, but since we need a stable hashing algorithm, we
+        # use hashlib instead.
+        sha256_hash = hashlib.sha256()
+        sha256_hash.update(players_bytes)
+        sha256_hash.update(heathens_bytes)
+        sha256_hash.update(turn_bytes)
+        sha256_hash.update(until_night_bytes)
+        sha256_hash.update(nighttime_left_bytes)
+        sha256_hash.update(quads_bytes)
+        # We have to restrict the digest down to just its first eight digits to ensure that it fits in 64-bit
+        # architectures. If we don't do this, Python will do further post-processing which can be platform and
+        # architecture dependent - naturally we don't want anything like that.
+        return int.from_bytes(sha256_hash.digest()[:8], byteorder="big", signed=True)
 
     def reset_state(self):
         """
@@ -607,7 +649,7 @@ class GameState:
                         new_settl.strength *= 2
                         new_settl.max_strength *= 2
                     case Faction.FRONTIERSMEN:
-                        new_settl.satisfaction = 75
+                        new_settl.satisfaction = 75.0
                     case Faction.IMPERIALS:
                         new_settl.strength /= 2
                         new_settl.max_strength /= 2
