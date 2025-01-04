@@ -1497,8 +1497,8 @@ class MovemakerTest(unittest.TestCase):
         self.movemaker.board_ref.overlay.toggle_attack.assert_called()
         # Additionally, since the 'human' player's unit was initially selected on the board and was then killed, we
         # also expect the unit overlay to have been toggled.
-        self.assertIsNone(self.movemaker.board_ref.overlay.selected_unit)
         self.movemaker.board_ref.overlay.toggle_unit.assert_called_with(None)
+        self.assertIsNone(self.movemaker.board_ref.overlay.selected_unit)
         self.assertFalse(self.TEST_PLAYER_2.units)
         self.assertFalse(self.TEST_PLAYER.units)
 

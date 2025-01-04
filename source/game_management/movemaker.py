@@ -815,8 +815,8 @@ class MoveMaker:
                                 self.board_ref.overlay.toggle_attack(data)
                                 # Also deselect the unit if it was killed while selected.
                                 if within_range.health <= 0 and self.board_ref.overlay.selected_unit is within_range:
-                                    self.board_ref.overlay.selected_unit = None
                                     self.board_ref.overlay.toggle_unit(None)
+                                    self.board_ref.overlay.selected_unit = None
                             if within_range.health <= 0:
                                 for p in all_players:
                                     if within_range in p.units:

@@ -234,6 +234,11 @@ def load_save_file(game_state: GameState,
                     s.garrison[idx] = migrate_unit(u, p.faction)
                 s.harvest_status = HarvestStatus(s.harvest_status)
                 s.economic_status = EconomicStatus(s.economic_status)
+                # We also need to link the quads for each settlement to the quads on the actual board so that changes
+                # made to the quad on the board, e.g. investigating a relic that occupies the same quad as a settlement,
+                # are reflected in the settlement's quad as well.
+                for idx, q in enumerate(s.quads):
+                    s.quads[idx] = quads[q.location[1]][q.location[0]]
                 migrate_settlement(s)
             # We also do direct conversions to Blessing objects for the ongoing one, if there is one,
             # as well as any previously-completed ones.
