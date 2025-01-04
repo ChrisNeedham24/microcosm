@@ -365,7 +365,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
         elif hasattr(evt.construction.construction, "type"):
             setl.current_work.construction = get_project(evt.construction.construction.name)
         else:
-            setl.current_work.construction = get_unit_plan(evt.construction.construction.name, player.faction, setl)
+            setl.current_work.construction = \
+                get_unit_plan(evt.construction.construction.name, player.faction, setl.resources)
         if self.server.is_server:
             self._forward_packet(evt, evt.game_name, sock, gate=lambda pd: pd.faction != evt.player_faction)
 
@@ -1012,7 +1013,6 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gs.process_ais(self.server.move_makers_ref[evt.game_name])
         # Pass the hash of the server's game state to clients so that they can validate that they're still in sync with
         # the server.
-        # TODO could we pass a deepcopy through here to avoid it changing mid-hash?
         evt.game_state_hash = hash(gs)
         # Alert all players that the turn has ended.
         self._forward_packet(evt, evt.game_name, sock)
@@ -1077,11 +1077,13 @@ class RequestHandler(socketserver.BaseRequestHandler):
                 gs.board.overlay.total_settlement_count = sum(len(p.settlements) for p in gs.players)
                 gs.process_heathens()
                 gs.process_ais(gc.move_maker)
+            gs.board.waiting_for_other_players = False
             # Ensure that the client is still in sync with the server - if it's not, display the desync overlay,
             # prompting the player to rejoin the game.
+            gs.board.checking_game_sync = True
             if hash(gs) != evt.game_state_hash:
                 gs.board.overlay.toggle_desync()
-            gs.board.waiting_for_other_players = False
+            gs.board.checking_game_sync = False
             gs.processing_turn = False
 
     def process_unready_event(self, evt: UnreadyEvent):

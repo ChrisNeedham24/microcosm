@@ -181,7 +181,6 @@ def inflate_quad(quad_str: str, location: (int, int)) -> Quad:
     return inflated_quad
 
 
-# TODO tests
 def inflate_unit_plan(up_str: str, faction: Faction) -> UnitPlan:
     """
     Inflate the given minified unit plan string into a unit plan object.
@@ -190,8 +189,12 @@ def inflate_unit_plan(up_str: str, faction: Faction) -> UnitPlan:
     :return: An inflated unit plan object.
     """
     split_up: List[str] = up_str.split("/")
-    # TODO doco explaining why we don't care about the settlement (or even faction really here) (it's because any
-    #  changes would already be included in the power/max_health/total_stamina anyway) (it's just for the prereq)
+    # Even though this unit plan could be in use by a unit currently being constructed by a settlement with bloodstone,
+    # thus increasing its power and max health, we don't actually need the settlement to be supplied here. This is
+    # because these two attributes are already minified anyway, and will be overwritten with the correct values below
+    # regardless. Similarly, we mostly don't actually need the faction either, as the attributes that may be scaled
+    # based on that are also covered below. The only reason we need the faction is that we may need to scale the cost of
+    # the pre-requisite blessing for the unit plan, based on the player's faction.
     unit_plan: UnitPlan = get_unit_plan(split_up[-1], faction)
     unit_plan.power = float(split_up[0])
     unit_plan.max_health = float(split_up[1])
@@ -200,13 +203,12 @@ def inflate_unit_plan(up_str: str, faction: Faction) -> UnitPlan:
     return unit_plan
 
 
-# TODO tests
-# TODO doco
 def inflate_unit(unit_str: str, garrisoned: bool, faction: Faction) -> Unit:
     """
     Inflate the given minified unit string into a unit object.
     :param unit_str: The minified unit to inflate.
     :param garrisoned: Whether the minified unit is garrisoned.
+    :param faction: The faction the inflated unit will belong to.
     :return: An inflated unit object.
     """
     split_unit: List[str] = unit_str.split("|")
@@ -241,13 +243,12 @@ def inflate_improvement(improvement_str: str) -> Improvement:
     return next(imp for imp in IMPROVEMENTS if minify_improvement(imp) == improvement_str)
 
 
-# TODO tests
-# TODO doco
 def inflate_settlement(setl_str: str, quads: List[List[Quad]], faction: Faction) -> Settlement:
     """
     Inflate the given minified settlement string into a settlement object.
     :param setl_str: The minified settlement to inflate.
     :param quads: The quads on the board.
+    :param faction: The faction the inflated settlement will belong to.
     :return: An inflated settlement object.
     """
     split_setl: List[str] = setl_str.split(";")

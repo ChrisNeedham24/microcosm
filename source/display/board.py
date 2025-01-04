@@ -74,6 +74,7 @@ class Board:
         self.player_idx: int = player_idx
         self.game_name: typing.Optional[str] = game_name
         self.waiting_for_other_players: bool = False
+        self.checking_game_sync: bool = False
 
     def draw(self, players: typing.List[Player], map_pos: (int, int), turn: int, heathens: typing.List[Heathen],
              is_night: bool, turns_until_change: int):  # pragma: no cover
@@ -358,10 +359,14 @@ class Board:
         # There are a few situations in which we override the default help text:
         # - If the current game has multiplayer enabled, and the player is waiting for other players to finish their
         #   turn.
+        # - If the current game has multiplayer enabled, and the player's local game state is being validated to ensure
+        #   that it is in sync with the game server.
         # - If a unit is selected that can settle, alerting the player as to the settle button.
         # - If a unit is selected that can heal other units, alerting the player as to how to heal other units.
         if self.game_config.multiplayer and self.waiting_for_other_players:
             pyxel.text(2, 189, "Waiting for other players...", pyxel.COLOR_WHITE)
+        elif self.game_config.multiplayer and self.checking_game_sync:
+            pyxel.text(2, 189, "Checking game sync, please wait...", pyxel.COLOR_WHITE)
         elif self.selected_unit is not None and self.selected_unit.plan.can_settle:
             pyxel.text(2, 189, "S: Found new settlement", pyxel.COLOR_WHITE)
         elif self.selected_unit is not None and self.selected_unit.plan.heals and not self.selected_unit.has_acted:

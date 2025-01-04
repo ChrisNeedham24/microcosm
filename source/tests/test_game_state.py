@@ -61,7 +61,7 @@ class GameStateTest(unittest.TestCase):
         # Regenerate the quads with our new seeded random number generator to guarantee consistency.
         self.game_state.board.generate_quads(self.TEST_CONFIG.biome_clustering, self.TEST_CONFIG.climatic_effects)
         # That's the hash of our game state - if this test fails, something is probably wrong with the hash function.
-        self.assertEqual(7965399155685503228, hash(self.game_state))
+        self.assertEqual(-8727484698353828129, hash(self.game_state))
 
     @patch("random.randint")
     @patch("random.seed")

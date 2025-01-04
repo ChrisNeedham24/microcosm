@@ -418,11 +418,18 @@ def update_player_quads_seen_around_point(player: Player, point: (int, int), vis
             player.quads_seen.add((clamp(j, 0, 99), clamp(i, 0, 89)))
 
 
-# TODO tests
-# TODO doco
 def scale_unit_plan_attributes(unit_plan: UnitPlan,
                                faction: Faction,
                                setl_resources: Optional[ResourceCollection]) -> UnitPlan:
+    """
+    Scale the attributes of the given unit plan, based on the supplied faction and, optionally, the resources of the
+    settlement they're being constructed in.
+    :param unit_plan: The unit plan to scale the attributes for.
+    :param faction: The faction the unit plan belongs to.
+    :param setl_resources: The optionally-supplied resource collection of the settlement that this unit plan will be
+                           constructed in. Naturally unsupplied if the unit plan is not under construction.
+    :return: The supplied unit plan, with scaled attributes if necessary.
+    """
     match faction:
         case Faction.IMPERIALS:
             unit_plan.power *= 1.5
@@ -440,9 +447,13 @@ def scale_unit_plan_attributes(unit_plan: UnitPlan,
     return unit_plan
 
 
-# TODO tests
-# TODO doco
 def scale_blessing_attributes(blessing: Blessing, faction: Faction) -> Blessing:
+    """
+    Scale the attributes of the given blessing, based on the supplied faction.
+    :param blessing: The blessing to scale the attributes for.
+    :param faction: The faction the blessing belongs to.
+    :return: The supplied blessing, with scaled attributes if necessary.
+    """
     if faction == Faction.GODLESS:
         blessing.cost *= 1.5
     return blessing

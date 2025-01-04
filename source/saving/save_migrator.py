@@ -55,12 +55,11 @@ v4.0
 """
 
 
-# TODO tests
-# TODO doco
 def migrate_unit_plan(unit_plan, faction: Faction) -> UnitPlan:
     """
     Apply the heals attribute migration for UnitPlans, if required.
     :param unit_plan: The loaded unit plan object.
+    :param faction: The faction unit plan belongs to.
     :return: An optionally-migrated UnitPlan representation.
     """
     plan_prereq = None if unit_plan.prereq is None else get_blessing(unit_plan.prereq.name, faction)
@@ -74,12 +73,11 @@ def migrate_unit_plan(unit_plan, faction: Faction) -> UnitPlan:
                     plan_prereq, unit_plan.cost, unit_plan.can_settle, will_heal)
 
 
-# TODO tests
-# TODO doco
 def migrate_unit(unit, faction: Faction) -> Unit:
     """
     Apply the has_attacked to has_acted and sieging to besieging migrations for Units, if required.
     :param unit: The loaded unit object.
+    :param faction: The faction the unit belongs to.
     :return: An optionally-migrated Unit representation.
     """
     # Note for the below migrations that if we detect an outdated attribute, we migrate it and then delete it so that it

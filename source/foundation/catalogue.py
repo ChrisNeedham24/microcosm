@@ -644,13 +644,12 @@ def get_project(name: str) -> Project:
     return next(prj for prj in PROJECTS if prj.name == name)
 
 
-# TODO tests
 def get_blessing(name: str, faction: Faction) -> Blessing:
     """
     Get the blessing with the given name. Used when loading games and in multiplayer games.
     :param name: The name of the blessing.
     :param faction: The faction of the player retrieving the blessing.
-    :return: The Blessing with the given name.
+    :return: The Blessing with the given name, with scaled attributes if necessary.
     """
     # We need to deepcopy so that changes to one Blessing don't affect all the others as well.
     blessing: Blessing = deepcopy(next(bls for bls in BLESSINGS.values() if bls.name == name))
@@ -658,7 +657,6 @@ def get_blessing(name: str, faction: Faction) -> Blessing:
     return blessing
 
 
-# TODO tests
 def get_unit_plan(name: str, faction: Faction, setl_resources: Optional[ResourceCollection] = None) -> UnitPlan:
     """
     Get the unit plan with the given name. Used when loading games and in multiplayer games.
@@ -666,7 +664,7 @@ def get_unit_plan(name: str, faction: Faction, setl_resources: Optional[Resource
     :param faction: The faction of the player retrieving the unit plan.
     :param setl_resources: The optionally-supplied resource collection of the settlement that this unit plan will be
                            constructed in. Naturally unsupplied if the unit plan is not under construction.
-    :return: The UnitPlan with the given name.
+    :return: The UnitPlan with the given name, with scaled attributes if necessary.
     """
     # We need to deepcopy so that changes to one UnitPlan don't affect all the others as well.
     unit_plan: UnitPlan = deepcopy(next(up for up in UNIT_PLANS if up.name == name))

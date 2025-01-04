@@ -224,7 +224,8 @@ def load_save_file(game_state: GameState,
                     elif hasattr(s.current_work.construction, "type"):
                         s.current_work.construction = get_project(s.current_work.construction.name)
                     else:
-                        s.current_work.construction = get_unit_plan(s.current_work.construction.name, p.faction, s)
+                        s.current_work.construction = \
+                            get_unit_plan(s.current_work.construction.name, p.faction, s.resources)
                 for idx, imp in enumerate(s.improvements):
                     # Do another direct conversion for improvements.
                     s.improvements[idx] = get_improvement(imp.name)

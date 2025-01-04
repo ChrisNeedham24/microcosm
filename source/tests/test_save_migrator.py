@@ -38,7 +38,7 @@ class SaveMigratorTest(unittest.TestCase):
             "heals": True
         })
 
-        migrated_plan: UnitPlan = migrate_unit_plan(test_loaded_plan)
+        migrated_plan: UnitPlan = migrate_unit_plan(test_loaded_plan, Faction.AGRICULTURISTS)
 
         # For up-to-date unit plans, the attributes should all map across directly.
         self.assertEqual(test_power, migrated_plan.power)
@@ -53,7 +53,7 @@ class SaveMigratorTest(unittest.TestCase):
         # Now delete the heals attribute, to simulate an outdated save.
         delattr(test_loaded_plan, "heals")
 
-        outdated_plan: UnitPlan = migrate_unit_plan(test_loaded_plan)
+        outdated_plan: UnitPlan = migrate_unit_plan(test_loaded_plan, Faction.AGRICULTURISTS)
         # Old unit plans should be mapped to False.
         self.assertFalse(outdated_plan.heals)
 
@@ -81,7 +81,7 @@ class SaveMigratorTest(unittest.TestCase):
             "max_capacity": test_max_capacity
         })
 
-        migrated_plan: UnitPlan = migrate_unit_plan(test_loaded_plan)
+        migrated_plan: UnitPlan = migrate_unit_plan(test_loaded_plan, Faction.AGRICULTURISTS)
 
         # The attributes should all map across directly, and the right class should be used.
         self.assertTrue(isinstance(migrated_plan, DeployerUnitPlan))
@@ -114,7 +114,7 @@ class SaveMigratorTest(unittest.TestCase):
             "besieging": False
         })
 
-        migrated_unit: Unit = migrate_unit(test_loaded_unit)
+        migrated_unit: Unit = migrate_unit(test_loaded_unit, Faction.AGRICULTURISTS)
 
         # For up-to-date units, the attributes should all map across directly.
         self.assertEqual(test_health, migrated_unit.health)
@@ -132,7 +132,7 @@ class SaveMigratorTest(unittest.TestCase):
         test_loaded_unit.__dict__["has_attacked"] = True
         test_loaded_unit.__dict__["sieging"] = False
 
-        outdated_unit: Unit = migrate_unit(test_loaded_unit)
+        outdated_unit: Unit = migrate_unit(test_loaded_unit, Faction.AGRICULTURISTS)
         # We expect the outdated attributes to be mapped to the new ones.
         self.assertTrue(outdated_unit.has_acted)
         self.assertFalse(outdated_unit.besieging)
@@ -171,7 +171,7 @@ class SaveMigratorTest(unittest.TestCase):
             })]
         })
 
-        migrated_unit: Unit = migrate_unit(test_loaded_unit)
+        migrated_unit: Unit = migrate_unit(test_loaded_unit, Faction.AGRICULTURISTS)
 
         # The attributes should all map across directly, and the right class should be used.
         self.assertTrue(isinstance(migrated_unit, DeployerUnit))

@@ -1,5 +1,6 @@
 import typing
 import unittest
+from copy import deepcopy
 
 from source.foundation.catalogue import Namer, SETL_NAMES, get_heathen_plan, get_heathen, UNIT_PLANS, \
     get_default_unit, get_available_improvements, BLESSINGS, IMPROVEMENTS, get_available_blessings, \
@@ -330,12 +331,31 @@ class CatalogueTest(unittest.TestCase):
         Ensure that improvements, projects, blessings, and unit plans can be successfully retrieved by name.
         """
         test_project = PROJECTS[0]
+        # When retrieving a blessing as The Godless, the cost will be increased.
+        expected_scaled_blessing = deepcopy(self.TEST_BLESSING)
+        expected_scaled_blessing.cost *= 1.5
         test_unit_plan = UNIT_PLANS[0]
+        # When retrieving a unit plan as the Explorers, when it's being constructed in a settlement with one bloodstone,
+        # the total stamina will be increased, the max health will be both decreased and then subsequently increased,
+        # and the power will be increased.
+        expected_scaled_unit_plan = deepcopy(test_unit_plan)
+        expected_scaled_unit_plan.total_stamina = round(1.5 * expected_scaled_unit_plan.total_stamina)
+        expected_scaled_unit_plan.max_health *= 0.75 * 1.5
+        expected_scaled_unit_plan.power *= 1.5
+        # When retrieving a unit plan that has a pre-requisite blessing as The Godless, the cost for the pre-requisite
+        # will be increased.
+        expected_scaled_unit_plan_with_prereq = deepcopy(UNIT_PLANS[4])
+        expected_scaled_unit_plan_with_prereq.prereq.cost *= 1.5
 
         self.assertEqual(self.TEST_IMPROVEMENT, get_improvement(self.TEST_IMPROVEMENT.name))
         self.assertEqual(test_project, get_project(test_project.name))
-        self.assertEqual(self.TEST_BLESSING, get_blessing(self.TEST_BLESSING.name))
-        self.assertEqual(test_unit_plan, get_unit_plan(test_unit_plan.name))
+        self.assertEqual(self.TEST_BLESSING, get_blessing(self.TEST_BLESSING.name, Faction.AGRICULTURISTS))
+        self.assertEqual(expected_scaled_blessing, get_blessing(self.TEST_BLESSING.name, Faction.GODLESS))
+        self.assertEqual(test_unit_plan, get_unit_plan(test_unit_plan.name, Faction.AGRICULTURISTS))
+        self.assertEqual(expected_scaled_unit_plan,
+                         get_unit_plan(test_unit_plan.name, Faction.EXPLORERS, ResourceCollection(bloodstone=1)))
+        self.assertEqual(expected_scaled_unit_plan_with_prereq,
+                         get_unit_plan(expected_scaled_unit_plan_with_prereq.name, Faction.GODLESS))
 
 
 if __name__ == '__main__':

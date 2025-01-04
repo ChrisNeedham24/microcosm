@@ -849,8 +849,7 @@ class GameInputHandlerTest(unittest.TestCase):
 
         # We expect an event with the appropriate attributes to have been dispatched to the game server. Note that we
         # expect this in all cases, since a desync can only occur in multiplayer games.
-        expected_event = \
-            JoinEvent(EventType.JOIN, self.TEST_IDENTIFIER, lobby_name, self.TEST_MULTIPLAYER_CONFIG.player_faction)
+        expected_event = JoinEvent(EventType.JOIN, self.TEST_IDENTIFIER, lobby_name, self.TEST_PLAYER.faction)
         dispatch_mock.assert_called_with(expected_event)
 
         self.assertFalse(self.game_state.game_started)
