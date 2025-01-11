@@ -1,5 +1,6 @@
 import datetime
 import json
+import platform
 import random
 import sched
 import socket
@@ -10,6 +11,15 @@ from threading import Thread
 from typing import Dict, List, Optional, Set, Tuple, Callable
 
 import pyxel
+# For Windows clients we need to ensure that the miniupnpc DLL is loaded before attempting to import the module.
+if platform.system() == "Windows":
+    from ctypes import cdll, CDLL
+    # Clients playing via the bundled EXE should already have the DLL loaded, since it's bundled into the EXE itself.
+    try:
+        CDLL("miniupnpc.dll")
+    # However, clients playing from source or via a pip install will need to load the DLL manually.
+    except FileNotFoundError:
+        cdll.LoadLibrary("source/resources/dll/miniupnpc.dll")
 # We need to disable a lint rule for the miniupnpc import because it doesn't actually declare UPnP in its module. This
 # isn't our fault, so we can just disable the rule.
 # pylint: disable=no-name-in-module
