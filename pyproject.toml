@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling", "versioningit"]
+build-backend = "hatchling.build"
+
+[project]
+name = "microcosm"
+description = "A little 4X game written using Pyxel."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-only"
+keywords = [
+    "game",
+    "4x",
+    "pyxel"
+]
+authors = [
+    { name = "ChrisNeedham24", email = "christopherneedham24@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "pyxel==1.9.0",
+    "python-vlc==3.0.16120",
+    "platformdirs==3.9.1",
+    "Pillow==10.3.0",
+    # 2.0.2 is the last version of miniupnpc that was released in a .tar.gz format, allowing it to be built on UNIX
+    # systems. All releases since have been for Windows only. As such, we pin different versions for Windows and
+    # non-Windows machines.
+    "miniupnpc==2.0.2; platform_system != 'Windows'",
+    "miniupnpc==2.2.7; platform_system == 'Windows'"
+]
+dynamic = [
+    "version"
+]
+
+# We use gui-scripts rather than just scripts so that Windows users can run them without a console.
+[project.gui-scripts]
+# This installs a 'microcosm' binary that runs the game.
+microcosm = "microcosm.source.game:Game"
+
+[project.urls]
+Documentation = "https://github.com/ChrisNeedham24/microcosm#readme"
+Issues = "https://github.com/ChrisNeedham24/microcosm/issues"
+Source = "https://github.com/ChrisNeedham24/microcosm"
+
+[tool.hatch.build.targets.wheel]
+# We don't need game_server.py because users won't be running the server, and we don't need microcosm.py because the
+# gui-script defined above automatically generates an equivalent.
+include = [
+    "source/**",
+]
+exclude = [
+    "source/resources/microcosm_gameplay_screenshot.png",
+    "*.md",
+    "source/tests/*"
+]
+
+# Add a microcosm prefix onto the source directory so that it's installed under 'microcosm/' in site-packages, and not
+# under 'source/', which isn't particularly helpful.
+[tool.hatch.build.targets.wheel.sources]
+"" = "microcosm"
+
+# Dynamically version based on the latest git tag.
+[tool.hatch.version]
+source = "versioningit"

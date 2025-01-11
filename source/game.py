@@ -1,8 +1,15 @@
+import sys
 import time
 from threading import Thread
 
 import pyxel
 from PIL import Image
+
+# In cases where we're running from a pip-installed distribution, monkey patch the source module, since it'll actually
+# be under 'microcosm.source' in site-packages.
+if "microcosm" in sys.modules:
+    import microcosm.source as source
+    sys.modules["source"] = source
 
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
