@@ -20,6 +20,7 @@ from source.foundation.models import PlayerDetails, Faction, GameConfig, Player,
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
+from source.networking import event_listener
 from source.networking.client import HOST, PORT
 from source.networking.event_listener import RequestHandler, MicrocosmServer, EventListener
 from source.networking.events import EventType, RegisterEvent, Event, CreateEvent, InitEvent, UpdateEvent, \
@@ -109,7 +110,6 @@ class EventListenerTest(unittest.TestCase):
         """
         # First we need to reload the import since naturally event_listener.py has already been imported in this test
         # suite.
-        from source.networking import event_listener
         importlib.reload(event_listener)
         # In the EXE case, we expect the DLL to already be loaded, so no manual load should occur.
         cdll_construction_mock.assert_called_with("miniupnpc.dll")
