@@ -6,9 +6,11 @@ import pyxel
 from PIL import Image
 
 # In cases where we're running from a pip-installed distribution, monkey patch the source module, since it'll actually
-# be under 'microcosm.source' in site-packages.
+# be under 'microcosm.source' in site-packages. We also need to disable a lint rule here because in non-pip-install
+# cases (like linting), microcosm.py won't have anything called 'source' to import.
 if "microcosm" in sys.modules:
-    import microcosm.source as source
+    # pylint: disable=no-name-in-module
+    from microcosm import source
     sys.modules["source"] = source
 
 from source.game_management.game_controller import GameController
