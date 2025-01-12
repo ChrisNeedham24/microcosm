@@ -1,4 +1,5 @@
 import datetime
+import importlib
 import json
 import sched
 import socket
@@ -97,6 +98,30 @@ class EventListenerTest(unittest.TestCase):
         self.mock_server.keepalive_ctrs_ref = {}
         self.request_handler: RequestHandler = RequestHandler((self.TEST_EVENT_BYTES, self.mock_socket),
                                                               (self.TEST_HOST, self.TEST_PORT), self.mock_server)
+
+    @patch("ctypes.cdll.LoadLibrary")
+    @patch("ctypes.CDLL")
+    @patch("platform.system", return_value="Windows")
+    def test_windows_dll_verification(self, _: MagicMock, cdll_construction_mock: MagicMock, cdll_load_mock: MagicMock):
+        """
+        Ensure that the miniupnpc DLL is correctly manually loaded or not manually loaded, depending on whether it has
+        already been automatically loaded.
+        """
+        # First we need to reload the import since naturally event_listener.py has already been imported in this test
+        # suite.
+        from source.networking import event_listener
+        importlib.reload(event_listener)
+        # In the EXE case, we expect the DLL to already be loaded, so no manual load should occur.
+        cdll_construction_mock.assert_called_with("miniupnpc.dll")
+        cdll_load_mock.assert_not_called()
+        # We simulate the playing from source/package cases by raising an error when constructing the DLL object, since
+        # it's not present in those cases.
+        cdll_construction_mock.side_effect = FileNotFoundError()
+        importlib.reload(event_listener)
+        # In these cases, we expect an attempt to be made to construct the DLL object, but ultimately for the DLL to be
+        # manually loaded from source.
+        cdll_construction_mock.assert_called_with("miniupnpc.dll")
+        cdll_load_mock.assert_called_with("source/resources/dll/miniupnpc.dll")
 
     def test_handle(self):
         """
