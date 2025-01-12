@@ -1,8 +1,19 @@
+import sys
 import time
 from threading import Thread
 
 import pyxel
 from PIL import Image
+
+# In cases where we're running from a pip-installed distribution, monkey patch the source module, since it'll actually
+# be under 'microcosm.source' in site-packages. We also need to disable a couple of lint rules here to account for
+# non-pip-install cases (like linting). In both cases, pylint is confusing the pip-installed microcosm module with the
+# microcosm.py file, with it assuming that we're creating an import cycle and trying to import something that doesn't
+# exist.
+if "microcosm" in sys.modules:
+    # pylint: disable=cyclic-import,no-name-in-module
+    from microcosm import source
+    sys.modules["source"] = source
 
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \

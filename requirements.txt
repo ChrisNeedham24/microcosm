@@ -1,6 +1,7 @@
+# Make sure the below are kept in sync with pyproject.toml.
 pyxel==1.9.0
 python-vlc==3.0.16120
-platformdirs==3.1.1
+platformdirs==3.9.1
 Pillow==10.3.0
 # 2.0.2 is the last version of miniupnpc that was released in a .tar.gz format, allowing it to be built on UNIX systems.
 # All releases since have been for Windows only. As such, we pin different versions for Windows and non-Windows
