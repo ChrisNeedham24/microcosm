@@ -6,10 +6,12 @@ import pyxel
 from PIL import Image
 
 # In cases where we're running from a pip-installed distribution, monkey patch the source module, since it'll actually
-# be under 'microcosm.source' in site-packages. We also need to disable a lint rule here because in non-pip-install
-# cases (like linting), microcosm.py won't have anything called 'source' to import.
+# be under 'microcosm.source' in site-packages. We also need to disable a couple of lint rules here to account for
+# non-pip-install cases (like linting). In both cases, pylint is confusing the pip-installed microcosm module with the
+# microcosm.py file, with it assuming that we're creating an import cycle and trying to import something that doesn't
+# exist.
 if "microcosm" in sys.modules:
-    # pylint: disable=no-name-in-module
+    # pylint: disable=cyclic-import,no-name-in-module
     from microcosm import source
     sys.modules["source"] = source
 
