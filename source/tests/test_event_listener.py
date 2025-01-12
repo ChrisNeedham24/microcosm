@@ -100,14 +100,22 @@ class EventListenerTest(unittest.TestCase):
         self.request_handler: RequestHandler = RequestHandler((self.TEST_EVENT_BYTES, self.mock_socket),
                                                               (self.TEST_HOST, self.TEST_PORT), self.mock_server)
 
+    @patch("site.getsitepackages")
     @patch("ctypes.cdll.LoadLibrary")
     @patch("ctypes.CDLL")
     @patch("platform.system", return_value="Windows")
-    def test_windows_dll_verification(self, _: MagicMock, cdll_construction_mock: MagicMock, cdll_load_mock: MagicMock):
+    def test_windows_dll_verification(self,
+                                      _: MagicMock,
+                                      cdll_construction_mock: MagicMock,
+                                      cdll_load_mock: MagicMock,
+                                      site_packages_mock: MagicMock):
         """
         Ensure that the miniupnpc DLL is correctly manually loaded or not manually loaded, depending on whether it has
         already been automatically loaded.
         """
+        # Mock out the site-packages path.
+        site_packages_path: str = "/tmp/site-packages"
+        site_packages_mock.return_value = [site_packages_path]
         # First we need to reload the import since naturally event_listener.py has already been imported in this test
         # suite.
         importlib.reload(event_listener)
@@ -121,7 +129,7 @@ class EventListenerTest(unittest.TestCase):
         # In these cases, we expect an attempt to be made to construct the DLL object, but ultimately for the DLL to be
         # manually loaded from source.
         cdll_construction_mock.assert_called_with("miniupnpc.dll")
-        cdll_load_mock.assert_called_with("source/resources/dll/miniupnpc.dll")
+        cdll_load_mock.assert_called_with(f"{site_packages_path}/microcosm/source/resources/dll/miniupnpc.dll")
 
     def test_handle(self):
         """
