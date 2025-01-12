@@ -15,13 +15,17 @@ import pyxel
 # For Windows clients we need to ensure that the miniupnpc DLL is loaded before attempting to import the module.
 if platform.system() == "Windows":
     from ctypes import cdll, CDLL
+    import sys
     # Clients playing via the bundled EXE should already have the DLL loaded, since it's bundled into the EXE itself.
     try:
         CDLL("miniupnpc.dll")
-    # However, clients playing from source or via a pip install will need to load the DLL manually.
+    # However, clients playing via a pip install or from source will need to load the DLL manually.
     except FileNotFoundError:
-        site_packages_path: str = next(path for path in getsitepackages() if path.endswith("site-packages"))
-        cdll.LoadLibrary(f"{site_packages_path}/microcosm/source/resources/dll/miniupnpc.dll")
+        if "microcosm" in sys.modules:
+            site_packages_path: str = next(path for path in getsitepackages() if path.endswith("site-packages"))
+            cdll.LoadLibrary(f"{site_packages_path}/microcosm/source/resources/dll/miniupnpc.dll")
+        else:
+            cdll.LoadLibrary("source/resources/dll/miniupnpc.dll")
 # We need to disable a lint rule for the miniupnpc import because it doesn't actually declare UPnP in its module. This
 # isn't our fault, so we can just disable the rule.
 # pylint: disable=no-name-in-module

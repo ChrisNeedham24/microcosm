@@ -3,6 +3,7 @@ import importlib
 import json
 import sched
 import socket
+import sys
 import unittest
 from copy import deepcopy
 from threading import Thread
@@ -113,9 +114,6 @@ class EventListenerTest(unittest.TestCase):
         Ensure that the miniupnpc DLL is correctly manually loaded or not manually loaded, depending on whether it has
         already been automatically loaded.
         """
-        # Mock out the site-packages path.
-        site_packages_path: str = "/tmp/site-packages"
-        site_packages_mock.return_value = [site_packages_path]
         # First we need to reload the import since naturally event_listener.py has already been imported in this test
         # suite.
         importlib.reload(event_listener)
@@ -125,9 +123,20 @@ class EventListenerTest(unittest.TestCase):
         # We simulate the playing from source/package cases by raising an error when constructing the DLL object, since
         # it's not present in those cases.
         cdll_construction_mock.side_effect = FileNotFoundError()
+        # Simulate the source case.
         importlib.reload(event_listener)
-        # In these cases, we expect an attempt to be made to construct the DLL object, but ultimately for the DLL to be
+        # In this case, we expect an attempt to be made to construct the DLL object, but ultimately for the DLL to be
         # manually loaded from source.
+        cdll_construction_mock.assert_called_with("miniupnpc.dll")
+        cdll_load_mock.assert_called_with("source/resources/dll/miniupnpc.dll")
+        # Simulate the package case by mocking out the site-packages path and sys.modules.
+        site_packages_path: str = "/tmp/site-packages"
+        site_packages_mock.return_value = [site_packages_path]
+        # This mock is definitely not normal, but it does serve our purpose by defining the key against a real module.
+        sys.modules["microcosm"] = event_listener
+        importlib.reload(event_listener)
+        # In this case, we also expect an attempt to be made to construct the DLL object, but this time we expect the
+        # DLL to be manually loaded from site-packages.
         cdll_construction_mock.assert_called_with("miniupnpc.dll")
         cdll_load_mock.assert_called_with(f"{site_packages_path}/microcosm/source/resources/dll/miniupnpc.dll")
 
