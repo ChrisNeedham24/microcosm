@@ -3,7 +3,7 @@ requires = ["hatchling", "versioningit"]
 build-backend = "hatchling.build"
 
 [project]
-name = "microcosm"
+name = "microcosm-4x"
 description = "A little 4X game written using Pyxel."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
+# Make sure the below are kept in sync with requirements.txt.
 dependencies = [
     "pyxel==1.9.0",
     "python-vlc==3.0.16120",
@@ -68,3 +69,9 @@ exclude = [
 # Dynamically version based on the latest git tag.
 [tool.hatch.version]
 source = "versioningit"
+
+# Don't do any local versioning with commit hashes or dates - PyPI doesn't like that.
+[tool.versioningit.format]
+distance = "{base_version}.post{distance}"
+dirty = "{base_version}"
+distance-dirty = "{base_version}.post{distance}"

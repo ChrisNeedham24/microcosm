@@ -2,7 +2,7 @@
 Just a little 4X game written in Python using the library [Pyxel](https://github.com/kitao/pyxel).
 Inspiration taken from games I've played.
 
-![Screenshots](source/resources/microcosm_gameplay_screenshot.png)
+![Screenshots](https://raw.githubusercontent.com/ChrisNeedham24/microcosm/refs/heads/main/source/resources/microcosm_gameplay_screenshot.png)
 
 ## Pre-requisites
 Playing Microcosm requires an installation of VLC media player on the player's machine. Installation instructions for
@@ -39,6 +39,12 @@ Additionally, only x86 architectures are supported.
 
 1. Extract the downloaded zip.
 2. An EXE file will be extracted - run this to start the game, allowing Windows Defender to run any scans if it asks to do so.
+
+## Play from package
+
+1. Run `pip install microcosm-4x`
+2. Run `microcosm`
+    1. Note: if this doesn't work, try `python -m microcosm` or `py -m microcosm`.
 
 ## Play from source
 
