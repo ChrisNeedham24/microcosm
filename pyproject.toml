@@ -39,8 +39,7 @@ dynamic = [
     "version"
 ]
 
-# We use gui-scripts rather than just scripts so that Windows users can run them without a console.
-[project.gui-scripts]
+[project.scripts]
 # This installs a 'microcosm' binary that runs the game.
 microcosm = "microcosm.source.game:Game"
 
