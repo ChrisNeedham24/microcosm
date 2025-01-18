@@ -42,7 +42,7 @@ Additionally, only x86 architectures are supported.
 
 ## Play from package
 
-1. Run `pip install microcosm-4x`
+1. Run `pip install --user microcosm-4x`
 2. Run `microcosm`
     1. Note: if this doesn't work, make sure Python's scripts directory is on your PATH.
        See [here](https://packaging.python.org/en/latest/tutorials/installing-packages/#installing-to-the-user-site) for instructions for Windows

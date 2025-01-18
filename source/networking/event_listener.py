@@ -7,7 +7,7 @@ import socket
 import socketserver
 import time
 from itertools import chain
-from site import getsitepackages
+from site import getusersitepackages
 from threading import Thread
 from typing import Dict, List, Optional, Set, Tuple, Callable
 
@@ -22,8 +22,7 @@ if platform.system() == "Windows":
     # However, clients playing via a pip install or from source will need to load the DLL manually.
     except FileNotFoundError:
         if "microcosm" in sys.modules:
-            site_packages_path: str = next(path for path in getsitepackages() if path.endswith("site-packages"))
-            cdll.LoadLibrary(f"{site_packages_path}/microcosm/source/resources/dll/miniupnpc.dll")
+            cdll.LoadLibrary(f"{getusersitepackages()}/microcosm/source/resources/dll/miniupnpc.dll")
         else:
             cdll.LoadLibrary("source/resources/dll/miniupnpc.dll")
 # We need to disable a lint rule for the miniupnpc import because it doesn't actually declare UPnP in its module. This
