@@ -44,9 +44,8 @@ Additionally, only x86 architectures are supported.
 
 1. Run `pip install --user microcosm-4x`
 2. Run `microcosm`
-    1. Note: if this doesn't work, make sure Python's scripts directory is on your PATH.
-       See [here](https://packaging.python.org/en/latest/tutorials/installing-packages/#installing-to-the-user-site) for instructions for Windows
-       (this is not usually a problems on other operating systems).
+    1. Note: if this doesn't work, make sure Python's user scripts directory is on your PATH.
+       See [here](https://packaging.python.org/en/latest/tutorials/installing-packages/#installing-to-the-user-site) for instructions.
 
 ## Play from source
 
