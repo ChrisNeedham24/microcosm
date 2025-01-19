@@ -202,10 +202,10 @@ def display_menu(menu: Menu):
                         draw_paragraph(30, 60, "Take control of all settlements", 36)
                         pyxel.line(24, 70, 175, 70, pyxel.COLOR_GRAY)
                         draw_paragraph(25, 75, """Like any strong leader, you want the best for your people.
-                                                However, constant attacks by filthy Heathens and enemy troops are
-                                                enough to wear any great leader down. It is time to put an end to this,
-                                                and become the one true empire. Other empires will wither at your
-                                                blade, and they will be all the more thankful for it.""", 38)
+                                            However, constant attacks by filthy Heathens and enemy troops are
+                                            enough to wear any great leader down. It is time to put an end to this,
+                                            and become the one true empire. Other empires will wither at your
+                                            blade, and they will be all the more thankful for it.""", 38)
                         pyxel.blt(158, 150, 0, 8, 28, 8, 8)
                         pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
                     case VictoryType.JUBILATION:
@@ -214,10 +214,10 @@ def display_menu(menu: Menu):
                         draw_paragraph(30, 60, "Maintain 100% satisfaction in 5+ settlements for 25 turns", 36)
                         pyxel.line(24, 76, 175, 76, pyxel.COLOR_GRAY)
                         draw_paragraph(25, 81, """Your rule as leader is solid, your subjects faithful. But
-                                                there is something missing. Your subjects, while not rebellious, do not
-                                                have the love for you that you so desire. So be it. You will fill your
-                                                empire with bread and circuses; your subjects will be the envy of all!
-                                                And quietly, your rule will be unquestioned.""", 38)
+                                            there is something missing. Your subjects, while not rebellious, do not
+                                            have the love for you that you so desire. So be it. You will fill your
+                                            empire with bread and circuses; your subjects will be the envy of all!
+                                            And quietly, your rule will be unquestioned.""", 38)
                         pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                         pyxel.blt(35, 150, 0, 0, 36, 8, 8)
                         pyxel.blt(158, 150, 0, 8, 44, 8, 8)
@@ -228,10 +228,10 @@ def display_menu(menu: Menu):
                         draw_paragraph(30, 60, "Reach level 10 in 10+ settlements", 36)
                         pyxel.line(24, 70, 175, 70, pyxel.COLOR_GRAY)
                         draw_paragraph(25, 75, """There is nothing more satisfying as a leader than tucking
-                                                into a generous meal prepared by your servants. But as a benevolent
-                                                leader, you question why you alone can enjoy such luxuries. You resolve
-                                                to make it your mission to feed the masses, grow your empire and spread
-                                                around the plains!""", 38)
+                                            into a generous meal prepared by your servants. But as a benevolent
+                                            leader, you question why you alone can enjoy such luxuries. You resolve
+                                            to make it your mission to feed the masses, grow your empire and spread
+                                            around the plains!""", 38)
                         pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                         pyxel.blt(35, 150, 0, 8, 28, 8, 8)
                         pyxel.blt(158, 150, 0, 0, 44, 8, 8)
@@ -242,11 +242,11 @@ def display_menu(menu: Menu):
                         draw_paragraph(30, 60, "Accumulate 100,000 wealth over the course of the game", 36)
                         pyxel.line(24, 76, 175, 76, pyxel.COLOR_GRAY)
                         draw_paragraph(25, 81, """Your empire has fallen on hard times. Recent conflicts have
-                                                not gone your way, your lands have been seized, and your treasuries are
-                                                empty. This is no way for an empire to be. Your advisors tell you of
-                                                untapped riches in the vast deserts. You make it your mission to
-                                                squeeze every last copper out of those dunes, and out of the whole
-                                                world!""", 38)
+                                            not gone your way, your lands have been seized, and your treasuries are
+                                            empty. This is no way for an empire to be. Your advisors tell you of
+                                            untapped riches in the vast deserts. You make it your mission to
+                                            squeeze every last copper out of those dunes, and out of the whole
+                                            world!""", 38)
                         pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                         pyxel.blt(35, 150, 0, 8, 44, 8, 8)
                         pyxel.blt(158, 150, 0, 16, 44, 8, 8)
@@ -258,11 +258,11 @@ def display_menu(menu: Menu):
                         draw_paragraph(30, 65, "Construct the holy sanctum in a settlement", 36)
                         pyxel.line(24, 77, 175, 77, pyxel.COLOR_GRAY)
                         draw_paragraph(25, 80, """You have always been fascinated with the bygone times of
-                                                your empire and its rich history. There is never a better time than
-                                                the present to devote some time to your studies. Your advisors tell
-                                                you that the educated among your subjects have been doing some
-                                                research recently, and have unearthed the plans for some form of Holy
-                                                Sanctum. You make it your mission to construct said sanctum.""", 38)
+                                            your empire and its rich history. There is never a better time than
+                                            the present to devote some time to your studies. Your advisors tell
+                                            you that the educated among your subjects have been doing some
+                                            research recently, and have unearthed the plans for some form of Holy
+                                            Sanctum. You make it your mission to construct said sanctum.""", 38)
                         pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                         pyxel.blt(35, 150, 0, 0, 44, 8, 8)
                         pyxel.blt(158, 151, 0, 24, 44, 8, 8)
@@ -271,14 +271,14 @@ def display_menu(menu: Menu):
                         pyxel.text(78, 40, "SERENDIPITY", pyxel.COLOR_PURPLE)
                         pyxel.text(25, 50, "Objective:", pyxel.COLOR_WHITE)
                         draw_paragraph(30, 60, """Undergo the three blessings of ardour: the pieces of
-                                                    strength, passion, and divinity.""", 36)
+                                            strength, passion, and divinity.""", 36)
                         pyxel.line(24, 82, 175, 82, pyxel.COLOR_GRAY)
                         draw_paragraph(25, 87, """Local folklore has always said that a man of the passions
-                                                was a man unparalleled amongst his peers. You have long aspired to be
-                                                such a man, and such a leader. You consult your local sects and are
-                                                informed that you are now ready to make the arduous journey of
-                                                enlightenment and fulfillment. You grasp the opportunity with two
-                                                hands, as a blessed man.""", 38)
+                                            was a man unparalleled amongst his peers. You have long aspired to be
+                                            such a man, and such a leader. You consult your local sects and are
+                                            informed that you are now ready to make the arduous journey of
+                                            enlightenment and fulfillment. You grasp the opportunity with two
+                                            hands, as a blessed man.""", 38)
                         pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                         pyxel.blt(35, 150, 0, 16, 44, 8, 8)
             case WikiOption.FACTIONS:
