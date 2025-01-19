@@ -15,6 +15,7 @@ if "microcosm" in sys.modules:
     from microcosm import source
     sys.modules["source"] = source
 
+from source.display.menu_display import display_menu
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
     on_key_arrow_right, on_key_return, on_mouse_button_right, on_mouse_button_left, on_key_shift, on_key_c, on_key_f, \
@@ -77,7 +78,7 @@ class Game:
         Draws the game to the screen.
         """
         if self.game_state.on_menu:
-            self.game_controller.menu.draw()
+            display_menu(self.game_controller.menu)
         elif self.game_state.game_started:
             self.game_state.board.draw(self.game_state.players, self.game_state.map_pos, self.game_state.turn,
                                        self.game_state.heathens, self.game_state.nighttime_left > 0,
