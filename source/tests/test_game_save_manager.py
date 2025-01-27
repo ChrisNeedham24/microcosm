@@ -15,6 +15,7 @@ from source.game_management.game_state import GameState
 from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game, save_stats_achievements, \
     get_stats, init_app_data, load_save_file
 from source.saving.save_encoder import SaveEncoder
+from source.util.minifier import minify_quad
 
 
 class GameSaveManagerTest(unittest.TestCase):
@@ -80,7 +81,7 @@ class GameSaveManagerTest(unittest.TestCase):
         expected_save_name = os.path.join(SAVES_DIR, "autosave-2023-01-07T13.35.24.json")
         # Also determine the data we expect to be saved.
         expected_save_data = {
-            "quads": list(chain.from_iterable(self.game_state.board.quads)),
+            "quads": list(minify_quad(q) for q in chain.from_iterable(self.game_state.board.quads)),
             "players": self.game_state.players,
             "heathens": self.game_state.heathens,
             "turn": self.game_state.turn,
@@ -88,13 +89,14 @@ class GameSaveManagerTest(unittest.TestCase):
             "night_status": {"until": self.game_state.until_night, "remaining": self.game_state.nighttime_left},
             "game_version": self.game_state.game_version
         }
+        expected_save_json = json.dumps(expected_save_data, separators=(",", ":"), cls=SaveEncoder)
 
         save_game(self.game_state, auto=True)
         # After saving, we expect the oldest autosave to have been deleted, a new save with the correct name to have
         # been created, and the correct data to have been written to said save.
         remove_mock.assert_called_with(expected_deleted_autosave)
         self.assertEqual(expected_save_name, open_mock.call_args[0][0])
-        open_mock.return_value.write.assert_called_with(json.dumps(expected_save_data, cls=SaveEncoder))
+        open_mock.return_value.write.assert_called_with(expected_save_json)
         open_mock.return_value.close.assert_called()
 
     @patch("os.path.isfile", lambda *args: True)
@@ -266,6 +268,8 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertFalse(retrieved_stats.defeats)
         self.assertFalse(retrieved_stats.factions)
         self.assertFalse(retrieved_stats.achievements)
+
+    # TODO test loading the new format and change the other load tests to say that they're legacy.
 
     @patch("source.saving.game_save_manager.SAVES_DIR", "source/tests/resources")
     def test_load_save_file(self):

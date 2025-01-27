@@ -299,6 +299,7 @@ class SaveMigratorTest(unittest.TestCase):
         """
         Ensure that migrations occur correctly for quads.
         """
+        # TODO update to include minified format
         test_biome = Biome.FOREST.value
 
         # Simulate an up-to-date loaded resource collection and an up-to-date loaded quad.

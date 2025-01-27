@@ -17,6 +17,8 @@ from source.foundation.catalogue import get_blessing, get_project, get_unit_plan
 from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement, GameConfig, \
     Quad, HarvestStatus, EconomicStatus
 from source.game_management.game_controller import GameController
+from source.util.minifier import minify_quad
+
 if TYPE_CHECKING:
     from source.game_management.game_state import GameState
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
@@ -58,7 +60,7 @@ def save_game(game_state: GameState, auto: bool = False):
     with open(save_name, "w", encoding="utf-8") as save_file:
         # We use chain.from_iterable() here because the quads array is 2D.
         save = {
-            "quads": list(chain.from_iterable(game_state.board.quads)),
+            "quads": list(minify_quad(q) for q in chain.from_iterable(game_state.board.quads)),
             "players": game_state.players,
             "heathens": game_state.heathens,
             "turn": game_state.turn,
@@ -67,7 +69,7 @@ def save_game(game_state: GameState, auto: bool = False):
             "game_version": game_state.game_version
         }
         # Note that we use the SaveEncoder here for custom encoding for some classes.
-        save_file.write(json.dumps(save, cls=SaveEncoder))
+        save_file.write(json.dumps(save, separators=(",", ":"), cls=SaveEncoder))
     save_file.close()
 
 
