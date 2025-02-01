@@ -299,10 +299,23 @@ class SaveMigratorTest(unittest.TestCase):
         """
         Ensure that migrations occur correctly for quads.
         """
-        # TODO update to include minified format
-        test_biome = Biome.FOREST.value
+        # Simulate an up-to-date loaded quad, with a resource - these are now stored as minified strings.
+        test_loaded_minified_quad: str = "F12341+0+0+0+0+0+0+0+0ir"
 
-        # Simulate an up-to-date loaded resource collection and an up-to-date loaded quad.
+        migrated_minified_quad: Quad = migrate_quad(test_loaded_minified_quad, (0, 0))
+
+        # For up-to-date quads, we expect the attributes to be inflated correctly.
+        self.assertEqual(Biome.FOREST, migrated_minified_quad.biome)
+        self.assertTrue(migrated_minified_quad.is_relic)
+        # The backup location should have been used, since minified quads don't include location.
+        self.assertTupleEqual((0, 0), migrated_minified_quad.location)
+        self.assertEqual(ResourceCollection(ore=1), migrated_minified_quad.resource)
+        self.assertEqual(1, migrated_minified_quad.wealth)
+        self.assertEqual(2, migrated_minified_quad.harvest)
+        self.assertEqual(3, migrated_minified_quad.zeal)
+        self.assertEqual(4, migrated_minified_quad.fortune)
+
+        # Simulate a legacy loaded resource collection and a legacy loaded quad, both stored as JSON objects.
         test_loaded_resource: ObjectConverter = ObjectConverter({
             "ore": 1,
             "timber": 0,
@@ -314,7 +327,7 @@ class SaveMigratorTest(unittest.TestCase):
             "aquamarine": 0
         })
         test_loaded_quad: ObjectConverter = ObjectConverter({
-            "biome": test_biome,
+            "biome": Biome.FOREST.value,
             "is_relic": True,
             "location": [1, 2],
             "resource": test_loaded_resource,
@@ -326,8 +339,8 @@ class SaveMigratorTest(unittest.TestCase):
 
         migrated_quad: Quad = migrate_quad(test_loaded_quad, (0, 0))
 
-        # For up-to-date quads, we expect the attributes to be mapped over directly.
-        self.assertEqual(test_biome, migrated_quad.biome)
+        # For legacy JSON quads, we expect the attributes to be mapped over directly.
+        self.assertEqual(Biome.FOREST, migrated_quad.biome)
         self.assertTrue(migrated_quad.is_relic)
         # Note that we passed in (0, 0) as the backup location, but since the save had the location, we don't need it.
         self.assertTupleEqual((1, 2), migrated_quad.location)

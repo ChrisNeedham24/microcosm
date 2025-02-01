@@ -269,8 +269,6 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertFalse(retrieved_stats.factions)
         self.assertFalse(retrieved_stats.achievements)
 
-    # TODO test loading the new format and change the other load tests to say that they're legacy.
-
     @patch("source.saving.game_save_manager.SAVES_DIR", "source/tests/resources")
     def test_load_save_file(self):
         """
@@ -281,10 +279,147 @@ class GameSaveManagerTest(unittest.TestCase):
         # Note: this file needs to be updated whenever the game save format changes.
         #
         # Assumptions:
+        # - The save game is from version 4.0.
+        # - There are 2 players, with the human player using the Fundamentalists as their faction.
+        # - The human and AI players both have populated quads_seen lists, even though the AI player's one isn't used in
+        #   a single-player game.
+        # - The human player has no deployed units, but the AI player has 4 (all Warriors).
+        # - The human player has 2 settlements and the AI player has 1.
+        # - The human player's two settlements are constructing an improvement and a unit, while the AI's settlement is
+        #   not currently constructing anything.
+        # - The human player's first settlement has three improvements, and their second has none. The AI player's
+        #   settlement has five improvements.
+        # - The human player's first garrison has a unit present, but the second does not, while the AI player's has
+        #   none either.
+        # - All settlements in the game have standard harvest and economic statuses.
+        # - All settlements in the game have only a single quad.
+        # - Both players have ongoing blessings.
+        # - The human player has completed one blessing, but the AI player has not completed any.
+        # - Naturally, the human player has no AI playstyle, but the AI player does have one.
+        # - The human player has the Elimination victory as imminent as there is only one other settlement, but the AI
+        #   player does not, since it has two opposing settlements.
+        # - There are five heathens in the game.
+        # - The game is at turn 26, with 7 turns until nighttime.
+        # - The game config has everything enabled except for multiplayer.
+        #
+        # The subsequent test logic is separated by assumption.
+
+        self.game_state = GameState()
+
+        self.game_controller.namer.remove_settlement_name = MagicMock()
+
+        game_cfg, quads = load_save_file(self.game_state, self.game_controller.namer, "save-test.json")
+
+        human = self.game_state.players[0]
+        ai = self.game_state.players[1]
+
+        self.assertEqual(4.0, self.game_state.game_version)
+
+        self.assertEqual(2, len(self.game_state.players))
+        self.assertEqual(Faction.FUNDAMENTALISTS, human.faction)
+
+        self.assertTrue(human.quads_seen)
+        self.assertTrue(ai.quads_seen)
+
+        self.assertFalse(human.units)
+        self.assertEqual(4, len(ai.units))
+        self.assertTrue(isinstance(ai.units[0], Unit))
+        self.assertTrue(isinstance(ai.units[0].plan, UnitPlan))
+        self.assertTrue(isinstance(ai.units[1], Unit))
+        self.assertTrue(isinstance(ai.units[1].plan, UnitPlan))
+        self.assertTrue(isinstance(ai.units[2], Unit))
+        self.assertTrue(isinstance(ai.units[2].plan, UnitPlan))
+        self.assertTrue(isinstance(ai.units[3], Unit))
+        self.assertTrue(isinstance(ai.units[3].plan, UnitPlan))
+
+        self.assertEqual(2, len(human.settlements))
+        self.assertEqual(1, len(ai.settlements))
+        self.assertEqual(3, self.game_controller.namer.remove_settlement_name.call_count)
+
+        self.assertTrue(isinstance(human.settlements[0].current_work.construction, Improvement))
+        self.assertTrue(isinstance(human.settlements[1].current_work.construction, UnitPlan))
+        self.assertIsNone(ai.settlements[0].current_work)
+
+        self.assertEqual(3, len(human.settlements[0].improvements))
+        self.assertFalse(human.settlements[1].improvements)
+        self.assertEqual(5, len(ai.settlements[0].improvements))
+        self.assertTrue(all(isinstance(imp, Improvement) for imp in human.settlements[0].improvements))
+        self.assertTrue(all(isinstance(imp, Improvement) for imp in ai.settlements[0].improvements))
+
+        self.assertEqual(1, len(human.settlements[0].garrison))
+        self.assertFalse(human.settlements[1].garrison)
+        self.assertFalse(ai.settlements[0].garrison)
+        self.assertTrue(isinstance(human.settlements[0].garrison[0], Unit))
+
+        self.assertEqual(HarvestStatus.STANDARD, human.settlements[0].harvest_status)
+        self.assertEqual(HarvestStatus.STANDARD, human.settlements[1].harvest_status)
+        self.assertEqual(HarvestStatus.STANDARD, ai.settlements[0].harvest_status)
+        self.assertEqual(EconomicStatus.STANDARD, human.settlements[0].economic_status)
+        self.assertEqual(EconomicStatus.STANDARD, human.settlements[1].economic_status)
+        self.assertEqual(EconomicStatus.STANDARD, ai.settlements[0].economic_status)
+        self.assertTrue(isinstance(human.settlements[0].harvest_status, HarvestStatus))
+        self.assertTrue(isinstance(human.settlements[1].harvest_status, HarvestStatus))
+        self.assertTrue(isinstance(ai.settlements[0].harvest_status, HarvestStatus))
+        self.assertTrue(isinstance(human.settlements[0].economic_status, EconomicStatus))
+        self.assertTrue(isinstance(human.settlements[1].economic_status, EconomicStatus))
+        self.assertTrue(isinstance(ai.settlements[0].economic_status, EconomicStatus))
+
+        self.assertEqual(human.settlements[0].quads[0],
+                         quads[human.settlements[0].location[1]][human.settlements[0].location[0]])
+        self.assertTrue(isinstance(human.settlements[0].quads[0], Quad))
+        self.assertEqual(human.settlements[1].quads[0],
+                         quads[human.settlements[1].location[1]][human.settlements[1].location[0]])
+        self.assertTrue(isinstance(human.settlements[1].quads[0], Quad))
+        self.assertEqual(ai.settlements[0].quads[0],
+                         quads[ai.settlements[0].location[1]][ai.settlements[0].location[0]])
+        self.assertTrue(isinstance(ai.settlements[0].quads[0], Quad))
+
+        self.assertTrue(isinstance(human.ongoing_blessing.blessing, Blessing))
+        self.assertTrue(isinstance(ai.ongoing_blessing.blessing, Blessing))
+
+        self.assertEqual(1, len(human.blessings))
+        self.assertFalse(ai.blessings)
+        self.assertTrue(isinstance(human.blessings[0], Blessing))
+
+        self.assertEqual(1, len(human.imminent_victories))
+        self.assertTrue(isinstance(human.imminent_victories.pop(), VictoryType))
+        self.assertFalse(ai.imminent_victories)
+
+        self.assertIsNone(human.ai_playstyle)
+        self.assertTrue(isinstance(ai.ai_playstyle, AIPlaystyle))
+        self.assertTrue(isinstance(ai.ai_playstyle.attacking, AttackPlaystyle))
+        self.assertTrue(isinstance(ai.ai_playstyle.expansion, ExpansionPlaystyle))
+
+        self.assertEqual(5, len(self.game_state.heathens))
+        self.assertTrue(all(isinstance(heathen, Heathen) for heathen in self.game_state.heathens))
+        self.assertTrue(all(isinstance(heathen.plan, UnitPlan) for heathen in self.game_state.heathens))
+
+        self.assertEqual(26, self.game_state.turn)
+        self.assertEqual(7, self.game_state.until_night)
+        self.assertFalse(self.game_state.nighttime_left)
+
+        self.assertTrue(game_cfg.biome_clustering)
+        self.assertTrue(game_cfg.fog_of_war)
+        self.assertTrue(game_cfg.climatic_effects)
+        self.assertFalse(game_cfg.multiplayer)
+        self.assertEqual(90, len(quads))
+
+    @patch("source.saving.game_save_manager.SAVES_DIR", "source/tests/resources")
+    def test_load_legacy_save_file(self):
+        """
+        Ensure that a pre-defined legacy save file from version 3.0 is correctly loaded into state, without starting the
+        game.
+        """
+
+        # This test makes a number of assumptions, based on the data from the supplied resource/save-legacy.json file.
+        #
+        # Assumptions:
         # - The save game is from version 3.0.
         # - There are 2 players, with the human player using The Nocturne as their faction.
         # - The human player has a populated quads_seen list, but the AI player doesn't, despite it being populated in
-        #   the save file. This is because AI players have no use for them.
+        #   the save file. This is because AI players had no use for them prior to version 4.0, which introduced
+        #   multiplayer. This was important because AI players could then be replaced mid-game, meaning their seen quads
+        #   needed to be known.
         # - The human player has no deployed units, but the AI player has 2 (a Warrior with increased power and a
         #   Settler).
         # - The human player has 2 settlements and the AI player has 1.
@@ -311,7 +446,7 @@ class GameSaveManagerTest(unittest.TestCase):
 
         self.game_controller.namer.remove_settlement_name = MagicMock()
 
-        game_cfg, quads = load_save_file(self.game_state, self.game_controller.namer, "save-test.json")
+        game_cfg, quads = load_save_file(self.game_state, self.game_controller.namer, "save-legacy.json")
 
         human = self.game_state.players[0]
         ai = self.game_state.players[1]
@@ -421,28 +556,27 @@ class GameSaveManagerTest(unittest.TestCase):
         # Note: this file needs to be updated whenever the game save format changes.
         #
         # Assumptions:
-        # - The save game is from version 3.0.
-        # - There are 2 players, with the human player using The Nocturne as their faction.
-        # - The human player has a populated quads_seen list, but the AI player doesn't, despite it being populated in
-        #   the save file. This is because AI players have no use for them.
-        # - The human player has no deployed units, but the AI player has 2 (a Warrior with increased power and a
-        #   Settler).
+        # - The save game is from version 4.0.
+        # - There are 2 players, with the human player using the Fundamentalists as their faction.
+        # - The human and AI players both have populated quads_seen lists, even though the AI player's one isn't used in
+        #   a single-player game.
+        # - The human player has no deployed units, but the AI player has 4 (all Warriors).
         # - The human player has 2 settlements and the AI player has 1.
-        # - The human player's two settlements are constructing a project and a unit, while the AI's settlement is
-        #   constructing an improvement.
-        # - The human player's first settlement has two improvements, and their second has none. The AI player's
-        #   settlement also has two improvements.
+        # - The human player's two settlements are constructing an improvement and a unit, while the AI's settlement is
+        #   not currently constructing anything.
+        # - The human player's first settlement has three improvements, and their second has none. The AI player's
+        #   settlement has five improvements.
         # - The human player's first garrison has a unit present, but the second does not, while the AI player's has
         #   none either.
         # - All settlements in the game have standard harvest and economic statuses.
         # - All settlements in the game have only a single quad.
         # - Both players have ongoing blessings.
-        # - The human player has completed two blessings, but the AI player has not completed any.
+        # - The human player has completed one blessing, but the AI player has not completed any.
         # - Naturally, the human player has no AI playstyle, but the AI player does have one.
         # - The human player has the Elimination victory as imminent as there is only one other settlement, but the AI
         #   player does not, since it has two opposing settlements.
         # - There are five heathens in the game.
-        # - The game is at turn 26, with 18 turns until nighttime.
+        # - The game is at turn 26, with 7 turns until nighttime.
         # - The game config has everything enabled except for multiplayer.
         #
         # The subsequent test logic is separated by assumption.
@@ -463,34 +597,36 @@ class GameSaveManagerTest(unittest.TestCase):
 
         self.game_controller.namer.reset.assert_called()
 
-        self.assertEqual(3.0, self.game_state.game_version)
+        self.assertEqual(4.0, self.game_state.game_version)
 
         self.assertEqual(2, len(self.game_state.players))
-        self.assertEqual(Faction.NOCTURNE, human.faction)
+        self.assertEqual(Faction.FUNDAMENTALISTS, human.faction)
 
         self.assertTrue(human.quads_seen)
-        self.assertFalse(ai.quads_seen)
+        self.assertTrue(ai.quads_seen)
 
         self.assertFalse(human.units)
-        self.assertEqual(2, len(ai.units))
+        self.assertEqual(4, len(ai.units))
         self.assertTrue(isinstance(ai.units[0], Unit))
         self.assertTrue(isinstance(ai.units[0].plan, UnitPlan))
         self.assertTrue(isinstance(ai.units[1], Unit))
         self.assertTrue(isinstance(ai.units[1].plan, UnitPlan))
-
-        self.assertEqual(105, ai.units[0].plan.power)
+        self.assertTrue(isinstance(ai.units[2], Unit))
+        self.assertTrue(isinstance(ai.units[2].plan, UnitPlan))
+        self.assertTrue(isinstance(ai.units[3], Unit))
+        self.assertTrue(isinstance(ai.units[3].plan, UnitPlan))
 
         self.assertEqual(2, len(human.settlements))
         self.assertEqual(1, len(ai.settlements))
         self.assertEqual(3, self.game_controller.namer.remove_settlement_name.call_count)
 
-        self.assertTrue(isinstance(human.settlements[0].current_work.construction, Project))
+        self.assertTrue(isinstance(human.settlements[0].current_work.construction, Improvement))
         self.assertTrue(isinstance(human.settlements[1].current_work.construction, UnitPlan))
-        self.assertTrue(isinstance(ai.settlements[0].current_work.construction, Improvement))
+        self.assertIsNone(ai.settlements[0].current_work)
 
-        self.assertEqual(2, len(human.settlements[0].improvements))
+        self.assertEqual(3, len(human.settlements[0].improvements))
         self.assertFalse(human.settlements[1].improvements)
-        self.assertEqual(2, len(ai.settlements[0].improvements))
+        self.assertEqual(5, len(ai.settlements[0].improvements))
         self.assertTrue(all(isinstance(imp, Improvement) for imp in human.settlements[0].improvements))
         self.assertTrue(all(isinstance(imp, Improvement) for imp in ai.settlements[0].improvements))
 
@@ -529,10 +665,9 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertTrue(isinstance(human.ongoing_blessing.blessing, Blessing))
         self.assertTrue(isinstance(ai.ongoing_blessing.blessing, Blessing))
 
-        self.assertEqual(2, len(human.blessings))
+        self.assertEqual(1, len(human.blessings))
         self.assertFalse(ai.blessings)
         self.assertTrue(isinstance(human.blessings[0], Blessing))
-        self.assertTrue(isinstance(human.blessings[1], Blessing))
 
         self.assertEqual(1, len(human.imminent_victories))
         self.assertTrue(isinstance(human.imminent_victories.pop(), VictoryType))
@@ -548,7 +683,7 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertTrue(all(isinstance(heathen.plan, UnitPlan) for heathen in self.game_state.heathens))
 
         self.assertEqual(26, self.game_state.turn)
-        self.assertEqual(18, self.game_state.until_night)
+        self.assertEqual(7, self.game_state.until_night)
         self.assertFalse(self.game_state.nighttime_left)
 
         mouse_mock.assert_called_with(visible=True)
@@ -577,7 +712,8 @@ class GameSaveManagerTest(unittest.TestCase):
         """
         Ensure that when an invalid save file is provided, the menu is updated to reflect that.
         """
-        self.game_controller.menu.save_idx = 1
+        # save-invalid.json appears third in the list, since it's displayed in reverse alphabetical order.
+        self.game_controller.menu.save_idx = 2
 
         self.assertFalse(self.game_controller.menu.load_failed)
         load_game(self.game_state, self.game_controller)
