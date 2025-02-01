@@ -142,9 +142,10 @@ def migrate_climatic_effects(game_state, save):
 
 def migrate_quad(quad, location: (int, int)) -> Quad:
     """
-    Apply the is_relic, location, resource, and yield migrations for Quads, if required.
+    Apply the inflation, is_relic, location, resource, and yield migrations for Quads, if required.
     :param quad: The loaded quad object.
-    :param location: The backup location to use for the quad if it is from an outdated save.
+    :param location: The backup location to use for the quad if it is from an up-to-date minified-format save, or from
+                     an outdated JSON-format save.
     :return: An optionally-migrated Quad representation.
     """
     if isinstance(quad, str):
