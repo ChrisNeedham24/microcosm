@@ -1,6 +1,7 @@
 from source.foundation.catalogue import get_blessing, FACTION_COLOURS, IMPROVEMENTS
 from source.foundation.models import UnitPlan, Unit, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, Quad, \
     Biome, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection
+from source.util.minifier import inflate_quad
 
 """
 The following migrations have occurred during Microcosm's development:
@@ -141,11 +142,14 @@ def migrate_climatic_effects(game_state, save):
 
 def migrate_quad(quad, location: (int, int)) -> Quad:
     """
-    Apply the is_relic, location, resource, and yield migrations for Quads, if required.
+    Apply the inflation, is_relic, location, resource, and yield migrations for Quads, if required.
     :param quad: The loaded quad object.
-    :param location: The backup location to use for the quad if it is from an outdated save.
+    :param location: The backup location to use for the quad if it is from an up-to-date minified-format save, or from
+                     an outdated JSON-format save.
     :return: An optionally-migrated Quad representation.
     """
+    if isinstance(quad, str):
+        return inflate_quad(quad, location)
     new_quad: Quad = quad
     # The biomes require special loading.
     new_quad.biome = Biome[new_quad.biome]
