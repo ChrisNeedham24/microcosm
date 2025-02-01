@@ -18,7 +18,6 @@ from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, St
     Quad, HarvestStatus, EconomicStatus
 from source.game_management.game_controller import GameController
 from source.util.minifier import minify_quad
-
 if TYPE_CHECKING:
     from source.game_management.game_state import GameState
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
