@@ -20,7 +20,7 @@ from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
 from source.foundation.models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, \
     OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView, Improvement, LobbyDetails, \
-    PlayerDetails
+    PlayerDetails, MultiplayerStatus
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
 from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats_achievements, get_stats
@@ -173,7 +173,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
     if game_state.on_menu:
         if (game_controller.menu.in_game_setup or game_controller.menu.multiplayer_lobby) and \
                 game_controller.menu.setup_option is SetupOption.START_GAME:
-            if game_controller.menu.multiplayer_enabled and not game_controller.menu.multiplayer_lobby:
+            if (game_controller.menu.multiplayer_status == MultiplayerStatus.LOCAL or
+                game_controller.menu.multiplayer_status == MultiplayerStatus.GLOBAL) and \
+                    not game_controller.menu.multiplayer_lobby:
                 game_state.reset_state()
                 lobby_create_event: CreateEvent = CreateEvent(EventType.CREATE, get_identifier(),
                                                               game_controller.menu.get_game_config())

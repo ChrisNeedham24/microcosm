@@ -132,6 +132,12 @@ class InvestigationResult(str, Enum):
     NONE = "NONE"
 
 
+class MultiplayerStatus(str, Enum):
+    DISABLED = "DISABLED"
+    LOCAL = "LOCAL"
+    GLOBAL = "GLOBAL"
+
+
 class OverlayType(Enum):
     """
     The various overlay types that may be displayed.
@@ -509,7 +515,7 @@ class GameConfig:
     biome_clustering: bool
     fog_of_war: bool
     climatic_effects: bool
-    multiplayer: bool
+    multiplayer: MultiplayerStatus
 
 
 @dataclass

@@ -7,7 +7,7 @@ import pyxel
 from source.util.calculator import clamp
 from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, ACHIEVEMENTS
 from source.foundation.models import GameConfig, VictoryType, Faction, Statistics, UnitPlan, DeployerUnitPlan, \
-    LobbyDetails, LoadedMultiplayerState
+    LobbyDetails, LoadedMultiplayerState, MultiplayerStatus
 
 
 class MainMenuOption(Enum):
@@ -89,7 +89,7 @@ class Menu:
         self.setup_option = SetupOption.PLAYER_FACTION
         self.faction_idx = 0
         self.player_count = 2
-        self.multiplayer_enabled = False
+        self.multiplayer_status = MultiplayerStatus.DISABLED
         self.biome_clustering_enabled = True
         self.fog_of_war_enabled = True
         self.climatic_effects_enabled = True
@@ -213,7 +213,10 @@ class Menu:
                     case SetupOption.PLAYER_COUNT:
                         self.player_count = max(2, self.player_count - 1)
                     case SetupOption.MULTIPLAYER:
-                        self.multiplayer_enabled = False
+                        if self.multiplayer_status == MultiplayerStatus.LOCAL:
+                            self.multiplayer_status = MultiplayerStatus.DISABLED
+                        elif self.multiplayer_status == MultiplayerStatus.GLOBAL:
+                            self.multiplayer_status = MultiplayerStatus.LOCAL
                     case SetupOption.BIOME_CLUSTERING:
                         self.biome_clustering_enabled = False
                     case SetupOption.FOG_OF_WAR:
@@ -250,7 +253,10 @@ class Menu:
                     case SetupOption.PLAYER_COUNT:
                         self.player_count = min(14, self.player_count + 1)
                     case SetupOption.MULTIPLAYER:
-                        self.multiplayer_enabled = True
+                        if self.multiplayer_status == MultiplayerStatus.DISABLED:
+                            self.multiplayer_status = MultiplayerStatus.LOCAL
+                        elif self.multiplayer_status == MultiplayerStatus.LOCAL:
+                            self.multiplayer_status = MultiplayerStatus.GLOBAL
                     case SetupOption.BIOME_CLUSTERING:
                         self.biome_clustering_enabled = True
                     case SetupOption.FOG_OF_WAR:
@@ -284,7 +290,7 @@ class Menu:
         :return: The appropriate GameConfig object.
         """
         return GameConfig(self.player_count, self.faction_colours[self.faction_idx][0], self.biome_clustering_enabled,
-                          self.fog_of_war_enabled, self.climatic_effects_enabled, self.multiplayer_enabled)
+                          self.fog_of_war_enabled, self.climatic_effects_enabled, self.multiplayer_status)
 
     def next_menu_option(self, current_option: MenuOptions, wrap_around: bool = False, skip: bool = False) -> None:
         """

@@ -54,7 +54,7 @@ v4.0
   to the closest integer.
 - Multiplayer games were introduced; GameConfig objects from previous versions are naturally mapped to False.
 """
-
+# TODO multiplayer status
 
 def migrate_unit_plan(unit_plan, faction: Faction) -> UnitPlan:
     """

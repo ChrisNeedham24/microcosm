@@ -7,7 +7,8 @@ from source.display.display_utils import draw_paragraph
 from source.display.menu import MainMenuOption, Menu, SetupOption, WikiOption, WikiUnitsOption
 from source.foundation.catalogue import ACHIEVEMENTS, BLESSINGS, FACTION_COLOURS, FACTION_DETAILS, IMPROVEMENTS, \
     PROJECTS, VICTORY_TYPE_COLOURS, get_unlockable_improvements
-from source.foundation.models import DeployerUnitPlan, Faction, PlayerDetails, ProjectType, VictoryType
+from source.foundation.models import DeployerUnitPlan, Faction, PlayerDetails, ProjectType, VictoryType, \
+    MultiplayerStatus
 from source.networking.client import get_identifier
 
 
@@ -106,10 +107,13 @@ def display_menu(menu: Menu):
 
         if menu.upnp_enabled:
             pyxel.text(28, 80, "Multiplayer", menu.get_option_colour(SetupOption.MULTIPLAYER))
-            if menu.multiplayer_enabled:
-                pyxel.text(125, 80, "<- Enabled", pyxel.COLOR_GREEN)
-            else:
-                pyxel.text(125, 80, "Disabled ->", pyxel.COLOR_RED)
+            match menu.multiplayer_status:
+                case MultiplayerStatus.DISABLED:
+                    pyxel.text(125, 80, "Disabled ->", pyxel.COLOR_RED)
+                case MultiplayerStatus.LOCAL:
+                    pyxel.text(125, 80, "<- Local ->", pyxel.COLOR_LIGHT_BLUE)
+                case MultiplayerStatus.GLOBAL:
+                    pyxel.text(127, 80, "<- Global", pyxel.COLOR_GREEN)
         else:
             pyxel.text(28, 80, "Multiplayer", pyxel.COLOR_GRAY)
             pyxel.text(130, 80, "Disabled", pyxel.COLOR_GRAY)

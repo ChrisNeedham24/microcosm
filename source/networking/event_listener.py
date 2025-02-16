@@ -7,6 +7,7 @@ import socket
 import socketserver
 import time
 from itertools import chain
+from json import JSONDecodeError
 from site import getusersitepackages
 from threading import Thread
 from typing import Dict, List, Optional, Set, Tuple, Callable
@@ -99,7 +100,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             sock: socket.socket = self.request[1]
             self.process_event(evt, sock)
         # Any packet that arrives at the listener that isn't syntactically valid can just be ignored.
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, JSONDecodeError):
             pass
 
     def _forward_packet(self, evt: Event, gc_key: str, sock: socket.socket,
