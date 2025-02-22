@@ -2,9 +2,10 @@ import hashlib
 import json
 import random
 from itertools import chain
-from typing import Optional, List, Set, Tuple
+from typing import Optional, List, Set, Tuple, Dict
 
 from source.display.board import Board
+from source.networking.client import EventDispatcher, DispatcherKind
 from source.saving.game_save_manager import save_stats_achievements
 from source.saving.save_encoder import SaveEncoder
 from source.util.calculator import clamp, attack, get_setl_totals, complete_construction, \
@@ -56,6 +57,9 @@ class GameState:
         self.ready_players: Set[int] = set()
         # Whether the previous turn is being processed.
         self.processing_turn: bool = False
+        self.event_dispatchers: Dict[DispatcherKind, EventDispatcher] = {
+            DispatcherKind.GLOBAL: EventDispatcher()
+        }
 
     def __hash__(self) -> int:
         """
