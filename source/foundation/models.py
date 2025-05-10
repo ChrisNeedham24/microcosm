@@ -137,6 +137,9 @@ class MultiplayerStatus(str, Enum):
     LOCAL = "LOCAL"
     GLOBAL = "GLOBAL"
 
+    def __bool__(self) -> bool:
+        return self != MultiplayerStatus.DISABLED
+
 
 class OverlayType(Enum):
     """

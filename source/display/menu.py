@@ -254,6 +254,7 @@ class Menu:
                         self.player_count = min(14, self.player_count + 1)
                     case SetupOption.MULTIPLAYER:
                         if self.multiplayer_status == MultiplayerStatus.DISABLED:
+                            # TODO disable this if there is no local dispatcher
                             self.multiplayer_status = MultiplayerStatus.LOCAL
                         elif self.multiplayer_status == MultiplayerStatus.LOCAL:
                             self.multiplayer_status = MultiplayerStatus.GLOBAL

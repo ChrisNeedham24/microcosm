@@ -297,7 +297,7 @@ def load_game(game_state: GameState, game_controller: GameController):
         game_state.located_player_idx = True
         game_state.game_started = True
         game_state.on_menu = False
-        game_state.board = Board(game_cfg, game_controller.namer, quads)
+        game_state.board = Board(game_cfg, game_controller.namer, game_state.event_dispatchers, quads)
         game_controller.move_maker.board_ref = game_state.board
         # Initialise the map position to the player's first settlement.
         game_state.map_pos = (clamp(game_state.players[0].settlements[0].location[0] - 12, -1, 77),

@@ -1,31 +1,44 @@
 import datetime
 import json
 import os
+import platform
 import socket
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from ipaddress import IPv4Network
+from ipaddress import IPv4Address, IPv4Network
+from site import getusersitepackages
 from socketserver import UDPServer
+from typing import Dict
 
+from source.foundation.models import MultiplayerStatus
+
+# For Windows clients we need to ensure that the miniupnpc DLL is loaded before attempting to import the module.
+if platform.system() == "Windows":
+    from ctypes import cdll, CDLL
+    import sys
+    # Clients playing via the bundled EXE should already have the DLL loaded, since it's bundled into the EXE itself.
+    try:
+        CDLL("miniupnpc.dll")
+    # However, clients playing via a pip install or from source will need to load the DLL manually.
+    except FileNotFoundError:
+        if "microcosm" in sys.modules:
+            cdll.LoadLibrary(f"{getusersitepackages()}/microcosm/source/resources/dll/miniupnpc.dll")
+        else:
+            cdll.LoadLibrary("source/resources/dll/miniupnpc.dll")
+# We need to disable a lint rule for the miniupnpc import because it doesn't actually declare UPnP in its module. This
+# isn't our fault, so we can just disable the rule.
+# pylint: disable=no-name-in-module
 from miniupnpc import UPnP
 
 from source.networking.events import Event, RegisterEvent, EventType
 from source.saving.save_encoder import SaveEncoder
 
 
-# The IP address of the game server, and the port it is reachable on.
-HOST, PORT = "170.64.142.122", 9999
-
-
-def dispatch_event(evt: Event):
-    """
-    Send a UDP packet with the JSON-encoded bytes of the supplied event to the game server.
-    :param evt: The event to send to the game server for processing.
-    """
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # We use SaveEncoder here too for the same custom JSON output as with game saves.
-    evt_json: str = json.dumps(evt, separators=(",", ":"), cls=SaveEncoder)
-    sock.sendto(evt_json.encode(), (HOST, PORT))
+# The IP address of the global game server.
+GLOBAL_SERVER_HOST = "170.64.142.122"
+# The port at which all game servers are reachable, both global and local.
+SERVER_PORT = 9999
 
 
 class DispatcherKind(Enum):
@@ -34,7 +47,7 @@ class DispatcherKind(Enum):
 
 
 class EventDispatcher:
-    def __init__(self, host: str = HOST):
+    def __init__(self, host: str = GLOBAL_SERVER_HOST):
         self.host: str = host
 
     def dispatch_event(self, evt: Event):
@@ -45,7 +58,24 @@ class EventDispatcher:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # We use SaveEncoder here too for the same custom JSON output as with game saves.
         evt_json: str = json.dumps(evt, separators=(",", ":"), cls=SaveEncoder)
-        sock.sendto(evt_json.encode(), (self.host, PORT))
+        sock.sendto(evt_json.encode(), (self.host, SERVER_PORT))
+
+
+def dispatch_event(evt: Event,
+                   dispatchers: Dict[DispatcherKind, EventDispatcher],
+                   multiplayer_status: MultiplayerStatus):
+    """
+    Send a UDP packet with the JSON-encoded bytes of the supplied event to the game server.
+    :param evt: The event to send to the game server for processing.
+    """
+    # TODO update doc
+    match multiplayer_status:
+        case MultiplayerStatus.GLOBAL:
+            dispatchers[DispatcherKind.GLOBAL].dispatch_event(evt)
+        case MultiplayerStatus.LOCAL:
+            dispatchers[DispatcherKind.LOCAL].dispatch_event(evt)
+        case _:
+            pass
 
 
 def get_identifier() -> int:
@@ -90,8 +120,11 @@ def initialise_upnp(private_ip: str, server: UDPServer):
 
 def broadcast_to_local_network_hosts(private_ip: str, client_port: int):
     local_network: IPv4Network = IPv4Network(f"{private_ip}/24", strict=False)
-    for host in local_network.hosts():
-        # TODO this is very slow - speed it up
-        print(host)
+
+    def ping_host(host: IPv4Address):
         dispatcher: EventDispatcher = EventDispatcher(str(host))
         dispatcher.dispatch_event(RegisterEvent(EventType.REGISTER, get_identifier(), client_port))
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        for h in local_network.hosts():
+            executor.submit(ping_host, h)
