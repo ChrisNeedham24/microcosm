@@ -172,10 +172,13 @@ def display_menu(menu: Menu):
         else:
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
-            if menu.loading_multiplayer_game:
-                pyxel.text(60, 25, "Load Multiplayer Game", pyxel.COLOR_WHITE)
-            else:
-                pyxel.text(81, 25, "Load Game", pyxel.COLOR_WHITE)
+            match menu.loading_game_multiplayer_status:
+                case MultiplayerStatus.GLOBAL:
+                    pyxel.text(60, 25, "Load Multiplayer Game", pyxel.COLOR_WHITE)
+                case MultiplayerStatus.LOCAL:
+                    pyxel.text(48, 25, "Load Local Multiplayer Game", pyxel.COLOR_WHITE)
+                case MultiplayerStatus.DISABLED:
+                    pyxel.text(81, 25, "Load Game", pyxel.COLOR_WHITE)
             for idx, save in enumerate(menu.saves):
                 if menu.load_game_boundaries[0] <= idx <= menu.load_game_boundaries[1]:
                     pyxel.text(25, 35 + (idx - menu.load_game_boundaries[0]) * 10, save, pyxel.COLOR_WHITE)
@@ -185,9 +188,15 @@ def display_menu(menu: Menu):
                 draw_paragraph(147, 135, "More down!", 5)
                 pyxel.blt(167, 136, 0, 0, 76, 8, 8)
             pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
-            if menu.loading_multiplayer_game:
+            if menu.loading_game_multiplayer_status == MultiplayerStatus.GLOBAL:
                 pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
                 pyxel.blt(35, 150, 0, 0, 140, 8, 8)
+                if menu.has_local_dispatcher:
+                    pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
+                    pyxel.blt(158, 150, 0, 16, 140, 8, 8)
+            elif menu.loading_game_multiplayer_status == MultiplayerStatus.LOCAL:
+                pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
+                pyxel.blt(35, 150, 0, 8, 140, 8, 8)
             elif menu.upnp_enabled:
                 pyxel.blt(158, 150, 0, 8, 140, 8, 8)
                 pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)

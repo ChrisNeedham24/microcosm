@@ -17,7 +17,7 @@ from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAM
     get_project, get_unit_plan, get_blessing, get_heathen
 from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDetails, Quad, OngoingBlessing, \
     InvestigationResult, Settlement, Unit, Heathen, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
-    LoadedMultiplayerState, HarvestStatus, EconomicStatus
+    LoadedMultiplayerState, HarvestStatus, EconomicStatus, MultiplayerStatus
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
@@ -996,6 +996,7 @@ class RequestHandler(BaseRequestHandler):
             if self.client_address[0] != GLOBAL_SERVER_HOST:
                 self.server.game_states_ref["local"].event_dispatchers[DispatcherKind.LOCAL] = \
                     EventDispatcher(str(self.client_address[0]))
+                self.server.game_controller_ref.menu.has_local_dispatcher = True
 
     def _server_end_turn(self, gs: GameState, evt: EndTurnEvent, sock: socket.socket):
         """
@@ -1162,7 +1163,8 @@ class RequestHandler(BaseRequestHandler):
             sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
         else:
             self.server.game_controller_ref.menu.saves = evt.saves
-            self.server.game_controller_ref.menu.loading_multiplayer_game = True
+            self.server.game_controller_ref.menu.loading_game_multiplayer_status = \
+                MultiplayerStatus.GLOBAL if self.client_address[0] == GLOBAL_SERVER_HOST else MultiplayerStatus.LOCAL
 
     def process_load_event(self, evt: LoadEvent, sock: socket.socket):
         """

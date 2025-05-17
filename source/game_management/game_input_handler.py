@@ -104,7 +104,11 @@ def on_key_arrow_left(game_controller: GameController, game_state: GameState, is
     if game_state.on_menu:
         game_controller.menu.navigate(left=True)
         if game_controller.menu.loading_game:
-            game_controller.menu.saves = get_saves()
+            if game_controller.menu.loading_game_multiplayer_status == MultiplayerStatus.LOCAL:
+                qs_evt: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, get_identifier())
+                dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
+            else:
+                game_controller.menu.saves = get_saves()
     elif game_state.game_started:
         if game_state.board.overlay.is_constructing():
             if game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS and \
@@ -140,8 +144,11 @@ def on_key_arrow_right(game_controller: GameController, game_state: GameState, i
         game_controller.menu.navigate(right=True)
         if game_controller.menu.loading_game and game_controller.menu.upnp_enabled:
             qs_evt: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, get_identifier())
-            # TODO going to need some more logic for local multiplayer saves
-            dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
+            if not game_controller.menu.loading_game_multiplayer_status:
+                dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
+            elif game_controller.menu.has_local_dispatcher and \
+                    game_controller.menu.loading_game_multiplayer_status == MultiplayerStatus.GLOBAL:
+                dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.LOCAL)
     elif game_state.game_started:
         if game_state.board.overlay.is_constructing():
             if game_state.board.overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
@@ -219,7 +226,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.music_player.play_game_music()
         elif game_controller.menu.loading_game:
             # TODO going to need some more logic here for local multiplayer saves
-            if game_controller.menu.loading_multiplayer_game:
+            if game_controller.menu.loading_game_multiplayer_status:
                 save_name: str = game_controller.menu.saves[game_controller.menu.save_idx]
                 # We need to convert the save name back to the file name before we send it to the server.
                 if save_name.endswith("(auto)"):
@@ -227,7 +234,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 else:
                     save_name = "save-" + save_name.replace(" ", "T") + ".json"
                 l_evt: LoadEvent = LoadEvent(EventType.LOAD, get_identifier(), save_name)
-                dispatch_event(l_evt, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
+                dispatch_event(l_evt,
+                               game_state.event_dispatchers,
+                               game_controller.menu.loading_game_multiplayer_status)
             else:
                 load_game(game_state, game_controller)
         elif game_controller.menu.joining_game and not game_controller.menu.showing_faction_details:
@@ -320,7 +329,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         game_state.on_menu = True
         game_state.reset_state()
         game_controller.menu.loading_game = False
-        game_controller.menu.loading_multiplayer_game = False
+        game_controller.menu.loading_game_multiplayer_status = MultiplayerStatus.DISABLED
         game_controller.menu.in_game_setup = False
         game_controller.menu.multiplayer_lobby = None
         game_controller.menu.joining_game = False
@@ -450,7 +459,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_state.on_menu = True
                 game_state.reset_state()
                 game_controller.menu.loading_game = False
-                game_controller.menu.loading_multiplayer_game = False
+                game_controller.menu.loading_game_multiplayer_status = MultiplayerStatus.DISABLED
                 game_controller.menu.in_game_setup = False
                 game_controller.menu.multiplayer_lobby = None
                 game_controller.menu.joining_game = False
@@ -609,10 +618,10 @@ def on_key_space(game_controller: GameController, game_state: GameState):
         game_controller.menu.load_failed = False
     elif game_state.on_menu and game_controller.menu.loading_game:
         game_controller.menu.loading_game = False
-        game_controller.menu.loading_multiplayer_game = False
+        game_controller.menu.loading_game_multiplayer_status = MultiplayerStatus.DISABLED
     elif game_state.on_menu and game_controller.menu.joining_game:
         game_controller.menu.joining_game = False
-        if game_controller.menu.loading_multiplayer_game:
+        if game_controller.menu.loading_game_multiplayer_status:
             game_controller.menu.loading_game = True
     elif game_state.on_menu and game_controller.menu.viewing_lobbies:
         game_controller.menu.viewing_lobbies = False

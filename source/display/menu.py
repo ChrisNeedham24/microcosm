@@ -115,8 +115,9 @@ class Menu:
         self.available_multiplayer_factions: List[Tuple[Faction, int]] = []
         self.lobby_player_boundaries = 0, 7
         self.multiplayer_game_being_loaded: Optional[LoadedMultiplayerState] = None
-        self.loading_multiplayer_game = False
+        self.loading_game_multiplayer_status: MultiplayerStatus = MultiplayerStatus.DISABLED
         self.upnp_enabled: Optional[bool] = None  # None before a connection has been attempted.
+        self.has_local_dispatcher: bool = False
 
     def navigate(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
         """
@@ -213,7 +214,7 @@ class Menu:
                     case SetupOption.PLAYER_COUNT:
                         self.player_count = max(2, self.player_count - 1)
                     case SetupOption.MULTIPLAYER:
-                        if self.multiplayer_status == MultiplayerStatus.LOCAL:
+                        if self.multiplayer_status == MultiplayerStatus.LOCAL or not self.has_local_dispatcher:
                             self.multiplayer_status = MultiplayerStatus.DISABLED
                         elif self.multiplayer_status == MultiplayerStatus.GLOBAL:
                             self.multiplayer_status = MultiplayerStatus.LOCAL
@@ -223,8 +224,8 @@ class Menu:
                         self.fog_of_war_enabled = False
                     case SetupOption.CLIMATIC_EFFECTS:
                         self.climatic_effects_enabled = False
-            elif self.loading_game:
-                self.loading_multiplayer_game = False
+            elif self.loading_game and self.loading_game_multiplayer_status == MultiplayerStatus.GLOBAL:
+                self.loading_game_multiplayer_status = MultiplayerStatus.DISABLED
             elif self.joining_game:
                 self.faction_idx = clamp(self.faction_idx - 1, 0, len(self.available_multiplayer_factions) - 1)
             elif self.in_wiki and self.wiki_showing is WikiOption.VICTORIES:
@@ -253,11 +254,10 @@ class Menu:
                     case SetupOption.PLAYER_COUNT:
                         self.player_count = min(14, self.player_count + 1)
                     case SetupOption.MULTIPLAYER:
-                        if self.multiplayer_status == MultiplayerStatus.DISABLED:
-                            # TODO disable this if there is no local dispatcher
-                            self.multiplayer_status = MultiplayerStatus.LOCAL
-                        elif self.multiplayer_status == MultiplayerStatus.LOCAL:
+                        if self.multiplayer_status == MultiplayerStatus.LOCAL or not self.has_local_dispatcher:
                             self.multiplayer_status = MultiplayerStatus.GLOBAL
+                        elif self.multiplayer_status == MultiplayerStatus.DISABLED:
+                            self.multiplayer_status = MultiplayerStatus.LOCAL
                     case SetupOption.BIOME_CLUSTERING:
                         self.biome_clustering_enabled = True
                     case SetupOption.FOG_OF_WAR:
