@@ -109,6 +109,7 @@ class Menu:
         self.showing_rare_resources = False
         self.multiplayer_lobby: Optional[LobbyDetails] = None
         self.viewing_lobbies = False
+        self.viewing_local_lobbies = False
         self.multiplayer_lobbies: List[LobbyDetails] = []
         self.lobby_index = 0
         self.joining_game = False

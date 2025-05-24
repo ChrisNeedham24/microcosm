@@ -109,6 +109,9 @@ def on_key_arrow_left(game_controller: GameController, game_state: GameState, is
                 dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
             else:
                 game_controller.menu.saves = get_saves()
+        elif game_controller.menu.viewing_lobbies and game_controller.menu.viewing_local_lobbies:
+            lobbies_query_event: QueryEvent = QueryEvent(EventType.QUERY, get_identifier())
+            dispatch_event(lobbies_query_event, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
     elif game_state.game_started:
         if game_state.board.overlay.is_constructing():
             if game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS and \
@@ -149,6 +152,9 @@ def on_key_arrow_right(game_controller: GameController, game_state: GameState, i
             elif game_controller.menu.has_local_dispatcher and \
                     game_controller.menu.loading_game_multiplayer_status == MultiplayerStatus.GLOBAL:
                 dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.LOCAL)
+        elif game_controller.menu.viewing_lobbies and game_controller.menu.has_local_dispatcher:
+            lobbies_query_event: QueryEvent = QueryEvent(EventType.QUERY, get_identifier())
+            dispatch_event(lobbies_query_event, game_state.event_dispatchers, MultiplayerStatus.LOCAL)
     elif game_state.game_started:
         if game_state.board.overlay.is_constructing():
             if game_state.board.overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
@@ -225,7 +231,6 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.music_player.stop_menu_music()
                     game_controller.music_player.play_game_music()
         elif game_controller.menu.loading_game:
-            # TODO going to need some more logic here for local multiplayer saves
             if game_controller.menu.loading_game_multiplayer_status:
                 save_name: str = game_controller.menu.saves[game_controller.menu.save_idx]
                 # We need to convert the save name back to the file name before we send it to the server.
@@ -240,12 +245,13 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             else:
                 load_game(game_state, game_controller)
         elif game_controller.menu.joining_game and not game_controller.menu.showing_faction_details:
-            # TODO going to need some more logic for joining local multiplayer games
             menu = game_controller.menu
             lobby_join_event: JoinEvent = JoinEvent(EventType.JOIN, get_identifier(),
                                                     menu.multiplayer_lobbies[menu.lobby_index].name,
                                                     menu.available_multiplayer_factions[menu.faction_idx][0])
-            dispatch_event(lobby_join_event, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
+            dispatch_event(lobby_join_event,
+                           game_state.event_dispatchers,
+                           menu.multiplayer_lobbies[menu.lobby_index].cfg.multiplayer)
             # Normally we would make changes to the game state or controller in the event listener, but because multiple
             # packets are sent back to the client when joining a game, we can't reset the namer in there, otherwise it
             # would be reset every time a new packet is received.
@@ -283,7 +289,6 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.menu.saves = get_saves()
                 case MainMenuOption.JOIN_GAME:
                     lobbies_query_event: QueryEvent = QueryEvent(EventType.QUERY, get_identifier())
-                    # TODO going to need some more logic for joining local multiplayer games
                     dispatch_event(lobbies_query_event, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
                 case MainMenuOption.STATISTICS:
                     game_controller.menu.viewing_stats = True
@@ -334,6 +339,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         game_controller.menu.multiplayer_lobby = None
         game_controller.menu.joining_game = False
         game_controller.menu.viewing_lobbies = False
+        game_controller.menu.viewing_local_lobbies = False
         game_controller.menu.faction_idx = 0
         game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
         game_controller.music_player.stop_game_music()
@@ -464,6 +470,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 game_controller.menu.multiplayer_lobby = None
                 game_controller.menu.joining_game = False
                 game_controller.menu.viewing_lobbies = False
+                game_controller.menu.viewing_local_lobbies = False
                 game_controller.menu.faction_idx = 0
                 game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
                 game_controller.music_player.stop_game_music()
@@ -625,6 +632,7 @@ def on_key_space(game_controller: GameController, game_state: GameState):
             game_controller.menu.loading_game = True
     elif game_state.on_menu and game_controller.menu.viewing_lobbies:
         game_controller.menu.viewing_lobbies = False
+        game_controller.menu.viewing_local_lobbies = False
     elif game_state.on_menu and game_controller.menu.viewing_stats:
         game_controller.menu.viewing_stats = False
     elif game_state.on_menu and game_controller.menu.viewing_achievements:

@@ -695,6 +695,7 @@ class RequestHandler(BaseRequestHandler):
             gc: GameController = self.server.game_controller_ref
             gc.menu.multiplayer_lobbies = evt.lobbies
             gc.menu.viewing_lobbies = True
+            gc.menu.viewing_local_lobbies = self.client_address[0] != GLOBAL_SERVER_HOST
 
     def process_leave_event(self, evt: LeaveEvent, sock: socket.socket):
         """
@@ -976,6 +977,7 @@ class RequestHandler(BaseRequestHandler):
                         gs.players.append(Player(player.name, Faction(player.faction), FACTION_COLOURS[player.faction]))
                     gc.menu.joining_game = False
                     gc.menu.viewing_lobbies = False
+                    gc.menu.viewing_local_lobbies = False
                     gc.menu.setup_option = SetupOption.START_GAME
                 # Otherwise, a new player has joined a lobby the client is already a part of.
                 else:

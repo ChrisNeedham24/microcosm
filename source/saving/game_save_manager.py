@@ -97,6 +97,8 @@ def save_stats_achievements(game_state: GameState,
     existing_achievements: List[str] = []
     new_achievements: List[Achievement] = []
 
+    # TODO there are currently some issues with concurrent read/writes on the statistics file if multiple players are on
+    #  the same machine - figure out whether it's worth accounting for this
     stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
     # If the player already has statistics and achievements, get those to add our new ones to.
     if os.path.isfile(stats_file_name):

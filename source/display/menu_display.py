@@ -682,9 +682,13 @@ def display_menu(menu: Menu):
                 pyxel.blt(148, 138, 0, next_total_faction_idx * 8, 92, 8, 8)
                 pyxel.text(158, 140, "->", pyxel.COLOR_WHITE)
     elif menu.viewing_lobbies:
+        pyxel.load("resources/sprites.pyxres")
         pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
         pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
-        pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
+        if menu.viewing_local_lobbies:
+            pyxel.text(72, 25, "Join Local Game", pyxel.COLOR_WHITE)
+        else:
+            pyxel.text(81, 25, "Join Game", pyxel.COLOR_WHITE)
         for idx, lobby in enumerate(menu.multiplayer_lobbies):
             human_players: List[PlayerDetails] = [p for p in lobby.current_players if p.id]
             lobby_is_full: bool = len(human_players) == lobby.cfg.player_count
@@ -699,6 +703,12 @@ def display_menu(menu: Menu):
             else:
                 pyxel.text(150, 35 + idx * 10, "Join",
                            pyxel.COLOR_RED if menu.lobby_index is idx else pyxel.COLOR_WHITE)
+        if menu.viewing_local_lobbies:
+            pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
+            pyxel.blt(35, 150, 0, 8, 140, 8, 8)
+        elif menu.has_local_dispatcher:
+            pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
+            pyxel.blt(158, 150, 0, 16, 140, 8, 8)
         pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
     else:
         pyxel.rectb(72, 95, 56, 90, pyxel.COLOR_WHITE)
