@@ -993,7 +993,8 @@ class RequestHandler(BaseRequestHandler):
         if self.server.is_server:
             # Keep track of the client's IP address and port they're listening on, so we can send them packets.
             self.server.clients_ref[evt.identifier] = self.client_address[0], evt.port
-            sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
+            sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                        self.server.clients_ref[evt.identifier])
         else:
             if self.client_address[0] != GLOBAL_SERVER_HOST:
                 self.server.game_states_ref["local"].event_dispatchers[DispatcherKind.LOCAL] = \
@@ -1344,7 +1345,7 @@ class EventListener:
                 # This would be a more specific Exception, but the UPnP library that is used actually raises the base
                 # Exception. Thus, we also have to disable the lint rule for catching base Exceptions.
                 # pylint: disable=broad-exception-caught
-                except Exception as e:
+                except Exception:
                     self.game_controller.menu.upnp_enabled = False
                     # We can just return early since there's no way a client without UPnP will be able to receive
                     # packets from the game server, so there's no reason to serve the server at all.

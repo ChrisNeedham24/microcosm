@@ -4,7 +4,8 @@ import pyxel
 
 from source.display.menu import Menu, SetupOption, WikiOption, MainMenuOption, WikiUnitsOption
 from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, ACHIEVEMENTS, FACTION_COLOURS
-from source.foundation.models import VictoryType, GameConfig, DeployerUnitPlan, LobbyDetails, PlayerDetails, Faction
+from source.foundation.models import VictoryType, GameConfig, DeployerUnitPlan, LobbyDetails, PlayerDetails, Faction, \
+    MultiplayerStatus
 
 
 class MenuTest(unittest.TestCase):
@@ -136,8 +137,9 @@ class MenuTest(unittest.TestCase):
         Ensure that the player can correctly navigate down and up the list of players in a multiplayer lobby.
         """
         # Just fake some player data - obviously in reality we can't have 11 players of the same faction.
-        self.menu.multiplayer_lobby = LobbyDetails("Test", [PlayerDetails("Tester", Faction.CONCENTRATED, None)] * 11,
-                                                   GameConfig(11, Faction.CONCENTRATED, True, True, True, True), None)
+        self.menu.multiplayer_lobby = \
+            LobbyDetails("Test", [PlayerDetails("Tester", Faction.CONCENTRATED, None)] * 11,
+                         GameConfig(11, Faction.CONCENTRATED, True, True, True, MultiplayerStatus.GLOBAL), None)
 
         self.assertTupleEqual((0, 7), self.menu.lobby_player_boundaries)
 
@@ -168,7 +170,7 @@ class MenuTest(unittest.TestCase):
         # 11 players of the same faction in each game.
         self.menu.multiplayer_lobbies = \
             [LobbyDetails("Test", [PlayerDetails("Tester", Faction.CONCENTRATED, None)] * 11,
-                          GameConfig(11, Faction.CONCENTRATED, True, True, True, True), None)] * 11
+                          GameConfig(11, Faction.CONCENTRATED, True, True, True, MultiplayerStatus.GLOBAL), None)] * 11
 
         self.assertEqual(0, self.menu.lobby_index)
         # Iterate through each of the lobbies.
@@ -527,17 +529,17 @@ class MenuTest(unittest.TestCase):
         self.menu.in_game_setup = True
         self.menu.setup_option = SetupOption.MULTIPLAYER
 
-        self.assertFalse(self.menu.multiplayer_enabled)
+        self.assertFalse(self.menu.multiplayer_status)
         # Pressing left when already disabled should have no effect.
         self.menu.navigate(left=True)
-        self.assertFalse(self.menu.multiplayer_enabled)
+        self.assertFalse(self.menu.multiplayer_status)
         self.menu.navigate(right=True)
-        self.assertTrue(self.menu.multiplayer_enabled)
+        self.assertTrue(self.menu.multiplayer_status)
         # Similarly, pressing right when already enabled should have no effect.
         self.menu.navigate(right=True)
-        self.assertTrue(self.menu.multiplayer_enabled)
+        self.assertTrue(self.menu.multiplayer_status)
         self.menu.navigate(left=True)
-        self.assertFalse(self.menu.multiplayer_enabled)
+        self.assertFalse(self.menu.multiplayer_status)
 
     def test_navigate_setup_clustering(self):
         """
@@ -603,13 +605,13 @@ class MenuTest(unittest.TestCase):
         request to the server.
         """
         self.menu.loading_game = True
-        self.menu.loading_multiplayer_game = True
+        self.menu.loading_game_multiplayer_status = MultiplayerStatus.GLOBAL
 
         self.menu.navigate(left=True)
-        self.assertFalse(self.menu.loading_multiplayer_game)
+        self.assertFalse(self.menu.loading_game_multiplayer_status)
         # Pressing left when already disabled should have no effect.
         self.menu.navigate(left=True)
-        self.assertFalse(self.menu.loading_multiplayer_game)
+        self.assertFalse(self.menu.loading_game_multiplayer_status)
 
     def test_navigate_joining_faction(self):
         """
@@ -747,7 +749,7 @@ class MenuTest(unittest.TestCase):
         test_clustering = self.menu.biome_clustering_enabled = False
         test_fog_of_war = self.menu.fog_of_war_enabled = True
         test_climate = self.menu.climatic_effects_enabled = False
-        test_multiplayer = self.menu.multiplayer_enabled = True
+        test_multiplayer = self.menu.multiplayer_status = MultiplayerStatus.GLOBAL
 
         test_config: GameConfig = self.menu.get_game_config()
 

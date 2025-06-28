@@ -7,7 +7,7 @@ from source.foundation.achievements import verify_full_house, verify_its_worth_i
 from source.foundation.catalogue import ACHIEVEMENTS, IMPROVEMENTS, BLESSINGS, Namer
 from source.foundation.models import Player, Faction, Settlement, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
     Statistics, UnitPlan, Unit, Quad, Biome, Improvement, ImprovementType, Effect, VictoryType, HarvestStatus, \
-    EconomicStatus, GameConfig, ResourceCollection
+    EconomicStatus, GameConfig, ResourceCollection, MultiplayerStatus
 from source.game_management.game_state import GameState
 
 
@@ -338,7 +338,8 @@ class AchievementsTest(unittest.TestCase):
         Ensure that verification for the 'All Is Revealed' achievement functions as expected.
         """
         # To make things easier in terms of quad counting, we initialise a real Board for this test.
-        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, False), Namer())
+        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, MultiplayerStatus.DISABLED),
+                                      Namer(), {})
         self._verify_achievement(ACHIEVEMENTS[34].verification_fn, should_pass=False)
         # If we give the player all of the quads on the board as seen, the achievement should be obtained.
         self.game_state.players[0].quads_seen = list(chain.from_iterable(self.game_state.board.quads))
@@ -547,11 +548,12 @@ class AchievementsTest(unittest.TestCase):
         Ensure that verification for the 'Going Online' achievement functions as expected.
         """
         # We need to use a real board for this test, since we'll be reading the game config from it.
-        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, multiplayer=False), Namer())
+        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, MultiplayerStatus.DISABLED),
+                                      Namer(), {})
         # The above config does not have multiplayer enabled, so this should fail.
         self._verify_achievement(ACHIEVEMENTS[54].verification_fn, should_pass=False)
         # However, now with multiplayer enabled, we expect the achievement to be obtained.
-        self.game_state.board.game_config.multiplayer = True
+        self.game_state.board.game_config.multiplayer = MultiplayerStatus.GLOBAL
         self._verify_achievement(ACHIEVEMENTS[54].verification_fn, should_pass=True)
 
     def test_big_game_hunter(self):
@@ -559,14 +561,15 @@ class AchievementsTest(unittest.TestCase):
         Ensure that verification for the 'Big Game Hunter' achievement functions as expected.
         """
         # We need to use a real board for this test, since we'll be reading the game config from it.
-        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, multiplayer=False), Namer())
+        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, MultiplayerStatus.DISABLED),
+                                      Namer(), {})
         # The above config does not have multiplayer enabled, so this should fail.
         self._verify_achievement(ACHIEVEMENTS[55].verification_fn, should_pass=False)
         # Since this is a post-victory achievement, all that needs to occur is that there are 14 players in the
         # multiplayer game. Due to the fact that there are 2 by default, we can just multiply by 7 and enable
         # multiplayer.
         self.game_state.players = self.game_state.players * 7
-        self.game_state.board.game_config.multiplayer = True
+        self.game_state.board.game_config.multiplayer = MultiplayerStatus.GLOBAL
         # With these changes, we expect the achievement to be obtained.
         self._verify_achievement(ACHIEVEMENTS[55].verification_fn, should_pass=True)
 
@@ -575,13 +578,14 @@ class AchievementsTest(unittest.TestCase):
         Ensure that verification for the 'Focus Victim' achievement functions as expected.
         """
         # We need to use a real board for this test, since we'll be reading the game config from it.
-        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, multiplayer=False), Namer())
+        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, MultiplayerStatus.DISABLED),
+                                      Namer(), {})
         # The above config does not have multiplayer enabled, so this should fail.
         self._verify_achievement(ACHIEVEMENTS[56].verification_fn, should_pass=False)
         # A number of things need to occur for this achievement to be obtained. Firstly, multiplayer must be enabled. In
         # addition to this, the game must have over 2 players, with the only eliminated player being the human player on
         # this machine.
-        self.game_state.board.game_config.multiplayer = True
+        self.game_state.board.game_config.multiplayer = MultiplayerStatus.GLOBAL
         self.game_state.players.append(Player("Farmer", Faction.AGRICULTURISTS, 0,
                                        ai_playstyle=AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL),
                                        settlements=[self.TEST_SETTLEMENT_3]))
@@ -594,12 +598,13 @@ class AchievementsTest(unittest.TestCase):
         Ensure that verification for the 'Greetings Fellow Robots' achievement functions as expected.
         """
         # We need to use a real board for this test, since we'll be reading the game config from it.
-        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, multiplayer=False), Namer())
+        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, MultiplayerStatus.DISABLED),
+                                      Namer(), {})
         # The above config does not have multiplayer enabled, so this should fail.
         self._verify_achievement(ACHIEVEMENTS[57].verification_fn, should_pass=False)
         # However, now with multiplayer enabled, we expect the achievement to be obtained, since the default test state
         # has one human and one AI player.
-        self.game_state.board.game_config.multiplayer = True
+        self.game_state.board.game_config.multiplayer = MultiplayerStatus.GLOBAL
         self._verify_achievement(ACHIEVEMENTS[57].verification_fn, should_pass=True)
 
     def test_50_hours_later(self):
@@ -607,11 +612,12 @@ class AchievementsTest(unittest.TestCase):
         Ensure that verification for the '50 Hours Later' achievement functions as expected.
         """
         # We need to use a real board for this test, since we'll be reading the game config from it.
-        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, multiplayer=False), Namer())
+        self.game_state.board = Board(GameConfig(2, Faction.INFIDELS, True, True, True, MultiplayerStatus.DISABLED),
+                                      Namer(), {})
         # The above config does not have multiplayer enabled, so this should fail.
         self._verify_achievement(ACHIEVEMENTS[58].verification_fn, should_pass=False)
         # However, now with multiplayer enabled and the game at a later turn, we expect the achievement to be obtained.
-        self.game_state.board.game_config.multiplayer = True
+        self.game_state.board.game_config.multiplayer = MultiplayerStatus.GLOBAL
         self.game_state.turn = 200
         self._verify_achievement(ACHIEVEMENTS[58].verification_fn, should_pass=True)
 

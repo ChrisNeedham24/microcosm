@@ -9,7 +9,8 @@ from unittest.mock import patch, MagicMock, mock_open
 from source.display.board import Board
 from source.foundation.catalogue import Namer, get_heathen_plan, ACHIEVEMENTS
 from source.foundation.models import GameConfig, Faction, Heathen, Project, UnitPlan, Improvement, Unit, Blessing, \
-    AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, VictoryType, HarvestStatus, EconomicStatus, Quad
+    AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, VictoryType, HarvestStatus, EconomicStatus, Quad, \
+    MultiplayerStatus
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game, save_stats_achievements, \
@@ -22,7 +23,7 @@ class GameSaveManagerTest(unittest.TestCase):
     """
     The test class for game_save_manager.py.
     """
-    TEST_CONFIG = GameConfig(4, Faction.NOCTURNE, True, True, True, False)
+    TEST_CONFIG = GameConfig(4, Faction.NOCTURNE, True, True, True, MultiplayerStatus.DISABLED)
 
     @patch("source.game_management.game_controller.MusicPlayer")
     def setUp(self, _: MagicMock) -> None:
@@ -32,7 +33,7 @@ class GameSaveManagerTest(unittest.TestCase):
         :param _: The unused MusicPlayer mock.
         """
         self.game_state = GameState()
-        self.game_state.board = Board(self.TEST_CONFIG, Namer())
+        self.game_state.board = Board(self.TEST_CONFIG, Namer(), {})
         self.game_state.gen_players(self.TEST_CONFIG)
         self.game_state.player_idx = 0
         self.game_state.heathens = [Heathen(1.0, 2, (3, 4), get_heathen_plan(1))]

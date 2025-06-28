@@ -484,19 +484,19 @@ ACHIEVEMENTS: List[Achievement] = [
                 lambda gs, _: ((res := gs.players[gs.player_idx].resources).aurora and
                                res.bloodstone and res.obsidian and res.sunstone and res.aquamarine)),
     Achievement("Going Online", "Win a multiplayer game.",
-                lambda gs, _: gs.board.game_config.multiplayer, post_victory=True),
+                lambda gs, _: bool(gs.board.game_config.multiplayer), post_victory=True),
     Achievement("Big Game Hunter", "Win a 14 player multiplayer game.",
-                lambda gs, _: gs.board.game_config.multiplayer and len(gs.players) == 14, post_victory=True),
+                lambda gs, _: bool(gs.board.game_config.multiplayer) and len(gs.players) == 14, post_victory=True),
     Achievement("Focus Victim", "Be eliminated first in a multiplayer game.",
-                lambda gs, _: (gs.board.game_config.multiplayer and
+                lambda gs, _: (bool(gs.board.game_config.multiplayer) and
                                gs.players[gs.player_idx].eliminated and
                                len([p for p in gs.players if p.eliminated]) == 1 and
                                len(gs.players) > 2)),
     Achievement("Greetings Fellow Robots", "Win a multiplayer game as the only human.",
-                lambda gs, _: (gs.board.game_config.multiplayer and
+                lambda gs, _: (bool(gs.board.game_config.multiplayer) and
                                len([p for p in gs.players if not p.ai_playstyle]) == 1), post_victory=True),
     Achievement("50 Hours Later", "Play 200 turns in a single multiplayer game.",
-                lambda gs, _: gs.board.game_config.multiplayer and gs.turn >= 200)
+                lambda gs, _: bool(gs.board.game_config.multiplayer) and gs.turn >= 200)
 ]
 
 

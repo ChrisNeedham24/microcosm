@@ -187,9 +187,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
     if game_state.on_menu:
         if (game_controller.menu.in_game_setup or game_controller.menu.multiplayer_lobby) and \
                 game_controller.menu.setup_option is SetupOption.START_GAME:
-            if (game_controller.menu.multiplayer_status == MultiplayerStatus.LOCAL or
-                game_controller.menu.multiplayer_status == MultiplayerStatus.GLOBAL) and \
-                    not game_controller.menu.multiplayer_lobby:
+            if game_controller.menu.multiplayer_status and not game_controller.menu.multiplayer_lobby:
                 game_state.reset_state()
                 lobby_create_event: CreateEvent = CreateEvent(EventType.CREATE, get_identifier(),
                                                               game_controller.menu.get_game_config())
