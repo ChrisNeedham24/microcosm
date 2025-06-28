@@ -65,10 +65,13 @@ def dispatch_event(evt: Event,
                    dispatchers: Dict[DispatcherKind, EventDispatcher],
                    multiplayer_status: MultiplayerStatus):
     """
-    Send a UDP packet with the JSON-encoded bytes of the supplied event to the game server.
+    Send a UDP packet with the JSON-encoded bytes of the supplied event to the appropriate game server, using its
+    associated dispatcher, which is based on the given multiplayer status.
     :param evt: The event to send to the game server for processing.
+    :param dispatchers: The available dispatchers for the current running instance.
+    :param multiplayer_status: The multiplayer status for the current game. This will either be LOCAL or GLOBAL; if this
+                               is DISABLED, then something has gone horribly wrong.
     """
-    # TODO update doc
     match multiplayer_status:
         case MultiplayerStatus.GLOBAL:
             dispatchers[DispatcherKind.GLOBAL].dispatch_event(evt)

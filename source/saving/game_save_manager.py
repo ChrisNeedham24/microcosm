@@ -9,6 +9,7 @@ from itertools import chain
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, Optional, List, Dict, Tuple
 
+from filelock import FileLock
 import pyxel
 from platformdirs import user_data_dir
 
@@ -97,73 +98,73 @@ def save_stats_achievements(game_state: GameState,
     existing_achievements: List[str] = []
     new_achievements: List[Achievement] = []
 
-    # TODO there are currently some issues with concurrent read/writes on the statistics file if multiple players are on
-    #  the same machine - figure out whether it's worth accounting for this
     stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
-    # If the player already has statistics and achievements, get those to add our new ones to.
-    if os.path.isfile(stats_file_name):
-        with open(stats_file_name, "r", encoding="utf-8") as stats_file:
-            stats_json = json.loads(stats_file.read())
-            playtime_to_write += stats_json["playtime"]
-            existing_turns = stats_json["turns_played"]
-            existing_victories = stats_json["victories"]
-            existing_defeats = stats_json["defeats"]
-            existing_factions = stats_json["factions"]
-            # Achievements were introduced after the initial statistics, so we have to make sure they are present.
-            existing_achievements = stats_json["achievements"] if "achievements" in stats_json else []
+    with FileLock(stats_file_name + ".lock"):
+        # If the player already has statistics and achievements, get those to add our new ones to.
+        if os.path.isfile(stats_file_name):
+            with open(stats_file_name, "r", encoding="utf-8") as stats_file:
+                stats_json = json.loads(stats_file.read())
+                playtime_to_write += stats_json["playtime"]
+                existing_turns = stats_json["turns_played"]
+                existing_victories = stats_json["victories"]
+                existing_defeats = stats_json["defeats"]
+                existing_factions = stats_json["factions"]
+                # Achievements were introduced after the initial statistics, so we have to make sure they are present.
+                existing_achievements = stats_json["achievements"] if "achievements" in stats_json else []
 
-    turns_to_write = existing_turns + 1 if increment_turn else existing_turns
-    defeats_to_write = existing_defeats + 1 if increment_defeats else existing_defeats
-    achievements_to_write = existing_achievements
+        turns_to_write = existing_turns + 1 if increment_turn else existing_turns
+        defeats_to_write = existing_defeats + 1 if increment_defeats else existing_defeats
+        achievements_to_write = existing_achievements
 
-    victories_to_write = existing_victories
-    if victory_to_add:
-        # If the player has achieved this victory before, increment it, otherwise just set it to 1.
-        if victory_to_add in existing_victories:
-            existing_victories[victory_to_add] = existing_victories[victory_to_add] + 1
-        else:
-            existing_victories[victory_to_add] = 1
+        victories_to_write = existing_victories
+        if victory_to_add:
+            # If the player has achieved this victory before, increment it, otherwise just set it to 1.
+            if victory_to_add in existing_victories:
+                existing_victories[victory_to_add] = existing_victories[victory_to_add] + 1
+            else:
+                existing_victories[victory_to_add] = 1
 
-        # Check if any achievements have been obtained that can only be verified immediately after a player victory.
-        # Note that we don't need to supply a real Statistics object for this, since all post-victory achievements only
-        # require the game state to be verified.
-        for ach in ACHIEVEMENTS:
-            if ach.name not in achievements_to_write and ach.post_victory and \
-                    ach.verification_fn(game_state, Statistics()):
-                achievements_to_write.append(ach.name)
-                new_achievements.append(ach)
+            # Check if any achievements have been obtained that can only be verified immediately after a player victory.
+            # Note that we don't need to supply a real Statistics object for this, since all post-victory achievements
+            # only require the game state to be verified.
+            for ach in ACHIEVEMENTS:
+                if ach.name not in achievements_to_write and ach.post_victory and \
+                        ach.verification_fn(game_state, Statistics()):
+                    achievements_to_write.append(ach.name)
+                    new_achievements.append(ach)
 
-    factions_to_write = existing_factions
-    if faction_to_add:
-        # If the player has used this faction before, increment it, otherwise just set it to 1.
-        if faction_to_add in existing_factions:
-            existing_factions[faction_to_add] = existing_factions[faction_to_add] + 1
-        else:
-            existing_factions[faction_to_add] = 1
+        factions_to_write = existing_factions
+        if faction_to_add:
+            # If the player has used this faction before, increment it, otherwise just set it to 1.
+            if faction_to_add in existing_factions:
+                existing_factions[faction_to_add] = existing_factions[faction_to_add] + 1
+            else:
+                existing_factions[faction_to_add] = 1
 
-    # All other achievements can be checked on every save, with the real Statistics. Note that we need to ensure that
-    # the player objects for the game have been initialised. This is because player statistics are updated with faction
-    # usage when starting a new game, and this occurs prior to the players being initialised.
-    if game_state.players:
-        for ach in ACHIEVEMENTS:
-            if ach.name not in achievements_to_write and not ach.post_victory and \
-                    ach.verification_fn(game_state, Statistics(playtime_to_write, turns_to_write, victories_to_write,
-                                                               defeats_to_write, factions_to_write)):
-                achievements_to_write.append(ach.name)
-                new_achievements.append(ach)
+        # All other achievements can be checked on every save, with the real Statistics. Note that we need to ensure
+        # that the player objects for the game have been initialised. This is because player statistics are updated with
+        # faction usage when starting a new game, and this occurs prior to the players being initialised.
+        if game_state.players:
+            for ach in ACHIEVEMENTS:
+                if ach.name not in achievements_to_write and not ach.post_victory and \
+                        ach.verification_fn(game_state, Statistics(playtime_to_write, turns_to_write,
+                                                                   victories_to_write, defeats_to_write,
+                                                                   factions_to_write)):
+                    achievements_to_write.append(ach.name)
+                    new_achievements.append(ach)
 
-    # Write the newly-updated statistics to the file.
-    with open(stats_file_name, "w", encoding="utf-8") as stats_file:
-        stats = {
-            "playtime": playtime_to_write,
-            "turns_played": turns_to_write,
-            "victories": victories_to_write,
-            "defeats": defeats_to_write,
-            "factions": factions_to_write,
-            "achievements": achievements_to_write
-        }
-        stats_file.write(json.dumps(stats))
-    stats_file.close()
+        # Write the newly-updated statistics to the file.
+        with open(stats_file_name, "w", encoding="utf-8") as stats_file:
+            stats = {
+                "playtime": playtime_to_write,
+                "turns_played": turns_to_write,
+                "victories": victories_to_write,
+                "defeats": defeats_to_write,
+                "factions": factions_to_write,
+                "achievements": achievements_to_write
+            }
+            stats_file.write(json.dumps(stats))
+        stats_file.close()
 
     return new_achievements
 

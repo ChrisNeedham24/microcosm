@@ -275,6 +275,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                             available_factions.pop(player.faction)
                     game_controller.menu.available_multiplayer_factions = list(available_factions.items())
                 game_controller.menu.joining_game = True
+                game_controller.menu.multiplayer_status = current_lobby.cfg.multiplayer
         elif game_controller.menu.in_wiki:
             if game_controller.menu.wiki_option is WikiOption.BACK:
                 game_controller.menu.in_wiki = False
