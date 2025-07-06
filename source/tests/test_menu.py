@@ -524,21 +524,49 @@ class MenuTest(unittest.TestCase):
 
     def test_navigate_setup_multiplayer(self):
         """
-        Ensure that the player can correctly enable and disable multiplayer.
+        Ensure that the player can correctly enable and disable both global and local multiplayer.
         """
         self.menu.in_game_setup = True
         self.menu.setup_option = SetupOption.MULTIPLAYER
+
+        # Note that for this first part, there is no local dispatcher, so the Local option should be skipped.
+        self.menu.has_local_dispatcher = False
 
         self.assertFalse(self.menu.multiplayer_status)
         # Pressing left when already disabled should have no effect.
         self.menu.navigate(left=True)
         self.assertFalse(self.menu.multiplayer_status)
         self.menu.navigate(right=True)
-        self.assertTrue(self.menu.multiplayer_status)
-        # Similarly, pressing right when already enabled should have no effect.
+        # Since there is no local dispatcher, we expect the Local option to have been skipped.
+        self.assertEqual(MultiplayerStatus.GLOBAL, self.menu.multiplayer_status)
+        # Pressing right when on Global should also have no effect.
         self.menu.navigate(right=True)
         self.assertTrue(self.menu.multiplayer_status)
         self.menu.navigate(left=True)
+        # Once again, we expect the Local option to have been skipped.
+        self.assertFalse(self.menu.multiplayer_status)
+
+        # Now with a local dispatcher, we expect the Local option to be included.
+        self.menu.has_local_dispatcher = True
+
+        self.assertFalse(self.menu.multiplayer_status)
+        # Pressing left when already disabled should have no effect.
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.multiplayer_status)
+        self.menu.navigate(right=True)
+        # This time, we expect the next option to be Local.
+        self.assertEqual(MultiplayerStatus.LOCAL, self.menu.multiplayer_status)
+        self.menu.navigate(right=True)
+        # One more navigation should take us to Global.
+        self.assertEqual(MultiplayerStatus.GLOBAL, self.menu.multiplayer_status)
+        # Pressing right on Global should also have no effect.
+        self.menu.navigate(right=True)
+        self.assertTrue(self.menu.multiplayer_status)
+        self.menu.navigate(left=True)
+        # Once again, Local should be the previous option.
+        self.assertEqual(MultiplayerStatus.LOCAL, self.menu.multiplayer_status)
+        self.menu.navigate(left=True)
+        # One final toggle should take us to Global.
         self.assertFalse(self.menu.multiplayer_status)
 
     def test_navigate_setup_clustering(self):
@@ -600,9 +628,9 @@ class MenuTest(unittest.TestCase):
 
     def test_navigate_loading_multiplayer_game(self):
         """
-        Ensure that the player can correctly toggle between loading single-player and multiplayer games. Note that we do
-        not test switching to loading multiplayer games, as this is handled in game_input_handler.py, and involves a
-        request to the server.
+        Ensure that the player can correctly toggle between loading single-player and global multiplayer games. Note
+        that we do not test switching to loading either local or global multiplayer games, as this is handled in
+        game_input_handler.py, and loading either type involves a request to the server.
         """
         self.menu.loading_game = True
         self.menu.loading_game_multiplayer_status = MultiplayerStatus.GLOBAL

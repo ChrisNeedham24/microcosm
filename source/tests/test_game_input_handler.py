@@ -282,11 +282,15 @@ class GameInputHandlerTest(unittest.TestCase):
         on_key_arrow_left(self.game_controller, self.game_state, False)
         self.game_controller.menu.navigate.assert_called_with(left=True)
 
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
     @patch("source.game_management.game_input_handler.get_saves")
-    def test_arrow_left_menu_loading_game(self, get_saves_mock: MagicMock):
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_arrow_left_menu_loading_multiplayer_game(self,
+                                                      dispatch_mock: MagicMock,
+                                                      get_saves_mock: MagicMock,
+                                                      _: MagicMock):
         """
-        Ensure that the correct method is called and saves are loaded when pressing the left arrow key while loading a
-        game.
+        Ensure that the correct behaviour occurs when pressing the left arrow key while loading a multiplayer game.
         """
         test_saves = ["abc", "def"]
         get_saves_mock.return_value = test_saves
@@ -295,10 +299,45 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.menu.loading_game = True
         self.game_controller.menu.navigate = MagicMock()
 
+        # We start on the Local saves page in order to show the full sequence.
+        self.game_controller.menu.loading_game_multiplayer_status = MultiplayerStatus.LOCAL
+
         on_key_arrow_left(self.game_controller, self.game_state, False)
 
         self.game_controller.menu.navigate.assert_called_with(left=True)
+        # On the first key press, we expect an event to have been dispatched to the game server to get all global saves.
+        expected_event: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, self.TEST_IDENTIFIER)
+        dispatch_mock.assert_called_with(expected_event, self.TEST_EVENT_DISPATCHERS, MultiplayerStatus.GLOBAL)
+
+        # Ordinarily this would be changed by the event listener, but we have to help the menu along here by simulating
+        # the multiplayer status changing.
+        self.game_controller.menu.loading_game_multiplayer_status = MultiplayerStatus.GLOBAL
+
+        on_key_arrow_left(self.game_controller, self.game_state, False)
+
+        # On the second key press, since we've now toggled to local single-player saves, the saves mock should have been
+        # called.
+        self.game_controller.menu.navigate.assert_called_with(left=True)
         self.assertListEqual(test_saves, self.game_controller.menu.saves)
+
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_arrow_left_menu_viewing_local_lobbies(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that the correct event is dispatched when pressing the left arrow key while viewing local multiplayer
+        lobbies.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.viewing_lobbies = True
+        self.game_controller.menu.viewing_local_lobbies = True
+        self.game_controller.menu.navigate = MagicMock()
+
+        on_key_arrow_left(self.game_controller, self.game_state, False)
+
+        self.game_controller.menu.navigate.assert_called_with(left=True)
+        # We expect an event to have been dispatched to the game server to get all global lobbies.
+        expected_event: QueryEvent = QueryEvent(EventType.QUERY, self.TEST_IDENTIFIER)
+        dispatch_mock.assert_called_with(expected_event, self.TEST_EVENT_DISPATCHERS, MultiplayerStatus.GLOBAL)
 
     def test_arrow_left_construction(self):
         """
@@ -403,15 +442,67 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.on_menu = True
         self.game_controller.menu.loading_game = True
         self.game_controller.menu.upnp_enabled = True
+        self.game_controller.menu.has_local_dispatcher = False
         self.game_controller.menu.navigate = MagicMock()
 
         on_key_arrow_right(self.game_controller, self.game_state, False)
 
         self.game_controller.menu.navigate.assert_called_with(right=True)
-        expected_event = QuerySavesEvent(EventType.QUERY_SAVES, self.TEST_IDENTIFIER)
-        dispatch_mock.assert_called_with(expected_event,
-                                         self.TEST_EVENT_DISPATCHERS,
-                                         self.TEST_MULTIPLAYER_CONFIG.multiplayer)
+        # On the first key press, we expect an event to have been dispatched to load global saves.
+        expected_event: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, self.TEST_IDENTIFIER)
+        dispatch_mock.assert_called_with(expected_event, self.TEST_EVENT_DISPATCHERS, MultiplayerStatus.GLOBAL)
+
+        # To simulate real behaviour, we manually change the multiplayer status to global for the following key presses.
+        self.game_controller.menu.loading_game_multiplayer_status = MultiplayerStatus.GLOBAL
+        self.game_controller.menu.navigate.reset_mock()
+        dispatch_mock.reset_mock()
+
+        on_key_arrow_right(self.game_controller, self.game_state, False)
+
+        self.game_controller.menu.navigate.assert_called_with(right=True)
+        # Since there is no local dispatcher, we expect no event to have been dispatched to query local multiplayer
+        # saves.
+        dispatch_mock.assert_not_called()
+
+        # However, with a local dispatcher, we expect an event to be dispatched.
+        self.game_controller.menu.has_local_dispatcher = True
+        self.game_controller.menu.navigate.reset_mock()
+        dispatch_mock.reset_mock()
+
+        on_key_arrow_right(self.game_controller, self.game_state, False)
+
+        self.game_controller.menu.navigate.assert_called_with(right=True)
+        # We now expect an event to have been dispatched to load local multiplayer saves.
+        dispatch_mock.assert_called_with(expected_event, self.TEST_EVENT_DISPATCHERS, MultiplayerStatus.LOCAL)
+
+    @patch("source.game_management.game_input_handler.get_identifier", return_value=TEST_IDENTIFIER)
+    @patch("source.game_management.game_input_handler.dispatch_event")
+    def test_arrow_right_menu_viewing_lobbies(self, dispatch_mock: MagicMock, _: MagicMock):
+        """
+        Ensure that the correct event is dispatched when pressing the right arrow key while viewing global multiplayer
+        lobbies.
+        """
+        self.game_state.on_menu = True
+        self.game_controller.menu.viewing_lobbies = True
+        self.game_controller.menu.has_local_dispatcher = False
+        self.game_controller.menu.navigate = MagicMock()
+
+        on_key_arrow_right(self.game_controller, self.game_state, False)
+
+        self.game_controller.menu.navigate.assert_called_with(right=True)
+        # On the first key press, we expect no event to have been dispatched to view local lobbies because there is no
+        # local dispatcher.
+        dispatch_mock.assert_not_called()
+
+        # However, with a local dispatcher we expect an event to be dispatched.
+        self.game_controller.menu.has_local_dispatcher = True
+
+        on_key_arrow_right(self.game_controller, self.game_state, False)
+
+        self.game_controller.menu.navigate.assert_called_with(right=True)
+        # We now expect an event to have been dispatched to query for local multiplayer lobbies.
+        expected_event: QueryEvent = QueryEvent(EventType.QUERY, self.TEST_IDENTIFIER)
+        dispatch_mock.assert_called_with(expected_event, self.TEST_EVENT_DISPATCHERS, MultiplayerStatus.LOCAL)
 
     def test_arrow_right_construction(self):
         """
@@ -702,6 +793,7 @@ class GameInputHandlerTest(unittest.TestCase):
         expected_factions.pop(lobby_players[0].faction)
         self.assertListEqual(list(expected_factions.items()), self.game_controller.menu.available_multiplayer_factions)
         self.assertTrue(self.game_controller.menu.joining_game)
+        self.assertEqual(self.TEST_MULTIPLAYER_CONFIG.multiplayer, self.game_controller.menu.multiplayer_status)
 
     def test_return_joining_multiplayer_lobby_in_progress(self):
         """
@@ -904,6 +996,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertIsNone(self.game_controller.menu.multiplayer_lobby)
         self.assertFalse(self.game_controller.menu.joining_game)
         self.assertFalse(self.game_controller.menu.viewing_lobbies)
+        self.assertFalse(self.game_controller.menu.viewing_local_lobbies)
         self.assertFalse(self.game_controller.menu.faction_idx)
         self.assertEqual(MainMenuOption.NEW_GAME, self.game_controller.menu.main_menu_option)
         self.game_controller.music_player.stop_game_music.assert_called()
@@ -946,6 +1039,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertIsNone(self.game_controller.menu.multiplayer_lobby)
         self.assertFalse(self.game_controller.menu.joining_game)
         self.assertFalse(self.game_controller.menu.viewing_lobbies)
+        self.assertFalse(self.game_controller.menu.viewing_local_lobbies)
         self.assertFalse(self.game_controller.menu.faction_idx)
         self.assertEqual(MainMenuOption.NEW_GAME, self.game_controller.menu.main_menu_option)
         self.game_controller.music_player.stop_game_music.assert_called()
@@ -976,6 +1070,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertIsNone(self.game_controller.menu.multiplayer_lobby)
         self.assertFalse(self.game_controller.menu.joining_game)
         self.assertFalse(self.game_controller.menu.viewing_lobbies)
+        self.assertFalse(self.game_controller.menu.viewing_local_lobbies)
         self.assertFalse(self.game_controller.menu.faction_idx)
         self.assertEqual(MainMenuOption.NEW_GAME, self.game_controller.menu.main_menu_option)
         self.game_controller.music_player.stop_game_music.assert_called()
@@ -1357,6 +1452,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertIsNone(self.game_controller.menu.multiplayer_lobby)
         self.assertFalse(self.game_controller.menu.joining_game)
         self.assertFalse(self.game_controller.menu.viewing_lobbies)
+        self.assertFalse(self.game_controller.menu.viewing_local_lobbies)
         self.assertFalse(self.game_controller.menu.faction_idx)
         self.assertEqual(MainMenuOption.NEW_GAME, self.game_controller.menu.main_menu_option)
         self.game_controller.music_player.stop_game_music.assert_called()
@@ -1397,6 +1493,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.assertIsNone(self.game_controller.menu.multiplayer_lobby)
         self.assertFalse(self.game_controller.menu.joining_game)
         self.assertFalse(self.game_controller.menu.viewing_lobbies)
+        self.assertFalse(self.game_controller.menu.viewing_local_lobbies)
         self.assertFalse(self.game_controller.menu.faction_idx)
         self.assertEqual(MainMenuOption.NEW_GAME, self.game_controller.menu.main_menu_option)
         self.game_controller.music_player.stop_game_music.assert_called()
@@ -1805,6 +1902,7 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.menu.viewing_lobbies = True
         on_key_space(self.game_controller, self.game_state)
         self.assertFalse(self.game_controller.menu.viewing_lobbies)
+        self.assertFalse(self.game_controller.menu.viewing_local_lobbies)
 
     def test_space_menu_statistics(self):
         """
