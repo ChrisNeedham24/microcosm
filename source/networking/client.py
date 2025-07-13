@@ -93,7 +93,7 @@ def get_identifier() -> int:
     return hash((uuid.getnode(), os.getpid()))
 
 
-def initialise_upnp(private_ip: str, server: UDPServer):
+def initialise_upnp(private_ip: str, port: int):
     # Initialise UPnP, discovering and then selecting a valid UPnP IGD device on the connected network,
     # where IGD refers to the protocol used for UPnP.
     upnp = UPnP()
@@ -117,8 +117,7 @@ def initialise_upnp(private_ip: str, server: UDPServer):
         mapping_idx += 1
     # Now create a new port mapping for this machine's private IP and dynamic listener port, complete
     # with the creation date, so it can be deleted later.
-    upnp.addportmapping(server.server_address[1], "UDP", private_ip, server.server_address[1],
-                        f"Microcosm {todays_date}", "")
+    upnp.addportmapping(port, "UDP", private_ip, port, f"Microcosm {todays_date}", "")
 
 
 def broadcast_to_local_network_hosts(private_ip: str, client_port: int):

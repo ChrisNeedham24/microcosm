@@ -1332,7 +1332,7 @@ class EventListener:
                     ip_sock.connect(("8.8.8.8", 80))
                     private_ip: str = ip_sock.getsockname()[0]
                     # Initialise UPnP for this session.
-                    initialise_upnp(private_ip, server)
+                    initialise_upnp(private_ip, server.server_address[1])
                     # Now with a port listening for external traffic, we can signal to the global game server that we're
                     # listening.
                     global_dispatcher: EventDispatcher = \

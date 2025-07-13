@@ -20,7 +20,7 @@ from source.foundation.models import PlayerDetails, Faction, GameConfig, Player,
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
-from source.networking.client import GLOBAL_SERVER_HOST, SERVER_PORT, EventDispatcher
+from source.networking.client import GLOBAL_SERVER_HOST, SERVER_PORT, EventDispatcher, DispatcherKind
 from source.networking.event_listener import RequestHandler, MicrocosmServer, EventListener
 from source.networking.events import EventType, RegisterEvent, Event, CreateEvent, InitEvent, UpdateEvent, \
     UpdateAction, QueryEvent, LeaveEvent, JoinEvent, EndTurnEvent, UnreadyEvent, AutofillEvent, SaveEvent, \
@@ -119,6 +119,12 @@ class EventListenerTest(unittest.TestCase):
         """
         # The below is invalid unicode.
         self.request_handler.request = b"F\xc3\xb8\xc3\xb6\xbbB\xc3\xa5r", self.mock_socket
+        self.request_handler.process_event = MagicMock()
+        self.request_handler.handle()
+        self.request_handler.process_event.assert_not_called()
+
+        # The below is invalid JSON.
+        self.request_handler.request = b"{ not valid }", self.mock_socket
         self.request_handler.process_event = MagicMock()
         self.request_handler.handle()
         self.request_handler.process_event.assert_not_called()
@@ -1813,8 +1819,7 @@ class EventListenerTest(unittest.TestCase):
                                                 self.mock_server.game_clients_ref[self.TEST_GAME_NAME],
                                                 self.TEST_GAME_CONFIG,
                                                 self.TEST_GAME_STATE.turn)
-        test_event: QueryEvent = QueryEvent(EventType.QUERY, self.TEST_IDENTIFIER,
-                                            lobbies=[test_lobby])
+        test_event: QueryEvent = QueryEvent(EventType.QUERY, self.TEST_IDENTIFIER, lobbies=[test_lobby])
         self.mock_server.is_server = False
         menu: Menu = self.mock_server.game_controller_ref.menu
 
@@ -1822,12 +1827,27 @@ class EventListenerTest(unittest.TestCase):
         self.assertFalse(menu.multiplayer_lobbies)
         self.assertFalse(menu.viewing_lobbies)
 
-        # Process our test event.
+        # Process our test event, simulating a response from the global game server.
+        self.request_handler.client_address = (GLOBAL_SERVER_HOST,)
         self.request_handler.process_query_event(test_event, self.mock_socket)
 
         # The lobbies from the event should now be both present and being viewed in the client's menu.
         self.assertListEqual(test_event.lobbies, menu.multiplayer_lobbies)
         self.assertTrue(menu.viewing_lobbies)
+        # However, because the response was from the global game server, we expect to not be viewing local lobbies.
+        self.assertFalse(menu.viewing_local_lobbies)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+
+        # Now process our test event again, but this time simulate a response from a local game server.
+        self.request_handler.client_address = ("127.0.0.1",)
+        self.request_handler.process_query_event(test_event, self.mock_socket)
+
+        # The lobbies from the event should still be both present and being viewed in the client's menu.
+        self.assertListEqual(test_event.lobbies, menu.multiplayer_lobbies)
+        self.assertTrue(menu.viewing_lobbies)
+        # However, this time we expect to also be viewing local lobbies.
+        self.assertTrue(menu.viewing_local_lobbies)
         # Since this is a client, no packets should have been forwarded.
         self.mock_socket.sendto.assert_not_called()
 
@@ -2330,6 +2350,7 @@ class EventListenerTest(unittest.TestCase):
         # Simulate menu state as if the client is joining a game.
         gc.menu.joining_game = True
         gc.menu.viewing_lobbies = True
+        gc.menu.viewing_local_lobbies = True
         gc.menu.setup_option = SetupOption.PLAYER_FACTION
         # Because we're joining as the second player, we use their identifier and faction in the event. We do this
         # because we're using the same test game clients as the other tests, meaning we need to use the values from
@@ -2355,6 +2376,7 @@ class EventListenerTest(unittest.TestCase):
         # The menu should also have been updated to reflect the client joining.
         self.assertFalse(gc.menu.joining_game)
         self.assertFalse(gc.menu.viewing_lobbies)
+        self.assertFalse(gc.menu.viewing_local_lobbies)
         self.assertEqual(SetupOption.START_GAME, gc.menu.setup_option)
 
     def test_process_join_event_client_already_in_lobby(self):
@@ -2643,10 +2665,11 @@ class EventListenerTest(unittest.TestCase):
         # The appropriate overlay change should also have occurred to alert the client that another player has joined.
         gs.board.overlay.toggle_player_change.assert_called_with(gs.players[1], changed_player_is_leaving=False)
 
-    def test_process_register_event(self):
+    def test_process_register_event_server(self):
         """
         Ensure that register events are correctly processed by the game server.
         """
+        self.mock_server.is_server = True
         # Clear our clients so we can have a clean slate for our test.
         self.mock_server.clients_ref = {}
         test_event: RegisterEvent = RegisterEvent(EventType.REGISTER, self.TEST_IDENTIFIER, port=9876)
@@ -2655,6 +2678,38 @@ class EventListenerTest(unittest.TestCase):
         # There should now be a client with the expected identifier and port.
         self.assertTupleEqual((self.request_handler.client_address[0], test_event.port),
                               self.mock_server.clients_ref[test_event.identifier])
+        # Additionally, an event should have been dispatched in response to the client.
+        self.mock_socket.sendto.assert_called_with(json.dumps(test_event,
+                                                              separators=(",", ":"),
+                                                              cls=SaveEncoder).encode(),
+                                                   (self.request_handler.client_address[0], test_event.port))
+
+    def test_process_register_event_client(self):
+        """
+        Ensure that register events are correctly processed by game clients.
+        """
+        test_event: RegisterEvent = RegisterEvent(EventType.REGISTER, self.TEST_IDENTIFIER, port=9876)
+        test_local_server_host: str = "127.0.0.1"
+        self.mock_server.is_server = False
+        self.mock_server.game_states_ref["local"] = self.TEST_GAME_STATE
+
+        # Process our test event, simulating a response from the global game server.
+        self.request_handler.client_address = (GLOBAL_SERVER_HOST,)
+        self.request_handler.process_register_event(test_event, self.mock_socket)
+
+        # Because it was a response from the global game server, it should have been ignored and there should be no
+        # local event dispatcher.
+        self.assertFalse(DispatcherKind.LOCAL in self.TEST_GAME_STATE.event_dispatchers)
+        self.assertFalse(self.mock_server.game_controller_ref.menu.has_local_dispatcher)
+
+        # Now process our test event again, but this time simulate a response from a local game server.
+        self.request_handler.client_address = (test_local_server_host,)
+        self.request_handler.process_register_event(test_event, self.mock_socket)
+
+        # This time, we expect a local dispatcher to have been added.
+        self.assertTrue(DispatcherKind.LOCAL in self.TEST_GAME_STATE.event_dispatchers)
+        self.assertEqual(test_local_server_host, self.TEST_GAME_STATE.event_dispatchers[DispatcherKind.LOCAL].host)
+        self.assertTrue(self.mock_server.game_controller_ref.menu.has_local_dispatcher)
 
     @patch.object(GameState, "__hash__")
     @patch("source.networking.event_listener.save_game")
@@ -3141,12 +3196,29 @@ class EventListenerTest(unittest.TestCase):
         self.assertFalse(self.mock_server.game_controller_ref.menu.saves)
         self.assertFalse(self.mock_server.game_controller_ref.menu.loading_game_multiplayer_status)
 
-        # Process our test event.
+        # Process our test event, simulating a response from the global game server.
+        self.request_handler.client_address = (GLOBAL_SERVER_HOST,)
         self.request_handler.process_query_saves_event(test_event, self.mock_socket)
 
         # The client's menu should now display the returned saves, as they are loading a multiplayer game.
         self.assertListEqual(test_event.saves, self.mock_server.game_controller_ref.menu.saves)
-        self.assertTrue(self.mock_server.game_controller_ref.menu.loading_game_multiplayer_status)
+        # We also expect the loading game multiplayer status to be global, since the response was from the global game
+        # server.
+        self.assertEqual(MultiplayerStatus.GLOBAL,
+                         self.mock_server.game_controller_ref.menu.loading_game_multiplayer_status)
+        # Since this is a client, no packets should have been forwarded.
+        self.mock_socket.sendto.assert_not_called()
+
+        # Now process our test event again, but this time simulate a response from a local game server.
+        self.request_handler.client_address = ("127.0.0.1",)
+        self.request_handler.process_query_saves_event(test_event, self.mock_socket)
+
+        # The client's menu should again display the returned saves, as they are loading a multiplayer game.
+        self.assertListEqual(test_event.saves, self.mock_server.game_controller_ref.menu.saves)
+        # However, this time we expect the loading game multiplayer status to be local, since the response was from a
+        # local game server.
+        self.assertEqual(MultiplayerStatus.LOCAL,
+                         self.mock_server.game_controller_ref.menu.loading_game_multiplayer_status)
         # Since this is a client, no packets should have been forwarded.
         self.mock_socket.sendto.assert_not_called()
 
@@ -3265,8 +3337,9 @@ class EventListenerTest(unittest.TestCase):
         """
         Ensure that game clients correctly process, and respond to, keepalive events.
         """
-        # Create a local game state for the client.
+        # Create a local game state for the client, with a local event dispatcher as well.
         self.mock_server.game_states_ref["local"] = GameState()
+        self.mock_server.game_states_ref["local"].event_dispatchers[DispatcherKind.LOCAL] = EventDispatcher("127.0.0.1")
         # The identifier is None because it's the game server that is creating and sending this packet to the client.
         # This is different to other forwarding cases because those packets retain the original player identifier. For
         # example, if a player selected a new blessing, the event will have that player's identifier both when it gets
@@ -3275,8 +3348,10 @@ class EventListenerTest(unittest.TestCase):
         self.mock_server.is_server = False
         # Process our test event.
         self.request_handler.process_keepalive_event(test_event)
-        # We expect the client to have dispatched a keepalive event back to the game server with their identifier.
-        dispatch_mock.assert_called_with(Event(EventType.KEEPALIVE, self.TEST_IDENTIFIER))
+        # We expect the client to have dispatched a keepalive event back to both the global game server and its local
+        # game server, with their identifier.
+        dispatch_mock.assert_has_calls([call(Event(EventType.KEEPALIVE, self.TEST_IDENTIFIER)),
+                                        call(Event(EventType.KEEPALIVE, self.TEST_IDENTIFIER))])
 
     @patch.object(Thread, "start")
     def test_event_listener_construction_server(self, thread_start_mock: MagicMock):
