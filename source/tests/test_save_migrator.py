@@ -4,7 +4,7 @@ import pyxel
 
 from source.foundation.catalogue import UNIT_PLANS, IMPROVEMENTS
 from source.foundation.models import UnitPlan, Unit, AttackPlaystyle, ExpansionPlaystyle, VictoryType, Faction, \
-    Settlement, Biome, Quad, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection
+    Settlement, Biome, Quad, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection, MultiplayerStatus
 from source.game_management.game_state import GameState
 from source.saving.save_encoder import ObjectConverter
 from source.saving.save_migrator import migrate_unit_plan, migrate_unit, migrate_player, migrate_climatic_effects, \
@@ -479,6 +479,51 @@ class SaveMigratorTest(unittest.TestCase):
         self.assertEqual(test_player_count, outdated_config.player_count)
         self.assertTrue(outdated_config.biome_clustering)
         self.assertTrue(outdated_config.fog_of_war)
+
+        # This time, simulate a loaded multiplayer game configuration from before the introduction of local multiplayer
+        # games.
+        test_multiplayer_config: ObjectConverter = ObjectConverter({
+            "player_count": test_player_count,
+            "player_faction": Faction.FUNDAMENTALISTS,
+            "biome_clustering": True,
+            "fog_of_war": True,
+            "climatic_effects": True,
+            "multiplayer": True
+        })
+
+        multiplayer_config: GameConfig = migrate_game_config(test_multiplayer_config)
+
+        # We expect the multiplayer status to naturally have been mapped to global multiplayer, since local multiplayer
+        # did not exist.
+        self.assertEqual(MultiplayerStatus.GLOBAL, multiplayer_config.multiplayer)
+        # The other fields should all have been mapped directly across.
+        self.assertEqual(test_player_count, multiplayer_config.player_count)
+        self.assertEqual(Faction.FUNDAMENTALISTS, multiplayer_config.player_faction)
+        self.assertTrue(multiplayer_config.biome_clustering)
+        self.assertTrue(multiplayer_config.fog_of_war)
+        self.assertTrue(multiplayer_config.climatic_effects)
+
+        # Lastly, simulate a loaded single-player game configuration from before the introduction of local multiplayer
+        # games.
+        test_non_multiplayer_config: ObjectConverter = ObjectConverter({
+            "player_count": test_player_count,
+            "player_faction": Faction.FUNDAMENTALISTS,
+            "biome_clustering": True,
+            "fog_of_war": True,
+            "climatic_effects": True,
+            "multiplayer": False
+        })
+
+        non_multiplayer_config: GameConfig = migrate_game_config(test_non_multiplayer_config)
+
+        # We expect the multiplayer status to have been mapped to disabled.
+        self.assertEqual(MultiplayerStatus.DISABLED, non_multiplayer_config.multiplayer)
+        # The other fields should all have been mapped directly across.
+        self.assertEqual(test_player_count, non_multiplayer_config.player_count)
+        self.assertEqual(Faction.FUNDAMENTALISTS, non_multiplayer_config.player_faction)
+        self.assertTrue(non_multiplayer_config.biome_clustering)
+        self.assertTrue(non_multiplayer_config.fog_of_war)
+        self.assertTrue(non_multiplayer_config.climatic_effects)
 
     def test_game_version(self):
         """
