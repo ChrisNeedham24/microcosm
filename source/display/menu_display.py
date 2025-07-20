@@ -25,7 +25,7 @@ def display_menu(menu: Menu):
     if menu.upnp_enabled is None:
         pyxel.rectb(32, 80, 146, 26, pyxel.COLOR_WHITE)
         pyxel.rect(33, 81, 144, 24, pyxel.COLOR_BLACK)
-        pyxel.text(60, 90, "Connecting to server...", pyxel.COLOR_WHITE)
+        pyxel.text(46, 90, "Connecting to global server...", pyxel.COLOR_WHITE)
     elif game := menu.multiplayer_game_being_loaded:
         pyxel.rectb(30, 30, 140, 100, pyxel.COLOR_WHITE)
         pyxel.rect(31, 31, 138, 98, pyxel.COLOR_BLACK)
@@ -105,13 +105,16 @@ def display_menu(menu: Menu):
             case _:
                 pyxel.text(130, 65, f"<- {menu.player_count} ->", pyxel.COLOR_WHITE)
 
-        if menu.upnp_enabled:
+        if menu.upnp_enabled or menu.has_local_dispatcher:
             pyxel.text(28, 80, "Multiplayer", menu.get_option_colour(SetupOption.MULTIPLAYER))
             match menu.multiplayer_status:
                 case MultiplayerStatus.DISABLED:
                     pyxel.text(125, 80, "Disabled ->", pyxel.COLOR_RED)
                 case MultiplayerStatus.LOCAL:
-                    pyxel.text(125, 80, "<- Local ->", pyxel.COLOR_LIGHT_BLUE)
+                    if menu.upnp_enabled:
+                        pyxel.text(125, 80, "<- Local ->", pyxel.COLOR_LIGHT_BLUE)
+                    else:
+                        pyxel.text(128, 80, "<- Local", pyxel.COLOR_LIGHT_BLUE)
                 case MultiplayerStatus.GLOBAL:
                     pyxel.text(127, 80, "<- Global", pyxel.COLOR_GREEN)
         else:
@@ -196,9 +199,15 @@ def display_menu(menu: Menu):
                     pyxel.blt(158, 150, 0, 16, 140, 8, 8)
             elif menu.loading_game_multiplayer_status == MultiplayerStatus.LOCAL:
                 pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
-                pyxel.blt(35, 150, 0, 8, 140, 8, 8)
-            elif menu.upnp_enabled:
-                pyxel.blt(158, 150, 0, 8, 140, 8, 8)
+                if menu.upnp_enabled:
+                    pyxel.blt(35, 150, 0, 8, 140, 8, 8)
+                else:
+                    pyxel.blt(35, 150, 0, 0, 140, 8, 8)
+            elif menu.upnp_enabled or menu.has_local_dispatcher:
+                if menu.upnp_enabled:
+                    pyxel.blt(158, 150, 0, 8, 140, 8, 8)
+                elif menu.has_local_dispatcher:
+                    pyxel.blt(158, 150, 0, 16, 140, 8, 8)
                 pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
     elif menu.in_wiki:
         match menu.wiki_showing:
@@ -703,12 +712,13 @@ def display_menu(menu: Menu):
             else:
                 pyxel.text(150, 35 + idx * 10, "Join",
                            pyxel.COLOR_RED if menu.lobby_index is idx else pyxel.COLOR_WHITE)
-        if menu.viewing_local_lobbies:
-            pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
-            pyxel.blt(35, 150, 0, 8, 140, 8, 8)
-        elif menu.has_local_dispatcher:
-            pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
-            pyxel.blt(158, 150, 0, 16, 140, 8, 8)
+        if menu.upnp_enabled:
+            if menu.viewing_local_lobbies:
+                pyxel.text(25, 152, "<-", pyxel.COLOR_WHITE)
+                pyxel.blt(35, 150, 0, 8, 140, 8, 8)
+            elif menu.has_local_dispatcher:
+                pyxel.text(168, 152, "->", pyxel.COLOR_WHITE)
+                pyxel.blt(158, 150, 0, 16, 140, 8, 8)
         pyxel.text(56, 152, "Press SPACE to go back", pyxel.COLOR_WHITE)
     else:
         pyxel.rectb(72, 95, 56, 90, pyxel.COLOR_WHITE)
@@ -717,7 +727,8 @@ def display_menu(menu: Menu):
         pyxel.text(85, 115, "New Game", menu.get_option_colour(MainMenuOption.NEW_GAME))
         pyxel.text(82, 125, "Load Game", menu.get_option_colour(MainMenuOption.LOAD_GAME))
         pyxel.text(82, 135, "Join Game",
-                   pyxel.COLOR_GRAY if not menu.upnp_enabled else menu.get_option_colour(MainMenuOption.JOIN_GAME))
+                   pyxel.COLOR_GRAY if not menu.upnp_enabled and not menu.has_local_dispatcher
+                   else menu.get_option_colour(MainMenuOption.JOIN_GAME))
         pyxel.text(80, 145, "Statistics", menu.get_option_colour(MainMenuOption.STATISTICS))
         pyxel.text(76, 155, "Achievements", menu.get_option_colour(MainMenuOption.ACHIEVEMENTS))
         pyxel.text(92, 165, "Wiki", menu.get_option_colour(MainMenuOption.WIKI))
@@ -727,4 +738,4 @@ def display_menu(menu: Menu):
             pyxel.rectb(12, 10, 176, 26, pyxel.COLOR_WHITE)
             pyxel.rect(13, 11, 174, 24, pyxel.COLOR_BLACK)
             pyxel.text(65, 15, "UPnP not available!", pyxel.COLOR_RED)
-            pyxel.text(48, 25, "Multiplayer will be disabled.", pyxel.COLOR_WHITE)
+            pyxel.text(30, 25, "Global multiplayer will be disabled.", pyxel.COLOR_WHITE)

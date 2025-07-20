@@ -104,12 +104,14 @@ def on_key_arrow_left(game_controller: GameController, game_state: GameState, is
     if game_state.on_menu:
         game_controller.menu.navigate(left=True)
         if game_controller.menu.loading_game:
-            if game_controller.menu.loading_game_multiplayer_status == MultiplayerStatus.LOCAL:
+            if game_controller.menu.loading_game_multiplayer_status == MultiplayerStatus.LOCAL and \
+                    game_controller.menu.upnp_enabled:
                 qs_evt: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, get_identifier())
                 dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
             else:
                 game_controller.menu.saves = get_saves()
-        elif game_controller.menu.viewing_lobbies and game_controller.menu.viewing_local_lobbies:
+        elif game_controller.menu.viewing_lobbies and game_controller.menu.viewing_local_lobbies and \
+                game_controller.menu.upnp_enabled:
             lobbies_query_event: QueryEvent = QueryEvent(EventType.QUERY, get_identifier())
             dispatch_event(lobbies_query_event, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
     elif game_state.game_started:
@@ -145,12 +147,13 @@ def on_key_arrow_right(game_controller: GameController, game_state: GameState, i
     """
     if game_state.on_menu:
         game_controller.menu.navigate(right=True)
-        if game_controller.menu.loading_game and game_controller.menu.upnp_enabled:
+        if game_controller.menu.loading_game and (game_controller.menu.upnp_enabled or
+                                                  game_controller.menu.has_local_dispatcher):
             qs_evt: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, get_identifier())
-            if not game_controller.menu.loading_game_multiplayer_status:
+            if not game_controller.menu.loading_game_multiplayer_status and game_controller.menu.upnp_enabled:
                 dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
             elif game_controller.menu.has_local_dispatcher and \
-                    game_controller.menu.loading_game_multiplayer_status == MultiplayerStatus.GLOBAL:
+                    game_controller.menu.loading_game_multiplayer_status != MultiplayerStatus.LOCAL:
                 dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.LOCAL)
         elif game_controller.menu.viewing_lobbies and game_controller.menu.has_local_dispatcher:
             lobbies_query_event: QueryEvent = QueryEvent(EventType.QUERY, get_identifier())
@@ -288,7 +291,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.menu.saves = get_saves()
                 case MainMenuOption.JOIN_GAME:
                     lobbies_query_event: QueryEvent = QueryEvent(EventType.QUERY, get_identifier())
-                    dispatch_event(lobbies_query_event, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
+                    dispatch_event(lobbies_query_event, game_state.event_dispatchers,
+                                   MultiplayerStatus.GLOBAL if game_controller.menu.upnp_enabled
+                                   else MultiplayerStatus.LOCAL)
                 case MainMenuOption.STATISTICS:
                     game_controller.menu.viewing_stats = True
                     game_controller.menu.player_stats = get_stats()

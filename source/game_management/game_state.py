@@ -57,9 +57,7 @@ class GameState:
         self.ready_players: Set[int] = set()
         # Whether the previous turn is being processed.
         self.processing_turn: bool = False
-        self.event_dispatchers: Dict[DispatcherKind, EventDispatcher] = {
-            DispatcherKind.GLOBAL: EventDispatcher()
-        }
+        self.event_dispatchers: Dict[DispatcherKind, EventDispatcher] = {}
 
     def __hash__(self) -> int:
         """

@@ -1226,7 +1226,8 @@ class RequestHandler(BaseRequestHandler):
         # still 'alive'.
         else:
             gs: GameState = self.server.game_states_ref["local"]
-            gs.event_dispatchers[DispatcherKind.GLOBAL].dispatch_event(Event(EventType.KEEPALIVE, get_identifier()))
+            if DispatcherKind.GLOBAL in gs.event_dispatchers:
+                gs.event_dispatchers[DispatcherKind.GLOBAL].dispatch_event(Event(EventType.KEEPALIVE, get_identifier()))
             if DispatcherKind.LOCAL in gs.event_dispatchers:
                 gs.event_dispatchers[DispatcherKind.LOCAL].dispatch_event(Event(EventType.KEEPALIVE, get_identifier()))
 
@@ -1322,23 +1323,23 @@ class EventListener:
             # Clients need to open up their networking and contact the server before they can start listening for
             # events.
             if not self.is_server:
+                # Fundamentally, UPnP works by opening up a port into your connected network, and then forwards all
+                # public traffic directed at that port to a configured private IP within the network. Because of this,
+                # we need to determine what the private IP is for this machine. We do this by connecting to the Google
+                # DNS server, which allows us to see the private IP for this machine. This private IP is also used to
+                # scan for any other LAN hosts on the client's local network.
+                ip_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                ip_sock.connect(("8.8.8.8", 80))
+                private_ip: str = ip_sock.getsockname()[0]
                 try:
-                    # Fundamentally, UPnP works by opening up a port into your connected network, and then forwards all
-                    # public traffic directed at that port to a configured private IP within the network. Because of
-                    # this, we need to determine what the private IP is for this machine. We do this by connecting to
-                    # the Google DNS server, which allows us to see the private IP for this machine. This private IP is
-                    # also used to scan for any other LAN hosts on the client's local network.
-                    ip_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                    ip_sock.connect(("8.8.8.8", 80))
-                    private_ip: str = ip_sock.getsockname()[0]
                     # Initialise UPnP for this session.
                     initialise_upnp(private_ip, server.server_address[1])
                     # Now with a port listening for external traffic, we can signal to the global game server that we're
                     # listening.
-                    global_dispatcher: EventDispatcher = \
-                        self.game_states["local"].event_dispatchers[DispatcherKind.GLOBAL]
+                    global_dispatcher: EventDispatcher = EventDispatcher()
                     global_dispatcher.dispatch_event(RegisterEvent(EventType.REGISTER, get_identifier(),
                                                                    server.server_address[1]))
+                    self.game_states["local"].event_dispatchers[DispatcherKind.GLOBAL] = global_dispatcher
                     # Also broadcast to any other server hosts that might be listening on the local network.
                     broadcast_to_local_network_hosts(private_ip, server.server_address[1])
                     self.game_controller.menu.upnp_enabled = True
@@ -1346,10 +1347,10 @@ class EventListener:
                 # Exception. Thus, we also have to disable the lint rule for catching base Exceptions.
                 # pylint: disable=broad-exception-caught
                 except Exception:
+                    # Even though global multiplayer games won't work, local ones might, so we broadcast to any other
+                    # server hosts that might be listening on the local network here as well.
+                    broadcast_to_local_network_hosts(private_ip, server.server_address[1])
                     self.game_controller.menu.upnp_enabled = False
-                    # We can just return early since there's no way a client without UPnP will be able to receive
-                    # packets from the game server, so there's no reason to serve the server at all.
-                    return
             # So that the request handler can access the listener's state, we set some attributes on the handler itself.
             server.game_states_ref = self.game_states
             server.namers_ref = self.namers

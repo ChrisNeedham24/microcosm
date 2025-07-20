@@ -133,8 +133,11 @@ class Menu:
             # Similarly ensure that they cannot navigate the menu while in a multiplayer lobby.
             if self.in_game_setup and not self.showing_faction_details and not self.multiplayer_lobby:
                 self.next_menu_option(self.setup_option, wrap_around=True,
-                                      # If UPnP isn't enabled, then we want to skip over the Multiplayer option.
-                                      skip=self.setup_option == SetupOption.PLAYER_COUNT and not self.upnp_enabled)
+                                      # If UPnP isn't enabled and there is no local dispatcher, then we want to skip
+                                      # over the Multiplayer option.
+                                      skip=(self.setup_option == SetupOption.PLAYER_COUNT and
+                                            not self.upnp_enabled and
+                                            not self.has_local_dispatcher))
             elif self.loading_game:
                 if self.save_idx == self.load_game_boundaries[1] and self.save_idx < len(self.saves) - 1:
                     self.load_game_boundaries = self.load_game_boundaries[0] + 1, self.load_game_boundaries[1] + 1
@@ -165,16 +168,21 @@ class Menu:
                         self.next_menu_option(self.wiki_option, wrap_around=True)
             else:
                 self.next_menu_option(self.main_menu_option, wrap_around=True,
-                                      # If UPnP isn't enabled, then we want to skip over the Join Game option.
-                                      skip=self.main_menu_option == MainMenuOption.LOAD_GAME and not self.upnp_enabled)
+                                      # If UPnP isn't enabled and there is no local dispatcher, then we want to skip
+                                      # over the Join Game option.
+                                      skip=(self.main_menu_option == MainMenuOption.LOAD_GAME and
+                                            not self.upnp_enabled and
+                                            not self.has_local_dispatcher))
         if up:
             # Ensure that players cannot navigate the root menu while the faction details overlay is being shown.
             # Similarly ensure that they cannot navigate the menu while in a multiplayer lobby.
             if self.in_game_setup and not self.showing_faction_details and not self.multiplayer_lobby:
                 self.previous_menu_option(self.setup_option, wrap_around=True,
-                                          # If UPnP isn't enabled, then we want to skip over the Multiplayer option.
+                                          # If UPnP isn't enabled and there is no local dispatcher, then we want to skip
+                                          # over the Multiplayer option.
                                           skip=(self.setup_option == SetupOption.BIOME_CLUSTERING and
-                                                not self.upnp_enabled))
+                                                not self.upnp_enabled and
+                                                not self.has_local_dispatcher))
             elif self.loading_game:
                 if self.save_idx > 0 and self.save_idx == self.load_game_boundaries[0]:
                     self.load_game_boundaries = self.load_game_boundaries[0] - 1, self.load_game_boundaries[1] - 1
@@ -204,9 +212,11 @@ class Menu:
                         self.previous_menu_option(self.wiki_option, wrap_around=True)
             else:
                 self.previous_menu_option(self.main_menu_option, wrap_around=True,
-                                          # If UPnP isn't enabled, then we want to skip over the Join Game option.
+                                          # If UPnP isn't enabled and there is no local dispatcher, then we want to skip
+                                          # over the Join Game option.
                                           skip=(self.main_menu_option == MainMenuOption.STATISTICS and
-                                                not self.upnp_enabled))
+                                                not self.upnp_enabled and
+                                                not self.has_local_dispatcher))
         if left:
             if self.in_game_setup:
                 match self.setup_option:
@@ -225,7 +235,9 @@ class Menu:
                         self.fog_of_war_enabled = False
                     case SetupOption.CLIMATIC_EFFECTS:
                         self.climatic_effects_enabled = False
-            elif self.loading_game and self.loading_game_multiplayer_status == MultiplayerStatus.GLOBAL:
+            elif self.loading_game and (self.loading_game_multiplayer_status == MultiplayerStatus.GLOBAL or
+                                        (self.loading_game_multiplayer_status == MultiplayerStatus.LOCAL and
+                                         not self.upnp_enabled)):
                 self.loading_game_multiplayer_status = MultiplayerStatus.DISABLED
             elif self.joining_game:
                 self.faction_idx = clamp(self.faction_idx - 1, 0, len(self.available_multiplayer_factions) - 1)
@@ -255,9 +267,10 @@ class Menu:
                     case SetupOption.PLAYER_COUNT:
                         self.player_count = min(14, self.player_count + 1)
                     case SetupOption.MULTIPLAYER:
-                        if self.multiplayer_status == MultiplayerStatus.LOCAL or not self.has_local_dispatcher:
+                        if self.upnp_enabled and (self.multiplayer_status == MultiplayerStatus.LOCAL or
+                                                  not self.has_local_dispatcher):
                             self.multiplayer_status = MultiplayerStatus.GLOBAL
-                        elif self.multiplayer_status == MultiplayerStatus.DISABLED:
+                        elif self.multiplayer_status == MultiplayerStatus.DISABLED and self.has_local_dispatcher:
                             self.multiplayer_status = MultiplayerStatus.LOCAL
                     case SetupOption.BIOME_CLUSTERING:
                         self.biome_clustering_enabled = True
