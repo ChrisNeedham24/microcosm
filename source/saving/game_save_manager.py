@@ -99,6 +99,9 @@ def save_stats_achievements(game_state: GameState,
     new_achievements: List[Achievement] = []
 
     stats_file_name = os.path.join(SAVES_DIR, "statistics.json")
+    # Obtain the file lock for the statistics file. This is to account for an (admittedly rare) edge case where two
+    # players may be playing on the same machine in a local multiplayer game, and thus ending their turns and saving
+    # their stats at the same time. Without this, one player's turn will never end and their game will hang.
     with FileLock(stats_file_name + ".lock"):
         # If the player already has statistics and achievements, get those to add our new ones to.
         if os.path.isfile(stats_file_name):

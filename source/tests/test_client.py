@@ -2,7 +2,6 @@ import datetime
 import importlib
 import sys
 import unittest
-from ipaddress import IPv4Network
 from typing import Dict
 from unittest.mock import patch, MagicMock, call
 
@@ -18,15 +17,15 @@ class ClientTest(unittest.TestCase):
     The test class for client.py.
     """
 
+    @patch("platform.system", return_value="Windows")
     @patch("site.getusersitepackages")
     @patch("ctypes.cdll.LoadLibrary")
     @patch("ctypes.CDLL")
-    @patch("platform.system", return_value="Windows")
     def test_windows_dll_verification(self,
-                                      _: MagicMock,
                                       cdll_construction_mock: MagicMock,
                                       cdll_load_mock: MagicMock,
-                                      user_site_packages_mock: MagicMock):
+                                      user_site_packages_mock: MagicMock,
+                                      _: MagicMock):
         """
         Ensure that the miniupnpc DLL is correctly manually loaded or not manually loaded, depending on whether it has
         already been automatically loaded.

@@ -989,6 +989,7 @@ class RequestHandler(BaseRequestHandler):
         """
         Process an event to register a client with the server.
         :param evt: The RegisterEvent to process.
+        :param sock: The socket to use to respond to the client that sent the registration request.
         """
         if self.server.is_server:
             # Keep track of the client's IP address and port they're listening on, so we can send them packets.

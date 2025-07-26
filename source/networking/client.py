@@ -8,10 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Network
 from site import getusersitepackages
-from socketserver import UDPServer
 from typing import Dict
-
-from source.foundation.models import MultiplayerStatus
 
 # For Windows clients we need to ensure that the miniupnpc DLL is loaded before attempting to import the module.
 if platform.system() == "Windows":
@@ -31,6 +28,7 @@ if platform.system() == "Windows":
 # pylint: disable=no-name-in-module
 from miniupnpc import UPnP
 
+from source.foundation.models import MultiplayerStatus
 from source.networking.events import Event, RegisterEvent, EventType
 from source.saving.save_encoder import SaveEncoder
 
