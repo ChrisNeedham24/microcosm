@@ -57,6 +57,8 @@ class GameState:
         self.ready_players: Set[int] = set()
         # Whether the previous turn is being processed.
         self.processing_turn: bool = False
+        # The dispatchers to use to dispatch multiplayer game events. This will be populated with a global dispatcher if
+        # UPnP is enabled, and a local dispatcher if a local game server is available.
         self.event_dispatchers: Dict[DispatcherKind, EventDispatcher] = {}
 
     def __hash__(self) -> int:

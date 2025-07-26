@@ -44,6 +44,7 @@ class Board:
         Initialises the board with the given config and quads, if supplied.
         :param cfg: The game config.
         :param namer: The Namer instance to use for settlement names.
+        :param event_dispatchers: The EventDispatchers to use to dispatch multiplayer game events.
         :param quads: The quads loaded in, if we are loading a game.
         :param player_idx: The index of the player in the overall list of players. Will always be zero for single-player
                            games, but will be variable for multiplayer ones.

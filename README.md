@@ -53,6 +53,14 @@ Additionally, only x86 architectures are supported.
 2. Run `pip install -r requirements.txt`
 3. Run `pyxel run microcosm`
 
+## Hosting a local game server
+
+Note: You should probably do this on a separate machine (or at least as another user on your usual one) to avoid local multiplayer saves being listed alongside single-player saves.
+
+1. Clone the repository.
+2. Run `pip install -r requirements.txt`
+3. Run `python game_server.py`
+
 ## Wiki
 
 The Wiki can be viewed both [on GitHub](https://github.com/ChrisNeedham24/microcosm/wiki) and in-game.

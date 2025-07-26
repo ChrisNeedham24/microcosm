@@ -152,6 +152,8 @@ def on_key_arrow_right(game_controller: GameController, game_state: GameState, i
             qs_evt: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, get_identifier())
             if not game_controller.menu.loading_game_multiplayer_status and game_controller.menu.upnp_enabled:
                 dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
+            # Note that the below will catch the standard GLOBAL -> LOCAL case and also the case where UPnP is disabled
+            # and the player is going from DISABLED -> LOCAL.
             elif game_controller.menu.has_local_dispatcher and \
                     game_controller.menu.loading_game_multiplayer_status != MultiplayerStatus.LOCAL:
                 dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.LOCAL)
@@ -276,6 +278,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                             available_factions.pop(player.faction)
                     game_controller.menu.available_multiplayer_factions = list(available_factions.items())
                 game_controller.menu.joining_game = True
+                # We need to set this so that the player that joins is able to start the game from the lobby as well.
+                # If we don't set this, then the joining player will press enter to start the game, but no InitEvent
+                # will be dispatched since the dispatcher will see that the multiplayer status is still disabled.
                 game_controller.menu.multiplayer_status = current_lobby.cfg.multiplayer
         elif game_controller.menu.in_wiki:
             if game_controller.menu.wiki_option is WikiOption.BACK:
