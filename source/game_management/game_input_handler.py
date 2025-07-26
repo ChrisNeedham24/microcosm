@@ -20,7 +20,7 @@ from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
 from source.foundation.models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, \
     OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView, Improvement, LobbyDetails, \
-    PlayerDetails
+    PlayerDetails, MultiplayerStatus
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
 from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats_achievements, get_stats
@@ -104,7 +104,16 @@ def on_key_arrow_left(game_controller: GameController, game_state: GameState, is
     if game_state.on_menu:
         game_controller.menu.navigate(left=True)
         if game_controller.menu.loading_game:
-            game_controller.menu.saves = get_saves()
+            if game_controller.menu.loading_game_multiplayer_status == MultiplayerStatus.LOCAL and \
+                    game_controller.menu.upnp_enabled:
+                qs_evt: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, get_identifier())
+                dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
+            else:
+                game_controller.menu.saves = get_saves()
+        elif game_controller.menu.viewing_lobbies and game_controller.menu.viewing_local_lobbies and \
+                game_controller.menu.upnp_enabled:
+            lobbies_query_event: QueryEvent = QueryEvent(EventType.QUERY, get_identifier())
+            dispatch_event(lobbies_query_event, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
     elif game_state.game_started:
         if game_state.board.overlay.is_constructing():
             if game_state.board.overlay.current_construction_menu is ConstructionMenu.PROJECTS and \
@@ -138,9 +147,19 @@ def on_key_arrow_right(game_controller: GameController, game_state: GameState, i
     """
     if game_state.on_menu:
         game_controller.menu.navigate(right=True)
-        if game_controller.menu.loading_game and game_controller.menu.upnp_enabled:
+        if game_controller.menu.loading_game and (game_controller.menu.upnp_enabled or
+                                                  game_controller.menu.has_local_dispatcher):
             qs_evt: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, get_identifier())
-            dispatch_event(qs_evt)
+            if not game_controller.menu.loading_game_multiplayer_status and game_controller.menu.upnp_enabled:
+                dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.GLOBAL)
+            # Note that the below will catch the standard GLOBAL -> LOCAL case and also the case where UPnP is disabled
+            # and the player is going from DISABLED -> LOCAL.
+            elif game_controller.menu.has_local_dispatcher and \
+                    game_controller.menu.loading_game_multiplayer_status != MultiplayerStatus.LOCAL:
+                dispatch_event(qs_evt, game_state.event_dispatchers, MultiplayerStatus.LOCAL)
+        elif game_controller.menu.viewing_lobbies and game_controller.menu.has_local_dispatcher:
+            lobbies_query_event: QueryEvent = QueryEvent(EventType.QUERY, get_identifier())
+            dispatch_event(lobbies_query_event, game_state.event_dispatchers, MultiplayerStatus.LOCAL)
     elif game_state.game_started:
         if game_state.board.overlay.is_constructing():
             if game_state.board.overlay.current_construction_menu is ConstructionMenu.IMPROVEMENTS:
@@ -173,17 +192,21 @@ def on_key_return(game_controller: GameController, game_state: GameState):
     if game_state.on_menu:
         if (game_controller.menu.in_game_setup or game_controller.menu.multiplayer_lobby) and \
                 game_controller.menu.setup_option is SetupOption.START_GAME:
-            if game_controller.menu.multiplayer_enabled and not game_controller.menu.multiplayer_lobby:
+            if game_controller.menu.multiplayer_status and not game_controller.menu.multiplayer_lobby:
                 game_state.reset_state()
                 lobby_create_event: CreateEvent = CreateEvent(EventType.CREATE, get_identifier(),
                                                               game_controller.menu.get_game_config())
-                dispatch_event(lobby_create_event)
+                dispatch_event(lobby_create_event,
+                               game_state.event_dispatchers,
+                               game_controller.menu.multiplayer_status)
             else:
                 if game_controller.menu.multiplayer_lobby:
                     if len(game_controller.menu.multiplayer_lobby.current_players) > 1:
                         game_init_event: InitEvent = InitEvent(EventType.INIT, get_identifier(),
                                                                game_controller.menu.multiplayer_lobby.name)
-                        dispatch_event(game_init_event)
+                        dispatch_event(game_init_event,
+                                       game_state.event_dispatchers,
+                                       game_controller.menu.multiplayer_status)
                 else:
                     # If the player has pressed enter to start the game, generate the players, board, and AI players.
                     pyxel.mouse(visible=True)
@@ -201,7 +224,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     # Update stats to include the newly-selected faction.
                     save_stats_achievements(game_state, faction_to_add=cfg.player_faction)
                     game_state.gen_players(cfg)
-                    game_state.board = Board(cfg, game_controller.namer)
+                    game_state.board = Board(cfg, game_controller.namer, game_state.event_dispatchers)
                     game_controller.move_maker.board_ref = game_state.board
                     game_state.board.overlay.toggle_tutorial()
                     game_controller.namer.reset()
@@ -211,7 +234,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.music_player.stop_menu_music()
                     game_controller.music_player.play_game_music()
         elif game_controller.menu.loading_game:
-            if game_controller.menu.loading_multiplayer_game:
+            if game_controller.menu.loading_game_multiplayer_status:
                 save_name: str = game_controller.menu.saves[game_controller.menu.save_idx]
                 # We need to convert the save name back to the file name before we send it to the server.
                 if save_name.endswith("(auto)"):
@@ -219,7 +242,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 else:
                     save_name = "save-" + save_name.replace(" ", "T") + ".json"
                 l_evt: LoadEvent = LoadEvent(EventType.LOAD, get_identifier(), save_name)
-                dispatch_event(l_evt)
+                dispatch_event(l_evt,
+                               game_state.event_dispatchers,
+                               game_controller.menu.loading_game_multiplayer_status)
             else:
                 load_game(game_state, game_controller)
         elif game_controller.menu.joining_game and not game_controller.menu.showing_faction_details:
@@ -227,7 +252,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             lobby_join_event: JoinEvent = JoinEvent(EventType.JOIN, get_identifier(),
                                                     menu.multiplayer_lobbies[menu.lobby_index].name,
                                                     menu.available_multiplayer_factions[menu.faction_idx][0])
-            dispatch_event(lobby_join_event)
+            dispatch_event(lobby_join_event,
+                           game_state.event_dispatchers,
+                           menu.multiplayer_lobbies[menu.lobby_index].cfg.multiplayer)
             # Normally we would make changes to the game state or controller in the event listener, but because multiple
             # packets are sent back to the client when joining a game, we can't reset the namer in there, otherwise it
             # would be reset every time a new packet is received.
@@ -251,6 +278,10 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                             available_factions.pop(player.faction)
                     game_controller.menu.available_multiplayer_factions = list(available_factions.items())
                 game_controller.menu.joining_game = True
+                # We need to set this so that the player that joins is able to start the game from the lobby as well.
+                # If we don't set this, then the joining player will press enter to start the game, but no InitEvent
+                # will be dispatched since the dispatcher will see that the multiplayer status is still disabled.
+                game_controller.menu.multiplayer_status = current_lobby.cfg.multiplayer
         elif game_controller.menu.in_wiki:
             if game_controller.menu.wiki_option is WikiOption.BACK:
                 game_controller.menu.in_wiki = False
@@ -265,7 +296,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.menu.saves = get_saves()
                 case MainMenuOption.JOIN_GAME:
                     lobbies_query_event: QueryEvent = QueryEvent(EventType.QUERY, get_identifier())
-                    dispatch_event(lobbies_query_event)
+                    dispatch_event(lobbies_query_event, game_state.event_dispatchers,
+                                   MultiplayerStatus.GLOBAL if game_controller.menu.upnp_enabled
+                                   else MultiplayerStatus.LOCAL)
                 case MainMenuOption.STATISTICS:
                     game_controller.menu.viewing_stats = True
                     game_controller.menu.player_stats = get_stats()
@@ -282,7 +315,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         # multiplayer games.
         lobby_join_event: JoinEvent = JoinEvent(EventType.JOIN, get_identifier(), menu.multiplayer_lobby.name,
                                                 game_state.players[game_state.player_idx].faction)
-        dispatch_event(lobby_join_event)
+        dispatch_event(lobby_join_event, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
         # We only need to do limited resetting of game state since we'll be rejoining the game immediately.
         game_state.game_started = False
         game_state.on_menu = True
@@ -303,18 +336,19 @@ def on_key_return(game_controller: GameController, game_state: GameState):
         if game_state.board.game_config.multiplayer:
             leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, get_identifier(),
                                                        game_controller.menu.multiplayer_lobby.name)
-            dispatch_event(leave_lobby_event)
+            dispatch_event(leave_lobby_event, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
         # If the player has won the game, or they've just been eliminated themselves, enter will take them back
         # to the menu.
         game_state.game_started = False
         game_state.on_menu = True
         game_state.reset_state()
         game_controller.menu.loading_game = False
-        game_controller.menu.loading_multiplayer_game = False
+        game_controller.menu.loading_game_multiplayer_status = MultiplayerStatus.DISABLED
         game_controller.menu.in_game_setup = False
         game_controller.menu.multiplayer_lobby = None
         game_controller.menu.joining_game = False
         game_controller.menu.viewing_lobbies = False
+        game_controller.menu.viewing_local_lobbies = False
         game_controller.menu.faction_idx = 0
         game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
         game_controller.music_player.stop_game_music()
@@ -339,7 +373,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                               game_state.players[game_state.player_idx].resources,
                                               game_state.board.selected_settlement.name,
                                               game_state.board.selected_settlement.current_work)
-                dispatch_event(sc_evt)
+                dispatch_event(sc_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
         if cons is None or game_state.board.selected_settlement.current_work is not None:
             game_state.board.overlay.toggle_construction([], [], [])
     elif game_state.game_started and game_state.board.overlay.is_blessing():
@@ -351,7 +385,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 sb_evt = SetBlessingEvent(EventType.UPDATE, get_identifier(), UpdateAction.SET_BLESSING,
                                           game_state.board.game_name, game_state.players[game_state.player_idx].faction,
                                           game_state.players[game_state.player_idx].ongoing_blessing)
-                dispatch_event(sb_evt)
+                dispatch_event(sb_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
         game_state.board.overlay.toggle_blessing([])
     elif game_state.game_started and game_state.board.overlay.is_setl_click():
         match game_state.board.overlay.setl_attack_opt:
@@ -368,7 +402,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                               game_state.players[game_state.player_idx].faction,
                                               game_state.board.selected_unit.location,
                                               game_state.board.overlay.attacked_settlement.name)
-                    dispatch_event(as_evt)
+                    dispatch_event(as_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
                 if data.attacker_was_killed:
                     # If the player's unit died, destroy and deselect it.
                     game_state.players[game_state.player_idx].units.remove(game_state.board.selected_unit)
@@ -408,7 +442,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                                game_state.players[game_state.player_idx].faction,
                                                game_state.board.selected_unit.location,
                                                game_state.board.overlay.attacked_settlement.name)
-                    dispatch_event(bs_evt)
+                    dispatch_event(bs_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
                 game_state.board.overlay.toggle_setl_click(None, None)
             case _:
                 game_state.board.overlay.toggle_setl_click(None, None)
@@ -421,7 +455,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 # copy.
                 if game_state.board.game_config.multiplayer:
                     s_evt: SaveEvent = SaveEvent(EventType.SAVE, get_identifier(), game_state.board.game_name)
-                    dispatch_event(s_evt)
+                    dispatch_event(s_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
                 else:
                     save_game(game_state)
                 game_state.board.overlay.has_saved = True
@@ -433,16 +467,19 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 if game_state.board.game_config.multiplayer:
                     leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, get_identifier(),
                                                                game_controller.menu.multiplayer_lobby.name)
-                    dispatch_event(leave_lobby_event)
+                    dispatch_event(leave_lobby_event,
+                                   game_state.event_dispatchers,
+                                   game_state.board.game_config.multiplayer)
                 game_state.game_started = False
                 game_state.on_menu = True
                 game_state.reset_state()
                 game_controller.menu.loading_game = False
-                game_controller.menu.loading_multiplayer_game = False
+                game_controller.menu.loading_game_multiplayer_status = MultiplayerStatus.DISABLED
                 game_controller.menu.in_game_setup = False
                 game_controller.menu.multiplayer_lobby = None
                 game_controller.menu.joining_game = False
                 game_controller.menu.viewing_lobbies = False
+                game_controller.menu.viewing_local_lobbies = False
                 game_controller.menu.faction_idx = 0
                 game_controller.menu.main_menu_option = MainMenuOption.NEW_GAME
                 game_controller.music_player.stop_game_music()
@@ -468,10 +505,10 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 if game_state.board.waiting_for_other_players:
                     et_evt: EndTurnEvent = EndTurnEvent(EventType.END_TURN, get_identifier(),
                                                         game_state.board.game_name)
-                    dispatch_event(et_evt)
+                    dispatch_event(et_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
                 else:
                     u_evt: UnreadyEvent = UnreadyEvent(EventType.UNREADY, get_identifier(), game_state.board.game_name)
-                    dispatch_event(u_evt)
+                    dispatch_event(u_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
         # If we are not in any of the above situations, end the turn.
         elif game_state.end_turn():
             # Autosave every turn, but only if the player is actually still in the game.
@@ -586,7 +623,9 @@ def on_key_space(game_controller: GameController, game_state: GameState):
     if game_state.on_menu and game_controller.menu.multiplayer_lobby:
         leave_lobby_event: LeaveEvent = LeaveEvent(EventType.LEAVE, get_identifier(),
                                                    game_controller.menu.multiplayer_lobby.name)
-        dispatch_event(leave_lobby_event)
+        dispatch_event(leave_lobby_event,
+                       game_state.event_dispatchers,
+                       game_controller.menu.multiplayer_lobby.cfg.multiplayer)
         game_controller.menu.multiplayer_lobby = None
         game_state.reset_state()
     elif game_state.on_menu and game_controller.menu.in_game_setup:
@@ -595,13 +634,14 @@ def on_key_space(game_controller: GameController, game_state: GameState):
         game_controller.menu.load_failed = False
     elif game_state.on_menu and game_controller.menu.loading_game:
         game_controller.menu.loading_game = False
-        game_controller.menu.loading_multiplayer_game = False
+        game_controller.menu.loading_game_multiplayer_status = MultiplayerStatus.DISABLED
     elif game_state.on_menu and game_controller.menu.joining_game:
         game_controller.menu.joining_game = False
-        if game_controller.menu.loading_multiplayer_game:
+        if game_controller.menu.loading_game_multiplayer_status:
             game_controller.menu.loading_game = True
     elif game_state.on_menu and game_controller.menu.viewing_lobbies:
         game_controller.menu.viewing_lobbies = False
+        game_controller.menu.viewing_local_lobbies = False
     elif game_state.on_menu and game_controller.menu.viewing_stats:
         game_controller.menu.viewing_stats = False
     elif game_state.on_menu and game_controller.menu.viewing_achievements:
@@ -679,7 +719,7 @@ def on_key_a(game_controller: GameController, game_state: GameState):
         # isn't already full.
         if len(lob.current_players) < lob.cfg.player_count:
             af_evt: AutofillEvent = AutofillEvent(EventType.AUTOFILL, get_identifier(), lob.name)
-            dispatch_event(af_evt)
+            dispatch_event(af_evt, game_state.event_dispatchers, game_controller.menu.multiplayer_lobby.cfg.multiplayer)
     elif game_state.game_started and game_state.board.overlay.is_setl() and \
             game_state.board.selected_settlement.current_work is None:
         # Pressing the A key while a player settlement with no active construction is selected results in the
@@ -694,7 +734,7 @@ def on_key_a(game_controller: GameController, game_state: GameState):
                                           game_state.players[game_state.player_idx].resources,
                                           game_state.board.selected_settlement.name,
                                           game_state.board.selected_settlement.current_work)
-            dispatch_event(sc_evt)
+            dispatch_event(sc_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
 
 
 def on_key_escape(game_state: GameState):
@@ -749,7 +789,7 @@ def on_key_b(game_state: GameState):
                                             game_state.players[game_state.player_idx].faction,
                                             game_state.board.selected_settlement.name,
                                             game_state.players[game_state.player_idx].wealth)
-                dispatch_event(bc_evt)
+                dispatch_event(bc_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
 
 
 def on_key_m(game_state: GameState):
@@ -874,6 +914,6 @@ def on_key_x(game_state: GameState):
                                                         game_state.board.game_name,
                                                         game_state.players[game_state.player_idx].faction,
                                                         game_state.board.selected_unit.location)
-            dispatch_event(du_evt)
+            dispatch_event(du_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
         game_state.board.selected_unit = None
         game_state.board.overlay.toggle_unit(None)

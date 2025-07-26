@@ -132,6 +132,23 @@ class InvestigationResult(str, Enum):
     NONE = "NONE"
 
 
+class MultiplayerStatus(str, Enum):
+    """
+    The valid multiplayer status options for a game.
+    """
+    DISABLED = "DISABLED"
+    LOCAL = "LOCAL"
+    GLOBAL = "GLOBAL"
+
+    def __bool__(self) -> bool:
+        """
+        A custom truth value testing method - this exists so that we can do checks like `if cfg.multiplayer` without
+        having to check specifically for LOCAL or GLOBAL.
+        :return: Whether the status has multiplayer enabled in some form.
+        """
+        return self != MultiplayerStatus.DISABLED
+
+
 class OverlayType(Enum):
     """
     The various overlay types that may be displayed.
@@ -509,7 +526,7 @@ class GameConfig:
     biome_clustering: bool
     fog_of_war: bool
     climatic_effects: bool
-    multiplayer: bool
+    multiplayer: MultiplayerStatus
 
 
 @dataclass

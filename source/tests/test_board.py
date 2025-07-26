@@ -1,10 +1,12 @@
 import unittest
+from typing import Dict
 from unittest.mock import MagicMock, patch
 
 from source.display.board import Board, HelpOption
 from source.foundation.catalogue import Namer, get_heathen_plan
 from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement, Unit, UnitPlan, Heathen, \
-    DeployerUnit, DeployerUnitPlan, ResourceCollection, InvestigationResult
+    DeployerUnit, DeployerUnitPlan, ResourceCollection, InvestigationResult, MultiplayerStatus
+from source.networking.client import EventDispatcher, DispatcherKind
 from source.networking.events import FoundSettlementEvent, EventType, UpdateAction, GarrisonUnitEvent, \
     BoardDeployerEvent, DeployUnitEvent, DeployerDeployEvent, AttackUnitEvent, HealUnitEvent, MoveUnitEvent, \
     InvestigateEvent
@@ -14,9 +16,10 @@ class BoardTest(unittest.TestCase):
     """
     The test class for board.py.
     """
-    TEST_CONFIG = GameConfig(2, Faction.CONCENTRATED, True, True, True, False)
-    MULTIPLAYER_CONFIG = GameConfig(2, Faction.CONCENTRATED, True, True, True, True)
+    TEST_CONFIG = GameConfig(2, Faction.CONCENTRATED, True, True, True, MultiplayerStatus.DISABLED)
+    MULTIPLAYER_CONFIG = GameConfig(2, Faction.CONCENTRATED, True, True, True, MultiplayerStatus.GLOBAL)
     TEST_NAMER = Namer()
+    TEST_EVENT_DISPATCHERS: Dict[DispatcherKind, EventDispatcher] = {DispatcherKind.GLOBAL, EventDispatcher()}
     TEST_UPDATE_TIME = 2
     TEST_UPDATE_TIME_OVER = 4
     TEST_IDENTIFIER = 123
@@ -27,8 +30,9 @@ class BoardTest(unittest.TestCase):
         Instantiate two Board objects with generated quads before each test, one single-player and one multiplayer. Also
         initialise the test models and save some relevant quad coordinates.
         """
-        self.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
-        self.multi_board = Board(self.MULTIPLAYER_CONFIG, self.TEST_NAMER, game_name=self.TEST_GAME_NAME)
+        self.board = Board(self.TEST_CONFIG, self.TEST_NAMER, self.TEST_EVENT_DISPATCHERS)
+        self.multi_board = Board(self.MULTIPLAYER_CONFIG, self.TEST_NAMER, self.TEST_EVENT_DISPATCHERS,
+                                 game_name=self.TEST_GAME_NAME)
         self.TEST_UNIT_PLAN = UnitPlan(100, 100, 2, "TestMan", None, 0, heals=True)
         self.TEST_DEPLOYER_UNIT_PLAN = DeployerUnitPlan(0, 50, 10, "Train", None, 0)
         self.TEST_UNIT = Unit(100, 2, (5, 5), False, self.TEST_UNIT_PLAN)
@@ -94,9 +98,9 @@ class BoardTest(unittest.TestCase):
         """
         Ensure that board construction still functions correctly when biome clustering is disabled.
         """
-        no_clustering_cfg = GameConfig(2, Faction.NOCTURNE, False, True, True, False)
+        no_clustering_cfg = GameConfig(2, Faction.NOCTURNE, False, True, True, MultiplayerStatus.DISABLED)
 
-        new_board = Board(no_clustering_cfg, self.TEST_NAMER)
+        new_board = Board(no_clustering_cfg, self.TEST_NAMER, {})
 
         self.assertEqual(HelpOption.SETTLEMENT, new_board.current_help)
         self.assertFalse(new_board.help_time_bank)
@@ -128,7 +132,7 @@ class BoardTest(unittest.TestCase):
         # We can just have a single Quad here for testing.
         test_quads = [[Quad(Biome.MOUNTAIN, 1, 1, 1, 1, (0, 0))]]
 
-        board = Board(self.TEST_CONFIG, self.TEST_NAMER, test_quads)
+        board = Board(self.TEST_CONFIG, self.TEST_NAMER, {}, test_quads)
 
         self.assertEqual(HelpOption.SETTLEMENT, board.current_help)
         self.assertFalse(board.help_time_bank)
@@ -162,7 +166,7 @@ class BoardTest(unittest.TestCase):
         test_player_idx = 1
         test_game_name = "Alpha"
 
-        board = Board(self.MULTIPLAYER_CONFIG, self.TEST_NAMER, test_quads,
+        board = Board(self.MULTIPLAYER_CONFIG, self.TEST_NAMER, {}, test_quads,
                       player_idx=test_player_idx, game_name=test_game_name)
 
         self.assertEqual(HelpOption.SETTLEMENT, board.current_help)
@@ -362,8 +366,8 @@ class BoardTest(unittest.TestCase):
         """
         Ensure that when climatic effects are disabled, no sunstone resources are generated on the board.
         """
-        no_climatic_effects_cfg = GameConfig(2, Faction.INFIDELS, True, True, False, False)
-        self.board = Board(no_climatic_effects_cfg, self.TEST_NAMER)
+        no_climatic_effects_cfg = GameConfig(2, Faction.INFIDELS, True, True, False, MultiplayerStatus.DISABLED)
+        self.board = Board(no_climatic_effects_cfg, self.TEST_NAMER, {})
         found_sunstone = False
         for i in range(90):
             for j in range(100):
@@ -569,7 +573,9 @@ class BoardTest(unittest.TestCase):
         # dispatched to the game server.
         expected_event = FoundSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.FOUND_SETTLEMENT,
                                               self.TEST_GAME_NAME, test_player.faction, new_setl, False)
-        dispatch_mock.assert_called_with(expected_event)
+        dispatch_mock.assert_called_with(expected_event,
+                                         self.TEST_EVENT_DISPATCHERS,
+                                         self.MULTIPLAYER_CONFIG.multiplayer)
 
     def test_left_click_new_settlement_with_resources(self):
         """
@@ -714,7 +720,9 @@ class BoardTest(unittest.TestCase):
         expected_event = GarrisonUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.GARRISON_UNIT,
                                            self.TEST_GAME_NAME, self.TEST_PLAYER.faction, initial_loc,
                                            unit.remaining_stamina, setl.name)
-        dispatch_mock.assert_called_with(expected_event)
+        dispatch_mock.assert_called_with(expected_event,
+                                         self.TEST_EVENT_DISPATCHERS,
+                                         self.MULTIPLAYER_CONFIG.multiplayer)
 
     def test_left_click_add_passenger_to_deployer_unit(self):
         """
@@ -772,7 +780,9 @@ class BoardTest(unittest.TestCase):
         expected_event = BoardDeployerEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.BOARD_DEPLOYER,
                                             self.TEST_GAME_NAME, self.TEST_PLAYER.faction, initial_loc,
                                             self.TEST_DEPLOYER_UNIT.location, unit.remaining_stamina)
-        dispatch_mock.assert_called_with(expected_event)
+        dispatch_mock.assert_called_with(expected_event,
+                                         self.TEST_EVENT_DISPATCHERS,
+                                         self.MULTIPLAYER_CONFIG.multiplayer)
 
     def test_left_click_add_deployer_unit_passenger_to_deployer_unit(self):
         """
@@ -942,7 +952,9 @@ class BoardTest(unittest.TestCase):
         expected_event = DeployUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.DEPLOY_UNIT,
                                          self.TEST_GAME_NAME, self.TEST_PLAYER.faction,
                                          self.TEST_PLAYER.settlements[0].name, unit.location)
-        dispatch_mock.assert_called_with(expected_event)
+        dispatch_mock.assert_called_with(expected_event,
+                                         self.TEST_EVENT_DISPATCHERS,
+                                         self.MULTIPLAYER_CONFIG.multiplayer)
 
     def test_left_click_deploy_from_unit(self):
         """
@@ -1034,7 +1046,9 @@ class BoardTest(unittest.TestCase):
         expected_event = DeployerDeployEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.DEPLOYER_DEPLOY,
                                              self.TEST_GAME_NAME, self.TEST_PLAYER.faction,
                                              self.TEST_DEPLOYER_UNIT.location, 1, self.TEST_UNIT_3.location)
-        dispatch_mock.assert_called_with(expected_event)
+        dispatch_mock.assert_called_with(expected_event,
+                                         self.TEST_EVENT_DISPATCHERS,
+                                         self.MULTIPLAYER_CONFIG.multiplayer)
 
     def test_left_click_select_heathen(self):
         """
@@ -1221,7 +1235,9 @@ class BoardTest(unittest.TestCase):
         expected_event = AttackUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.ATTACK_UNIT,
                                          self.TEST_GAME_NAME, self.TEST_PLAYER.faction, self.TEST_UNIT.location,
                                          self.TEST_UNIT_2.location)
-        dispatch_mock.assert_called_with(expected_event)
+        dispatch_mock.assert_called_with(expected_event,
+                                         self.TEST_EVENT_DISPATCHERS,
+                                         self.MULTIPLAYER_CONFIG.multiplayer)
 
     def test_left_click_attack_heal(self):
         """
@@ -1274,7 +1290,9 @@ class BoardTest(unittest.TestCase):
         expected_event = HealUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.HEAL_UNIT,
                                        self.TEST_GAME_NAME, self.TEST_PLAYER.faction, self.TEST_UNIT.location,
                                        self.TEST_UNIT_3.location)
-        dispatch_mock.assert_called_with(expected_event)
+        dispatch_mock.assert_called_with(expected_event,
+                                         self.TEST_EVENT_DISPATCHERS,
+                                         self.MULTIPLAYER_CONFIG.multiplayer)
 
     def test_left_click_attack_select_other_unit(self):
         """
@@ -1445,7 +1463,9 @@ class BoardTest(unittest.TestCase):
         expected_event = MoveUnitEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.MOVE_UNIT,
                                        self.TEST_GAME_NAME, self.TEST_PLAYER.faction, (5, 5), (4, 4),
                                        self.TEST_UNIT.remaining_stamina, self.TEST_UNIT.besieging)
-        dispatch_mock.assert_called_with(expected_event)
+        dispatch_mock.assert_called_with(expected_event,
+                                         self.TEST_EVENT_DISPATCHERS,
+                                         self.MULTIPLAYER_CONFIG.multiplayer)
 
     def test_left_click_move_unit_into_siege(self):
         """
@@ -1524,7 +1544,9 @@ class BoardTest(unittest.TestCase):
                                           self.TEST_GAME_NAME, self.TEST_PLAYER.faction,
                                           self.TEST_PLAYER.units[0].location,
                                           (self.multi_relic_coords[1], self.multi_relic_coords[0]), test_result)
-        dispatch_mock.assert_called_with(expected_event)
+        dispatch_mock.assert_called_with(expected_event,
+                                         self.TEST_EVENT_DISPATCHERS,
+                                         self.MULTIPLAYER_CONFIG.multiplayer)
 
     def test_left_click_deselect_unit(self):
         """
@@ -1619,7 +1641,9 @@ class BoardTest(unittest.TestCase):
         # dispatched to the game server.
         expected_event = FoundSettlementEvent(EventType.UPDATE, self.TEST_IDENTIFIER, UpdateAction.FOUND_SETTLEMENT,
                                               self.TEST_GAME_NAME, self.TEST_PLAYER.faction, new_setl)
-        dispatch_mock.assert_called_with(expected_event)
+        dispatch_mock.assert_called_with(expected_event,
+                                         self.TEST_EVENT_DISPATCHERS,
+                                         self.MULTIPLAYER_CONFIG.multiplayer)
 
     def test_handle_new_settlement_frontiersmen(self):
         """

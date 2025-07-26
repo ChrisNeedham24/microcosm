@@ -1,34 +1,15 @@
-import datetime
 import json
-import platform
 import random
 import sched
 import socket
-import socketserver
 import time
 from itertools import chain
-from site import getusersitepackages
+from json import JSONDecodeError
+from socketserver import BaseServer, BaseRequestHandler, UDPServer
 from threading import Thread
 from typing import Dict, List, Optional, Set, Tuple, Callable
 
 import pyxel
-# For Windows clients we need to ensure that the miniupnpc DLL is loaded before attempting to import the module.
-if platform.system() == "Windows":
-    from ctypes import cdll, CDLL
-    import sys
-    # Clients playing via the bundled EXE should already have the DLL loaded, since it's bundled into the EXE itself.
-    try:
-        CDLL("miniupnpc.dll")
-    # However, clients playing via a pip install or from source will need to load the DLL manually.
-    except FileNotFoundError:
-        if "microcosm" in sys.modules:
-            cdll.LoadLibrary(f"{getusersitepackages()}/microcosm/source/resources/dll/miniupnpc.dll")
-        else:
-            cdll.LoadLibrary("source/resources/dll/miniupnpc.dll")
-# We need to disable a lint rule for the miniupnpc import because it doesn't actually declare UPnP in its module. This
-# isn't our fault, so we can just disable the rule.
-# pylint: disable=no-name-in-module
-from miniupnpc import UPnP
 
 from source.display.board import Board
 from source.display.menu import SetupOption
@@ -36,11 +17,12 @@ from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAM
     get_project, get_unit_plan, get_blessing, get_heathen
 from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDetails, Quad, OngoingBlessing, \
     InvestigationResult, Settlement, Unit, Heathen, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
-    LoadedMultiplayerState, HarvestStatus, EconomicStatus
+    LoadedMultiplayerState, HarvestStatus, EconomicStatus, MultiplayerStatus
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
-from source.networking.client import dispatch_event, get_identifier
+from source.networking.client import get_identifier, initialise_upnp, broadcast_to_local_network_hosts, \
+    SERVER_PORT, GLOBAL_SERVER_HOST, DispatcherKind, EventDispatcher
 from source.networking.events import Event, EventType, CreateEvent, InitEvent, UpdateEvent, UpdateAction, \
     FoundSettlementEvent, QueryEvent, LeaveEvent, JoinEvent, RegisterEvent, SetBlessingEvent, SetConstructionEvent, \
     MoveUnitEvent, DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent, \
@@ -55,7 +37,7 @@ from source.util.minifier import minify_quad, inflate_quad, minify_player, infla
     inflate_heathens, minify_quads_seen, inflate_quads_seen
 
 
-class MicrocosmServer(socketserver.BaseServer):
+class MicrocosmServer(BaseServer):
     """
     A custom BaseServer implementation - used for typing purposes.
     """
@@ -79,7 +61,7 @@ class MicrocosmServer(socketserver.BaseServer):
     keepalive_ctrs_ref: Dict[int, int]
 
 
-class RequestHandler(socketserver.BaseRequestHandler):
+class RequestHandler(BaseRequestHandler):
     """
     The handler for any requests that come in to the listener.
     """
@@ -99,7 +81,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             sock: socket.socket = self.request[1]
             self.process_event(evt, sock)
         # Any packet that arrives at the listener that isn't syntactically valid can just be ignored.
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, JSONDecodeError):
             pass
 
     def _forward_packet(self, evt: Event, gc_key: str, sock: socket.socket,
@@ -137,7 +119,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             case EventType.JOIN:
                 self.process_join_event(evt, sock)
             case EventType.REGISTER:
-                self.process_register_event(evt)
+                self.process_register_event(evt, sock)
             case EventType.END_TURN:
                 self.process_end_turn_event(evt, sock)
             case EventType.UNREADY:
@@ -205,7 +187,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gsr.nighttime_left = 0
             gsr.on_menu = False
             namer: Namer = self.server.namers_ref[evt.game_name]
-            gsr.board = Board(self.server.lobbies_ref[evt.game_name], namer)
+            gsr.board = Board(self.server.lobbies_ref[evt.game_name], namer, {})
             self.server.move_makers_ref[evt.game_name].board_ref = gsr.board
             # Rather than seeding the random number generator, we just let the AI settlements be placed randomly and
             # then forward on their details to each game client.
@@ -234,8 +216,12 @@ class RequestHandler(socketserver.BaseRequestHandler):
             # The board will only be initialised once, when the first packet is received.
             if not gsrs["local"].board:
                 gsrs["local"].until_night = evt.until_night
-                gsrs["local"].board = Board(evt.cfg, gc.namer, [[None] * 100 for _ in range(90)],
-                                            player_idx=gsrs["local"].player_idx, game_name=evt.game_name)
+                gsrs["local"].board = Board(evt.cfg,
+                                            gc.namer,
+                                            gsrs["local"].event_dispatchers,
+                                            quads=[[None] * 100 for _ in range(90)],
+                                            player_idx=gsrs["local"].player_idx,
+                                            game_name=evt.game_name)
                 gc.move_maker.board_ref = gsrs["local"].board
             split_quads: List[str] = evt.quad_chunk.split(",")[:-1]
             # Inflate each of the 100 quads received in this packet and assign them to the correct position on the
@@ -709,6 +695,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
             gc: GameController = self.server.game_controller_ref
             gc.menu.multiplayer_lobbies = evt.lobbies
             gc.menu.viewing_lobbies = True
+            gc.menu.viewing_local_lobbies = self.client_address[0] != GLOBAL_SERVER_HOST
 
     def process_leave_event(self, evt: LeaveEvent, sock: socket.socket):
         """
@@ -903,8 +890,12 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     if not gs.board:
                         gs.until_night = evt.until_night
                         gs.nighttime_left = evt.nighttime_left
-                        gs.board = Board(evt.cfg, gc.namer, [[None] * 100 for _ in range(90)],
-                                         player_idx=gs.player_idx, game_name=evt.lobby_name)
+                        gs.board = Board(evt.cfg,
+                                         gc.namer,
+                                         gs.event_dispatchers,
+                                         quads=[[None] * 100 for _ in range(90)],
+                                         player_idx=gs.player_idx,
+                                         game_name=evt.lobby_name)
                         gc.move_maker.board_ref = gs.board
                     if evt.quad_chunk:
                         split_quads: List[str] = evt.quad_chunk.split(",")[:-1]
@@ -986,6 +977,7 @@ class RequestHandler(socketserver.BaseRequestHandler):
                         gs.players.append(Player(player.name, Faction(player.faction), FACTION_COLOURS[player.faction]))
                     gc.menu.joining_game = False
                     gc.menu.viewing_lobbies = False
+                    gc.menu.viewing_local_lobbies = False
                     gc.menu.setup_option = SetupOption.START_GAME
                 # Otherwise, a new player has joined a lobby the client is already a part of.
                 else:
@@ -993,13 +985,22 @@ class RequestHandler(socketserver.BaseRequestHandler):
                     gs.players.append(Player(new_player.name, Faction(new_player.faction),
                                              FACTION_COLOURS[new_player.faction]))
 
-    def process_register_event(self, evt: RegisterEvent):
+    def process_register_event(self, evt: RegisterEvent, sock: socket.socket):
         """
         Process an event to register a client with the server.
         :param evt: The RegisterEvent to process.
+        :param sock: The socket to use to respond to the client that sent the registration request.
         """
-        # Keep track of the client's IP address and port they're listening on, so we can send them packets.
-        self.server.clients_ref[evt.identifier] = self.client_address[0], evt.port
+        if self.server.is_server:
+            # Keep track of the client's IP address and port they're listening on, so we can send them packets.
+            self.server.clients_ref[evt.identifier] = self.client_address[0], evt.port
+            sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                        self.server.clients_ref[evt.identifier])
+        else:
+            if self.client_address[0] != GLOBAL_SERVER_HOST:
+                self.server.game_states_ref["local"].event_dispatchers[DispatcherKind.LOCAL] = \
+                    EventDispatcher(str(self.client_address[0]))
+                self.server.game_controller_ref.menu.has_local_dispatcher = True
 
     def _server_end_turn(self, gs: GameState, evt: EndTurnEvent, sock: socket.socket):
         """
@@ -1166,7 +1167,8 @@ class RequestHandler(socketserver.BaseRequestHandler):
             sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
         else:
             self.server.game_controller_ref.menu.saves = evt.saves
-            self.server.game_controller_ref.menu.loading_multiplayer_game = True
+            self.server.game_controller_ref.menu.loading_game_multiplayer_status = \
+                MultiplayerStatus.GLOBAL if self.client_address[0] == GLOBAL_SERVER_HOST else MultiplayerStatus.LOCAL
 
     def process_load_event(self, evt: LoadEvent, sock: socket.socket):
         """
@@ -1192,7 +1194,9 @@ class RequestHandler(socketserver.BaseRequestHandler):
             self.server.lobbies_ref[lobby_name] = cfg
             gsrs[lobby_name].game_started = True
             gsrs[lobby_name].on_menu = False
-            gsrs[lobby_name].board = Board(self.server.lobbies_ref[lobby_name], self.server.namers_ref[lobby_name],
+            gsrs[lobby_name].board = Board(self.server.lobbies_ref[lobby_name],
+                                           self.server.namers_ref[lobby_name],
+                                           {},
                                            quads)
             self.server.move_makers_ref[lobby_name].board_ref = gsrs[lobby_name].board
             player_details: List[PlayerDetails] = []
@@ -1222,7 +1226,11 @@ class RequestHandler(socketserver.BaseRequestHandler):
         # If a client is receiving this event, however, they need to send one back to the server to signal that they're
         # still 'alive'.
         else:
-            dispatch_event(Event(EventType.KEEPALIVE, get_identifier()))
+            gs: GameState = self.server.game_states_ref["local"]
+            if DispatcherKind.GLOBAL in gs.event_dispatchers:
+                gs.event_dispatchers[DispatcherKind.GLOBAL].dispatch_event(Event(EventType.KEEPALIVE, get_identifier()))
+            if DispatcherKind.LOCAL in gs.event_dispatchers:
+                gs.event_dispatchers[DispatcherKind.LOCAL].dispatch_event(Event(EventType.KEEPALIVE, get_identifier()))
 
 
 class EventListener:
@@ -1302,7 +1310,7 @@ class EventListener:
                         # Rather than copy all the same logic as leave events, we simply send a leave event from the
                         # server to itself with the client's details.
                         l_evt: LeaveEvent = LeaveEvent(EventType.LEAVE, identifier, lobby_name)
-                        sock.sendto(json.dumps(l_evt, cls=SaveEncoder).encode(), ("localhost", 9999))
+                        sock.sendto(json.dumps(l_evt, cls=SaveEncoder).encode(), ("localhost", SERVER_PORT))
             self.clients.pop(identifier)
 
     def run(self):
@@ -1312,54 +1320,38 @@ class EventListener:
         # Bind the listener to all IP addresses on the machine. The game server listens on port 9999, while clients can
         # listen on whichever dynamic port they get assigned - since the server remembers what port each client is on,
         # it doesn't matter that it is different for each client.
-        with socketserver.UDPServer(("0.0.0.0", 9999 if self.is_server else 0), RequestHandler) as server:
+        with UDPServer(("0.0.0.0", SERVER_PORT if self.is_server else 0), RequestHandler) as server:
             # Clients need to open up their networking and contact the server before they can start listening for
             # events.
             if not self.is_server:
+                # Fundamentally, UPnP works by opening up a port into your connected network, and then forwards all
+                # public traffic directed at that port to a configured private IP within the network. Because of this,
+                # we need to determine what the private IP is for this machine. We do this by connecting to the Google
+                # DNS server, which allows us to see the private IP for this machine. This private IP is also used to
+                # scan for any other LAN hosts on the client's local network.
+                ip_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                ip_sock.connect(("8.8.8.8", 80))
+                private_ip: str = ip_sock.getsockname()[0]
                 try:
-                    # Initialise UPnP, discovering and then selecting a valid UPnP IGD device on the connected network,
-                    # where IGD refers to the protocol used for UPnP.
-                    upnp = UPnP()
-                    upnp.discover()
-                    upnp.selectigd()
-                    # Fundamentally, UPnP works by opening up a port into your connected network, and then forwards all
-                    # public traffic directed at that port to a configured private IP within the network. Because of
-                    # this, we need to determine what the private IP is for this machine. We do this by connecting to
-                    # the Google DNS server, which allows us to see the private IP for this machine.
-                    ip_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                    ip_sock.connect(("8.8.8.8", 80))
-                    private_ip: str = ip_sock.getsockname()[0]
-                    mapping_idx: int = 0
-                    todays_date: datetime.date = datetime.date.today()
-                    # For security reasons, we don't really want to leave these UPnP ports open permanently (even though
-                    # nothing is listening). As such, we check all existing port mappings on the network, and delete any
-                    # mappings that were created on previous days. Additionally, if a previous mapping was for this
-                    # machine, we delete the old one and make a new one.
-                    while (port_mapping := upnp.getgenericportmapping(mapping_idx)) is not None:
-                        mapping_name: str = port_mapping[3]
-                        if mapping_name.startswith("Microcosm"):
-                            # Because ISO dates can be sorted alphabetically to sort them chronologically, we can just
-                            # extract the date from the mapping and compare the strings.
-                            mapping_is_old: bool = mapping_name[10:] < str(todays_date)
-                            mapping_is_for_this_machine: bool = port_mapping[2][0] == private_ip
-                            if mapping_is_old or mapping_is_for_this_machine:
-                                upnp.deleteportmapping(port_mapping[0], "UDP")
-                        mapping_idx += 1
-                    # Now create a new port mapping for this machine's private IP and dynamic listener port, complete
-                    # with the creation date, so it can be deleted later.
-                    upnp.addportmapping(server.server_address[1], "UDP", private_ip, server.server_address[1],
-                                        f"Microcosm {todays_date}", "")
-                    # Now with a port listening for external traffic, we can signal to the server that we're listening.
-                    dispatch_event(RegisterEvent(EventType.REGISTER, get_identifier(), server.server_address[1]))
+                    # Initialise UPnP for this session.
+                    initialise_upnp(private_ip, server.server_address[1])
+                    # Now with a port listening for external traffic, we can signal to the global game server that we're
+                    # listening.
+                    global_dispatcher: EventDispatcher = EventDispatcher()
+                    global_dispatcher.dispatch_event(RegisterEvent(EventType.REGISTER, get_identifier(),
+                                                                   server.server_address[1]))
+                    self.game_states["local"].event_dispatchers[DispatcherKind.GLOBAL] = global_dispatcher
+                    # Also broadcast to any other server hosts that might be listening on the local network.
+                    broadcast_to_local_network_hosts(private_ip, server.server_address[1])
                     self.game_controller.menu.upnp_enabled = True
                 # This would be a more specific Exception, but the UPnP library that is used actually raises the base
                 # Exception. Thus, we also have to disable the lint rule for catching base Exceptions.
                 # pylint: disable=broad-exception-caught
                 except Exception:
+                    # Even though global multiplayer games won't work, local ones might, so we broadcast to any other
+                    # server hosts that might be listening on the local network here as well.
+                    broadcast_to_local_network_hosts(private_ip, server.server_address[1])
                     self.game_controller.menu.upnp_enabled = False
-                    # We can just return early since there's no way a client without UPnP will be able to receive
-                    # packets from the game server, so there's no reason to serve the server at all.
-                    return
             # So that the request handler can access the listener's state, we set some attributes on the handler itself.
             server.game_states_ref = self.game_states
             server.namers_ref = self.namers

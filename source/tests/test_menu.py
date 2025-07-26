@@ -4,7 +4,8 @@ import pyxel
 
 from source.display.menu import Menu, SetupOption, WikiOption, MainMenuOption, WikiUnitsOption
 from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, ACHIEVEMENTS, FACTION_COLOURS
-from source.foundation.models import VictoryType, GameConfig, DeployerUnitPlan, LobbyDetails, PlayerDetails, Faction
+from source.foundation.models import VictoryType, GameConfig, DeployerUnitPlan, LobbyDetails, PlayerDetails, Faction, \
+    MultiplayerStatus
 
 
 class MenuTest(unittest.TestCase):
@@ -94,6 +95,42 @@ class MenuTest(unittest.TestCase):
         self.menu.navigate(up=True)
         self.assertEqual(SetupOption.PLAYER_FACTION, self.menu.setup_option)
 
+        # However, if the client has a local dispatcher then the multiplayer option should still be available.
+        self.menu.has_local_dispatcher = True
+
+        self.assertEqual(SetupOption.PLAYER_FACTION, self.menu.setup_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.PLAYER_COUNT, self.menu.setup_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.MULTIPLAYER, self.menu.setup_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.BIOME_CLUSTERING, self.menu.setup_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.FOG_OF_WAR, self.menu.setup_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.CLIMATIC_EFFECTS, self.menu.setup_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.START_GAME, self.menu.setup_option)
+        # This time, it should wrap around, bringing the player back to the first option.
+        self.menu.navigate(down=True)
+        self.assertEqual(SetupOption.PLAYER_FACTION, self.menu.setup_option)
+
+        # Immediately, this should wrap around as well, going back to the bottom.
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.START_GAME, self.menu.setup_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.CLIMATIC_EFFECTS, self.menu.setup_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.FOG_OF_WAR, self.menu.setup_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.BIOME_CLUSTERING, self.menu.setup_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.MULTIPLAYER, self.menu.setup_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.PLAYER_COUNT, self.menu.setup_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(SetupOption.PLAYER_FACTION, self.menu.setup_option)
+
     def test_navigate_saves(self):
         """
         Ensure that the player can correctly navigate down and up the load game page.
@@ -136,8 +173,9 @@ class MenuTest(unittest.TestCase):
         Ensure that the player can correctly navigate down and up the list of players in a multiplayer lobby.
         """
         # Just fake some player data - obviously in reality we can't have 11 players of the same faction.
-        self.menu.multiplayer_lobby = LobbyDetails("Test", [PlayerDetails("Tester", Faction.CONCENTRATED, None)] * 11,
-                                                   GameConfig(11, Faction.CONCENTRATED, True, True, True, True), None)
+        self.menu.multiplayer_lobby = \
+            LobbyDetails("Test", [PlayerDetails("Tester", Faction.CONCENTRATED, None)] * 11,
+                         GameConfig(11, Faction.CONCENTRATED, True, True, True, MultiplayerStatus.GLOBAL), None)
 
         self.assertTupleEqual((0, 7), self.menu.lobby_player_boundaries)
 
@@ -168,7 +206,7 @@ class MenuTest(unittest.TestCase):
         # 11 players of the same faction in each game.
         self.menu.multiplayer_lobbies = \
             [LobbyDetails("Test", [PlayerDetails("Tester", Faction.CONCENTRATED, None)] * 11,
-                          GameConfig(11, Faction.CONCENTRATED, True, True, True, True), None)] * 11
+                          GameConfig(11, Faction.CONCENTRATED, True, True, True, MultiplayerStatus.GLOBAL), None)] * 11
 
         self.assertEqual(0, self.menu.lobby_index)
         # Iterate through each of the lobbies.
@@ -468,6 +506,42 @@ class MenuTest(unittest.TestCase):
         self.menu.navigate(up=True)
         self.assertEqual(MainMenuOption.NEW_GAME, self.menu.main_menu_option)
 
+        # However, if the client has a local dispatcher then the Join Game option should still be available.
+        self.menu.has_local_dispatcher = True
+
+        self.assertEqual(MainMenuOption.NEW_GAME, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.LOAD_GAME, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.JOIN_GAME, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.STATISTICS, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.ACHIEVEMENTS, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.WIKI, self.menu.main_menu_option)
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.EXIT, self.menu.main_menu_option)
+        # This time, it should wrap around, bringing the player back to the first option.
+        self.menu.navigate(down=True)
+        self.assertEqual(MainMenuOption.NEW_GAME, self.menu.main_menu_option)
+
+        # Immediately, this should wrap around as well, going back to the bottom.
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.EXIT, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.WIKI, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.ACHIEVEMENTS, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.STATISTICS, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.JOIN_GAME, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.LOAD_GAME, self.menu.main_menu_option)
+        self.menu.navigate(up=True)
+        self.assertEqual(MainMenuOption.NEW_GAME, self.menu.main_menu_option)
+
     def test_navigate_setup_faction(self):
         """
         Ensure that the player can correctly iterate through the options when choosing their faction.
@@ -522,22 +596,66 @@ class MenuTest(unittest.TestCase):
 
     def test_navigate_setup_multiplayer(self):
         """
-        Ensure that the player can correctly enable and disable multiplayer.
+        Ensure that the player can correctly enable and disable both global and local multiplayer.
         """
         self.menu.in_game_setup = True
         self.menu.setup_option = SetupOption.MULTIPLAYER
 
-        self.assertFalse(self.menu.multiplayer_enabled)
+        # Note that for this first part, there is no local dispatcher, so the Local option should be skipped.
+        self.menu.has_local_dispatcher = False
+
+        self.assertFalse(self.menu.multiplayer_status)
         # Pressing left when already disabled should have no effect.
         self.menu.navigate(left=True)
-        self.assertFalse(self.menu.multiplayer_enabled)
+        self.assertFalse(self.menu.multiplayer_status)
         self.menu.navigate(right=True)
-        self.assertTrue(self.menu.multiplayer_enabled)
-        # Similarly, pressing right when already enabled should have no effect.
+        # Since there is no local dispatcher, we expect the Local option to have been skipped.
+        self.assertEqual(MultiplayerStatus.GLOBAL, self.menu.multiplayer_status)
+        # Pressing right when on Global should also have no effect.
         self.menu.navigate(right=True)
-        self.assertTrue(self.menu.multiplayer_enabled)
+        self.assertEqual(MultiplayerStatus.GLOBAL, self.menu.multiplayer_status)
         self.menu.navigate(left=True)
-        self.assertFalse(self.menu.multiplayer_enabled)
+        # Once again, we expect the Local option to have been skipped.
+        self.assertFalse(self.menu.multiplayer_status)
+
+        # Now with a local dispatcher, we expect the Local option to be included.
+        self.menu.has_local_dispatcher = True
+
+        # Pressing left when already disabled should have no effect.
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.multiplayer_status)
+        self.menu.navigate(right=True)
+        # This time, we expect the next option to be Local.
+        self.assertEqual(MultiplayerStatus.LOCAL, self.menu.multiplayer_status)
+        self.menu.navigate(right=True)
+        # One more navigation should take us to Global.
+        self.assertEqual(MultiplayerStatus.GLOBAL, self.menu.multiplayer_status)
+        # Pressing right on Global should also have no effect.
+        self.menu.navigate(right=True)
+        self.assertEqual(MultiplayerStatus.GLOBAL, self.menu.multiplayer_status)
+        self.menu.navigate(left=True)
+        # Once again, Local should be the previous option.
+        self.assertEqual(MultiplayerStatus.LOCAL, self.menu.multiplayer_status)
+        self.menu.navigate(left=True)
+        # One final toggle should take us to back to multiplayer being disabled.
+        self.assertFalse(self.menu.multiplayer_status)
+
+        # As a final edge case, if the client has UPnP disabled while also having a local dispatcher, we expect the
+        # Global option to be unavailable.
+        self.menu.upnp_enabled = False
+
+        # Pressing left when already disabled should have no effect.
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.multiplayer_status)
+        self.menu.navigate(right=True)
+        # Again, we expect the next option to be Local.
+        self.assertEqual(MultiplayerStatus.LOCAL, self.menu.multiplayer_status)
+        self.menu.navigate(right=True)
+        # However this time, we expect pressing right to have no effect.
+        self.assertEqual(MultiplayerStatus.LOCAL, self.menu.multiplayer_status)
+        self.menu.navigate(left=True)
+        # We should be able to toggle back to multiplayer being disabled.
+        self.assertFalse(self.menu.multiplayer_status)
 
     def test_navigate_setup_clustering(self):
         """
@@ -598,18 +716,30 @@ class MenuTest(unittest.TestCase):
 
     def test_navigate_loading_multiplayer_game(self):
         """
-        Ensure that the player can correctly toggle between loading single-player and multiplayer games. Note that we do
-        not test switching to loading multiplayer games, as this is handled in game_input_handler.py, and involves a
-        request to the server.
+        Ensure that the player can correctly toggle between loading single-player and global multiplayer games. Note
+        that we do not test switching to loading either local or global multiplayer games, as this is handled in
+        game_input_handler.py, and loading either type involves a request to the server.
         """
         self.menu.loading_game = True
-        self.menu.loading_multiplayer_game = True
+        self.menu.loading_game_multiplayer_status = MultiplayerStatus.GLOBAL
 
         self.menu.navigate(left=True)
-        self.assertFalse(self.menu.loading_multiplayer_game)
+        self.assertFalse(self.menu.loading_game_multiplayer_status)
         # Pressing left when already disabled should have no effect.
         self.menu.navigate(left=True)
-        self.assertFalse(self.menu.loading_multiplayer_game)
+        self.assertFalse(self.menu.loading_game_multiplayer_status)
+
+        # There is also an edge case where UPnP may be disabled but the player is currently viewing saved multiplayer
+        # games on a local game server. In this case, we expect the global multiplayer page to be skipped over when
+        # navigating left.
+        self.menu.upnp_enabled = False
+        self.menu.loading_game_multiplayer_status = MultiplayerStatus.LOCAL
+
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.loading_game_multiplayer_status)
+        # Pressing left when already disabled should have no effect.
+        self.menu.navigate(left=True)
+        self.assertFalse(self.menu.loading_game_multiplayer_status)
 
     def test_navigate_joining_faction(self):
         """
@@ -747,7 +877,7 @@ class MenuTest(unittest.TestCase):
         test_clustering = self.menu.biome_clustering_enabled = False
         test_fog_of_war = self.menu.fog_of_war_enabled = True
         test_climate = self.menu.climatic_effects_enabled = False
-        test_multiplayer = self.menu.multiplayer_enabled = True
+        test_multiplayer = self.menu.multiplayer_status = MultiplayerStatus.GLOBAL
 
         test_config: GameConfig = self.menu.get_game_config()
 

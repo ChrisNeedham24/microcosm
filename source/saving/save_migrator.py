@@ -1,6 +1,6 @@
 from source.foundation.catalogue import get_blessing, FACTION_COLOURS, IMPROVEMENTS
 from source.foundation.models import UnitPlan, Unit, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, Quad, \
-    Biome, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection
+    Biome, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection, MultiplayerStatus
 from source.util.minifier import inflate_quad
 
 """
@@ -52,7 +52,11 @@ v3.0
 v4.0
 - Quad yields were adjusted to be integer values rather than float ones. Float values from previous versions are rounded
   to the closest integer.
-- Multiplayer games were introduced; GameConfig objects from previous versions are naturally mapped to False.
+- Multiplayer games were introduced; GameConfig objects from previous versions are naturally mapped to Disabled.
+
+v4.1
+- Local multiplayer games were introduced; GameConfig objects from previous versions have their multiplayer boolean
+  field mapped from False to Disabled, and from True to Global, as Local games did not exist previously.
 """
 
 
@@ -207,7 +211,9 @@ def migrate_game_config(config) -> GameConfig:
         # We now delete the old attribute so that it does not pollute future saves.
         delattr(config, "player_colour")
     if not hasattr(config, "multiplayer"):
-        config.multiplayer = False
+        config.multiplayer = MultiplayerStatus.DISABLED
+    elif isinstance(config.multiplayer, bool):
+        config.multiplayer = MultiplayerStatus.GLOBAL if config.multiplayer else MultiplayerStatus.DISABLED
     return config
 
 

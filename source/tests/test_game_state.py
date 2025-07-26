@@ -7,7 +7,7 @@ from source.display.board import Board
 from source.foundation.catalogue import Namer, UNIT_PLANS, get_heathen_plan, IMPROVEMENTS, BLESSINGS, ACHIEVEMENTS
 from source.foundation.models import GameConfig, Faction, Player, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
     Unit, Heathen, Settlement, Victory, VictoryType, Construction, OngoingBlessing, EconomicStatus, UnitPlan, \
-    HarvestStatus, Quad, Biome, CompletedConstruction, ResourceCollection
+    HarvestStatus, Quad, Biome, CompletedConstruction, ResourceCollection, MultiplayerStatus
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
 
@@ -16,7 +16,7 @@ class GameStateTest(unittest.TestCase):
     """
     The test class for game_state.py.
     """
-    TEST_CONFIG = GameConfig(5, Faction.NOCTURNE, True, False, True, False)
+    TEST_CONFIG = GameConfig(5, Faction.NOCTURNE, True, False, True, MultiplayerStatus.DISABLED)
     TEST_NAMER = Namer()
 
     def setUp(self) -> None:
@@ -45,7 +45,7 @@ class GameStateTest(unittest.TestCase):
         ]
         self.game_state.player_idx = 0
         self.game_state.located_player_idx = True
-        self.game_state.board = Board(self.TEST_CONFIG, self.TEST_NAMER)
+        self.game_state.board = Board(self.TEST_CONFIG, self.TEST_NAMER, {})
         self.game_state.heathens = [self.TEST_HEATHEN]
 
     def test_hash(self):

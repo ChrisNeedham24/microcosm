@@ -6,7 +6,7 @@ from source.foundation.catalogue import Namer, UNIT_PLANS, BLESSINGS, get_unlock
     get_available_improvements, get_unit_plan, IMPROVEMENTS, SETL_NAMES
 from source.foundation.models import GameConfig, Faction, Unit, Player, Settlement, AIPlaystyle, AttackPlaystyle, \
     ExpansionPlaystyle, Blessing, Quad, Biome, UnitPlan, SetlAttackData, Construction, DeployerUnitPlan, DeployerUnit, \
-    VictoryType, ResourceCollection
+    VictoryType, ResourceCollection, MultiplayerStatus
 from source.game_management.movemaker import search_for_relics_or_move, set_blessing, set_player_construction, \
     set_ai_construction, MoveMaker, move_healer_unit
 
@@ -15,8 +15,8 @@ class MovemakerTest(unittest.TestCase):
     """
     The test class for movemaker.py.
     """
-    TEST_CONFIG = GameConfig(2, Faction.NOCTURNE, True, True, True, False)
-    TEST_BOARD = Board(TEST_CONFIG, Namer())
+    TEST_CONFIG = GameConfig(2, Faction.NOCTURNE, True, True, True, MultiplayerStatus.DISABLED)
+    TEST_BOARD = Board(TEST_CONFIG, Namer(), {})
 
     def setUp(self) -> None:
         """
