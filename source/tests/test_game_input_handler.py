@@ -296,6 +296,7 @@ class GameInputHandlerTest(unittest.TestCase):
         get_saves_mock.return_value = test_saves
 
         self.game_state.on_menu = True
+        self.game_controller.menu.upnp_enabled = True
         self.game_controller.menu.loading_game = True
         self.game_controller.menu.navigate = MagicMock()
 
@@ -328,6 +329,7 @@ class GameInputHandlerTest(unittest.TestCase):
         lobbies.
         """
         self.game_state.on_menu = True
+        self.game_controller.menu.upnp_enabled = True
         self.game_controller.menu.viewing_lobbies = True
         self.game_controller.menu.viewing_local_lobbies = True
         self.game_controller.menu.navigate = MagicMock()
@@ -882,12 +884,11 @@ class GameInputHandlerTest(unittest.TestCase):
         with the Join Game option selected.
         """
         self.game_state.on_menu = True
+        self.game_controller.menu.upnp_enabled = True
         self.game_controller.menu.main_menu_option = MainMenuOption.JOIN_GAME
         on_key_return(self.game_controller, self.game_state)
         expected_event = QueryEvent(EventType.QUERY, self.TEST_IDENTIFIER)
-        dispatch_mock.assert_called_with(expected_event,
-                                         self.TEST_EVENT_DISPATCHERS,
-                                         self.TEST_MULTIPLAYER_CONFIG.multiplayer)
+        dispatch_mock.assert_called_with(expected_event, self.TEST_EVENT_DISPATCHERS, MultiplayerStatus.GLOBAL)
 
     def test_return_select_main_menu_option_statistics(self):
         """

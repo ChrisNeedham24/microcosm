@@ -3337,9 +3337,13 @@ class EventListenerTest(unittest.TestCase):
         """
         Ensure that game clients correctly process, and respond to, keepalive events.
         """
-        # Create a local game state for the client, with a local event dispatcher as well.
+        # Create a local game state for the client, with both the global event dispatcher and a local event dispatcher
+        # as well.
         self.mock_server.game_states_ref["local"] = GameState()
-        self.mock_server.game_states_ref["local"].event_dispatchers[DispatcherKind.LOCAL] = EventDispatcher("127.0.0.1")
+        self.mock_server.game_states_ref["local"].event_dispatchers = {
+            DispatcherKind.GLOBAL: EventDispatcher(),
+            DispatcherKind.LOCAL: EventDispatcher("127.0.0.1")
+        }
         # The identifier is None because it's the game server that is creating and sending this packet to the client.
         # This is different to other forwarding cases because those packets retain the original player identifier. For
         # example, if a player selected a new blessing, the event will have that player's identifier both when it gets
@@ -3584,6 +3588,9 @@ class EventListenerTest(unittest.TestCase):
         # Exception - we mock that here.
         upnp_mock_instance.selectigd.side_effect = Exception()
         socket_mock_instance: MagicMock = socket_mock.return_value
+        # We also need to mock out the private IP returned by the socket for when the client broadcasts to other hosts
+        # on its local network.
+        socket_mock_instance.getsockname.return_value = ["127.0.0.1"]
         # Pass through the test game state and controller, as we do for client listeners.
         test_game_states: Dict[str, GameState] = {"local": self.TEST_GAME_STATE}
         client_listener: EventListener = EventListener(is_server=False,
