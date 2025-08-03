@@ -18,7 +18,8 @@ from source.foundation.catalogue import get_blessing, get_project, get_unit_plan
 from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement, GameConfig, \
     Quad, HarvestStatus, EconomicStatus
 from source.game_management.game_controller import GameController
-from source.util.minifier import minify_quad
+from source.util.minifier import minify_quad, minify_save_name
+
 if TYPE_CHECKING:
     from source.game_management.game_state import GameState
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
@@ -27,7 +28,7 @@ from source.saving.save_migrator import migrate_unit, migrate_player, migrate_cl
 from source.util.calculator import clamp
 
 # The prefix attached to save files created by the autosave feature.
-AUTOSAVE_PREFIX = "auto"
+AUTOSAVE_PREFIX = "a_"
 # The directory where save files are created and loaded from. This is a different directory depending on the operating
 # system the game is being run on. For example, on macOS, this will resolve to ~/Library/Application Support/microcosm.
 # Similarly, on Linux, it will resolve to ~/.local/share/microcosm. For more details, refer to the platformdirs
@@ -54,9 +55,7 @@ def save_game(game_state: GameState, auto: bool = False):
     if auto and len(autosaves := list(filter(lambda fn: fn.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))) == 3:
         autosaves.sort()
         os.remove(os.path.join(SAVES_DIR, autosaves[0]))
-    # The ':' characters in the datestring must be replaced to conform with Windows files supported characters.
-    sanitised_timestamp = datetime.now().isoformat(timespec='seconds').replace(':', '.')
-    save_name = os.path.join(SAVES_DIR, f"{AUTOSAVE_PREFIX if auto else ''}save-{sanitised_timestamp}.json")
+    save_name: str = os.path.join(SAVES_DIR, f"{AUTOSAVE_PREFIX if auto else ''}{minify_save_name(game_state)}.json")
     with open(save_name, "w", encoding="utf-8") as save_file:
         # We use chain.from_iterable() here because the quads array is 2D.
         save = {

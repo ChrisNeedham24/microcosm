@@ -1,10 +1,15 @@
-from typing import List, Optional, Set, Tuple
+from __future__ import annotations
+
+from datetime import datetime
+from typing import List, Optional, Set, Tuple, TYPE_CHECKING
 
 from source.foundation.catalogue import get_unit_plan, get_improvement, get_project, get_blessing, FACTION_COLOURS, \
     IMPROVEMENTS
 from source.foundation.models import Quad, Biome, ResourceCollection, Player, Settlement, Unit, UnitPlan, Improvement, \
     Construction, HarvestStatus, EconomicStatus, Blessing, Faction, VictoryType, OngoingBlessing, AIPlaystyle, \
     AttackPlaystyle, ExpansionPlaystyle, Project, Heathen, DeployerUnit
+if TYPE_CHECKING:
+    from source.game_management.game_state import GameState
 
 
 def minify_resource_collection(rc: ResourceCollection) -> str:
@@ -140,6 +145,18 @@ def minify_heathens(heathens: List[Heathen]) -> str:
         heathens_str += f"{heathen.health}*{heathen.remaining_stamina}*{heathen.location[0]}-{heathen.location[1]}*"
         heathens_str += f"{hp.power}*{hp.max_health}*{hp.total_stamina}*{hp.name}*{heathen.has_attacked},"
     return heathens_str
+
+
+def minify_save_name(game_state: GameState) -> str:
+    epoch_secs: int = int(datetime.now().timestamp())
+    turn: int = game_state.turn
+    player_count: int = game_state.board.game_config.player_count
+    save_name: str = f"{epoch_secs}_{turn}_{player_count}_"
+    if game_state.board.game_config.multiplayer:
+        save_name += "M"
+    else:
+        save_name += str(list(Faction).index(game_state.board.game_config.player_faction))
+    return save_name
 
 
 def inflate_resource_collection(rc_str: str) -> ResourceCollection:
