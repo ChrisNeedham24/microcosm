@@ -16,9 +16,9 @@ from platformdirs import user_data_dir
 from source.display.board import Board
 from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement, ACHIEVEMENTS, Namer
 from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement, GameConfig, \
-    Quad, HarvestStatus, EconomicStatus
+    Quad, HarvestStatus, EconomicStatus, SaveDetails
 from source.game_management.game_controller import GameController
-from source.util.minifier import minify_quad, minify_save_name
+from source.util.minifier import minify_quad, minify_save_name, inflate_save_name
 
 if TYPE_CHECKING:
     from source.game_management.game_state import GameState
@@ -28,7 +28,7 @@ from source.saving.save_migrator import migrate_unit, migrate_player, migrate_cl
 from source.util.calculator import clamp
 
 # The prefix attached to save files created by the autosave feature.
-AUTOSAVE_PREFIX = "a_"
+AUTOSAVE_PREFIX = "auto"
 # The directory where save files are created and loaded from. This is a different directory depending on the operating
 # system the game is being run on. For example, on macOS, this will resolve to ~/Library/Application Support/microcosm.
 # Similarly, on Linux, it will resolve to ~/.local/share/microcosm. For more details, refer to the platformdirs
@@ -53,8 +53,8 @@ def save_game(game_state: GameState, auto: bool = False):
     """
     # Only maintain 3 autosaves at a time, delete the oldest if we already have 3 before saving the next.
     if auto and len(autosaves := list(filter(lambda fn: fn.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))) == 3:
-        autosaves.sort()
-        os.remove(os.path.join(SAVES_DIR, autosaves[0]))
+        to_delete: str = min(autosaves, key=lambda autosave: os.path.getmtime(os.path.join(SAVES_DIR, autosave)))
+        os.remove(os.path.join(SAVES_DIR, to_delete))
     save_name: str = os.path.join(SAVES_DIR, f"{AUTOSAVE_PREFIX if auto else ''}{minify_save_name(game_state)}.json")
     with open(save_name, "w", encoding="utf-8") as save_file:
         # We use chain.from_iterable() here because the quads array is 2D.
@@ -315,20 +315,20 @@ def load_game(game_state: GameState, game_controller: GameController):
         game_controller.menu.load_failed = True
 
 
-def get_saves() -> List[str]:
+def get_saves() -> List[SaveDetails]:
     """
     Get the prettified file names of each save file in the saves/ directory.
     :return: The prettified file names of the available save files.
     """
-    save_names: List[str] = []
-    autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
-    saves = list(filter(lambda file_name: file_name.startswith("save-"),
-                        [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
+    save_details: List[SaveDetails] = []
+    autosaves: List[str] = [f for f in os.listdir(SAVES_DIR) if f.startswith(AUTOSAVE_PREFIX)]
+    saves: List[str] = [f for f in os.listdir(SAVES_DIR) if f.startswith("save")]
     autosaves.sort(reverse=True)
     saves.sort(reverse=True)
     for f in autosaves:
-        save_names.append(f[9:-5].replace("T", " ") + " (auto)")
+        save: SaveDetails = inflate_save_name(f.rstrip(".json"))
+        save.name += " (auto)"
+        save_details.append(save)
     for f in saves:
-        # Just show the date and time.
-        save_names.append(f[5:-5].replace("T", " "))
-    return save_names
+        save_details.append(inflate_save_name(f.rstrip(".json")))
+    return save_details

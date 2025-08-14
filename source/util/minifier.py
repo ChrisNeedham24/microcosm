@@ -7,7 +7,8 @@ from source.foundation.catalogue import get_unit_plan, get_improvement, get_proj
     IMPROVEMENTS
 from source.foundation.models import Quad, Biome, ResourceCollection, Player, Settlement, Unit, UnitPlan, Improvement, \
     Construction, HarvestStatus, EconomicStatus, Blessing, Faction, VictoryType, OngoingBlessing, AIPlaystyle, \
-    AttackPlaystyle, ExpansionPlaystyle, Project, Heathen, DeployerUnit
+    AttackPlaystyle, ExpansionPlaystyle, Project, Heathen, DeployerUnit, SaveDetails
+
 if TYPE_CHECKING:
     from source.game_management.game_state import GameState
 
@@ -151,7 +152,7 @@ def minify_save_name(game_state: GameState) -> str:
     epoch_secs: int = int(datetime.now().timestamp())
     turn: int = game_state.turn
     player_count: int = game_state.board.game_config.player_count
-    save_name: str = f"{epoch_secs}_{turn}_{player_count}_"
+    save_name: str = f"save_{epoch_secs}_{turn}_{player_count}_"
     if game_state.board.game_config.multiplayer:
         save_name += "M"
     else:
@@ -388,3 +389,18 @@ def inflate_heathens(heathens_str: str) -> List[Heathen]:
         has_attacked: bool = split_heathen[7] == "True"
         heathens.append(Heathen(health, remaining_stamina, location, unit_plan, has_attacked))
     return heathens
+
+
+def inflate_save_name(save_name: str) -> SaveDetails:
+    # The current save name format uses underscores as separators.
+    if "_" in save_name:
+        _, timestamp, turn, player_count, faction_or_multiplayer = save_name.split("_")
+        formatted_name: str = datetime.fromtimestamp(int(timestamp)).strftime("%Y-%m-%d %H:%M:%S")
+        multiplayer: bool = faction_or_multiplayer == "M"
+        faction: Optional[Faction] = None if multiplayer else list(Faction)[int(faction_or_multiplayer)]
+        return SaveDetails(formatted_name, turn, player_count, faction, multiplayer)
+    # The v4.1 and prior format was simply (auto)save-20XX-XX-XXT00.00.00.
+    else:
+        _, iso_format_date = save_name.split("-", maxsplit=1)
+        formatted_name: str = iso_format_date.replace("T", " ").replace(".", ":")
+        return SaveDetails(formatted_name)

@@ -214,6 +214,8 @@ def migrate_game_config(config) -> GameConfig:
         config.multiplayer = MultiplayerStatus.DISABLED
     elif isinstance(config.multiplayer, bool):
         config.multiplayer = MultiplayerStatus.GLOBAL if config.multiplayer else MultiplayerStatus.DISABLED
+    else:
+        config.multiplayer = MultiplayerStatus(config.multiplayer)
     return config
 
 

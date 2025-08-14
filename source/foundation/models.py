@@ -596,3 +596,16 @@ class LoadedMultiplayerState:
     quads_seen_loaded: int = 0
     total_heathens: int = 0
     heathens_loaded: bool = False  # Only a boolean because we load all heathens at once.
+
+
+@dataclass
+class SaveDetails:
+    """
+    The details to display on the menu for a save when choosing which to load.
+    Note that saves from v4.1 or prior will not have any of the optional fields.
+    """
+    name: str
+    turn: Optional[int] = None
+    player_count: Optional[int] = None
+    faction: Optional[Faction] = None  # Multiplayer games won't have this, as you can join as any faction.
+    multiplayer: Optional[bool] = None

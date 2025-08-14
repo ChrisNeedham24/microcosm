@@ -97,7 +97,7 @@ class Menu:
         self.faction_colours: List[Tuple[Faction, int]] = list(FACTION_COLOURS.items())
         self.showing_faction_details = False
         self.faction_wiki_idx = 0
-        self.load_game_boundaries = 0, 9
+        self.load_game_boundaries = 0, 4
         self.load_failed = False
         self.viewing_stats = False
         self.player_stats: Optional[Statistics] = None
