@@ -185,7 +185,7 @@ def display_menu(menu: Menu):
             for idx, save in enumerate(menu.saves):
                 if menu.load_game_boundaries[0] <= idx <= menu.load_game_boundaries[1]:
                     y_pos: int = 35 + (idx - menu.load_game_boundaries[0]) * 20
-                    pyxel.text(25, y_pos, save.name, pyxel.COLOR_WHITE)
+                    pyxel.text(25, y_pos, save.get_formatted_name(), pyxel.COLOR_WHITE)
                     pyxel.text(150, y_pos, "Load", pyxel.COLOR_RED if menu.save_idx is idx else pyxel.COLOR_WHITE)
                     pyxel.blt(25, y_pos + 6, 0, 0, 116, 8, 8)
                     if save.turn:

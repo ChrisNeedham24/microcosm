@@ -20,7 +20,7 @@ from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
 from source.foundation.models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, \
     OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView, Improvement, LobbyDetails, \
-    PlayerDetails, MultiplayerStatus
+    PlayerDetails, MultiplayerStatus, SaveDetails
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
 from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats_achievements, get_stats
@@ -235,13 +235,10 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.music_player.play_game_music()
         elif game_controller.menu.loading_game:
             if game_controller.menu.loading_game_multiplayer_status:
-                save_name: str = game_controller.menu.saves[game_controller.menu.save_idx]
+                save: SaveDetails = game_controller.menu.saves[game_controller.menu.save_idx]
                 # We need to convert the save name back to the file name before we send it to the server.
-                if save_name.endswith("(auto)"):
-                    save_name = "autosave-" + save_name[:-7].replace(" ", "T") + ".json"
-                else:
-                    save_name = "save-" + save_name.replace(" ", "T") + ".json"
-                l_evt: LoadEvent = LoadEvent(EventType.LOAD, get_identifier(), save_name)
+                save_file_name: str = save.get_file_name()
+                l_evt: LoadEvent = LoadEvent(EventType.LOAD, get_identifier(), save_file_name)
                 dispatch_event(l_evt,
                                game_state.event_dispatchers,
                                game_controller.menu.loading_game_multiplayer_status)

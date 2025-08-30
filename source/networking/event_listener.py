@@ -3,6 +3,7 @@ import random
 import sched
 import socket
 import time
+from datetime import datetime
 from itertools import chain
 from json import JSONDecodeError
 from socketserver import BaseServer, BaseRequestHandler, UDPServer
@@ -17,7 +18,7 @@ from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAM
     get_project, get_unit_plan, get_blessing, get_heathen
 from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDetails, Quad, OngoingBlessing, \
     InvestigationResult, Settlement, Unit, Heathen, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
-    LoadedMultiplayerState, HarvestStatus, EconomicStatus, MultiplayerStatus
+    LoadedMultiplayerState, HarvestStatus, EconomicStatus, MultiplayerStatus, SaveDetails
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
@@ -28,7 +29,8 @@ from source.networking.events import Event, EventType, CreateEvent, InitEvent, U
     MoveUnitEvent, DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent, \
     BuyoutConstructionEvent, DisbandUnitEvent, AttackUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, \
     HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent, AutofillEvent, SaveEvent, QuerySavesEvent, LoadEvent
-from source.saving.game_save_manager import save_stats_achievements, save_game, get_saves, load_save_file
+from source.saving.game_save_manager import save_stats_achievements, save_game, get_saves, load_save_file, \
+    get_save_files
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_unit
 from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp, \
@@ -1163,10 +1165,20 @@ class RequestHandler(BaseRequestHandler):
         :param sock: The socket to use to respond to the client that sent the query.
         """
         if self.server.is_server:
-            evt.saves = get_saves()
-            sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
+            evt.saves = [f for f in get_save_files() if ("_" in f and f.endswith("M")) or "_" not in f]
+            sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                        self.server.clients_ref[evt.identifier])
         else:
-            self.server.game_controller_ref.menu.saves = evt.saves
+            # TODO consider old clients with a new game server
+            if "save" in evt.saves[0]:
+                self.server.game_controller_ref.menu.saves = get_saves(evt.saves)
+            else:
+                saves: List[SaveDetails] = []
+                for s in evt.saves:
+                    auto: bool = s.endswith("(auto)")
+                    date_time: datetime = datetime.fromisoformat(s.rstrip(" (auto)").replace(".", ":"))
+                    saves.append(SaveDetails(date_time, auto))
+                self.server.game_controller_ref.menu.saves = saves
             self.server.game_controller_ref.menu.loading_game_multiplayer_status = \
                 MultiplayerStatus.GLOBAL if self.client_address[0] == GLOBAL_SERVER_HOST else MultiplayerStatus.LOCAL
 
