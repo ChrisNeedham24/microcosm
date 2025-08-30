@@ -210,6 +210,8 @@ def migrate_game_config(config) -> GameConfig:
         config.player_faction = get_faction_for_colour(config.player_colour)
         # We now delete the old attribute so that it does not pollute future saves.
         delattr(config, "player_colour")
+    else:
+        config.player_faction = Faction(config.player_faction)
     if not hasattr(config, "multiplayer"):
         config.multiplayer = MultiplayerStatus.DISABLED
     elif isinstance(config.multiplayer, bool):
