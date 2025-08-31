@@ -24,6 +24,7 @@ from source.foundation.models import Construction, OngoingBlessing, CompletedCon
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
 from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats_achievements, get_stats
+from source.util.minifier import minify_save_details
 
 
 def on_key_arrow_down(game_controller: GameController, game_state: GameState, is_ctrl_key: bool):
@@ -237,7 +238,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             if game_controller.menu.loading_game_multiplayer_status:
                 save: SaveDetails = game_controller.menu.saves[game_controller.menu.save_idx]
                 # We need to convert the save name back to the file name before we send it to the server.
-                save_file_name: str = save.get_file_name()
+                save_file_name: str = f"{minify_save_details(save)}.json"
                 l_evt: LoadEvent = LoadEvent(EventType.LOAD, get_identifier(), save_file_name)
                 dispatch_event(l_evt,
                                game_state.event_dispatchers,

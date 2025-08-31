@@ -148,6 +148,21 @@ def minify_heathens(heathens: List[Heathen]) -> str:
     return heathens_str
 
 
+def minify_save_details(save: SaveDetails) -> str:
+    if save.turn:
+        epoch_secs: int = int(save.date_time.timestamp())
+        turn: int = save.turn
+        player_count: int = save.player_count
+        save_name: str = f"{'auto' if save.auto else ''}save_{epoch_secs}_{turn}_{player_count}_"
+        if save.multiplayer:
+            save_name += "M"
+        else:
+            save_name += str(list(Faction).index(save.faction))
+        return save_name
+    else:
+        return f"{'auto' if save.auto else ''}save-{save.date_time.strftime('%Y-%m-%dT%H.%M.%S')}"
+
+
 def inflate_resource_collection(rc_str: str) -> ResourceCollection:
     """
     Inflate the given minified resource collection string into a resource collection object.
@@ -387,8 +402,13 @@ def inflate_save_details(save_name: str, auto: bool) -> SaveDetails:
         multiplayer: bool = faction_or_multiplayer == "M"
         faction: Optional[Faction] = None if multiplayer else list(Faction)[int(faction_or_multiplayer)]
         return SaveDetails(date_time, auto, turn, player_count, faction, multiplayer)
-    # The v4.1 and prior format was simply (auto)save-20XX-XX-XXT00.00.00.
+    # The v4.1 and prior format was (auto)save-20XX-XX-XXT00.00.00 for files and 20XX-XX-XX 00.00.00( (auto)) for
+    # formatted names.
     else:
-        _, iso_format_date = save_name.split("-", maxsplit=1)
-        date_time: datetime = datetime.fromisoformat(iso_format_date.replace(".", ":"))
+        date_time: datetime
+        if save_name.startswith("2"):
+            date_time = datetime.strptime(save_name.removesuffix(" (auto)"), "%Y-%m-%d %H.%M.%S")
+        else:
+            _, iso_format_date = save_name.split("-", maxsplit=1)
+            date_time = datetime.strptime(iso_format_date, "%Y-%m-%dT%H.%M.%S")
         return SaveDetails(date_time, auto)

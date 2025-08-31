@@ -36,7 +36,7 @@ from source.saving.save_migrator import migrate_settlement, migrate_unit
 from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp, \
     update_player_quads_seen_around_point
 from source.util.minifier import minify_quad, inflate_quad, minify_player, inflate_player, minify_heathens, \
-    inflate_heathens, minify_quads_seen, inflate_quads_seen
+    inflate_heathens, minify_quads_seen, inflate_quads_seen, minify_save_details
 
 
 class MicrocosmServer(BaseServer):
@@ -1165,18 +1165,23 @@ class RequestHandler(BaseRequestHandler):
         :param sock: The socket to use to respond to the client that sent the query.
         """
         if self.server.is_server:
-            evt.saves = [f for f in get_save_files() if ("_" in f and f.endswith("M")) or "_" not in f]
+            saves: List[str] = []
+            for s in get_saves(multi=True):
+                if s.multiplayer is True:
+                    saves.append(minify_save_details(s))
+                elif s.multiplayer is None:
+                    saves.append(s.date_time.strftime("%Y-%m-%d %H.%M.%S") + (" (auto)" if s.auto else ""))
+            evt.saves = saves
             sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                         self.server.clients_ref[evt.identifier])
         else:
-            # TODO consider old clients with a new game server
             if "save" in evt.saves[0]:
-                self.server.game_controller_ref.menu.saves = get_saves(evt.saves)
+                self.server.game_controller_ref.menu.saves = get_saves(evt.saves, True)
             else:
                 saves: List[SaveDetails] = []
                 for s in evt.saves:
                     auto: bool = s.endswith("(auto)")
-                    date_time: datetime = datetime.fromisoformat(s.rstrip(" (auto)").replace(".", ":"))
+                    date_time: datetime = datetime.strptime(s.removesuffix(" (auto)"), "%Y-%m-%d %H.%M.%S")
                     saves.append(SaveDetails(date_time, auto))
                 self.server.game_controller_ref.menu.saves = saves
             self.server.game_controller_ref.menu.loading_game_multiplayer_status = \
@@ -1197,7 +1202,12 @@ class RequestHandler(BaseRequestHandler):
             gsrs[lobby_name] = GameState()
             self.server.namers_ref[lobby_name] = Namer()
             # Load in all game state from the file.
-            cfg, quads = load_save_file(gsrs[lobby_name], self.server.namers_ref[lobby_name], evt.save_name)
+            cfg, quads = load_save_file(gsrs[lobby_name],
+                                        self.server.namers_ref[lobby_name],
+                                        # This prefix removal is to account for old versions of the game, which will
+                                        # send the save name as something like 'save-autosave_1756551965_5_2_M.json',
+                                        # as the old code internally re-formats to the old format.
+                                        evt.save_name.removeprefix("save-"))
             # Make all players AIs so we can 'join' as any player.
             for p in gsrs[lobby_name].players:
                 p.ai_playstyle = AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)

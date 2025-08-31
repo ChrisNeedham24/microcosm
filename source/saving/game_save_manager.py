@@ -18,7 +18,7 @@ from source.foundation.catalogue import get_blessing, get_project, get_unit_plan
 from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement, GameConfig, \
     Quad, HarvestStatus, EconomicStatus, SaveDetails
 from source.game_management.game_controller import GameController
-from source.util.minifier import minify_quad, inflate_save_details
+from source.util.minifier import minify_quad, inflate_save_details, minify_save_details
 
 if TYPE_CHECKING:
     from source.game_management.game_state import GameState
@@ -27,6 +27,8 @@ from source.saving.save_migrator import migrate_unit, migrate_player, migrate_cl
     migrate_quad, migrate_settlement, migrate_game_config, migrate_game_version
 from source.util.calculator import clamp
 
+# The prefix attached to save files created by the autosave feature.
+AUTOSAVE_PREFIX = "auto"
 # The directory where save files are created and loaded from. This is a different directory depending on the operating
 # system the game is being run on. For example, on macOS, this will resolve to ~/Library/Application Support/microcosm.
 # Similarly, on Linux, it will resolve to ~/.local/share/microcosm. For more details, refer to the platformdirs
@@ -50,8 +52,7 @@ def save_game(game_state: GameState, auto: bool = False):
     :param auto: Whether the save is an autosave.
     """
     # Only maintain 3 autosaves at a time, delete the oldest if we already have 3 before saving the next.
-    if auto and len(autosaves := list(filter(lambda fn: fn.startswith(SaveDetails.AUTOSAVE_PREFIX),
-                                             os.listdir(SAVES_DIR)))) == 3:
+    if auto and len(autosaves := list(filter(lambda fn: fn.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))) == 3:
         to_delete: str = min(autosaves, key=lambda autosave: os.path.getmtime(os.path.join(SAVES_DIR, autosave)))
         os.remove(os.path.join(SAVES_DIR, to_delete))
     cfg: GameConfig = game_state.board.game_config
@@ -61,7 +62,8 @@ def save_game(game_state: GameState, auto: bool = False):
                                             player_count=cfg.player_count,
                                             faction=None if cfg.multiplayer else cfg.player_faction,
                                             multiplayer=bool(cfg.multiplayer))
-    save_name: str = os.path.join(SAVES_DIR, save_details.get_file_name())
+    save_name: str = os.path.join(SAVES_DIR,
+                                  f"{AUTOSAVE_PREFIX if auto else ''}{minify_save_details(save_details)}.json")
     with open(save_name, "w", encoding="utf-8") as save_file:
         # We use chain.from_iterable() here because the quads array is 2D.
         save = {
@@ -289,7 +291,7 @@ def load_game(game_state: GameState, game_controller: GameController):
     game_controller.namer.reset()
     # Sort and reverse both the autosaves and manual saves, remembering that the (up to) 3 autosaves will be
     # displayed first in the list.
-    autosaves = list(filter(lambda file_name: file_name.startswith(SaveDetails.AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
+    autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
     saves = list(
         filter(lambda file_name: file_name.startswith("save-"),
                [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
@@ -323,9 +325,8 @@ def load_game(game_state: GameState, game_controller: GameController):
 
 def get_save_files() -> List[str]:
     save_files: List[str] = []
-    autosaves: List[str] = [f.rstrip(".json") for f in os.listdir(SAVES_DIR)
-                            if f.startswith(SaveDetails.AUTOSAVE_PREFIX)]
-    saves: List[str] = [f.rstrip(".json") for f in os.listdir(SAVES_DIR) if f.startswith("save")]
+    autosaves: List[str] = [f.removesuffix(".json") for f in os.listdir(SAVES_DIR) if f.startswith(AUTOSAVE_PREFIX)]
+    saves: List[str] = [f.removesuffix(".json") for f in os.listdir(SAVES_DIR) if f.startswith("save")]
     autosaves.sort(reverse=True)
     saves.sort(reverse=True)
     save_files.extend(autosaves)
@@ -333,11 +334,12 @@ def get_save_files() -> List[str]:
     return save_files
 
 
-def get_saves(save_files: Optional[List[str]] = None) -> List[SaveDetails]:
+def get_saves(save_files: Optional[List[str]] = None, multi: bool = False) -> List[SaveDetails]:
     """
     Get the prettified file names of each save file in the saves/ directory.
     :return: The prettified file names of the available save files.
     """
-    # TODO figure out a way to exclude multi from single player games
     save_files: List[str] = save_files if save_files else get_save_files()
-    return [inflate_save_details(f, f.startswith(SaveDetails.AUTOSAVE_PREFIX)) for f in save_files]
+    save_details: List[SaveDetails] = \
+        [inflate_save_details(f, f.startswith(AUTOSAVE_PREFIX) or f.endswith("(auto)")) for f in save_files]
+    return [s for s in save_details if s.multiplayer == multi or s.multiplayer is None]

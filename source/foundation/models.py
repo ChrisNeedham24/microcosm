@@ -605,9 +605,6 @@ class SaveDetails:
     The details to display on the menu for a save when choosing which to load.
     Note that saves from v4.1 or prior will not have any of the optional fields.
     """
-    # The prefix attached to save files created by the autosave feature.
-    AUTOSAVE_PREFIX: ClassVar[str] = "auto"
-
     date_time: datetime
     auto: bool
     turn: Optional[int] = None
@@ -617,14 +614,3 @@ class SaveDetails:
 
     def get_formatted_name(self) -> str:
         return self.date_time.strftime("%Y-%m-%d %H:%M:%S") + (" (auto)" if self.auto else "")
-
-    def get_file_name(self) -> str:
-        epoch_secs: int = int(self.date_time.timestamp())
-        turn: int = self.turn
-        player_count: int = self.player_count
-        save_name: str = f"save_{epoch_secs}_{turn}_{player_count}_"
-        if self.multiplayer:
-            save_name += "M"
-        else:
-            save_name += str(list(Faction).index(self.faction))
-        return f"{self.AUTOSAVE_PREFIX if self.auto else ''}{save_name}.json"
