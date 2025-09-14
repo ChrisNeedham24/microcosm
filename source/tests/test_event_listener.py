@@ -1,10 +1,10 @@
-import datetime
 import json
 import sched
 import socket
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+from datetime import date, datetime
 from threading import Thread
 from typing import List, Dict, Tuple
 from unittest.mock import MagicMock, call, patch
@@ -16,7 +16,7 @@ from source.foundation.catalogue import LOBBY_NAMES, PLAYER_NAMES, FACTION_COLOU
     UNIT_PLANS, Namer, get_heathen_plan, ACHIEVEMENTS
 from source.foundation.models import PlayerDetails, Faction, GameConfig, Player, Settlement, ResourceCollection, \
     OngoingBlessing, Construction, InvestigationResult, Unit, DeployerUnit, Quad, Biome, AIPlaystyle, \
-    ExpansionPlaystyle, AttackPlaystyle, LobbyDetails, Heathen, Victory, VictoryType, MultiplayerStatus
+    ExpansionPlaystyle, AttackPlaystyle, LobbyDetails, Heathen, Victory, VictoryType, MultiplayerStatus, SaveDetails
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
@@ -3169,27 +3169,42 @@ class EventListenerTest(unittest.TestCase):
         """
         Ensure that the game server correctly processes query saves events.
         """
-        test_saves: List[str] = ["abc", "123", "!@#"]
-        get_saves_mock.return_value = test_saves
+        test_save_details: List[SaveDetails] = [
+            # A multiplayer autosave.
+            SaveDetails(datetime(1980, 1, 1), True, 99, 2, None, True),
+            # A single player manual save.
+            SaveDetails(datetime(1980, 1, 1), False, 98, 2, Faction.GODLESS, False),
+            # A legacy autosave.
+            SaveDetails(datetime(1970, 1, 1), True)
+        ]
+        get_saves_mock.return_value = test_save_details
         test_event: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, self.TEST_IDENTIFIER)
         self.mock_server.is_server = True
 
         # Process our test event.
         self.request_handler.process_query_saves_event(test_event, self.mock_socket)
 
+        # We expect the single player manual save to have been filtered out by the game server.
+        expected_save_strings: List[str] = ["autosave_315493200_99_2_M", "1970-01-01 00.00.00 (auto)"]
         # The event should now be populated with saves for the client to choose from.
-        self.assertEqual(test_saves, test_event.saves)
+        self.assertEqual(expected_save_strings, test_event.saves)
         # We also expect the server to have sent a packet containing a JSON representation of the event to the client
         # that originally dispatched the query saves event.
-        self.mock_socket.sendto.assert_called_with(json.dumps(test_event, cls=SaveEncoder).encode(),
-                                                   (self.TEST_HOST, self.TEST_PORT))
+        self.mock_socket.sendto.assert_called_with(
+            json.dumps(test_event, separators=(",", ":"), cls=SaveEncoder).encode(),
+            (self.TEST_HOST, self.TEST_PORT)
+        )
 
     def test_process_query_saves_event_client(self):
         """
         Ensure that game clients correctly process query saves events.
         """
         test_event: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, self.TEST_IDENTIFIER,
-                                                      saves=["abc", "123"])
+                                                      saves=["autosave_315493200_99_2_M", "2000-01-01 00.00.00 (auto)"])
+        expected_save_details: List[SaveDetails] = [
+            SaveDetails(datetime(1980, 1, 1), True, 99, 2, None, True),
+            SaveDetails(datetime(2000, 1, 1), True)
+        ]
         self.mock_server.is_server = False
 
         # The client's menu should have no saves, nor should it be loading a game, to begin with.
@@ -3201,7 +3216,7 @@ class EventListenerTest(unittest.TestCase):
         self.request_handler.process_query_saves_event(test_event, self.mock_socket)
 
         # The client's menu should now display the returned saves, as they are loading a multiplayer game.
-        self.assertListEqual(test_event.saves, self.mock_server.game_controller_ref.menu.saves)
+        self.assertListEqual(expected_save_details, self.mock_server.game_controller_ref.menu.saves)
         # We also expect the loading game multiplayer status to be global, since the response was from the global game
         # server.
         self.assertEqual(MultiplayerStatus.GLOBAL,
@@ -3214,7 +3229,7 @@ class EventListenerTest(unittest.TestCase):
         self.request_handler.process_query_saves_event(test_event, self.mock_socket)
 
         # The client's menu should again display the returned saves, as they are loading a multiplayer game.
-        self.assertListEqual(test_event.saves, self.mock_server.game_controller_ref.menu.saves)
+        self.assertListEqual(expected_save_details, self.mock_server.game_controller_ref.menu.saves)
         # However, this time we expect the loading game multiplayer status to be local, since the response was from a
         # local game server.
         self.assertEqual(MultiplayerStatus.LOCAL,
@@ -3545,7 +3560,7 @@ class EventListenerTest(unittest.TestCase):
         upnp_mock_instance.deleteportmapping.assert_called_with(test_mapping_number, "UDP")
         # We then expect a new mapping to have been added with the appropriate networking details and date.
         upnp_mock_instance.addportmapping.assert_called_with(test_port, "UDP", test_private_ip,
-                                                             test_port, f"Microcosm {datetime.date.today()}", "")
+                                                             test_port, f"Microcosm {date.today()}", "")
         # With the UPnP setup done, the client should then send off a packet to the game server alerting it that the
         # client will be sending more requests.
         socket_mock_instance.sendto.assert_called_with(b'{"type":"REGISTER","identifier":123,"port":9999}',

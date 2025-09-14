@@ -51,11 +51,13 @@ class GameSaveManagerTest(unittest.TestCase):
 
     @patch("source.saving.game_save_manager.datetime")
     @patch("os.remove")
+    @patch("os.path.getmtime")
     @patch("os.listdir")
     @patch("source.saving.game_save_manager.open", new_callable=mock_open)
     def test_save_game(self,
                        open_mock: MagicMock,
                        listdir_mock: MagicMock,
+                       getmtime_mock: MagicMock,
                        remove_mock: MagicMock,
                        datetime_mock: MagicMock):
         """
@@ -63,6 +65,8 @@ class GameSaveManagerTest(unittest.TestCase):
         :param open_mock: The mock representation of the open() builtin, which is used to open the save file for
         writing.
         :param listdir_mock: The mock representation of os.listdir(), which is used to retrieve previous autosaves.
+        :param getmtime_mock: The mock representation of os.path.getmtime(), which is used to check the file
+                              modification times for previous autosaves.
         :param remove_mock: The mock representation of os.remove(), which is used to delete old autosaves.
         :param datetime_mock: The mock representation of datetime.datetime, which is used to retrieve the current time.
         """
@@ -71,28 +75,40 @@ class GameSaveManagerTest(unittest.TestCase):
             "autosave-2023-01-07T13.30.00.json",
             "autosave-2023-01-07T13.40.00.json"
         ]
+        test_mtimes = [
+            1673098200,
+            1673097900,
+            1673098500
+        ]
         test_time = datetime(2023, 1, 7, hour=13, minute=35, second=24)
+        timestamp = int(test_time.timestamp())
 
         listdir_mock.return_value = test_saves
+        getmtime_mock.side_effect = test_mtimes
         datetime_mock.now.return_value = test_time
 
         # We expect the second save to be deleted because it is the oldest autosave.
         expected_deleted_autosave = os.path.join(SAVES_DIR, test_saves[1])
-        # The save name should also be according to our test time.
-        expected_save_name = os.path.join(SAVES_DIR, "autosave-2023-01-07T13.35.24.json")
+        # The save name should also be according to our test time and other game state.
+        gs: GameState = self.game_state
+        cfg: GameConfig = gs.board.game_config
+        expected_save_name = os.path.join(
+            SAVES_DIR,
+            f"autosave_{timestamp}_{gs.turn}_{cfg.player_count}_{list(Faction).index(cfg.player_faction)}.json"
+        )
         # Also determine the data we expect to be saved.
         expected_save_data = {
-            "quads": list(minify_quad(q) for q in chain.from_iterable(self.game_state.board.quads)),
-            "players": self.game_state.players,
-            "heathens": self.game_state.heathens,
-            "turn": self.game_state.turn,
-            "cfg": self.game_state.board.game_config,
-            "night_status": {"until": self.game_state.until_night, "remaining": self.game_state.nighttime_left},
-            "game_version": self.game_state.game_version
+            "quads": list(minify_quad(q) for q in chain.from_iterable(gs.board.quads)),
+            "players": gs.players,
+            "heathens": gs.heathens,
+            "turn": gs.turn,
+            "cfg": cfg,
+            "night_status": {"until": gs.until_night, "remaining": gs.nighttime_left},
+            "game_version": gs.game_version
         }
         expected_save_json = json.dumps(expected_save_data, separators=(",", ":"), cls=SaveEncoder)
 
-        save_game(self.game_state, auto=True)
+        save_game(gs, auto=True)
         # After saving, we expect the oldest autosave to have been deleted, a new save with the correct name to have
         # been created, and the correct data to have been written to said save.
         remove_mock.assert_called_with(expected_deleted_autosave)

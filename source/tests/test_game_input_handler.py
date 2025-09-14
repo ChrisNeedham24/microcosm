@@ -1,5 +1,6 @@
 import unittest
 from copy import deepcopy
+from datetime import datetime
 from typing import Dict, Optional
 from unittest.mock import MagicMock, patch
 
@@ -10,7 +11,7 @@ from source.foundation.catalogue import Namer, BLESSINGS, UNIT_PLANS, get_availa
 from source.foundation.models import GameConfig, Faction, OverlayType, ConstructionMenu, Improvement, ImprovementType, \
     Effect, Project, ProjectType, UnitPlan, Player, Settlement, Unit, Construction, CompletedConstruction, \
     SettlementAttackType, PauseOption, Quad, Biome, DeployerUnitPlan, DeployerUnit, ResourceCollection, \
-    StandardOverlayView, LobbyDetails, PlayerDetails, OngoingBlessing, MultiplayerStatus
+    StandardOverlayView, LobbyDetails, PlayerDetails, OngoingBlessing, MultiplayerStatus, SaveDetails
 from source.game_management.game_controller import GameController
 from source.game_management.game_input_handler import on_key_arrow_down, on_key_arrow_up, on_key_arrow_left, \
     on_key_arrow_right, on_key_shift, on_key_f, on_key_d, on_key_s, on_key_n, on_key_a, on_key_c, on_key_tab, \
@@ -704,11 +705,14 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_state.on_menu = True
         self.game_controller.menu.loading_game = True
         self.game_controller.menu.loading_game_multiplayer_status = MultiplayerStatus.GLOBAL
-        autosave_name = "2024-06-22 20.15.00 (auto)"
-        autosave_file_name = "autosave-2024-06-22T20.15.00.json"
-        save_name = "2024-06-22 20.00.00"
-        save_file_name = "save-2024-06-22T20.00.00.json"
-        self.game_controller.menu.saves = [autosave_name, save_name]
+        # A current save game with further details like turn and player count should be formatted into the current file
+        # name format.
+        autosave: SaveDetails = SaveDetails(datetime(2024, 6, 22, 20, 15, 0), True, 99, 2, None, True)
+        autosave_file_name: str = "autosave_1719051300_99_2_M.json"
+        # A legacy save game with no details beyond the time should be formatted into the legacy format.
+        save: SaveDetails = SaveDetails(datetime(2024, 6, 22, 20, 0, 0), False)
+        save_file_name: str = "save-2024-06-22T20.00.00.json"
+        self.game_controller.menu.saves = [autosave, save]
 
         self.game_controller.menu.save_idx = 0
         on_key_return(self.game_controller, self.game_state)

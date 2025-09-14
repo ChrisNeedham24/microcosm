@@ -61,8 +61,7 @@ def save_game(game_state: GameState, auto: bool = False):
                                             player_count=cfg.player_count,
                                             faction=None if cfg.multiplayer else cfg.player_faction,
                                             multiplayer=bool(cfg.multiplayer))
-    save_name: str = os.path.join(SAVES_DIR,
-                                  f"{AUTOSAVE_PREFIX if auto else ''}{minify_save_details(save_details)}.json")
+    save_name: str = os.path.join(SAVES_DIR, f"{minify_save_details(save_details)}.json")
     with open(save_name, "w", encoding="utf-8") as save_file:
         # We use chain.from_iterable() here because the quads array is 2D.
         save = {

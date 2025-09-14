@@ -413,7 +413,7 @@ def inflate_save_details(save_name: str, auto: bool) -> SaveDetails:
         # index for single player games, we need to check for both options.
         multiplayer: bool = faction_or_multiplayer == "M"
         faction: Optional[Faction] = None if multiplayer else list(Faction)[int(faction_or_multiplayer)]
-        return SaveDetails(date_time, auto, turn, player_count, faction, multiplayer)
+        return SaveDetails(date_time, auto, int(turn), int(player_count), faction, multiplayer)
     # The v4.1 and prior format was (auto)save-20XX-XX-XXT00.00.00 for files and 20XX-XX-XX 00.00.00( (auto)) for
     # formatted names.
     else:
