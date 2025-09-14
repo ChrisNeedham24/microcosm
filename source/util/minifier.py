@@ -1,16 +1,11 @@
-from __future__ import annotations
-
 from datetime import datetime
-from typing import List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import List, Optional, Set, Tuple
 
 from source.foundation.catalogue import get_unit_plan, get_improvement, get_project, get_blessing, FACTION_COLOURS, \
     IMPROVEMENTS
 from source.foundation.models import Quad, Biome, ResourceCollection, Player, Settlement, Unit, UnitPlan, Improvement, \
     Construction, HarvestStatus, EconomicStatus, Blessing, Faction, VictoryType, OngoingBlessing, AIPlaystyle, \
     AttackPlaystyle, ExpansionPlaystyle, Project, Heathen, DeployerUnit, SaveDetails
-
-if TYPE_CHECKING:
-    from source.game_management.game_state import GameState
 
 
 def minify_resource_collection(rc: ResourceCollection) -> str:
@@ -149,6 +144,13 @@ def minify_heathens(heathens: List[Heathen]) -> str:
 
 
 def minify_save_details(save: SaveDetails) -> str:
+    """
+    Turn the given save details into a minified string save name representation.
+    :param save: The save details to minify.
+    :return: A minified string save name representation of the save details.
+    """
+    # If the save has a turn, then we must be dealing with a current save game, and we can extract the datetime, turn,
+    # player count, and optional faction.
     if save.turn:
         epoch_secs: int = int(save.date_time.timestamp())
         turn: int = save.turn
@@ -159,6 +161,8 @@ def minify_save_details(save: SaveDetails) -> str:
         else:
             save_name += str(list(Faction).index(save.faction))
         return save_name
+    # Otherwise, we need to format the save name in the way that legacy saves used to,
+    # i.e. (auto)save-YYYY-MM-DDTHH.MM.SS.
     else:
         return f"{'auto' if save.auto else ''}save-{save.date_time.strftime('%Y-%m-%dT%H.%M.%S')}"
 
@@ -395,10 +399,18 @@ def inflate_heathens(heathens_str: str) -> List[Heathen]:
 
 
 def inflate_save_details(save_name: str, auto: bool) -> SaveDetails:
+    """
+    Inflate the given save name string into a SaveDetails object.
+    :param save_name: The minified save name to inflate.
+    :param auto: Whether the save is an autosave.
+    :return: An inflated SaveDetails object.
+    """
     # The current save name format uses underscores as separators.
     if "_" in save_name:
         _, timestamp, turn, player_count, faction_or_multiplayer = save_name.split("_")
         date_time: datetime = datetime.fromtimestamp(int(timestamp))
+        # Since the last element of the save file name can be either simply 'M' for multiplayer games or the faction
+        # index for single player games, we need to check for both options.
         multiplayer: bool = faction_or_multiplayer == "M"
         faction: Optional[Faction] = None if multiplayer else list(Faction)[int(faction_or_multiplayer)]
         return SaveDetails(date_time, auto, turn, player_count, faction, multiplayer)
@@ -406,8 +418,10 @@ def inflate_save_details(save_name: str, auto: bool) -> SaveDetails:
     # formatted names.
     else:
         date_time: datetime
+        # If the save name starts with a '2', then we are dealing with a formatted name from a multiplayer game server.
         if save_name.startswith("2"):
             date_time = datetime.strptime(save_name.removesuffix(" (auto)"), "%Y-%m-%d %H.%M.%S")
+        # Otherwise, it is simply an old local save.
         else:
             _, iso_format_date = save_name.split("-", maxsplit=1)
             date_time = datetime.strptime(iso_format_date, "%Y-%m-%dT%H.%M.%S")

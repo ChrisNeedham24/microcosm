@@ -29,8 +29,7 @@ from source.networking.events import Event, EventType, CreateEvent, InitEvent, U
     MoveUnitEvent, DeployUnitEvent, GarrisonUnitEvent, InvestigateEvent, BesiegeSettlementEvent, \
     BuyoutConstructionEvent, DisbandUnitEvent, AttackUnitEvent, AttackSettlementEvent, EndTurnEvent, UnreadyEvent, \
     HealUnitEvent, BoardDeployerEvent, DeployerDeployEvent, AutofillEvent, SaveEvent, QuerySavesEvent, LoadEvent
-from source.saving.game_save_manager import save_stats_achievements, save_game, get_saves, load_save_file, \
-    get_save_files
+from source.saving.game_save_manager import save_stats_achievements, save_game, get_saves, load_save_file
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_unit
 from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp, \
@@ -1169,21 +1168,15 @@ class RequestHandler(BaseRequestHandler):
             for s in get_saves(multi=True):
                 if s.multiplayer is True:
                     saves.append(minify_save_details(s))
+                # If the save comes from before the introduction of further details in save file names, then we need to
+                # manually format the save date to appear as saves used to.
                 elif s.multiplayer is None:
                     saves.append(s.date_time.strftime("%Y-%m-%d %H.%M.%S") + (" (auto)" if s.auto else ""))
             evt.saves = saves
             sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
                         self.server.clients_ref[evt.identifier])
         else:
-            if "save" in evt.saves[0]:
-                self.server.game_controller_ref.menu.saves = get_saves(evt.saves, True)
-            else:
-                saves: List[SaveDetails] = []
-                for s in evt.saves:
-                    auto: bool = s.endswith("(auto)")
-                    date_time: datetime = datetime.strptime(s.removesuffix(" (auto)"), "%Y-%m-%d %H.%M.%S")
-                    saves.append(SaveDetails(date_time, auto))
-                self.server.game_controller_ref.menu.saves = saves
+            self.server.game_controller_ref.menu.saves = get_saves(evt.saves, True)
             self.server.game_controller_ref.menu.loading_game_multiplayer_status = \
                 MultiplayerStatus.GLOBAL if self.client_address[0] == GLOBAL_SERVER_HOST else MultiplayerStatus.LOCAL
 

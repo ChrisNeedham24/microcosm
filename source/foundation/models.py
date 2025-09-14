@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, ClassVar
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
 
 if TYPE_CHECKING:
     from source.game_management.game_state import GameState
@@ -613,4 +613,8 @@ class SaveDetails:
     multiplayer: Optional[bool] = None
 
     def get_formatted_name(self) -> str:
+        """
+        Get the formatted name for this save, in YYYY-MM-DD HH:MM:SS format, along with an optional autosave suffix.
+        :return: The formatted name for this save.
+        """
         return self.date_time.strftime("%Y-%m-%d %H:%M:%S") + (" (auto)" if self.auto else "")

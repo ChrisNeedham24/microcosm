@@ -19,7 +19,6 @@ from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, St
     Quad, HarvestStatus, EconomicStatus, SaveDetails
 from source.game_management.game_controller import GameController
 from source.util.minifier import minify_quad, inflate_save_details, minify_save_details
-
 if TYPE_CHECKING:
     from source.game_management.game_state import GameState
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
@@ -324,6 +323,11 @@ def load_game(game_state: GameState, game_controller: GameController):
 
 
 def get_save_files() -> List[str]:
+    """
+    Get the names of each save file in the saves directory, excluding the file extension, and sort them by most recently
+    created, with autosaves first.
+    :return: An autosaved-preferences, sorted list of save files.
+    """
     save_files: List[str] = []
     autosaves: List[str] = [f.removesuffix(".json") for f in os.listdir(SAVES_DIR) if f.startswith(AUTOSAVE_PREFIX)]
     saves: List[str] = [f.removesuffix(".json") for f in os.listdir(SAVES_DIR) if f.startswith("save")]
@@ -336,10 +340,17 @@ def get_save_files() -> List[str]:
 
 def get_saves(save_files: Optional[List[str]] = None, multi: bool = False) -> List[SaveDetails]:
     """
-    Get the prettified file names of each save file in the saves/ directory.
-    :return: The prettified file names of the available save files.
+    Get the save details for the given save files, if supplied, or alternatively the files in the local saves directory,
+    with filtering for the multiplayer status of the save game.
+    :param save_files: The save files to get details for. If unsupplied, local saves will be used.
+    :param multi: Whether to retrieve only multiplayer or only single player save games. Note that both single player
+                  and multiplayer saves from v4.1 and prior will be included regardless, as there is no way of telling
+                  whether they are for multiplayer games.
+    :return: The save details for the available save files.
     """
     save_files: List[str] = save_files if save_files else get_save_files()
+    # Note that the autosave prefix accounts for current save games and the (auto) suffix accounts for legacy save
+    # games.
     save_details: List[SaveDetails] = \
         [inflate_save_details(f, f.startswith(AUTOSAVE_PREFIX) or f.endswith("(auto)")) for f in save_files]
     return [s for s in save_details if s.multiplayer == multi or s.multiplayer is None]
