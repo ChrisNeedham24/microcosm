@@ -163,8 +163,7 @@ def minify_save_details(save: SaveDetails) -> str:
         return save_name
     # Otherwise, we need to format the save name in the way that legacy saves used to,
     # i.e. (auto)save-YYYY-MM-DDTHH.MM.SS.
-    else:
-        return f"{'auto' if save.auto else ''}save-{save.date_time.strftime('%Y-%m-%dT%H.%M.%S')}"
+    return f"{'auto' if save.auto else ''}save-{save.date_time.strftime('%Y-%m-%dT%H.%M.%S')}"
 
 
 def inflate_resource_collection(rc_str: str) -> ResourceCollection:
@@ -416,13 +415,12 @@ def inflate_save_details(save_name: str, auto: bool) -> SaveDetails:
         return SaveDetails(date_time, auto, int(turn), int(player_count), faction, multiplayer)
     # The v4.1 and prior format was (auto)save-20XX-XX-XXT00.00.00 for files and 20XX-XX-XX 00.00.00( (auto)) for
     # formatted names.
+    date_time: datetime
+    # If the save name starts with a '2', then we are dealing with a formatted name from a multiplayer game server.
+    if save_name.startswith("2"):
+        date_time = datetime.strptime(save_name.removesuffix(" (auto)"), "%Y-%m-%d %H.%M.%S")
+    # Otherwise, it is simply an old local save.
     else:
-        date_time: datetime
-        # If the save name starts with a '2', then we are dealing with a formatted name from a multiplayer game server.
-        if save_name.startswith("2"):
-            date_time = datetime.strptime(save_name.removesuffix(" (auto)"), "%Y-%m-%d %H.%M.%S")
-        # Otherwise, it is simply an old local save.
-        else:
-            _, iso_format_date = save_name.split("-", maxsplit=1)
-            date_time = datetime.strptime(iso_format_date, "%Y-%m-%dT%H.%M.%S")
-        return SaveDetails(date_time, auto)
+        _, iso_format_date = save_name.split("-", maxsplit=1)
+        date_time = datetime.strptime(iso_format_date, "%Y-%m-%dT%H.%M.%S")
+    return SaveDetails(date_time, auto)
