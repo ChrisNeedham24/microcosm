@@ -189,12 +189,12 @@ def display_menu(menu: Menu):
                     pyxel.text(150, y_pos, "Load", pyxel.COLOR_RED if menu.save_idx is idx else pyxel.COLOR_WHITE)
                     pyxel.blt(25, y_pos + 6, 0, 0, 116, 8, 8)
                     if save.turn:
-                        pyxel.text(35, y_pos + 7, save.turn, pyxel.COLOR_WHITE)
+                        pyxel.text(35, y_pos + 7, str(save.turn), pyxel.COLOR_WHITE)
                     else:
                         pyxel.text(35, y_pos + 7, "??", pyxel.COLOR_WHITE)
                     pyxel.blt(50, y_pos + 6, 0, 8, 140, 8, 8)
                     if save.player_count:
-                        pyxel.text(60, y_pos + 7, save.player_count, pyxel.COLOR_WHITE)
+                        pyxel.text(60, y_pos + 7, str(save.player_count), pyxel.COLOR_WHITE)
                     else:
                         pyxel.text(60, y_pos + 7, "??", pyxel.COLOR_WHITE)
                     if save.faction:
