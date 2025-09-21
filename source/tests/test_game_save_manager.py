@@ -798,7 +798,7 @@ class GameSaveManagerTest(unittest.TestCase):
         # by default, and the saves to have been converted to SaveDetails objects.
         expected_saves: List[SaveDetails] = [
             SaveDetails(datetime(2023, 1, 7, 13, 37, 0), auto=True),
-            SaveDetails(datetime(2025, 8, 30, 22, 25, 35), auto=False,
+            SaveDetails(datetime.fromtimestamp(1756556735), auto=False,
                         turn=6, player_count=2, faction=Faction.CAPITALISTS, multiplayer=False),
             SaveDetails(datetime(2023, 1, 7, 13, 36, 0), auto=False),
         ]
@@ -819,10 +819,10 @@ class GameSaveManagerTest(unittest.TestCase):
         # We expect the single-player save to have filtered out, and the remaining to have been converted to SaveDetails
         # objects.
         expected_saves: List[SaveDetails] = [
-            SaveDetails(datetime(2025, 8, 30, 22, 25, 33), auto=True,
+            SaveDetails(datetime.fromtimestamp(1756556733), auto=True,
                         turn=6, player_count=2, faction=None, multiplayer=True),
             SaveDetails(datetime(2023, 1, 7, 13, 37, 0), auto=True),
-            SaveDetails(datetime(2025, 8, 30, 22, 25, 35), auto=False,
+            SaveDetails(datetime.fromtimestamp(1756556735), auto=False,
                         turn=6, player_count=2, faction=None, multiplayer=True),
             SaveDetails(datetime(2023, 1, 7, 13, 36, 0), auto=False),
         ]

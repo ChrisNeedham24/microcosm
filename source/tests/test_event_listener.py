@@ -3203,7 +3203,7 @@ class EventListenerTest(unittest.TestCase):
         test_event: QuerySavesEvent = QuerySavesEvent(EventType.QUERY_SAVES, self.TEST_IDENTIFIER,
                                                       saves=["autosave_315493200_99_2_M", "2000-01-01 00.00.00 (auto)"])
         expected_save_details: List[SaveDetails] = [
-            SaveDetails(datetime(1980, 1, 1), True, 99, 2, None, True),
+            SaveDetails(datetime.fromtimestamp(315493200), True, 99, 2, None, True),
             SaveDetails(datetime(2000, 1, 1), True)
         ]
         self.mock_server.is_server = False
