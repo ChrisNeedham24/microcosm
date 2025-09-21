@@ -3243,7 +3243,8 @@ class EventListenerTest(unittest.TestCase):
         """
         Ensure that the game server correctly processes load events.
         """
-        test_event: LoadEvent = LoadEvent(EventType.LOAD, self.TEST_IDENTIFIER, "cool.save")
+        # Note that old versions of the game could prefix the save name with 'save-', so we test that here.
+        test_event: LoadEvent = LoadEvent(EventType.LOAD, self.TEST_IDENTIFIER, "save-cool.save")
         self.mock_server.is_server = True
         taken_lobby_name: str = LOBBY_NAMES[0]
         test_lobby_name: str = LOBBY_NAMES[1]
@@ -3259,15 +3260,17 @@ class EventListenerTest(unittest.TestCase):
             PlayerDetails(self.TEST_GAME_STATE.players[1].name, self.TEST_GAME_STATE.players[1].faction, id=None)
         ], self.TEST_GAME_CONFIG, test_turn)
 
-        def mock_load(gs: GameState, _namer: Namer, _save: str) -> (GameConfig, List[List[Quad]]):
+        def mock_load(gs: GameState, _namer: Namer, save: str) -> (GameConfig, List[List[Quad]]):
             """
             A mock function that does the bare minimum to avoid having to load in an actual save file. Assigns players
             and turn, and returns config and quads.
             :param gs: The game state to load data into.
             :param _namer: The game's Namer - unused in this function.
-            :param _save: The save's name - unused in this function.
+            :param save: The save's name.
             :return: A test game config and test quads.
             """
+            # We expect the save's name to have been stripped of the prefix from older versions of the game.
+            self.assertEqual("cool.save", save)
             gs.players = self.TEST_GAME_STATE.players
             gs.turn = test_turn
             return self.TEST_GAME_CONFIG, test_quads

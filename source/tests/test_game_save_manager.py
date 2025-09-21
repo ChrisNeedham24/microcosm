@@ -4,6 +4,7 @@ import pathlib
 import unittest
 from datetime import datetime
 from itertools import chain
+from typing import List
 from unittest.mock import patch, MagicMock, mock_open
 
 from source.display.board import Board
@@ -14,7 +15,7 @@ from source.foundation.models import GameConfig, Faction, Heathen, Project, Unit
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game, save_stats_achievements, \
-    get_stats, init_app_data, load_save_file
+    get_stats, init_app_data, load_save_file, get_save_files
 from source.saving.save_encoder import SaveEncoder
 from source.util.minifier import minify_quad
 
@@ -737,6 +738,39 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertTrue(self.game_controller.menu.load_failed)
 
     @patch("os.listdir")
+    def test_get_save_files(self, listdir_mock: MagicMock):
+        """
+        Ensure that when retrieving existing save file names, the correct filters and ordering are applied.
+        """
+        # In our first example, there are no existing save files.
+        listdir_mock.return_value = []
+
+        # As such, we expect no saves to be returned.
+        self.assertFalse(get_save_files())
+
+        # Now return some mock files from the listdir() call.
+        test_saves: List[str] = [
+            "README.md",
+            ".secret_file",
+            "save-2023-01-07T13.36.00.json",
+            "autosave-2023-01-07T13.37.00.json",
+            "save_1756556735_6_2_1.json",
+            "autosave_1756556733_6_2_M.json"
+        ]
+        listdir_mock.return_value = test_saves
+        # We expect the README and the dotfile to be filtered out, and the remaining to have had the .json suffix
+        # removed. Additionally, the save files should have been sorted into autosaves and manual saves, with ordering
+        # by save time in each section.
+        expected_saves: List[str] = [
+            "autosave_1756556733_6_2_M",
+            "autosave-2023-01-07T13.37.00",
+            "save_1756556735_6_2_1",
+            "save-2023-01-07T13.36.00"
+        ]
+
+        self.assertListEqual(expected_saves, get_save_files())
+
+    @patch("os.listdir")
     def test_get_saves(self, listdir_mock: MagicMock):
         """
         Ensure that when retrieving existing save files, the correct filters and ordering are applied.
@@ -750,7 +784,7 @@ class GameSaveManagerTest(unittest.TestCase):
         self.assertFalse(get_saves())
 
         # Now return some mock files from the listdir() call.
-        test_saves = [
+        test_saves: List[str] = [
             "README.md",
             ".secret_file",
             "save-2023-01-07T13.36.00.json",
@@ -760,8 +794,8 @@ class GameSaveManagerTest(unittest.TestCase):
         ]
         listdir_mock.return_value = test_saves
         # We expect the README and the dotfile to be filtered out, as well as the multiplayer save since multi is False
-        # by default, and the saves to have their names formatted.
-        expected_saves = [
+        # by default, and the saves to have been converted to SaveDetails objects.
+        expected_saves: List[SaveDetails] = [
             SaveDetails(datetime(2023, 1, 7, 13, 37, 0), auto=True),
             SaveDetails(datetime(2025, 8, 30, 22, 25, 35), auto=False,
                         turn=6, player_count=2, faction=Faction.CAPITALISTS, multiplayer=False),
@@ -769,6 +803,30 @@ class GameSaveManagerTest(unittest.TestCase):
         ]
 
         self.assertListEqual(expected_saves, get_saves())
+
+        # In our final example, we simulate a client receiving save file names from a game server, with a mix of legacy
+        # and current saves. We also include a single-player save in here to show it being filtered out, noting that a
+        # game server would not ordinarily respond with this.
+        test_saves = [
+            "autosave_1756556733_6_2_M",
+            "2023-01-07 13.37.00 (auto)",
+            "save_1756556735_6_2_M",
+            "save_1756546735_6_2_4",
+            "2023-01-07 13.36.00"
+        ]
+
+        # We expect the single-player save to have filtered out, and the remaining to have been converted to SaveDetails
+        # objects.
+        expected_saves: List[SaveDetails] = [
+            SaveDetails(datetime(2025, 8, 30, 22, 25, 33), auto=True,
+                        turn=6, player_count=2, faction=None, multiplayer=True),
+            SaveDetails(datetime(2023, 1, 7, 13, 37, 0), auto=True),
+            SaveDetails(datetime(2025, 8, 30, 22, 25, 35), auto=False,
+                        turn=6, player_count=2, faction=None, multiplayer=True),
+            SaveDetails(datetime(2023, 1, 7, 13, 36, 0), auto=False),
+        ]
+
+        self.assertListEqual(expected_saves, get_saves(save_files=test_saves, multi=True))
 
 
 if __name__ == '__main__':

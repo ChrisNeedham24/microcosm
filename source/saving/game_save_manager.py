@@ -325,7 +325,7 @@ def get_save_files() -> List[str]:
     """
     Get the names of each save file in the saves directory, excluding the file extension, and sort them by most recently
     created, with autosaves first.
-    :return: An autosaved-preferences, sorted list of save files.
+    :return: An autosave-preferenced, sorted list of save files.
     """
     save_files: List[str] = []
     autosaves: List[str] = [f.removesuffix(".json") for f in os.listdir(SAVES_DIR) if f.startswith(AUTOSAVE_PREFIX)]
