@@ -10,7 +10,7 @@ from source.display.board import Board
 from source.foundation.catalogue import Namer, get_heathen_plan, ACHIEVEMENTS
 from source.foundation.models import GameConfig, Faction, Heathen, Project, UnitPlan, Improvement, Unit, Blessing, \
     AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, VictoryType, HarvestStatus, EconomicStatus, Quad, \
-    MultiplayerStatus
+    MultiplayerStatus, SaveDetails
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.saving.game_save_manager import save_game, SAVES_DIR, get_saves, load_game, save_stats_achievements, \
@@ -754,13 +754,18 @@ class GameSaveManagerTest(unittest.TestCase):
             "README.md",
             ".secret_file",
             "save-2023-01-07T13.36.00.json",
-            "autosave-2023-01-07T13.37.00.json"
+            "autosave-2023-01-07T13.37.00.json",
+            "save_1756556735_6_2_1.json",
+            "autosave_1756556733_6_2_M.json"
         ]
         listdir_mock.return_value = test_saves
-        # We expect the README and the dotfile to be filtered out, and the saves to have their names formatted.
+        # We expect the README and the dotfile to be filtered out, as well as the multiplayer save since multi is False
+        # by default, and the saves to have their names formatted.
         expected_saves = [
-            "2023-01-07 13.37.00 (auto)",
-            "2023-01-07 13.36.00"
+            SaveDetails(datetime(2023, 1, 7, 13, 37, 0), auto=True),
+            SaveDetails(datetime(2025, 8, 30, 22, 25, 35), auto=False,
+                        turn=6, player_count=2, faction=Faction.CAPITALISTS, multiplayer=False),
+            SaveDetails(datetime(2023, 1, 7, 13, 36, 0), auto=False),
         ]
 
         self.assertListEqual(expected_saves, get_saves())

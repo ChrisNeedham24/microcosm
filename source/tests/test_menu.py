@@ -136,37 +136,37 @@ class MenuTest(unittest.TestCase):
         Ensure that the player can correctly navigate down and up the load game page.
         """
         self.menu.loading_game = True
-        self.menu.saves = ["a"] * 11  # Just some fake save data.
+        self.menu.saves = ["a"] * 6  # Just some fake save data.
 
         self.assertEqual(0, self.menu.save_idx)
-        self.assertTupleEqual((0, 9), self.menu.load_game_boundaries)
+        self.assertTupleEqual((0, 4), self.menu.load_game_boundaries)
         # Iterate through each of the saves.
-        for i in range(1, 10):
+        for i in range(1, 5):
             self.menu.navigate(down=True)
             self.assertEqual(i, self.menu.save_idx)
-            self.assertTupleEqual((0, 9), self.menu.load_game_boundaries)
+            self.assertTupleEqual((0, 4), self.menu.load_game_boundaries)
         # Now that we have reached the lowest displayed save, the next navigation should push the boundaries down.
         self.menu.navigate(down=True)
-        self.assertEqual(10, self.menu.save_idx)
-        self.assertTupleEqual((1, 10), self.menu.load_game_boundaries)
+        self.assertEqual(5, self.menu.save_idx)
+        self.assertTupleEqual((1, 5), self.menu.load_game_boundaries)
         # Now at the bottom, pressing down should not do anything.
         self.menu.navigate(down=True)
-        self.assertEqual(10, self.menu.save_idx)
-        self.assertTupleEqual((1, 10), self.menu.load_game_boundaries)
+        self.assertEqual(5, self.menu.save_idx)
+        self.assertTupleEqual((1, 5), self.menu.load_game_boundaries)
 
         # Iterate back up the menu.
-        for i in range(9, 0, -1):
+        for i in range(4, 0, -1):
             self.menu.navigate(up=True)
             self.assertEqual(i, self.menu.save_idx)
-            self.assertTupleEqual((1, 10), self.menu.load_game_boundaries)
+            self.assertTupleEqual((1, 5), self.menu.load_game_boundaries)
         # Conversely, at the highest displayed save, the next navigation should push the boundaries back up.
         self.menu.navigate(up=True)
         self.assertEqual(0, self.menu.save_idx)
-        self.assertTupleEqual((0, 9), self.menu.load_game_boundaries)
+        self.assertTupleEqual((0, 4), self.menu.load_game_boundaries)
         # Now at the top, pressing up should not do anything.
         self.menu.navigate(up=True)
         self.assertEqual(0, self.menu.save_idx)
-        self.assertTupleEqual((0, 9), self.menu.load_game_boundaries)
+        self.assertTupleEqual((0, 4), self.menu.load_game_boundaries)
 
     def test_navigate_multiplayer_lobby_players(self):
         """
