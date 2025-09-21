@@ -2,7 +2,7 @@ import json
 import os
 import pathlib
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from itertools import chain
 from typing import List
 from unittest.mock import patch, MagicMock, mock_open
@@ -81,7 +81,8 @@ class GameSaveManagerTest(unittest.TestCase):
             1673097900,
             1673098500
         ]
-        test_time = datetime(2023, 1, 7, hour=13, minute=35, second=24)
+        # Note that we have to specify the time zone to guarantee consistent epoch conversion.
+        test_time = datetime(2023, 1, 7, hour=13, minute=35, second=24, tzinfo=timezone.utc)
         timestamp = int(test_time.timestamp())
 
         listdir_mock.return_value = test_saves

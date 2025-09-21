@@ -1,6 +1,6 @@
 import unittest
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Set, Tuple, List
 
 from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, PROJECTS
@@ -42,12 +42,6 @@ class MinifierTest(unittest.TestCase):
     # the one.
     TEST_HEATHENS: List[Heathen] = [Heathen(50.0, 60, (70, 80), TEST_HEATHEN_PLAN, True)]
     MINIFIED_HEATHENS: str = "50.0*60*70-80*10.0*20.0*30*Forty*True,"
-    TEST_SAVE_DETAILS: SaveDetails = SaveDetails(datetime(1990, 1, 2, 3, 4, 5), auto=False,
-                                                 turn=6, player_count=7, faction=Faction.GODLESS, multiplayer=False)
-    MINIFIED_SAVE_DETAILS: str = "save_631209845_6_7_3"
-    TEST_AUTOSAVE_DETAILS: SaveDetails = SaveDetails(datetime(1991, 2, 3, 4, 5, 6), auto=True,
-                                                     turn=7, player_count=8, faction=None, multiplayer=True)
-    MINIFIED_AUTOSAVE_DETAILS: str = "autosave_665514306_7_8_M"
     TEST_LEGACY_SAVE_DETAILS: SaveDetails = SaveDetails(datetime(1992, 3, 4, 5, 6, 7), auto=False)
     MINIFIED_LEGACY_SAVE_DETAILS: str = "save-1992-03-04T05.06.07"
     TEST_LEGACY_AUTOSAVE_DETAILS: SaveDetails = SaveDetails(datetime(1993, 4, 5, 6, 7, 8), auto=True)
@@ -82,6 +76,15 @@ class MinifierTest(unittest.TestCase):
                                      f"{self.MINIFIED_UNIT}&{self.MINIFIED_UNIT}~Beginner Spells,Divine Architecture~"
                                      f"{self.MINIFIED_RESOURCE_COLLECTION}~AFFLUENCE,ELIMINATION~Inherent Luck>3.4~"
                                      f"AGGRESSIVE-HERMIT~4~8.9~False")
+        # Note that we have to specify the time zone for the current saves to guarantee consistent epoch conversion.
+        self.TEST_SAVE_DETAILS: SaveDetails = \
+            SaveDetails(datetime(1990, 1, 2, 3, 4, 5, tzinfo=timezone.utc), auto=False,
+                        turn=6, player_count=7, faction=Faction.GODLESS, multiplayer=False)
+        self.MINIFIED_SAVE_DETAILS: str = "save_631249445_6_7_3"
+        self.TEST_AUTOSAVE_DETAILS: SaveDetails = \
+            SaveDetails(datetime(1991, 2, 3, 4, 5, 6, tzinfo=timezone.utc), auto=True,
+                        turn=7, player_count=8, faction=None, multiplayer=True)
+        self.MINIFIED_AUTOSAVE_DETAILS: str = "autosave_665553906_7_8_M"
 
     def test_minify_resource_collection(self):
         """
@@ -297,10 +300,19 @@ class MinifierTest(unittest.TestCase):
         """
         Ensure that SaveDetails objects are correctly inflated.
         """
+        def strip_tzinfo(save: SaveDetails):
+            """
+            Remove the datetime tzinfo for the given save. We need to do this for current saves because they have UTC
+            specified as their time zone, in order to guarantee consistent epoch conversion.
+            """
+            save.date_time = save.date_time.replace(tzinfo=None)
+
         # Case 1: A current manual save.
-        self.assertEqual(self.TEST_SAVE_DETAILS, inflate_save_details(self.MINIFIED_SAVE_DETAILS, auto=False))
+        self.assertEqual(strip_tzinfo(self.TEST_SAVE_DETAILS),
+                         strip_tzinfo(inflate_save_details(self.MINIFIED_SAVE_DETAILS, auto=False)))
         # Case 2: A current multiplayer autosave.
-        self.assertEqual(self.TEST_AUTOSAVE_DETAILS, inflate_save_details(self.MINIFIED_AUTOSAVE_DETAILS, auto=True))
+        self.assertEqual(strip_tzinfo(self.TEST_AUTOSAVE_DETAILS),
+                         strip_tzinfo(inflate_save_details(self.MINIFIED_AUTOSAVE_DETAILS, auto=True)))
         # Case 3: A legacy manual save.
         self.assertEqual(self.TEST_LEGACY_SAVE_DETAILS,
                          inflate_save_details(self.MINIFIED_LEGACY_SAVE_DETAILS, auto=False))

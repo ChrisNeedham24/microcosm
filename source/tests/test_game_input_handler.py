@@ -1,6 +1,6 @@
 import unittest
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional
 from unittest.mock import MagicMock, patch
 
@@ -706,9 +706,10 @@ class GameInputHandlerTest(unittest.TestCase):
         self.game_controller.menu.loading_game = True
         self.game_controller.menu.loading_game_multiplayer_status = MultiplayerStatus.GLOBAL
         # A current save game with further details like turn and player count should be formatted into the current file
-        # name format.
-        autosave: SaveDetails = SaveDetails(datetime(2024, 6, 22, 20, 15, 0), True, 99, 2, None, True)
-        autosave_file_name: str = "autosave_1719051300_99_2_M.json"
+        # name format. Note that we have to specify the time zone to guarantee consistent epoch conversion.
+        autosave: SaveDetails = SaveDetails(datetime(2024, 6, 22, 20, 15, 0, tzinfo=timezone.utc), auto=True,
+                                            turn=99, player_count=2, faction=None, multiplayer=True)
+        autosave_file_name: str = "autosave_1719087300_99_2_M.json"
         # A legacy save game with no details beyond the time should be formatted into the legacy format.
         save: SaveDetails = SaveDetails(datetime(2024, 6, 22, 20, 0, 0), False)
         save_file_name: str = "save-2024-06-22T20.00.00.json"

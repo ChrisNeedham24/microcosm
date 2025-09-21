@@ -4,7 +4,7 @@ import socket
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from threading import Thread
 from typing import List, Dict, Tuple
 from unittest.mock import MagicMock, call, patch
@@ -3169,11 +3169,12 @@ class EventListenerTest(unittest.TestCase):
         """
         Ensure that the game server correctly processes query saves events.
         """
+        # Note that we have to specify time zones for current saves to guarantee consistent epoch conversion.
         test_save_details: List[SaveDetails] = [
             # A multiplayer autosave.
-            SaveDetails(datetime(1980, 1, 1), True, 99, 2, None, True),
+            SaveDetails(datetime(1980, 1, 1, tzinfo=timezone.utc), True, 99, 2, None, True),
             # A single player manual save.
-            SaveDetails(datetime(1980, 1, 1), False, 98, 2, Faction.GODLESS, False),
+            SaveDetails(datetime(1980, 1, 1, tzinfo=timezone.utc), False, 98, 2, Faction.GODLESS, False),
             # A legacy autosave.
             SaveDetails(datetime(1970, 1, 1), True)
         ]
@@ -3185,7 +3186,7 @@ class EventListenerTest(unittest.TestCase):
         self.request_handler.process_query_saves_event(test_event, self.mock_socket)
 
         # We expect the single player manual save to have been filtered out by the game server.
-        expected_save_strings: List[str] = ["autosave_315493200_99_2_M", "1970-01-01 00.00.00 (auto)"]
+        expected_save_strings: List[str] = ["autosave_315532800_99_2_M", "1970-01-01 00.00.00 (auto)"]
         # The event should now be populated with saves for the client to choose from.
         self.assertEqual(expected_save_strings, test_event.saves)
         # We also expect the server to have sent a packet containing a JSON representation of the event to the client
