@@ -7,7 +7,7 @@ import pyxel
 from source.util.calculator import clamp
 from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, FACTION_COLOURS, ACHIEVEMENTS
 from source.foundation.models import GameConfig, VictoryType, Faction, Statistics, UnitPlan, DeployerUnitPlan, \
-    LobbyDetails, LoadedMultiplayerState, MultiplayerStatus
+    LobbyDetails, LoadedMultiplayerState, MultiplayerStatus, SaveDetails
 
 
 class MainMenuOption(Enum):
@@ -84,7 +84,7 @@ class Menu:
         self.blessing_boundaries = 0, 3
         self.improvement_boundaries = 0, 3
         self.unit_boundaries = 0, 8
-        self.saves: List[str] = []
+        self.saves: List[SaveDetails] = []
         self.save_idx: Optional[int] = 0
         self.setup_option = SetupOption.PLAYER_FACTION
         self.faction_idx = 0
@@ -97,7 +97,7 @@ class Menu:
         self.faction_colours: List[Tuple[Faction, int]] = list(FACTION_COLOURS.items())
         self.showing_faction_details = False
         self.faction_wiki_idx = 0
-        self.load_game_boundaries = 0, 9
+        self.load_game_boundaries = 0, 4
         self.load_failed = False
         self.viewing_stats = False
         self.player_stats: Optional[Statistics] = None

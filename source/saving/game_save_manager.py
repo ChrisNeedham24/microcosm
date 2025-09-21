@@ -16,9 +16,9 @@ from platformdirs import user_data_dir
 from source.display.board import Board
 from source.foundation.catalogue import get_blessing, get_project, get_unit_plan, get_improvement, ACHIEVEMENTS, Namer
 from source.foundation.models import Heathen, UnitPlan, VictoryType, Faction, Statistics, Achievement, GameConfig, \
-    Quad, HarvestStatus, EconomicStatus
+    Quad, HarvestStatus, EconomicStatus, SaveDetails
 from source.game_management.game_controller import GameController
-from source.util.minifier import minify_quad
+from source.util.minifier import minify_quad, inflate_save_details, minify_save_details
 if TYPE_CHECKING:
     from source.game_management.game_state import GameState
 from source.saving.save_encoder import SaveEncoder, ObjectConverter
@@ -52,11 +52,16 @@ def save_game(game_state: GameState, auto: bool = False):
     """
     # Only maintain 3 autosaves at a time, delete the oldest if we already have 3 before saving the next.
     if auto and len(autosaves := list(filter(lambda fn: fn.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))) == 3:
-        autosaves.sort()
-        os.remove(os.path.join(SAVES_DIR, autosaves[0]))
-    # The ':' characters in the datestring must be replaced to conform with Windows files supported characters.
-    sanitised_timestamp = datetime.now().isoformat(timespec='seconds').replace(':', '.')
-    save_name = os.path.join(SAVES_DIR, f"{AUTOSAVE_PREFIX if auto else ''}save-{sanitised_timestamp}.json")
+        to_delete: str = min(autosaves, key=lambda autosave: os.path.getmtime(os.path.join(SAVES_DIR, autosave)))
+        os.remove(os.path.join(SAVES_DIR, to_delete))
+    cfg: GameConfig = game_state.board.game_config
+    save_details: SaveDetails = SaveDetails(date_time=datetime.now(),
+                                            auto=auto,
+                                            turn=game_state.turn,
+                                            player_count=cfg.player_count,
+                                            faction=None if cfg.multiplayer else cfg.player_faction,
+                                            multiplayer=bool(cfg.multiplayer))
+    save_name: str = os.path.join(SAVES_DIR, f"{minify_save_details(save_details)}.json")
     with open(save_name, "w", encoding="utf-8") as save_file:
         # We use chain.from_iterable() here because the quads array is 2D.
         save = {
@@ -316,20 +321,35 @@ def load_game(game_state: GameState, game_controller: GameController):
         game_controller.menu.load_failed = True
 
 
-def get_saves() -> List[str]:
+def get_save_files() -> List[str]:
     """
-    Get the prettified file names of each save file in the saves/ directory.
-    :return: The prettified file names of the available save files.
+    Get the names of each save file in the saves directory, excluding the file extension, and sort them by most recently
+    created, with autosaves first.
+    :return: An autosave-preferenced, sorted list of save files.
     """
-    save_names: List[str] = []
-    autosaves = list(filter(lambda file_name: file_name.startswith(AUTOSAVE_PREFIX), os.listdir(SAVES_DIR)))
-    saves = list(filter(lambda file_name: file_name.startswith("save-"),
-                        [f for f in os.listdir(SAVES_DIR) if not f.startswith('.')]))
+    save_files: List[str] = []
+    autosaves: List[str] = [f.removesuffix(".json") for f in os.listdir(SAVES_DIR) if f.startswith(AUTOSAVE_PREFIX)]
+    saves: List[str] = [f.removesuffix(".json") for f in os.listdir(SAVES_DIR) if f.startswith("save")]
     autosaves.sort(reverse=True)
     saves.sort(reverse=True)
-    for f in autosaves:
-        save_names.append(f[9:-5].replace("T", " ") + " (auto)")
-    for f in saves:
-        # Just show the date and time.
-        save_names.append(f[5:-5].replace("T", " "))
-    return save_names
+    save_files.extend(autosaves)
+    save_files.extend(saves)
+    return save_files
+
+
+def get_saves(save_files: Optional[List[str]] = None, multi: bool = False) -> List[SaveDetails]:
+    """
+    Get the save details for the given save files, if supplied, or alternatively the files in the local saves directory,
+    with filtering for the multiplayer status of the save game.
+    :param save_files: The save files to get details for. If unsupplied, local saves will be used.
+    :param multi: Whether to retrieve only multiplayer or only single player save games. Note that both single player
+                  and multiplayer saves from v4.1 and prior will be included regardless, as there is no way of telling
+                  whether they are for multiplayer games.
+    :return: The save details for the available save files.
+    """
+    save_files: List[str] = save_files if save_files else get_save_files()
+    # Note that the autosave prefix accounts for current save games and the (auto) suffix accounts for legacy save
+    # games.
+    save_details: List[SaveDetails] = \
+        [inflate_save_details(f, f.startswith(AUTOSAVE_PREFIX) or f.endswith("(auto)")) for f in save_files]
+    return [s for s in save_details if s.multiplayer == multi or s.multiplayer is None]

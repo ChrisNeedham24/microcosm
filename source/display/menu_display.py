@@ -184,9 +184,21 @@ def display_menu(menu: Menu):
                     pyxel.text(81, 25, "Load Game", pyxel.COLOR_WHITE)
             for idx, save in enumerate(menu.saves):
                 if menu.load_game_boundaries[0] <= idx <= menu.load_game_boundaries[1]:
-                    pyxel.text(25, 35 + (idx - menu.load_game_boundaries[0]) * 10, save, pyxel.COLOR_WHITE)
-                    pyxel.text(150, 35 + (idx - menu.load_game_boundaries[0]) * 10, "Load",
-                               pyxel.COLOR_RED if menu.save_idx is idx else pyxel.COLOR_WHITE)
+                    y_pos: int = 35 + (idx - menu.load_game_boundaries[0]) * 20
+                    pyxel.text(25, y_pos, save.get_formatted_name(), pyxel.COLOR_WHITE)
+                    pyxel.text(150, y_pos, "Load", pyxel.COLOR_RED if menu.save_idx is idx else pyxel.COLOR_WHITE)
+                    pyxel.blt(25, y_pos + 6, 0, 0, 116, 8, 8)
+                    if save.turn:
+                        pyxel.text(35, y_pos + 7, str(save.turn), pyxel.COLOR_WHITE)
+                    else:
+                        pyxel.text(35, y_pos + 7, "??", pyxel.COLOR_WHITE)
+                    pyxel.blt(50, y_pos + 6, 0, 8, 140, 8, 8)
+                    if save.player_count:
+                        pyxel.text(60, y_pos + 7, str(save.player_count), pyxel.COLOR_WHITE)
+                    else:
+                        pyxel.text(60, y_pos + 7, "??", pyxel.COLOR_WHITE)
+                    if save.faction:
+                        pyxel.blt(75, y_pos + 7, 0, list(Faction).index(save.faction) * 8, 92, 8, 8)
             if menu.load_game_boundaries[1] < len(menu.saves) - 1:
                 draw_paragraph(147, 135, "More down!", 5)
                 pyxel.blt(167, 136, 0, 0, 76, 8, 8)

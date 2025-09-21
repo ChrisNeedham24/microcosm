@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
@@ -596,3 +597,24 @@ class LoadedMultiplayerState:
     quads_seen_loaded: int = 0
     total_heathens: int = 0
     heathens_loaded: bool = False  # Only a boolean because we load all heathens at once.
+
+
+@dataclass
+class SaveDetails:
+    """
+    The details to display on the menu for a save when choosing which to load.
+    Note that saves from v4.1 or prior will not have any of the optional fields.
+    """
+    date_time: datetime
+    auto: bool
+    turn: Optional[int] = None
+    player_count: Optional[int] = None
+    faction: Optional[Faction] = None  # Multiplayer games won't have this, as you can join as any faction.
+    multiplayer: Optional[bool] = None
+
+    def get_formatted_name(self) -> str:
+        """
+        Get the formatted name for this save, in YYYY-MM-DD HH:MM:SS format, along with an optional autosave suffix.
+        :return: The formatted name for this save.
+        """
+        return self.date_time.strftime("%Y-%m-%d %H:%M:%S") + (" (auto)" if self.auto else "")

@@ -3,6 +3,7 @@ import random
 import sched
 import socket
 import time
+from datetime import datetime
 from itertools import chain
 from json import JSONDecodeError
 from socketserver import BaseServer, BaseRequestHandler, UDPServer
@@ -17,7 +18,7 @@ from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAM
     get_project, get_unit_plan, get_blessing, get_heathen
 from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDetails, Quad, OngoingBlessing, \
     InvestigationResult, Settlement, Unit, Heathen, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
-    LoadedMultiplayerState, HarvestStatus, EconomicStatus, MultiplayerStatus
+    LoadedMultiplayerState, HarvestStatus, EconomicStatus, MultiplayerStatus, SaveDetails
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
@@ -34,7 +35,7 @@ from source.saving.save_migrator import migrate_settlement, migrate_unit
 from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp, \
     update_player_quads_seen_around_point
 from source.util.minifier import minify_quad, inflate_quad, minify_player, inflate_player, minify_heathens, \
-    inflate_heathens, minify_quads_seen, inflate_quads_seen
+    inflate_heathens, minify_quads_seen, inflate_quads_seen, minify_save_details
 
 
 class MicrocosmServer(BaseServer):
@@ -1163,10 +1164,19 @@ class RequestHandler(BaseRequestHandler):
         :param sock: The socket to use to respond to the client that sent the query.
         """
         if self.server.is_server:
-            evt.saves = get_saves()
-            sock.sendto(json.dumps(evt, cls=SaveEncoder).encode(), self.server.clients_ref[evt.identifier])
+            saves: List[str] = []
+            for s in get_saves(multi=True):
+                if s.multiplayer is True:
+                    saves.append(minify_save_details(s))
+                # If the save comes from before the introduction of further details in save file names, then we need to
+                # manually format the save date to appear as saves used to.
+                elif s.multiplayer is None:
+                    saves.append(s.date_time.strftime("%Y-%m-%d %H.%M.%S") + (" (auto)" if s.auto else ""))
+            evt.saves = saves
+            sock.sendto(json.dumps(evt, separators=(",", ":"), cls=SaveEncoder).encode(),
+                        self.server.clients_ref[evt.identifier])
         else:
-            self.server.game_controller_ref.menu.saves = evt.saves
+            self.server.game_controller_ref.menu.saves = get_saves(evt.saves, True)
             self.server.game_controller_ref.menu.loading_game_multiplayer_status = \
                 MultiplayerStatus.GLOBAL if self.client_address[0] == GLOBAL_SERVER_HOST else MultiplayerStatus.LOCAL
 
@@ -1185,7 +1195,12 @@ class RequestHandler(BaseRequestHandler):
             gsrs[lobby_name] = GameState()
             self.server.namers_ref[lobby_name] = Namer()
             # Load in all game state from the file.
-            cfg, quads = load_save_file(gsrs[lobby_name], self.server.namers_ref[lobby_name], evt.save_name)
+            cfg, quads = load_save_file(gsrs[lobby_name],
+                                        self.server.namers_ref[lobby_name],
+                                        # This prefix removal is to account for old versions of the game, which will
+                                        # send the save name as something like 'save-autosave_1756551965_5_2_M.json',
+                                        # as the old code internally re-formats to the old format.
+                                        evt.save_name.removeprefix("save-"))
             # Make all players AIs so we can 'join' as any player.
             for p in gsrs[lobby_name].players:
                 p.ai_playstyle = AIPlaystyle(AttackPlaystyle.NEUTRAL, ExpansionPlaystyle.NEUTRAL)
