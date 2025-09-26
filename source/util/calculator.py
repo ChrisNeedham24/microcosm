@@ -43,7 +43,7 @@ def calculate_yield_for_quad(biome: Biome) -> Tuple[int, int, int, int]:
     return wealth, harvest, zeal, fortune
 
 
-def clamp(number: int | float, min_val: int | float, max_val: int | float) -> int:
+def clamp(number: int | float, min_val: int | float, max_val: int | float) -> int | float:
     """
     Clamp the supplied number to the supplied minimum and maximum values.
     :param number: The number to clamp.

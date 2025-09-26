@@ -42,6 +42,7 @@ class Game:
         pyxel.init(200, 200, title="Microcosm", display_scale=5, quit_key=pyxel.KEY_NONE)
 
         icon_image: Image = Image.open("resources/icon.png")
+        # Note that the 0 argument below refers to the colour value used for transparent pixels.
         pyxel.icon(convert_image_to_pyxel_icon_data(icon_image), 1, 0)
 
         self.game_controller = GameController()
