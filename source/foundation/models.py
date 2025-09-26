@@ -9,6 +9,9 @@ if TYPE_CHECKING:
     from source.game_management.game_state import GameState
 
 
+type Location = Tuple[int, int]
+
+
 class Biome(str, Enum):
     """
     The four biomes a quad can be of.
@@ -229,7 +232,7 @@ class Quad:
     harvest: int
     zeal: int
     fortune: int
-    location: Tuple[int, int]
+    location: Location
     # Even though a quad will only ever have one resource, it's easier to use this.
     resource: Optional[ResourceCollection] = None
     selected: bool = False
@@ -354,7 +357,7 @@ class Unit:
     """
     health: float
     remaining_stamina: int
-    location: Tuple[int, int]
+    location: Location
     garrisoned: bool
     plan: UnitPlan
     has_acted: bool = False  # Units can only act (attack/heal) once per turn.
@@ -376,7 +379,7 @@ class Heathen:
     """
     health: float
     remaining_stamina: int
-    location: Tuple[int, int]
+    location: Location
     plan: UnitPlan
     has_attacked: bool = False  # Heathens can also only attack once per turn.
 
@@ -405,7 +408,7 @@ class Settlement:
     A settlement belonging to a player.
     """
     name: str
-    location: Tuple[int, int]
+    location: Location
     improvements: List[Improvement]
     quads: List[Quad]  # Only players of The Concentrated faction can have more than one quad in a settlement.
     # Resources can be exploited by a settlement if they are within 1 quad.
@@ -467,7 +470,7 @@ class Player:
     units: List[Unit] = field(default_factory=lambda: [])
     blessings: List[Blessing] = field(default_factory=lambda: [])
     resources: ResourceCollection = field(default_factory=ResourceCollection)
-    quads_seen: Set[Tuple[int, int]] = field(default_factory=set)
+    quads_seen: Set[Location] = field(default_factory=set)
     imminent_victories: Set[VictoryType] = field(default_factory=set)
     ongoing_blessing: Optional[OngoingBlessing] = None
     ai_playstyle: Optional[AIPlaystyle] = None

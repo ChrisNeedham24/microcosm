@@ -6,7 +6,7 @@ from typing import Set, Tuple, List
 from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, PROJECTS
 from source.foundation.models import ResourceCollection, Quad, Biome, UnitPlan, Unit, DeployerUnit, Improvement, \
     Settlement, HarvestStatus, EconomicStatus, Construction, Project, ProjectType, Player, Faction, VictoryType, \
-    OngoingBlessing, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, Heathen, SaveDetails
+    OngoingBlessing, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, Heathen, SaveDetails, Location
 from source.util.minifier import minify_resource_collection, minify_quad, minify_unit_plan, minify_unit, \
     minify_improvement, minify_settlement, minify_player, minify_quads_seen, minify_heathens, \
     inflate_resource_collection, inflate_quad, inflate_unit_plan, inflate_unit, inflate_improvement, \
@@ -159,7 +159,7 @@ class MinifierTest(unittest.TestCase):
         """
         Ensure that sets of seen quads are correctly minified.
         """
-        test_quads_seen: Set[Tuple[int, int]] = {(1, 2), (3, 4), (5, 6), (-1, 7), (8, -1)}
+        test_quads_seen: Set[Location] = {(1, 2), (3, 4), (5, 6), (-1, 7), (8, -1)}
         # We expect the tuples with negative values to have been excluded.
         expected_minification: str = "1-2,3-4,5-6"
         self.assertEqual(expected_minification, minify_quads_seen(test_quads_seen))
@@ -287,7 +287,7 @@ class MinifierTest(unittest.TestCase):
         Ensure that seen quads are correctly inflated.
         """
         test_minified_quads_seen: str = "1-2,3-4,5-6"
-        expected_quads_seen: Set[Tuple[int, int]] = {(1, 2), (3, 4), (5, 6)}
+        expected_quads_seen: Set[Location] = {(1, 2), (3, 4), (5, 6)}
         self.assertSetEqual(expected_quads_seen, inflate_quads_seen(test_minified_quads_seen))
 
     def test_inflate_heathens(self):

@@ -16,7 +16,8 @@ from source.foundation.catalogue import LOBBY_NAMES, PLAYER_NAMES, FACTION_COLOU
     UNIT_PLANS, Namer, get_heathen_plan, ACHIEVEMENTS
 from source.foundation.models import PlayerDetails, Faction, GameConfig, Player, Settlement, ResourceCollection, \
     OngoingBlessing, Construction, InvestigationResult, Unit, DeployerUnit, Quad, Biome, AIPlaystyle, \
-    ExpansionPlaystyle, AttackPlaystyle, LobbyDetails, Heathen, Victory, VictoryType, MultiplayerStatus, SaveDetails
+    ExpansionPlaystyle, AttackPlaystyle, LobbyDetails, Heathen, Victory, VictoryType, MultiplayerStatus, SaveDetails, \
+    Location
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
@@ -894,7 +895,7 @@ class EventListenerTest(unittest.TestCase):
         player.ongoing_blessing = OngoingBlessing(BLESSINGS["beg_spl"])
         unit: Unit = player.units[0]
         # Pick a quad for our relic.
-        relic_loc: Tuple[int, int] = 11, 12
+        relic_loc: Location = 11, 12
         relic_quad: Quad = self.TEST_GAME_STATE.board.quads[relic_loc[1]][relic_loc[0]]
         test_event: InvestigateEvent = InvestigateEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
                                                         UpdateAction.INVESTIGATE, self.TEST_GAME_NAME, player.faction,
@@ -1043,7 +1044,7 @@ class EventListenerTest(unittest.TestCase):
         player.ongoing_blessing = OngoingBlessing(BLESSINGS["beg_spl"])
         unit: Unit = player.units[0]
         # Pick a quad for our relic.
-        relic_loc: Tuple[int, int] = 11, 12
+        relic_loc: Location = 11, 12
         relic_quad: Quad = self.TEST_GAME_STATE.board.quads[relic_loc[1]][relic_loc[0]]
         test_event: InvestigateEvent = InvestigateEvent(EventType.UPDATE, self.TEST_IDENTIFIER,
                                                         UpdateAction.INVESTIGATE, self.TEST_GAME_NAME, player.faction,
@@ -2014,7 +2015,7 @@ class EventListenerTest(unittest.TestCase):
         gs.players.append(ai_player)
         # Give each player some seen quads so we can see the minified packet representations them being sent back to the
         # joining client. We use a list here so that the order is consistent.
-        test_seen_quads: List[Tuple[int, int]] = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
+        test_seen_quads: List[Location] = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
         for p in gs.players:
             p.quads_seen = test_seen_quads
         gs.game_started = True
@@ -2180,7 +2181,7 @@ class EventListenerTest(unittest.TestCase):
         gs.players.append(ai_player)
         # Give each player some seen quads so we can see the minified packet representations them being sent back to the
         # rejoining client. We use a list here so that the order is consistent.
-        test_seen_quads: List[Tuple[int, int]] = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
+        test_seen_quads: List[Location] = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
         for p in gs.players:
             p.quads_seen = test_seen_quads
         gs.game_started = True
@@ -2437,7 +2438,7 @@ class EventListenerTest(unittest.TestCase):
         # The quad chunk we use for this test is just the same test quad over and over.
         test_quads_str: str = (minify_quad(self.TEST_QUAD) + ",") * 100
         # Some seen quads that will be sent to the client.
-        test_seen_quads: List[Tuple[int, int]] = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
+        test_seen_quads: List[Location] = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
         self.mock_server.is_server = False
         gs: GameState = self.TEST_GAME_STATE
         # We need to keep the players separately here because they will be removed to simulate a real join situation.

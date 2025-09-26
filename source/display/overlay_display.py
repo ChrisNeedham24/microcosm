@@ -1,6 +1,6 @@
-import typing
-
 import math
+from typing import List, Tuple
+
 import pyxel
 
 from source.display.display_utils import draw_paragraph
@@ -826,7 +826,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     imps = get_unlockable_improvements(blessing)
                     units = get_unlockable_units(blessing)
                     pyxel.text(30, 42 + adj_idx * 18, "Unlocks:", pyxel.COLOR_WHITE)
-                    types_unlockable: typing.List[ImprovementType] = []
+                    types_unlockable: List[ImprovementType] = []
                     if len(imps) > 0:
                         for imp in imps:
                             if imp.effect.wealth > 0:
@@ -843,7 +843,7 @@ def display_overlay(overlay: Overlay, is_night: bool):
                                 types_unlockable.append(ImprovementType.PANDERING)
                         if len(types_unlockable) > 0:
                             for type_idx, unl_type in enumerate(set(types_unlockable)):
-                                uv_coords: (int, int)
+                                uv_coords: Tuple[int, int]
                                 match unl_type:
                                     case ImprovementType.ECONOMICAL:
                                         uv_coords = 0, 44

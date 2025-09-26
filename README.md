@@ -8,7 +8,7 @@ Inspiration taken from games I've played.
 Playing Microcosm requires an installation of VLC media player on the player's machine. Installation instructions for
 your favourite operating system can be found [here](https://www.videolan.org/vlc/). If your operating system lists
 python-vlc (or something like that) as an optional dependency, it is advised that players also install that. Naturally,
-Python is also required, at version 3.10 or above.
+Python is also required, at version 3.12 or above.
 
 ### Global multiplayer
 In order to play games of Microcosm online, your computer and router must have UPnP enabled, as it is required for

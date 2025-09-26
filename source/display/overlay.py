@@ -1,8 +1,8 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from source.foundation.models import Settlement, Player, Improvement, Unit, Blessing, CompletedConstruction, UnitPlan, \
     Heathen, AttackData, SetlAttackData, Victory, InvestigationResult, OverlayType, SettlementAttackType, PauseOption, \
-    Project, ConstructionMenu, HealData, Achievement, StandardOverlayView, GameConfig
+    Project, ConstructionMenu, HealData, Achievement, StandardOverlayView, GameConfig, Location
 
 
 class Overlay:
@@ -24,13 +24,13 @@ class Overlay:
         self.selected_construction: Optional[Improvement | Project | UnitPlan] = None
         # These boundaries are used to keep track of which improvements/units/blessings are currently displayed. This is
         # for scrolling functionality to work.
-        self.construction_boundaries: Tuple[int, int] = 0, 5
-        self.unit_plan_boundaries: Tuple[int, int] = 0, 5
+        self.construction_boundaries: Location = 0, 5
+        self.unit_plan_boundaries: Location = 0, 5
         self.current_construction_menu: ConstructionMenu = ConstructionMenu.IMPROVEMENTS
         self.selected_unit: Optional[Unit | Heathen] = None
         self.available_blessings: List[Blessing] = []
         self.selected_blessing: Optional[Blessing] = None
-        self.blessing_boundaries: Tuple[int, int] = 0, 5
+        self.blessing_boundaries: Location = 0, 5
         self.problematic_settlements: List[Settlement] = []  # Settlements with no construction.
         self.has_no_blessing: bool = False  # Whether the player is not undergoing a blessing currently.
         self.will_have_negative_wealth = False  # If the player will go into negative wealth if they end their turn.
@@ -55,7 +55,7 @@ class Overlay:
         self.close_to_vics: List[Victory] = []
         self.investigation_result: Optional[InvestigationResult] = None
         self.night_beginning: bool = False
-        self.settlement_status_boundaries: Tuple[int, int] = 0, 9
+        self.settlement_status_boundaries: Location = 0, 9
         self.show_auto_construction_prompt: bool = False
         self.show_additional_controls: bool = False
         self.show_unit_passengers: bool = False

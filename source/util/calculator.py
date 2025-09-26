@@ -4,7 +4,7 @@ from typing import List, Tuple, Set, Generator, Optional
 
 from source.foundation.models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, \
     Settlement, Improvement, UnitPlan, SetlAttackData, GameConfig, InvestigationResult, Faction, Project, ProjectType, \
-    HealData, DeployerUnitPlan, DeployerUnit, ResourceCollection, Quad, Blessing
+    HealData, DeployerUnitPlan, DeployerUnit, ResourceCollection, Quad, Blessing, Location
 
 
 def calculate_yield_for_quad(biome: Biome) -> Tuple[int, int, int, int]:
@@ -43,7 +43,7 @@ def calculate_yield_for_quad(biome: Biome) -> Tuple[int, int, int, int]:
     return wealth, harvest, zeal, fortune
 
 
-def clamp(number: int, min_val: int, max_val: int) -> int:
+def clamp(number: int | float, min_val: int | float, max_val: int | float) -> int:
     """
     Clamp the supplied number to the supplied minimum and maximum values.
     :param number: The number to clamp.
@@ -302,7 +302,7 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
     return InvestigationResult.NONE
 
 
-def gen_spiral_indices(initial_loc: (int, int)) -> List[Tuple[int, int]]:
+def gen_spiral_indices(initial_loc: (int, int)) -> List[Location]:
     """
     Generate indices (or locations) around a supplied point in a spiral fashion. The below diagram indicates the order
     in which points should be returned.
@@ -322,7 +322,7 @@ def gen_spiral_indices(initial_loc: (int, int)) -> List[Tuple[int, int]]:
     :param initial_loc: The point to 'spiral' around.
     :return: A list of locations, in the order of the spiral.
     """
-    indices: List[Tuple[int, int]] = []
+    indices: List[Location] = []
 
     x = 0
     y = 0
@@ -342,7 +342,7 @@ def gen_spiral_indices(initial_loc: (int, int)) -> List[Tuple[int, int]]:
     return indices
 
 
-def get_resources_for_settlement(setl_locs: List[Tuple[int, int]],
+def get_resources_for_settlement(setl_locs: List[Location],
                                  quads: List[List[Quad]]) -> ResourceCollection:
     """
     Determine and return the resources that a settlement with the given locations would be able to exploit.
@@ -353,7 +353,7 @@ def get_resources_for_settlement(setl_locs: List[Tuple[int, int]],
     setl_resources: ResourceCollection = ResourceCollection()
     # We need to keep track of the quads that we've already seen so that settlements with multiple quads don't double up
     # resources from the same quad.
-    found_locs: Set[Tuple[int, int]] = set()
+    found_locs: Set[Location] = set()
     for setl_loc in setl_locs:
         for i in range(setl_loc[0] - 1, setl_loc[0] + 2):
             for j in range(setl_loc[1] - 1, setl_loc[1] + 2):
@@ -392,18 +392,6 @@ def subtract_player_resources_for_improvement(player: Player, improvement: Impro
     player.resources.ore -= improvement.req_resources.ore
     player.resources.timber -= improvement.req_resources.timber
     player.resources.magma -= improvement.req_resources.magma
-
-
-def split_list_into_chunks(list_to_split: list, chunk_length: int) -> Generator[list, None, None]:
-    """
-    Splits a list into chunks of a given size.
-    Once the Python version for Microcosm is upgraded to 3.12, itertools.batched() can be used instead of this.
-    :param list_to_split: The list to generate chunks from.
-    :param chunk_length: The size of each chunk to return.
-    :return: A generator that yields chunks of the given list with the given size.
-    """
-    for i in range(0, len(list_to_split), chunk_length):
-        yield list_to_split[i:i + chunk_length]
 
 
 def update_player_quads_seen_around_point(player: Player, point: (int, int), vision_range: int = 5):

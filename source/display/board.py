@@ -12,7 +12,7 @@ from source.util.calculator import calculate_yield_for_quad, attack, investigate
     get_resources_for_settlement, update_player_quads_seen_around_point
 from source.foundation.catalogue import get_default_unit, Namer
 from source.foundation.models import Player, Quad, Biome, Settlement, Unit, Heathen, GameConfig, InvestigationResult, \
-    Faction, DeployerUnit, ResourceCollection
+    Faction, DeployerUnit, ResourceCollection, Location
 from source.display.overlay import Overlay
 from source.display.overlay_display import display_overlay
 
@@ -85,7 +85,7 @@ class Board:
 
     def draw(self,
              players: List[Player],
-             map_pos: Tuple[int, int],
+             map_pos: Location,
              turn: int,
              heathens: List[Heathen],
              is_night: bool,
@@ -104,8 +104,8 @@ class Board:
         pyxel.rectb(0, 0, 200, 184, pyxel.COLOR_WHITE)
 
         pyxel.load("resources/quads.pyxres")
-        selected_quad_coords: (int, int) = None
-        quads_to_show: Set[Tuple[int, int]] = set()
+        selected_quad_coords: Optional[Location] = None
+        quads_to_show: Set[Location] = set()
         # At nighttime, the player can only see a few quads around their settlements and units. However, players of the
         # Nocturne faction have no vision impacts at nighttime. In addition to this, settlements with one or more
         # sunstone resources have extended vision proportionate to the number of sunstone resources they have.
@@ -549,7 +549,7 @@ class Board:
 
                 self.quads[i][j] = Quad(biome, *quad_yield, location=(j, i), is_relic=is_relic, resource=resource)
 
-    def process_right_click(self, mouse_x: int, mouse_y: int, map_pos: (int, int)):
+    def process_right_click(self, mouse_x: int, mouse_y: int, map_pos: Location):
         """
         Process a right click by the player at given coordinates with the current map position.
         :param mouse_x: The X coordinate of the mouse click.
@@ -578,7 +578,7 @@ class Board:
                     self.quad_selected.selected = False
                 self.quad_selected = self.quads[adj_y][adj_x]
 
-    def process_left_click(self, mouse_x: int, mouse_y: int, settled: bool, player: Player, map_pos: Tuple[int, int],
+    def process_left_click(self, mouse_x: int, mouse_y: int, settled: bool, player: Player, map_pos: Location,
                            heathens: List[Heathen], all_units: List[Unit], all_players: List[Player],
                            other_setls: List[Settlement]):
         """

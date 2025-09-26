@@ -5,7 +5,7 @@ from source.foundation.catalogue import get_unit_plan, get_improvement, get_proj
     IMPROVEMENTS
 from source.foundation.models import Quad, Biome, ResourceCollection, Player, Settlement, Unit, UnitPlan, Improvement, \
     Construction, HarvestStatus, EconomicStatus, Blessing, Faction, VictoryType, OngoingBlessing, AIPlaystyle, \
-    AttackPlaystyle, ExpansionPlaystyle, Project, Heathen, DeployerUnit, SaveDetails
+    AttackPlaystyle, ExpansionPlaystyle, Project, Heathen, DeployerUnit, SaveDetails, Location
 
 
 def minify_resource_collection(rc: ResourceCollection) -> str:
@@ -119,7 +119,7 @@ def minify_player(player: Player) -> str:
     return player_str
 
 
-def minify_quads_seen(quads_seen: Set[Tuple[int, int]]) -> str:
+def minify_quads_seen(quads_seen: Set[Location]) -> str:
     """
     Turn the given set of seen quads into a minified string representation.
     :param quads_seen: The set of seen quads to minify.
@@ -361,13 +361,13 @@ def inflate_player(player_str: str, quads: List[List[Quad]]) -> Player:
                   imminent_victories, ongoing_blessing, ai_playstyle, jubilation_ctr, accumulated_wealth, eliminated)
 
 
-def inflate_quads_seen(qs_str: str) -> Set[Tuple[int, int]]:
+def inflate_quads_seen(qs_str: str) -> Set[Location]:
     """
     Inflate the given minified seen quads string into a set of tuples representing the locations of each seen quad.
     :param qs_str: The minified set of seen quads to inflate.
     :return: An inflated set of seen quad location tuples.
     """
-    quads_seen: Set[Tuple[int, int]] = set()
+    quads_seen: Set[Location] = set()
     for quad_loc in qs_str.split(","):
         quads_seen.add((int(quad_loc.split("-")[0]), int(quad_loc.split("-")[1])))
     return quads_seen

@@ -6,10 +6,10 @@ from unittest.mock import patch, MagicMock
 from source.foundation.catalogue import UNIT_PLANS, BLESSINGS, PROJECTS
 from source.foundation.models import Biome, Unit, AttackData, HealData, Settlement, SetlAttackData, Player, Faction, \
     Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing, \
-    Quad, EconomicStatus, HarvestStatus, DeployerUnitPlan, DeployerUnit, ResourceCollection, Blessing
+    Quad, EconomicStatus, HarvestStatus, DeployerUnitPlan, DeployerUnit, ResourceCollection, Blessing, Location
 from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction, \
     investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices, get_resources_for_settlement, \
-    player_has_resources_for_improvement, subtract_player_resources_for_improvement, split_list_into_chunks, \
+    player_has_resources_for_improvement, subtract_player_resources_for_improvement, \
     update_player_quads_seen_around_point, scale_unit_plan_attributes, scale_blessing_attributes
 
 
@@ -734,7 +734,7 @@ class CalculatorTest(unittest.TestCase):
         locations are generated.
         """
         central_loc: (int, int) = 5, 5
-        expected_indices: List[Tuple[int, int]] = [
+        expected_indices: List[Location] = [
             central_loc,
             (central_loc[0] + 1, central_loc[1]),
             (central_loc[0] + 1, central_loc[1] + 1),
@@ -772,7 +772,7 @@ class CalculatorTest(unittest.TestCase):
              Quad(Biome.DESERT, 0, 0, 0, 0, (3, 3), ResourceCollection(aurora=1))]
         ]
         # Simulating a settlement belonging to The Concentrated, to ensure that there is no resource double-up.
-        test_setl_locs: List[Tuple[int, int]] = [(1, 1), (1, 2)]
+        test_setl_locs: List[Location] = [(1, 1), (1, 2)]
         # We expect the settlement to have the resources from all of the above quads apart from the ones at (3, 0),
         # (3, 1), (3, 2), and (3, 3), as they are one quad away. As such, the resources should have no aurora since
         # those quads are one away, nor any aquamarine, as none of the quads have that.
@@ -817,22 +817,6 @@ class CalculatorTest(unittest.TestCase):
         subtract_player_resources_for_improvement(self.TEST_PLAYER, test_improvement)
         # Naturally the player's resources should have been subtracted by the required values for the test improvement.
         self.assertEqual(ResourceCollection(ore=4, timber=2, magma=7), self.TEST_PLAYER.resources)
-
-    def test_split_list_into_chunks(self):
-        """
-        Ensure that lists are split into chunks correctly.
-        """
-        test_list: List[str] = ["a", "b", "c", "d", "e", "f", "g"]
-        chunked_list: Generator[list, None, None] = split_list_into_chunks(test_list, chunk_length=2)
-        # The created generator should yield sub-lists of two elements each time next() is called until the original
-        # elements are exhausted.
-        self.assertListEqual(["a", "b"], next(chunked_list))
-        self.assertListEqual(["c", "d"], next(chunked_list))
-        self.assertListEqual(["e", "f"], next(chunked_list))
-        # Because there aren't sufficient elements to fill out a whole two-element chunk, we only expect one.
-        self.assertListEqual(["g"], next(chunked_list))
-        # Since there are no elements left, calling next() should raise a StopIteration exception.
-        self.assertRaises(StopIteration, lambda: next(chunked_list))
 
     def test_update_player_quads_seen_around_point(self):
         """
