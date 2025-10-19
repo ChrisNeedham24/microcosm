@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from source.display.board import Board, HelpOption
 from source.foundation.catalogue import Namer, get_heathen_plan
 from source.foundation.models import GameConfig, Faction, Quad, Biome, Player, Settlement, Unit, UnitPlan, Heathen, \
-    DeployerUnit, DeployerUnitPlan, ResourceCollection, InvestigationResult, MultiplayerStatus
+    DeployerUnit, DeployerUnitPlan, ResourceCollection, InvestigationResult, MultiplayerStatus, Location
 from source.networking.client import EventDispatcher, DispatcherKind
 from source.networking.events import FoundSettlementEvent, EventType, UpdateAction, GarrisonUnitEvent, \
     BoardDeployerEvent, DeployUnitEvent, DeployerDeployEvent, AttackUnitEvent, HealUnitEvent, MoveUnitEvent, \
@@ -50,7 +50,7 @@ class BoardTest(unittest.TestCase):
         self.TEST_ENEMY_PLAYER = Player("Dr. Evil", Faction.INFIDELS, 0,
                                         settlements=[self.TEST_ENEMY_SETTLEMENT], units=[self.TEST_UNIT_2])
         # We need to find a relic quad before each test, because the quads are re-generated each time.
-        self.relic_coords: (int, int) = -1, -1
+        self.relic_coords: Location = -1, -1
         for i in range(90):
             for j in range(80):
                 if self.board.quads[i][j].is_relic:
@@ -58,7 +58,7 @@ class BoardTest(unittest.TestCase):
                     break
             if self.relic_coords[0] != -1:
                 break
-        self.multi_relic_coords: (int, int) = -1, -1
+        self.multi_relic_coords: Location = -1, -1
         for i in range(90):
             for j in range(80):
                 if self.multi_board.quads[i][j].is_relic:

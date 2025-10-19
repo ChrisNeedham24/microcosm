@@ -1,11 +1,12 @@
 import unittest
+from datetime import datetime
 
 import pyxel
 
 from source.display.menu import Menu, SetupOption, WikiOption, MainMenuOption, WikiUnitsOption
 from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, ACHIEVEMENTS, FACTION_COLOURS
 from source.foundation.models import VictoryType, GameConfig, DeployerUnitPlan, LobbyDetails, PlayerDetails, Faction, \
-    MultiplayerStatus
+    MultiplayerStatus, SaveDetails
 
 
 class MenuTest(unittest.TestCase):
@@ -136,7 +137,7 @@ class MenuTest(unittest.TestCase):
         Ensure that the player can correctly navigate down and up the load game page.
         """
         self.menu.loading_game = True
-        self.menu.saves = ["a"] * 6  # Just some fake save data.
+        self.menu.saves = [SaveDetails(datetime.now(), False)] * 6  # Just some fake save data.
 
         self.assertEqual(0, self.menu.save_idx)
         self.assertTupleEqual((0, 4), self.menu.load_game_boundaries)

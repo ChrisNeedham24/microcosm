@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List, Tuple
+from typing import Optional, List
 
 from source.foundation.models import GameConfig, PlayerDetails, Faction, Settlement, LobbyDetails, \
     ResourceCollection, Construction, OngoingBlessing, InvestigationResult, Player, AIPlaystyle, Location

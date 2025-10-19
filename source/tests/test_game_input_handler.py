@@ -2127,7 +2127,7 @@ class GameInputHandlerTest(unittest.TestCase):
         # The same applies to settlements, with pressing escape when a settlement is selected leading to it being
         # deselected and its overlay dismissed.
         self.game_state.board.overlay.showing = [OverlayType.SETTLEMENT]
-        self.game_state.board.selected_unit = self.TEST_SETTLEMENT
+        self.game_state.board.selected_settlement = self.TEST_SETTLEMENT
         on_key_escape(self.game_state)
         self.assertFalse(self.game_state.board.overlay.showing)
         self.assertIsNone(self.game_state.board.selected_settlement)

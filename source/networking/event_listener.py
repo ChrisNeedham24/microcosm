@@ -1012,7 +1012,7 @@ class RequestHandler(BaseRequestHandler):
         for idx, player in enumerate(gs.players):
             gs.process_player(player, idx == gs.player_idx)
         if gs.turn % 5 == 0:
-            new_heathen_loc: (int, int) = random.randint(0, 89), random.randint(0, 99)
+            new_heathen_loc: Location = random.randint(0, 89), random.randint(0, 99)
             gs.heathens.append(get_heathen(new_heathen_loc, gs.turn))
         for h in gs.heathens:
             h.remaining_stamina = h.plan.total_stamina
@@ -1061,7 +1061,7 @@ class RequestHandler(BaseRequestHandler):
             for idx, player in enumerate(gs.players):
                 gs.process_player(player, idx == gs.player_idx)
             if gs.turn % 5 == 0:
-                new_heathen_loc: (int, int) = random.randint(0, 89), random.randint(0, 99)
+                new_heathen_loc: Location = random.randint(0, 89), random.randint(0, 99)
                 gs.heathens.append(get_heathen(new_heathen_loc, gs.turn))
             for h in gs.heathens:
                 h.remaining_stamina = h.plan.total_stamina
@@ -1165,7 +1165,7 @@ class RequestHandler(BaseRequestHandler):
         if self.server.is_server:
             saves: List[str] = []
             for s in get_saves(multi=True):
-                if s.multiplayer is True:
+                if s.multiplayer:
                     saves.append(minify_save_details(s))
                 # If the save comes from before the introduction of further details in save file names, then we need to
                 # manually format the save date to appear as saves used to.

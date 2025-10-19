@@ -118,7 +118,7 @@ class EventListenerTest(unittest.TestCase):
         """
         Ensure that requests that are not syntactically valid don't get processed.
         """
-        # The below is invalid unicode.
+        # The below is invalid Unicode.
         self.request_handler.request = b"F\xc3\xb8\xc3\xb6\xbbB\xc3\xa5r", self.mock_socket
         self.request_handler.process_event = MagicMock()
         self.request_handler.handle()
@@ -3262,7 +3262,7 @@ class EventListenerTest(unittest.TestCase):
             PlayerDetails(self.TEST_GAME_STATE.players[1].name, self.TEST_GAME_STATE.players[1].faction, id=None)
         ], self.TEST_GAME_CONFIG, test_turn)
 
-        def mock_load(gs: GameState, _namer: Namer, save: str) -> (GameConfig, List[List[Quad]]):
+        def mock_load(gs: GameState, _namer: Namer, save: str) -> Tuple[GameConfig, List[List[Quad]]]:
             """
             A mock function that does the bare minimum to avoid having to load in an actual save file. Assigns players
             and turn, and returns config and quads.

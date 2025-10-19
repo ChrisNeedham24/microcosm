@@ -6,7 +6,7 @@ from source.foundation.catalogue import Namer, UNIT_PLANS, BLESSINGS, get_unlock
     get_available_improvements, get_unit_plan, IMPROVEMENTS, SETL_NAMES
 from source.foundation.models import GameConfig, Faction, Unit, Player, Settlement, AIPlaystyle, AttackPlaystyle, \
     ExpansionPlaystyle, Blessing, Quad, Biome, UnitPlan, SetlAttackData, Construction, DeployerUnitPlan, DeployerUnit, \
-    VictoryType, ResourceCollection, MultiplayerStatus
+    VictoryType, ResourceCollection, MultiplayerStatus, Location
 from source.game_management.movemaker import search_for_relics_or_move, set_blessing, set_player_construction, \
     set_ai_construction, MoveMaker, move_healer_unit
 
@@ -40,7 +40,7 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_BOARD.generate_quads(self.TEST_CONFIG.biome_clustering, self.TEST_CONFIG.climatic_effects)
         self.QUADS = self.TEST_BOARD.quads
         # We need to find a relic quad before each test, because the quads are re-generated each time.
-        self.relic_coords: (int, int) = -1, -1
+        self.relic_coords: Location = -1, -1
         for i in range(2, 90):
             for j in range(2, 80):
                 if self.QUADS[j][i].is_relic:
@@ -991,7 +991,7 @@ class MovemakerTest(unittest.TestCase):
         self.TEST_PLAYER.wealth = 999
         self.TEST_DEPLOYER_UNIT.garrisoned = True
         self.TEST_SETTLEMENT.garrison = [self.TEST_DEPLOYER_UNIT]
-        self.TEST_PLAYER_2.imminent_victories = [VictoryType.AFFLUENCE]
+        self.TEST_PLAYER_2.imminent_victories = {VictoryType.AFFLUENCE}
 
         self.assertFalse(self.TEST_PLAYER.quads_seen)
 
@@ -1402,7 +1402,7 @@ class MovemakerTest(unittest.TestCase):
         # victory.
         self.TEST_PLAYER.ai_playstyle.attacking = AttackPlaystyle.DEFENSIVE
         self.TEST_PLAYER.units = [self.TEST_UNIT_4]
-        self.TEST_PLAYER_2.imminent_victories = [VictoryType.ELIMINATION]
+        self.TEST_PLAYER_2.imminent_victories = {VictoryType.ELIMINATION}
         self.TEST_PLAYER_2.units = [self.TEST_UNIT_5]
 
         self.assertFalse(self.TEST_PLAYER.quads_seen)
@@ -1679,7 +1679,7 @@ class MovemakerTest(unittest.TestCase):
         # Note that the settlement's strength is above what even an aggressive AI player would attack, and this test
         # player is defensive.
         self.TEST_SETTLEMENT_2.strength = 55
-        self.TEST_PLAYER_2.imminent_victories = [VictoryType.SERENDIPITY]
+        self.TEST_PLAYER_2.imminent_victories = {VictoryType.SERENDIPITY}
 
         self.assertFalse(self.TEST_PLAYER.quads_seen)
 

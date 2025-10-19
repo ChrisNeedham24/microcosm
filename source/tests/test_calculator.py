@@ -1,12 +1,13 @@
 import unittest
 from copy import deepcopy
-from typing import List, Tuple, Generator
+from typing import List
 from unittest.mock import patch, MagicMock
 
 from source.foundation.catalogue import UNIT_PLANS, BLESSINGS, PROJECTS
 from source.foundation.models import Biome, Unit, AttackData, HealData, Settlement, SetlAttackData, Player, Faction, \
     Construction, Improvement, ImprovementType, Effect, UnitPlan, GameConfig, InvestigationResult, OngoingBlessing, \
-    Quad, EconomicStatus, HarvestStatus, DeployerUnitPlan, DeployerUnit, ResourceCollection, Blessing, Location
+    Quad, EconomicStatus, HarvestStatus, DeployerUnitPlan, DeployerUnit, ResourceCollection, Blessing, Location, \
+    MultiplayerStatus
 from source.util.calculator import calculate_yield_for_quad, clamp, attack, heal, attack_setl, complete_construction, \
     investigate_relic, get_player_totals, get_setl_totals, gen_spiral_indices, get_resources_for_settlement, \
     player_has_resources_for_improvement, subtract_player_resources_for_improvement, \
@@ -26,7 +27,7 @@ class CalculatorTest(unittest.TestCase):
         Initialise our test models.
         """
         self.TEST_PLAYER = Player("TestMan", Faction.NOCTURNE, 0, wealth=self.ORIGINAL_WEALTH)
-        self.TEST_CONFIG = GameConfig(2, self.TEST_PLAYER.faction, True, True, True, False)
+        self.TEST_CONFIG = GameConfig(2, self.TEST_PLAYER.faction, True, True, True, MultiplayerStatus.DISABLED)
         self.TEST_UNIT_PLAN = UnitPlan(100, 100, 3, "TesterUnit", None, 25)
         self.ORIGINAL_PLAN_HEALTH = self.TEST_UNIT_PLAN.max_health
         self.ORIGINAL_PLAN_POWER = self.TEST_UNIT_PLAN.power
@@ -560,9 +561,11 @@ class CalculatorTest(unittest.TestCase):
         test_player = Player("Tester", Faction.SCRUTINEERS, 0)
 
         # We don't really care what the result is, just make sure it succeeded.
-        self.assertNotEqual(InvestigationResult.NONE,
-                            investigate_relic(test_player, self.TEST_UNIT, (9, 9),
-                                              GameConfig(2, test_player.faction, False, False, False, False)))
+        self.assertNotEqual(
+            InvestigationResult.NONE,
+            investigate_relic(test_player, self.TEST_UNIT, (9, 9),
+                              GameConfig(2, test_player.faction, False, False, False,MultiplayerStatus.DISABLED))
+        )
 
     @patch("random.randint")
     def test_investigate_relic_without_blessing(self, random_mock: MagicMock):
@@ -603,7 +606,7 @@ class CalculatorTest(unittest.TestCase):
         self.assertEqual(self.ORIGINAL_WEALTH, self.TEST_PLAYER.wealth)
         result: InvestigationResult = \
             investigate_relic(self.TEST_PLAYER, self.TEST_UNIT, (9, 9),
-                              GameConfig(2, self.TEST_PLAYER.faction, True, False, True, False))
+                              GameConfig(2, self.TEST_PLAYER.faction, True, False, True, MultiplayerStatus.DISABLED))
         self.assertEqual(InvestigationResult.WEALTH, result)
         self.assertEqual(self.ORIGINAL_WEALTH + 25, self.TEST_PLAYER.wealth)
 
@@ -733,7 +736,7 @@ class CalculatorTest(unittest.TestCase):
         Ensure that when spiral indices are generated around a fixed point, at least all eight directly adjacent
         locations are generated.
         """
-        central_loc: (int, int) = 5, 5
+        central_loc: Location = 5, 5
         expected_indices: List[Location] = [
             central_loc,
             (central_loc[0] + 1, central_loc[1]),

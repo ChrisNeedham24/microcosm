@@ -1,6 +1,6 @@
 import random
 from copy import deepcopy
-from typing import List, Tuple, Set, Generator, Optional
+from typing import List, Tuple, Set, Optional
 
 from source.foundation.models import Biome, Unit, Heathen, AttackData, Player, EconomicStatus, HarvestStatus, \
     Settlement, Improvement, UnitPlan, SetlAttackData, GameConfig, InvestigationResult, Faction, Project, ProjectType, \
@@ -241,7 +241,7 @@ def complete_construction(setl: Settlement, player: Player):
     setl.current_work = None
 
 
-def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: GameConfig) -> InvestigationResult:
+def investigate_relic(player: Player, unit: Unit, relic_loc: Location, cfg: GameConfig) -> InvestigationResult:
     """
     Investigate a relic with the given unit.
     Possible rewards include:
@@ -302,7 +302,7 @@ def investigate_relic(player: Player, unit: Unit, relic_loc: (int, int), cfg: Ga
     return InvestigationResult.NONE
 
 
-def gen_spiral_indices(initial_loc: (int, int)) -> List[Location]:
+def gen_spiral_indices(initial_loc: Location) -> List[Location]:
     """
     Generate indices (or locations) around a supplied point in a spiral fashion. The below diagram indicates the order
     in which points should be returned.
@@ -394,7 +394,7 @@ def subtract_player_resources_for_improvement(player: Player, improvement: Impro
     player.resources.magma -= improvement.req_resources.magma
 
 
-def update_player_quads_seen_around_point(player: Player, point: (int, int), vision_range: int = 5):
+def update_player_quads_seen_around_point(player: Player, point: Location, vision_range: int = 5):
     """
     Updates the seen quads for a player around the given point with the given range.
     :param player: The player to update the seen quads for.

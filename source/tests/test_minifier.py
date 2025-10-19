@@ -1,7 +1,7 @@
 import unittest
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Set, Tuple, List
+from typing import Set, List
 
 from source.foundation.catalogue import BLESSINGS, IMPROVEMENTS, UNIT_PLANS, PROJECTS
 from source.foundation.models import ResourceCollection, Quad, Biome, UnitPlan, Unit, DeployerUnit, Improvement, \
