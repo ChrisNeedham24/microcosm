@@ -65,9 +65,7 @@ jobs:
         with:
           ref: ${{ github.ref }}
       - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12.10"
+        run: dnf install -y python3.12 python3.12-pip
       - name: Install system packages
         run: |
           dnf update -y
