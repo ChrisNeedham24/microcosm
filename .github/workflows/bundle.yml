@@ -70,11 +70,11 @@ jobs:
           dnf install -y python3.12 patchelf gcc-c++
       - name: Install requirements
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -r dev_requirements.txt
+          python3.12 -m pip install --upgrade pip
+          python3.12 -m pip install -r dev_requirements.txt
       - name: Bundle
         run: |
-          python3 -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png --noinclude-setuptools-mode=nofollow -o microcosm microcosm.py
+          python3.12 -m nuitka --onefile --standalone --include-data-dir=source=source --remove-output --assume-yes-for-downloads --linux-icon=source/resources/icon.png --noinclude-setuptools-mode=nofollow -o microcosm microcosm.py
           chmod 744 microcosm
           tar -czvf microcosm.tar.gz microcosm
       - name: Upload artifact
