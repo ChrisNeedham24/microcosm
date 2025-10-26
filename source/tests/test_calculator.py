@@ -564,7 +564,7 @@ class CalculatorTest(unittest.TestCase):
         self.assertNotEqual(
             InvestigationResult.NONE,
             investigate_relic(test_player, self.TEST_UNIT, (9, 9),
-                              GameConfig(2, test_player.faction, False, False, False,MultiplayerStatus.DISABLED))
+                              GameConfig(2, test_player.faction, False, False, False, MultiplayerStatus.DISABLED))
         )
 
     @patch("random.randint")
