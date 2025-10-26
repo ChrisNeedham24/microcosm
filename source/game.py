@@ -43,7 +43,7 @@ class Game:
 
         icon_image: Image = Image.open("resources/icon.png")
         # Note that the 0 argument below refers to the colour value used for transparent pixels.
-        pyxel.icon(convert_image_to_pyxel_icon_data(icon_image), 1, 0)
+        pyxel.icon(convert_image_to_pyxel_icon_data(icon_image), 1)
 
         self.game_controller = GameController()
         self.game_state = GameState()
