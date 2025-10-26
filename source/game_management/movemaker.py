@@ -285,7 +285,8 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
         # Alternatively, if we are below the benchmark for harvest for this settlement (i.e. the harvest is low enough
         # that it is decreasing satisfaction), try to construct an improvement that will increase it.
         elif totals[1] < setl.level * 4 and harv_imps:
-            most_harvest: Tuple[float, float, Improvement] = harv_imps[0].effect.harvest, harv_imps[0].cost, harv_imps[0]
+            most_harvest: Tuple[float, float, Improvement] = \
+                harv_imps[0].effect.harvest, harv_imps[0].cost, harv_imps[0]
             for i in harv_imps:
                 if i.effect.harvest > most_harvest[0] and i.cost <= most_harvest[1]:
                     most_harvest = i.effect.harvest, i.cost, i
