@@ -67,11 +67,10 @@ jobs:
       - name: Install system packages
         run: |
           dnf update -y
-          dnf install -y python3.12 patchelf gcc-c++
+          dnf install -y python3.12 python3.12-devel patchelf gcc-c++
       - name: Install requirements
         run: |
           python3.12 -m ensurepip
-          python3.12 -m pip install --upgrade pip
           python3.12 -m pip install -r dev_requirements.txt
       - name: Bundle
         run: |
