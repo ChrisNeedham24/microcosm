@@ -70,6 +70,7 @@ jobs:
           dnf install -y python3.12 patchelf gcc-c++
       - name: Install requirements
         run: |
+          python3.12 -m ensurepip
           python3.12 -m pip install --upgrade pip
           python3.12 -m pip install -r dev_requirements.txt
       - name: Bundle
