@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List, Tuple
+from typing import Optional, List
 
 from source.foundation.models import GameConfig, PlayerDetails, Faction, Settlement, LobbyDetails, \
-    ResourceCollection, Construction, OngoingBlessing, InvestigationResult, Player, AIPlaystyle
+    ResourceCollection, Construction, OngoingBlessing, InvestigationResult, Player, AIPlaystyle, Location
 
 
 class EventType(str, Enum):
@@ -128,8 +128,8 @@ class MoveUnitEvent(UpdateEvent):
     """
     The event containing the required data to move a unit.
     """
-    initial_loc: Tuple[int, int]  # Used to identify the unit being moved.
-    new_loc: Tuple[int, int]
+    initial_loc: Location  # Used to identify the unit being moved.
+    new_loc: Location
     # The logic to subtract stamina and determine whether the unit is not besieging happens client-side, so we need to
     # update the server and other clients with the changes.
     new_stamina: int
@@ -142,7 +142,7 @@ class DeployUnitEvent(UpdateEvent):
     The event containing the required data to deploy a unit from a settlement.
     """
     settlement_name: str
-    location: Tuple[int, int]  # Refers to the deployed unit's location.
+    location: Location  # Refers to the deployed unit's location.
 
 
 @dataclass
@@ -150,7 +150,7 @@ class GarrisonUnitEvent(UpdateEvent):
     """
     The event containing the required data to garrison a unit in a settlement.
     """
-    initial_loc: Tuple[int, int]  # Used to identify the unit being garrisoned.
+    initial_loc: Location  # Used to identify the unit being garrisoned.
     # The logic to subtract stamina happens client-side, so we need to update the server and other clients with the
     # changes.
     new_stamina: int
@@ -162,8 +162,8 @@ class InvestigateEvent(UpdateEvent):
     """
     The event containing the required data to investigate a relic with a unit.
     """
-    unit_loc: Tuple[int, int]  # Used to identify the unit investigating the relic.
-    relic_loc: Tuple[int, int]
+    unit_loc: Location  # Used to identify the unit investigating the relic.
+    relic_loc: Location
     # We need to know the result so we can replicate the effects on the server and other clients.
     result: InvestigationResult
 
@@ -173,7 +173,7 @@ class BesiegeSettlementEvent(UpdateEvent):
     """
     The event containing the required data to place a settlement under siege.
     """
-    unit_loc: Tuple[int, int]  # Used to identify the unit placing the settlement under siege.
+    unit_loc: Location  # Used to identify the unit placing the settlement under siege.
     settlement_name: str
 
 
@@ -193,7 +193,7 @@ class DisbandUnitEvent(UpdateEvent):
     """
     The event containing the required data to disband a unit.
     """
-    location: Tuple[int, int]  # Used to identify the unit being disbanded.
+    location: Location  # Used to identify the unit being disbanded.
 
 
 @dataclass
@@ -201,8 +201,8 @@ class AttackUnitEvent(UpdateEvent):
     """
     The event containing the required data to process a unit-based attack.
     """
-    attacker_loc: Tuple[int, int]  # Used to identify the attacking unit.
-    defender_loc: Tuple[int, int]  # Used to identify the defending unit.
+    attacker_loc: Location  # Used to identify the attacking unit.
+    defender_loc: Location  # Used to identify the defending unit.
 
 
 @dataclass
@@ -210,7 +210,7 @@ class AttackSettlementEvent(UpdateEvent):
     """
     The event containing the required data to process a settlement-based attack.
     """
-    attacker_loc: Tuple[int, int]  # Used to identify the attacking unit.
+    attacker_loc: Location  # Used to identify the attacking unit.
     settlement_name: str
 
 
@@ -219,8 +219,8 @@ class HealUnitEvent(UpdateEvent):
     """
     The event containing the required data to heal a unit.
     """
-    healer_loc: Tuple[int, int]  # Used to identify the healer unit.
-    healed_loc: Tuple[int, int]  # Used to identify the unit being healed.
+    healer_loc: Location  # Used to identify the healer unit.
+    healed_loc: Location  # Used to identify the unit being healed.
 
 
 @dataclass
@@ -228,8 +228,8 @@ class BoardDeployerEvent(UpdateEvent):
     """
     The event containing the required data to have a unit board a deployer unit.
     """
-    initial_loc: Tuple[int, int]  # Used to identify the unit boarding the deployer unit.
-    deployer_loc: Tuple[int, int]  # Used to identify the deployer unit.
+    initial_loc: Location  # Used to identify the unit boarding the deployer unit.
+    deployer_loc: Location  # Used to identify the deployer unit.
     # The logic to subtract stamina happens client-side, so we need to update the server and other clients with the
     # changes.
     new_stamina: int
@@ -240,9 +240,9 @@ class DeployerDeployEvent(UpdateEvent):
     """
     The event containing the required data to deploy a unit from a deployer unit.
     """
-    deployer_loc: Tuple[int, int]  # Used to identify the deployer unit.
+    deployer_loc: Location  # Used to identify the deployer unit.
     passenger_idx: int
-    deployed_loc: Tuple[int, int]
+    deployed_loc: Location
 
 
 @dataclass

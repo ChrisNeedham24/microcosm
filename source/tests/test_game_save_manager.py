@@ -193,11 +193,11 @@ class GameSaveManagerTest(unittest.TestCase):
             "playtime": 1.23,
             "turns_played": 1,
             "victories": {{
-                "{victory}": 1
+                "{victory.value}": 1
             }},
             "defeats": 0,
             "factions": {{
-                "{faction}": 1
+                "{faction.value}": 1
             }}
         }}
         """
@@ -254,11 +254,11 @@ class GameSaveManagerTest(unittest.TestCase):
             "playtime": {playtime},
             "turns_played": {turns_played},
             "victories": {{
-                "{victory}": {victory_count}
+                "{victory.value}": {victory_count}
             }},
             "defeats": {defeats},
             "factions": {{
-                "{faction}": {faction_count}
+                "{faction.value}": {faction_count}
             }}
         }}
         """

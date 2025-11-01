@@ -6,7 +6,7 @@ from source.foundation.catalogue import UNIT_PLANS, ACHIEVEMENTS
 from source.foundation.models import OverlayType, Settlement, Player, Faction, ConstructionMenu, Project, ProjectType, \
     Improvement, Effect, ImprovementType, UnitPlan, Blessing, Unit, CompletedConstruction, AttackData, HealData, \
     SetlAttackData, Victory, VictoryType, SettlementAttackType, PauseOption, InvestigationResult, DeployerUnitPlan, \
-    DeployerUnit, GameConfig, ResourceCollection, StandardOverlayView
+    DeployerUnit, GameConfig, ResourceCollection, StandardOverlayView, MultiplayerStatus
 
 
 class OverlayTest(unittest.TestCase):
@@ -18,7 +18,7 @@ class OverlayTest(unittest.TestCase):
         """
         Instantiate a standard Overlay object before each test and initialise test models.
         """
-        self.TEST_CONFIG = GameConfig(14, Faction.INFIDELS, True, True, True, False)
+        self.TEST_CONFIG = GameConfig(14, Faction.INFIDELS, True, True, True, MultiplayerStatus.DISABLED)
         self.overlay = Overlay(self.TEST_CONFIG)
         self.TEST_SETTLEMENT = Settlement("Testville", (0, 0), [], [], ResourceCollection(), [])
         self.TEST_UNIT = Unit(1, 2, (3, 4), False, UNIT_PLANS[0])

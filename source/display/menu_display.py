@@ -1,5 +1,5 @@
 from math import ceil
-from typing import List
+from typing import List, Tuple
 
 import pyxel
 
@@ -657,7 +657,7 @@ def display_menu(menu: Menu):
         pyxel.rectb(30, 30, 140, 100, pyxel.COLOR_WHITE)
         pyxel.rect(31, 31, 138, 98, pyxel.COLOR_BLACK)
         pyxel.text(72, 35, f"Joining {menu.multiplayer_lobbies[menu.lobby_index].name}", pyxel.COLOR_WHITE)
-        current_faction: (Faction, int) = menu.available_multiplayer_factions[menu.faction_idx]
+        current_faction: Tuple[Faction, int] = menu.available_multiplayer_factions[menu.faction_idx]
         faction_offset = 50 - pow(len(current_faction[0]), 1.4)
         if len(menu.available_multiplayer_factions) == 1:
             pyxel.text(55, 60, "You will be joining as", pyxel.COLOR_WHITE)

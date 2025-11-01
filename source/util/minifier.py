@@ -1,11 +1,11 @@
 from datetime import datetime
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set
 
 from source.foundation.catalogue import get_unit_plan, get_improvement, get_project, get_blessing, FACTION_COLOURS, \
     IMPROVEMENTS
 from source.foundation.models import Quad, Biome, ResourceCollection, Player, Settlement, Unit, UnitPlan, Improvement, \
     Construction, HarvestStatus, EconomicStatus, Blessing, Faction, VictoryType, OngoingBlessing, AIPlaystyle, \
-    AttackPlaystyle, ExpansionPlaystyle, Project, Heathen, DeployerUnit, SaveDetails
+    AttackPlaystyle, ExpansionPlaystyle, Project, Heathen, DeployerUnit, SaveDetails, Location
 
 
 def minify_resource_collection(rc: ResourceCollection) -> str:
@@ -119,7 +119,7 @@ def minify_player(player: Player) -> str:
     return player_str
 
 
-def minify_quads_seen(quads_seen: Set[Tuple[int, int]]) -> str:
+def minify_quads_seen(quads_seen: Set[Location]) -> str:
     """
     Turn the given set of seen quads into a minified string representation.
     :param quads_seen: The set of seen quads to minify.
@@ -177,7 +177,7 @@ def inflate_resource_collection(rc_str: str) -> ResourceCollection:
     return ResourceCollection(*[int(res) for res in rc_str.split("+")])
 
 
-def inflate_quad(quad_str: str, location: (int, int)) -> Quad:
+def inflate_quad(quad_str: str, location: Location) -> Quad:
     """
     Inflate the given minified quad string into a quad object.
     :param quad_str: The minified quad to inflate.
@@ -242,7 +242,7 @@ def inflate_unit(unit_str: str, garrisoned: bool, faction: Faction) -> Unit:
     # will evaluate to True. This is because any string that isn't empty is considered to be 'True'.
     unit_has_acted: bool = split_unit[4] == "True"
     unit_is_besieging: bool = split_unit[5] == "True"
-    unit_loc: (int, int) = int(split_unit[2].split("-")[0]), int(split_unit[2].split("-")[1])
+    unit_loc: Location = int(split_unit[2].split("-")[0]), int(split_unit[2].split("-")[1])
     # If the minified unit only has six parts, then it is a standard non-deployer unit.
     if len(split_unit) == 6:
         return Unit(unit_health, unit_rem_stamina, unit_loc, garrisoned, inflate_unit_plan(split_unit[3], faction),
@@ -277,7 +277,7 @@ def inflate_settlement(setl_str: str, quads: List[List[Quad]], faction: Faction)
     """
     split_setl: List[str] = setl_str.split(";")
     name: str = split_setl[0]
-    loc: (int, int) = int(split_setl[1].split("-")[0]), int(split_setl[1].split("-")[1])
+    loc: Location = int(split_setl[1].split("-")[0]), int(split_setl[1].split("-")[1])
     improvements: List[Improvement] = []
     if split_setl[2]:
         for imp_name in split_setl[2].split("$"):
@@ -361,13 +361,13 @@ def inflate_player(player_str: str, quads: List[List[Quad]]) -> Player:
                   imminent_victories, ongoing_blessing, ai_playstyle, jubilation_ctr, accumulated_wealth, eliminated)
 
 
-def inflate_quads_seen(qs_str: str) -> Set[Tuple[int, int]]:
+def inflate_quads_seen(qs_str: str) -> Set[Location]:
     """
     Inflate the given minified seen quads string into a set of tuples representing the locations of each seen quad.
     :param qs_str: The minified set of seen quads to inflate.
     :return: An inflated set of seen quad location tuples.
     """
-    quads_seen: Set[Tuple[int, int]] = set()
+    quads_seen: Set[Location] = set()
     for quad_loc in qs_str.split(","):
         quads_seen.add((int(quad_loc.split("-")[0]), int(quad_loc.split("-")[1])))
     return quads_seen
@@ -385,7 +385,7 @@ def inflate_heathens(heathens_str: str) -> List[Heathen]:
         split_heathen: List[str] = heathen.split("*")
         health: float = float(split_heathen[0])
         remaining_stamina: int = int(split_heathen[1])
-        location: (int, int) = int(split_heathen[2].split("-")[0]), int(split_heathen[2].split("-")[1])
+        location: Location = int(split_heathen[2].split("-")[0]), int(split_heathen[2].split("-")[1])
         # We don't use inflate_unit_plan() here because that will attempt to retrieve the non-heathen plan for this
         # unit, which of course does not exist.
         unit_plan: UnitPlan = UnitPlan(float(split_heathen[3]), float(split_heathen[4]), int(split_heathen[5]),

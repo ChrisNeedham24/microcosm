@@ -1,6 +1,6 @@
 from source.foundation.catalogue import get_blessing, FACTION_COLOURS, IMPROVEMENTS
 from source.foundation.models import UnitPlan, Unit, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, Quad, \
-    Biome, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection, MultiplayerStatus
+    Biome, GameConfig, DeployerUnitPlan, DeployerUnit, ResourceCollection, MultiplayerStatus, Location
 from source.util.minifier import inflate_quad
 
 """
@@ -144,7 +144,7 @@ def migrate_climatic_effects(game_state, save):
     game_state.nighttime_left = save.night_status.remaining if hasattr(save, "night_status") else 0
 
 
-def migrate_quad(quad, location: (int, int)) -> Quad:
+def migrate_quad(quad, location: Location) -> Quad:
     """
     Apply the inflation, is_relic, location, resource, and yield migrations for Quads, if required.
     :param quad: The loaded quad object.

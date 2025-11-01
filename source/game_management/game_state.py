@@ -13,7 +13,7 @@ from source.util.calculator import clamp, attack, get_setl_totals, complete_cons
 from source.foundation.catalogue import get_heathen, get_default_unit, FACTION_COLOURS, Namer
 from source.foundation.models import Heathen, Quad
 from source.foundation.models import Player, Settlement, CompletedConstruction, Unit, HarvestStatus, EconomicStatus, \
-    AttackPlaystyle, GameConfig, Victory, VictoryType, AIPlaystyle, ExpansionPlaystyle, Faction, Project
+    AttackPlaystyle, GameConfig, Victory, VictoryType, AIPlaystyle, ExpansionPlaystyle, Faction, Project, Location
 from source.game_management.movemaker import MoveMaker
 
 
@@ -35,7 +35,7 @@ class GameState:
 
         random.seed()
         # The map begins at a random position.
-        self.map_pos: (int, int) = random.randint(0, 76), random.randint(0, 68)
+        self.map_pos: Location = random.randint(0, 76), random.randint(0, 68)
         self.turn = 1
 
         # There will always be a 10-20 turn break between nights.
@@ -556,7 +556,7 @@ class GameState:
         Process the turns for each of the heathens.
         """
         all_units: List[Unit] = []
-        banned_quads: Set[Tuple[int, int]] = set()
+        banned_quads: Set[Location] = set()
         for player in self.players:
             for unit in player.units:
                 # Heathens will not attack Infidel units.

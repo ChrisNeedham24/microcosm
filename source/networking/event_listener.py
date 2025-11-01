@@ -3,8 +3,7 @@ import random
 import sched
 import socket
 import time
-from datetime import datetime
-from itertools import chain
+from itertools import chain, batched
 from json import JSONDecodeError
 from socketserver import BaseServer, BaseRequestHandler, UDPServer
 from threading import Thread
@@ -18,7 +17,7 @@ from source.foundation.catalogue import FACTION_COLOURS, LOBBY_NAMES, PLAYER_NAM
     get_project, get_unit_plan, get_blessing, get_heathen
 from source.foundation.models import GameConfig, Player, PlayerDetails, LobbyDetails, Quad, OngoingBlessing, \
     InvestigationResult, Settlement, Unit, Heathen, Faction, AIPlaystyle, AttackPlaystyle, ExpansionPlaystyle, \
-    LoadedMultiplayerState, HarvestStatus, EconomicStatus, MultiplayerStatus, SaveDetails
+    LoadedMultiplayerState, HarvestStatus, EconomicStatus, MultiplayerStatus, Location
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.game_management.movemaker import MoveMaker
@@ -32,7 +31,7 @@ from source.networking.events import Event, EventType, CreateEvent, InitEvent, U
 from source.saving.game_save_manager import save_stats_achievements, save_game, get_saves, load_save_file
 from source.saving.save_encoder import ObjectConverter, SaveEncoder
 from source.saving.save_migrator import migrate_settlement, migrate_unit
-from source.util.calculator import split_list_into_chunks, complete_construction, attack, attack_setl, heal, clamp, \
+from source.util.calculator import complete_construction, attack, attack_setl, heal, clamp, \
     update_player_quads_seen_around_point
 from source.util.minifier import minify_quad, inflate_quad, minify_player, inflate_player, minify_heathens, \
     inflate_heathens, minify_quads_seen, inflate_quads_seen, minify_save_details
@@ -201,7 +200,7 @@ class RequestHandler(BaseRequestHandler):
                     self._forward_packet(ai_evt, evt.game_name, sock)
             quads_list: List[Quad] = list(chain.from_iterable(gsr.board.quads))
             # We split the quads into chunks of 100 in order to keep packet sizes suitably small.
-            for idx, quads_chunk in enumerate(split_list_into_chunks(quads_list, 100)):
+            for idx, quads_chunk in enumerate(batched(quads_list, 100)):
                 minified_quads: str = ""
                 for quad in quads_chunk:
                     quad_str: str = minify_quad(quad)
@@ -803,7 +802,7 @@ class RequestHandler(BaseRequestHandler):
             if gs.game_started:
                 quads_list: List[Quad] = list(chain.from_iterable(gs.board.quads))
                 # We split the quads into chunks of 100 in order to keep packet sizes suitably small.
-                for idx, quads_chunk in enumerate(split_list_into_chunks(quads_list, 100)):
+                for idx, quads_chunk in enumerate(batched(quads_list, 100)):
                     # We sleep for 10ms between each chunk in order to account for slower connections. By doing this, we
                     # can stop these clients from being overwhelmed by packets.
                     time.sleep(0.01)
@@ -843,7 +842,7 @@ class RequestHandler(BaseRequestHandler):
                     evt.player_chunk_idx = idx
                     evt.quads_seen_chunk = None
                     # We split the quad locations into chunks of 100 in order to keep packet sizes suitably small.
-                    for qs_chunk in split_list_into_chunks(list(player.quads_seen), 100):
+                    for qs_chunk in batched(list(player.quads_seen), 100):
                         # We sleep for 10ms between each chunk in order to account for slower connections. By doing
                         # this, we can stop these clients from being overwhelmed by packets.
                         time.sleep(0.01)
@@ -921,7 +920,7 @@ class RequestHandler(BaseRequestHandler):
                             gc.menu.multiplayer_game_being_loaded.total_quads_seen = evt.total_quads_seen
                         # Inflate each of the 100 quad locations received in this packet and assign them to the correct
                         # player, using the player chunk index supplied in the event.
-                        inflated_quads_seen: Set[Tuple[int, int]] = inflate_quads_seen(evt.quads_seen_chunk)
+                        inflated_quads_seen: Set[Location] = inflate_quads_seen(evt.quads_seen_chunk)
                         gs.players[evt.player_chunk_idx].quads_seen.update(inflated_quads_seen)
                         if gc.menu.multiplayer_game_being_loaded:
                             gc.menu.multiplayer_game_being_loaded.quads_seen_loaded += len(inflated_quads_seen)
@@ -1013,7 +1012,7 @@ class RequestHandler(BaseRequestHandler):
         for idx, player in enumerate(gs.players):
             gs.process_player(player, idx == gs.player_idx)
         if gs.turn % 5 == 0:
-            new_heathen_loc: (int, int) = random.randint(0, 89), random.randint(0, 99)
+            new_heathen_loc: Location = random.randint(0, 89), random.randint(0, 99)
             gs.heathens.append(get_heathen(new_heathen_loc, gs.turn))
         for h in gs.heathens:
             h.remaining_stamina = h.plan.total_stamina
@@ -1062,7 +1061,7 @@ class RequestHandler(BaseRequestHandler):
             for idx, player in enumerate(gs.players):
                 gs.process_player(player, idx == gs.player_idx)
             if gs.turn % 5 == 0:
-                new_heathen_loc: (int, int) = random.randint(0, 89), random.randint(0, 99)
+                new_heathen_loc: Location = random.randint(0, 89), random.randint(0, 99)
                 gs.heathens.append(get_heathen(new_heathen_loc, gs.turn))
             for h in gs.heathens:
                 h.remaining_stamina = h.plan.total_stamina
@@ -1166,7 +1165,7 @@ class RequestHandler(BaseRequestHandler):
         if self.server.is_server:
             saves: List[str] = []
             for s in get_saves(multi=True):
-                if s.multiplayer is True:
+                if s.multiplayer:
                     saves.append(minify_save_details(s))
                 # If the save comes from before the introduction of further details in save file names, then we need to
                 # manually format the save date to appear as saves used to.

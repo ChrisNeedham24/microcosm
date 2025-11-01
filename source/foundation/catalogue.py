@@ -7,7 +7,7 @@ import pyxel
 from source.foundation import achievements
 from source.foundation.models import FactionDetail, Player, Improvement, ImprovementType, Effect, Blessing, \
     Settlement, UnitPlan, Unit, Biome, Heathen, Faction, Project, ProjectType, VictoryType, DeployerUnitPlan, \
-    Achievement, HarvestStatus, EconomicStatus, ResourceCollection
+    Achievement, HarvestStatus, EconomicStatus, ResourceCollection, Location
 from source.util.calculator import player_has_resources_for_improvement, scale_unit_plan_attributes, \
     scale_blessing_attributes
 
@@ -510,7 +510,7 @@ def get_heathen_plan(turn: int) -> UnitPlan:
     return UnitPlan(80.0 + 10 * (turn // 40), 80.0 + 10 * (turn // 40), 2, "Heathen" + "+" * (turn // 40), None, 0.0)
 
 
-def get_heathen(location: (int, int), turn: int) -> Heathen:
+def get_heathen(location: Location, turn: int) -> Heathen:
     """
     Creates a heathen at the given location.
     :param location: The location for the heathen-to-be.
@@ -521,7 +521,7 @@ def get_heathen(location: (int, int), turn: int) -> Heathen:
     return Heathen(plan.max_health, plan.total_stamina, location, plan)
 
 
-def get_default_unit(location: (int, int)) -> Unit:
+def get_default_unit(location: Location) -> Unit:
     """
     Creates the default unit for each player in their first settlement, which is a Warrior.
     :param location: The location for the unit. Largely irrelevant due to the fact that it is garrisoned.

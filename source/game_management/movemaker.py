@@ -9,10 +9,10 @@ from source.foundation.catalogue import get_available_blessings, get_unlockable_
     get_available_improvements, get_available_unit_plans, Namer
 from source.foundation.models import Player, Blessing, AttackPlaystyle, OngoingBlessing, Settlement, Improvement, \
     UnitPlan, Construction, Unit, ExpansionPlaystyle, Quad, GameConfig, Faction, VictoryType, DeployerUnitPlan, \
-    DeployerUnit, Project, ResourceCollection
+    DeployerUnit, Project, ResourceCollection, Location
 
 
-def set_blessing(player: Player, player_totals: (float, float, float, float)):
+def set_blessing(player: Player, player_totals: Tuple[float, float, float, float]):
     """
     Choose and begin undergoing a blessing for the given AI player.
     :param player: The AI player having its blessing chosen.
@@ -113,26 +113,26 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
             # category the settlement is most lacking in, and doesn't reduce satisfaction below 50.
             match totals.index(min(totals)):
                 case 0:
-                    highest_wealth: (float, Improvement) = avail_imps[0].effect.wealth, avail_imps[0]
+                    highest_wealth: Tuple[float, Improvement] = avail_imps[0].effect.wealth, avail_imps[0]
                     for imp in avail_imps:
                         if imp.effect.wealth > highest_wealth[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
                             highest_wealth = imp.effect.wealth, imp
                     ideal = highest_wealth[1]
                 case 1:
-                    highest_harvest: (float, Improvement) = avail_imps[0].effect.harvest, avail_imps[0]
+                    highest_harvest: Tuple[float, Improvement] = avail_imps[0].effect.harvest, avail_imps[0]
                     for imp in avail_imps:
                         if imp.effect.harvest > highest_harvest[0] and \
                                 setl.satisfaction + imp.effect.satisfaction >= 50:
                             highest_harvest = imp.effect.harvest, imp
                     ideal = highest_harvest[1]
                 case 2:
-                    highest_zeal: (float, Improvement) = avail_imps[0].effect.zeal, avail_imps[0]
+                    highest_zeal: Tuple[float, Improvement] = avail_imps[0].effect.zeal, avail_imps[0]
                     for imp in avail_imps:
                         if imp.effect.zeal > highest_zeal[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
                             highest_zeal = imp.effect.zeal, imp
                     ideal = highest_zeal[1]
                 case 3:
-                    highest_fortune: (float, Improvement) = avail_imps[0].effect.fortune, avail_imps[0]
+                    highest_fortune: Tuple[float, Improvement] = avail_imps[0].effect.fortune, avail_imps[0]
                     for imp in avail_imps:
                         if imp.effect.fortune > highest_fortune[0] and \
                                 setl.satisfaction + imp.effect.satisfaction >= 50:
@@ -166,7 +166,8 @@ def set_player_construction(player: Player, setl: Settlement, is_night: bool):
         # Alternatively, if we are below the benchmark for harvest for this settlement (i.e. the harvest is low enough
         # that it is decreasing satisfaction), try to construct an improvement that will increase it.
         elif totals[1] < setl.level * 4 and harv_imps:
-            most_harvest: (int, float, Improvement) = harv_imps[0].effect.harvest, harv_imps[0].cost, harv_imps[0]
+            most_harvest: Tuple[float, float, Improvement] = \
+                harv_imps[0].effect.harvest, harv_imps[0].cost, harv_imps[0]
             for i in harv_imps:
                 if i.effect.harvest > most_harvest[0] and i.cost <= most_harvest[1]:
                     most_harvest = i.effect.harvest, i.cost, i
@@ -231,26 +232,26 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
             # category the settlement is most lacking in, and doesn't reduce satisfaction below 50.
             match totals.index(min(totals)):
                 case 0:
-                    highest_wealth: (float, Improvement) = avail_imps[0].effect.wealth, avail_imps[0]
+                    highest_wealth: Tuple[float, Improvement] = avail_imps[0].effect.wealth, avail_imps[0]
                     for imp in avail_imps:
                         if imp.effect.wealth > highest_wealth[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
                             highest_wealth = imp.effect.wealth, imp
                     ideal = highest_wealth[1]
                 case 1:
-                    highest_harvest: (float, Improvement) = avail_imps[0].effect.harvest, avail_imps[0]
+                    highest_harvest: Tuple[float, Improvement] = avail_imps[0].effect.harvest, avail_imps[0]
                     for imp in avail_imps:
                         if imp.effect.harvest > highest_harvest[0] and \
                                 setl.satisfaction + imp.effect.satisfaction >= 50:
                             highest_harvest = imp.effect.harvest, imp
                     ideal = highest_harvest[1]
                 case 2:
-                    highest_zeal: (float, Improvement) = avail_imps[0].effect.zeal, avail_imps[0]
+                    highest_zeal: Tuple[float, Improvement] = avail_imps[0].effect.zeal, avail_imps[0]
                     for imp in avail_imps:
                         if imp.effect.zeal > highest_zeal[0] and setl.satisfaction + imp.effect.satisfaction >= 50:
                             highest_zeal = imp.effect.zeal, imp
                     ideal = highest_zeal[1]
                 case 3:
-                    highest_fortune: (float, Improvement) = avail_imps[0].effect.fortune, avail_imps[0]
+                    highest_fortune: Tuple[float, Improvement] = avail_imps[0].effect.fortune, avail_imps[0]
                     for imp in avail_imps:
                         if imp.effect.fortune > highest_fortune[0] and \
                                 setl.satisfaction + imp.effect.satisfaction >= 50:
@@ -284,7 +285,8 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
         # Alternatively, if we are below the benchmark for harvest for this settlement (i.e. the harvest is low enough
         # that it is decreasing satisfaction), try to construct an improvement that will increase it.
         elif totals[1] < setl.level * 4 and harv_imps:
-            most_harvest: (int, float, Improvement) = harv_imps[0].effect.harvest, harv_imps[0].cost, harv_imps[0]
+            most_harvest: Tuple[float, float, Improvement] = \
+                harv_imps[0].effect.harvest, harv_imps[0].cost, harv_imps[0]
             for i in harv_imps:
                 if i.effect.harvest > most_harvest[0] and i.cost <= most_harvest[1]:
                     most_harvest = i.effect.harvest, i.cost, i
@@ -294,7 +296,7 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
         # deployer units currently deployed that have capacity for more passengers, construct a deployer unit.
         elif other_player_vics and deployer_units and not \
                 [u for u in player.units if isinstance(u, DeployerUnit) and len(u.passengers) < u.plan.max_capacity]:
-            most_capacity: (int, UnitPlan) = deployer_units[0].max_capacity, deployer_units[0]
+            most_capacity: Tuple[int, UnitPlan] = deployer_units[0].max_capacity, deployer_units[0]
             for dep in deployer_units:
                 if dep.max_capacity >= most_capacity[0]:
                     most_capacity = dep.max_capacity, dep
@@ -310,7 +312,7 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
                         units_to_use = avail_units
                         if player.units and healer_units and (len(existing_healers) / len(player.units) < 0.2):
                             units_to_use = healer_units
-                        most_power: (float, UnitPlan) = units_to_use[0].power, units_to_use[0]
+                        most_power: Tuple[float, UnitPlan] = units_to_use[0].power, units_to_use[0]
                         for up in units_to_use:
                             if up.power >= most_power[0]:
                                 most_power = up.power, up
@@ -325,13 +327,13 @@ def set_ai_construction(player: Player, setl: Settlement, is_night: bool,
                     if len(player.units) * 2 < setl.level:
                         existing_healers = [u for u in player.units if u.plan.heals]
                         if player.units and healer_units and (len(existing_healers) / len(player.units) < 0.5):
-                            most_power: (float, UnitPlan) = healer_units[0].power, healer_units[0]
+                            most_power: Tuple[float, UnitPlan] = healer_units[0].power, healer_units[0]
                             for up in healer_units:
                                 if up.power >= most_power[0]:
                                     most_power = up.power, up
                             setl.current_work = Construction(most_power[1])
                         else:
-                            most_health: (float, UnitPlan) = avail_units[0].max_health, avail_units[0]
+                            most_health: Tuple[float, UnitPlan] = avail_units[0].max_health, avail_units[0]
                             for up in avail_units:
                                 if up.max_health >= most_health[0]:
                                     most_health = up.max_health, up
@@ -370,7 +372,7 @@ def search_for_relics_or_move(unit: Unit,
     for i in range(unit.location[0] - investigate_range, unit.location[0] + investigate_range + 1):
         for j in range(unit.location[1] - investigate_range, unit.location[1] + investigate_range + 1):
             if 0 <= i <= 99 and 0 <= j <= 89 and quads[j][i].is_relic:
-                first_resort: (int, int)
+                first_resort: Location
                 second_resort = i, j + 1
                 third_resort = i, j - 1
                 if i - unit.location[0] < 0:
@@ -432,7 +434,7 @@ def move_healer_unit(player: Player, unit: Unit, other_units: List[Unit],
         # Now that we have determined that there is another unit for our unit to heal, we need to work out where
         # we will move our unit to. There are three options for this, directly to the sides of the unit, below
         # the unit, or above the unit.
-        first_resort: (int, int)
+        first_resort: Location
         second_resort = within_range.location[0], within_range.location[1] + 1
         third_resort = within_range.location[0], within_range.location[1] - 1
         if within_range.location[0] - unit.location[0] < 0:
@@ -458,7 +460,7 @@ def move_healer_unit(player: Player, unit: Unit, other_units: List[Unit],
         search_for_relics_or_move(unit, quads, player, other_units, all_setls, cfg)
 
 
-def get_unit_setl_distance(u: Unit, s: Settlement) -> (float, int, int):
+def get_unit_setl_distance(u: Unit, s: Settlement) -> Tuple[float, int, int]:
     """
     Calculate the distance as the crow flies between the supplied unit and settlement, while also returning the raw
     X and Y differences in position.
@@ -660,7 +662,7 @@ class MoveMaker:
                 # the second is when the deployer unit has moved to an enemy settlement and deployed all units, now
                 # needing to return.
                 if not unit.passengers:
-                    nearest_settlement: (Settlement, float, int, int) = \
+                    nearest_settlement: Tuple[Settlement, float, int, int] = \
                         player.settlements[0], *get_unit_setl_distance(unit, player.settlements[0])
                     for setl in player.settlements:
                         distance = get_unit_setl_distance(unit, setl)
@@ -679,7 +681,7 @@ class MoveMaker:
                 # most imminent victories.
                 else:
                     player_with_most_vics = max(other_player_vics, key=operator.itemgetter(1))[0]
-                    weakest_settlement: (Settlement, int) = \
+                    weakest_settlement: Tuple[Settlement, float] = \
                         player_with_most_vics.settlements[0], player_with_most_vics.settlements[0].strength
                     for setl in player_with_most_vics.settlements:
                         if setl.strength < weakest_settlement[1]:
@@ -782,7 +784,7 @@ class MoveMaker:
                 found_valid_loc = False
                 if abs(unit.location[0] - within_range.location[0]) > 1 or \
                    abs(unit.location[1] - within_range.location[1]) > 1:
-                    first_resort: (int, int)
+                    first_resort: Location
                     second_resort = within_range.location[0], within_range.location[1] + 1
                     third_resort = within_range.location[0], within_range.location[1] - 1
                     if within_range.location[0] - unit.location[0] < 0:
@@ -882,7 +884,7 @@ class MoveMaker:
                 # I.e. the unit did not find a deployer to board.
                 if unit.remaining_stamina:
                     player_with_most_vics = max(other_player_vics, key=operator.itemgetter(1))[0]
-                    weakest_settlement: (Settlement, int) = \
+                    weakest_settlement: Tuple[Settlement, float] = \
                         player_with_most_vics.settlements[0], player_with_most_vics.settlements[0].strength
                     for setl in player_with_most_vics.settlements:
                         if setl.strength < weakest_settlement[1]:
