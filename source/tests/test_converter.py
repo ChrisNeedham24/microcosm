@@ -1,13 +1,21 @@
 import unittest
+from unittest.mock import patch
 
+import pyxel
 from PIL import Image
 
 from source.util.converter import convert_image_to_pyxel_icon_data, convert_rgb_colour_to_pyxel_colour
 
 
+@patch.object(pyxel, "colors", [
+    0x000000, 0x2b335f, 0x7e2072, 0x19959c, 0x8b4852, 0x395c98, 0xa9c1ff, 0xeeeeee,
+    0xd4186c, 0xd38441, 0xe9c35b, 0x70c6a9, 0x7696de, 0xa3a3a3, 0xff9798, 0xedc7b0,
+])
 class ConverterTest(unittest.TestCase):
     """
     The test class responsible for ensuring that images are converted correctly for use as icons.
+    Note that we need to patch the default pyxel colours as in v2+, pyxel needs to be initialised to access
+    pyxel.colors.
     """
     def test_image_conversion(self):
         """
