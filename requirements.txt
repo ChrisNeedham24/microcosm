@@ -1,5 +1,5 @@
 # Make sure the below are kept in sync with pyproject.toml.
-pyxel==1.9.0
+pyxel==2.5.11
 python-vlc==3.0.16120
 platformdirs==3.9.1
 Pillow==10.3.0
