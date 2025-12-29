@@ -64,12 +64,14 @@ class Game:
         time_elapsed = time.time() - self.game_controller.last_time
         self.game_controller.last_time = time.time()
 
+        self.game_controller.dialogue.update(time_elapsed)
+
         if self.game_state.board is not None:
             self.game_state.board.update(time_elapsed)
 
         if self.game_state.on_menu:
             self.game_controller.music_player.restart_menu_if_necessary()
-        elif not self.game_controller.music_player.is_playing():
+        elif not self.game_state.intro_faction and not self.game_controller.music_player.is_playing():
             self.game_controller.music_player.next_song()
 
         self.on_input()
@@ -85,6 +87,8 @@ class Game:
                                        self.game_state.heathens, self.game_state.nighttime_left > 0,
                                        self.game_state.until_night if self.game_state.until_night != 0
                                        else self.game_state.nighttime_left)
+        if self.game_controller.dialogue.current_scene:
+            self.game_controller.dialogue.draw()
 
     def on_input(self):
         """

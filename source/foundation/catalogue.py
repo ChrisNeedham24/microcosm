@@ -7,7 +7,7 @@ import pyxel
 from source.foundation import achievements
 from source.foundation.models import FactionDetail, Player, Improvement, ImprovementType, Effect, Blessing, \
     Settlement, UnitPlan, Unit, Biome, Heathen, Faction, Project, ProjectType, VictoryType, DeployerUnitPlan, \
-    Achievement, HarvestStatus, EconomicStatus, ResourceCollection, Location
+    Achievement, HarvestStatus, EconomicStatus, ResourceCollection, Location, Scene, TextLine
 from source.util.calculator import player_has_resources_for_improvement, scale_unit_plan_attributes, \
     scale_blessing_attributes
 
@@ -498,6 +498,21 @@ ACHIEVEMENTS: List[Achievement] = [
     Achievement("50 Hours Later", "Play 200 turns in a single multiplayer game.",
                 lambda gs, _: bool(gs.board.game_config.multiplayer) and gs.turn >= 200)
 ]
+
+
+INTROS: Dict[Faction, Scene] = {
+    Faction.AGRICULTURISTS: Scene([
+        TextLine("In a world full of famine and despair, we've always seemed to avoid the worst of it.", 4, background_idx=0),
+        TextLine("Well that's not quite true... our forefathers and their forefathers taught us how to grow and "
+                 "prosper where others could not.", 6, background_idx=0),
+        TextLine("Because of that, it's been years since we've had a poor harvest. In fact I can't remember the last "
+                 "one, so it must be decades ago...", 6),
+        TextLine("Haven't you heard that it's rude to ask how old someone is? Regardless, we all lead the slow life "
+                 "these days, on the farm or at the markets.", 6),
+        TextLine("Don't be mistaken though, we're ready to face anything and anyone! Just with a wicker basket in hand "
+                 "and a poisoned apple or two...", 6)
+    ])
+}
 
 
 def get_heathen_plan(turn: int) -> UnitPlan:

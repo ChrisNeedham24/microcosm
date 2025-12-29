@@ -1,5 +1,6 @@
 import time
 
+from source.display.dialogue import Dialogue
 from source.foundation.catalogue import Namer
 from source.display.menu import Menu
 from source.game_management.movemaker import MoveMaker
@@ -26,3 +27,5 @@ class GameController:
 
         self.namer = Namer()
         self.move_maker = MoveMaker(self.namer)
+
+        self.dialogue = Dialogue()

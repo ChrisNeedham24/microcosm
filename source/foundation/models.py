@@ -621,3 +621,54 @@ class SaveDetails:
         :return: The formatted name for this save.
         """
         return self.date_time.strftime("%Y-%m-%d %H:%M:%S") + (" (auto)" if self.auto else "")
+
+
+@dataclass
+class Character:
+    name: str
+    colour: int
+    image: int
+
+
+@dataclass
+class TextLine:
+    content: str
+    time_required: float
+    display_time: float = 0
+    on_display: bool = False
+    speaker: Optional[Character] = None
+    background_idx: Optional[int] = None
+
+    def get_current_content(self) -> str:
+        return self.content[:(round(self.display_time / self.time_required * len(self.content)))]
+
+    def finished(self) -> bool:
+        return self.display_time >= self.time_required
+
+
+@dataclass
+class Scene:
+    lines: List[TextLine]
+    current_idx: int = 0
+
+    def update(self, elapsed_time: float):
+        for tl in self.lines:
+            if tl.on_display:
+                tl.display_time += elapsed_time
+                if tl.display_time >= tl.time_required:
+                    tl.on_display = False
+
+    def begin(self):
+        self.current_idx = 0
+        self.lines[self.current_idx].on_display = True
+
+    def progress(self) -> bool:
+        self.lines[self.current_idx].on_display = False
+        if self.current_idx != len(self.lines) - 1:
+            self.current_idx += 1
+            self.lines[self.current_idx].on_display = True
+            return True
+        return False
+
+    def skip_line(self):
+        self.lines[self.current_idx].display_time = self.lines[self.current_idx].time_required

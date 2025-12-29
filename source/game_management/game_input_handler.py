@@ -14,7 +14,7 @@ from source.networking.events import CreateEvent, EventType, QueryEvent, LeaveEv
 from source.util.calculator import clamp, complete_construction, attack_setl, player_has_resources_for_improvement, \
     subtract_player_resources_for_improvement, update_player_quads_seen_around_point
 from source.foundation.catalogue import get_available_improvements, get_available_blessings, get_available_unit_plans, \
-    PROJECTS, FACTION_COLOURS
+    PROJECTS, FACTION_COLOURS, INTROS
 from source.game_management.game_controller import GameController
 from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
@@ -210,11 +210,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                        game_controller.menu.multiplayer_status)
                 else:
                     # If the player has pressed enter to start the game, generate the players, board, and AI players.
-                    pyxel.mouse(visible=True)
                     game_controller.last_turn_time = time.time()
                     game_state.player_idx = 0
                     game_state.located_player_idx = True
-                    game_state.game_started = True
                     game_state.turn = 1
                     # Reinitialise night variables.
                     random.seed()
@@ -222,6 +220,9 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_state.nighttime_left = 0
                     game_state.on_menu = False
                     cfg: GameConfig = game_controller.menu.get_game_config()
+                    game_state.intro_faction = cfg.player_faction
+                    game_controller.dialogue.current_scene = INTROS[cfg.player_faction]
+                    game_controller.dialogue.current_scene.begin()
                     # Update stats to include the newly-selected faction.
                     save_stats_achievements(game_state, faction_to_add=cfg.player_faction)
                     game_state.gen_players(cfg)
@@ -233,7 +234,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_state.board.overlay.total_settlement_count = \
                         sum(len(p.settlements) for p in game_state.players) + 1
                     game_controller.music_player.stop_menu_music()
-                    game_controller.music_player.play_game_music()
+                    game_controller.music_player.play_intro_music(cfg.player_faction)
         elif game_controller.menu.loading_game:
             if game_controller.menu.loading_game_multiplayer_status:
                 save: SaveDetails = game_controller.menu.saves[game_controller.menu.save_idx]
@@ -307,6 +308,17 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                     game_controller.menu.in_wiki = True
                 case MainMenuOption.EXIT:
                     pyxel.quit()
+    elif game_state.intro_faction:
+        if game_controller.dialogue.idle():
+            if not game_controller.dialogue.current_scene.progress():
+                game_state.intro_faction = None
+                game_controller.dialogue.current_scene = None
+                pyxel.mouse(visible=True)
+                game_state.game_started = True
+                game_controller.music_player.stop_intro_music(game_state.board.game_config.player_faction)
+                game_controller.music_player.play_game_music()
+        else:
+            game_controller.dialogue.current_scene.skip_line()
     elif game_state.game_started and game_state.board.overlay.is_desync():
         menu = game_controller.menu
         # We don't need to check whether the current game is a multiplayer game since desync can only occur in

@@ -31,6 +31,7 @@ class GameState:
         self.heathens: List[Heathen] = []
 
         self.on_menu = True
+        self.intro_faction: Optional[Faction] = None  # None means we're not currently viewing an intro.
         self.game_started = False
 
         random.seed()
