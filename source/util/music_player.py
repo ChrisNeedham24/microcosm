@@ -1,11 +1,8 @@
 import random
-from threading import Thread
 from time import sleep
-from typing import List, Dict
+from typing import List
 
 from vlc import MediaPlayer
-
-from source.foundation.models import Faction
 
 
 class MusicPlayer:
@@ -18,10 +15,6 @@ class MusicPlayer:
         """
         self.menu_player: MediaPlayer = MediaPlayer("resources/audio/menu.ogg")
         self.menu_player.audio_set_volume(70)
-        # TODO
-        self.intro_players: Dict[Faction, MediaPlayer] = {
-            Faction.AGRICULTURISTS: MediaPlayer("resources/audio/agriculturists.ogg")
-        }
         random.seed()
         self.game_players: List[MediaPlayer] = \
             [MediaPlayer(f"resources/audio/background{i}.ogg") for i in range(1, 9)]
@@ -41,22 +34,10 @@ class MusicPlayer:
         """
         Stop the menu music, fading it out first.
         """
-        def fade_out():
-            for vol in range(70, 0, -10):
-                sleep(0.08)
-                self.menu_player.audio_set_volume(vol)
-            self.menu_player.pause()  # Note that we pause, so the music will resume when the player returns to the menu.
-        Thread(target=fade_out, daemon=True).start()
-
-    def play_intro_music(self, faction: Faction):
-        self.intro_players[faction].audio_set_volume(70)
-        self.intro_players[faction].play()
-
-    def stop_intro_music(self, faction: Faction):
         for vol in range(70, 0, -10):
             sleep(0.08)
-            self.intro_players[faction].audio_set_volume(vol)
-        self.intro_players[faction].pause()
+            self.menu_player.audio_set_volume(vol)
+        self.menu_player.pause()  # Note that we pause, so the music will resume when the player returns to the menu.
 
     def play_game_music(self):
         """

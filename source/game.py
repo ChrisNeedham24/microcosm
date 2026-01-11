@@ -71,7 +71,7 @@ class Game:
 
         if self.game_state.on_menu:
             self.game_controller.music_player.restart_menu_if_necessary()
-        elif not self.game_state.intro_faction and not self.game_controller.music_player.is_playing():
+        elif not self.game_controller.music_player.is_playing():
             self.game_controller.music_player.next_song()
 
         self.on_input()
