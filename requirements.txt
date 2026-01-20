@@ -8,4 +8,4 @@ Pillow==10.3.0
 # machines.
 miniupnpc==2.0.2; platform_system != "Windows"
 miniupnpc==2.2.7; platform_system == "Windows"
-filelock==3.20.1
+filelock==3.20.3
