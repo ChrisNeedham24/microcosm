@@ -4,6 +4,7 @@ from threading import Thread
 
 import pyxel
 from PIL import Image
+from PIL.ImageFile import ImageFile
 
 # In cases where we're running from a pip-installed distribution, monkey patch the source module, since it'll actually
 # be under 'microcosm.source' in site-packages. We also need to disable a couple of lint rules here to account for
@@ -41,7 +42,7 @@ class Game:
 
         pyxel.init(200, 200, title="Microcosm", display_scale=5, quit_key=pyxel.KEY_NONE)
 
-        icon_image: Image = Image.open("resources/icon.png")
+        icon_image: ImageFile = Image.open("resources/icon.png")
         # Note that the 0 argument below refers to the colour value used for transparent pixels.
         pyxel.icon(convert_image_to_pyxel_icon_data(icon_image), 1, 0)
 
