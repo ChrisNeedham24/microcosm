@@ -1,10 +1,10 @@
-import typing
+from typing import Dict, List, Tuple
 
 import pyxel
-from PIL import Image, PyAccess
+from PIL.ImageFile import ImageFile
 
 
-def convert_image_to_pyxel_icon_data(image: Image) -> typing.List[str]:
+def convert_image_to_pyxel_icon_data(image: ImageFile) -> List[str]:
     """
     Convert the supplied Pillow Image data into the format required for the pyxel.icon() method.
 
@@ -37,11 +37,11 @@ def convert_image_to_pyxel_icon_data(image: Image) -> typing.List[str]:
     :param image: The Pillow Image to be converted.
     :return: A list of strings representing the image, in the appropriate format.
     """
-    icon_pixels: PyAccess = image.load()
-    icon_colours: typing.List[str] = []
+    icon_pixels = image.load()
+    icon_colours: List[str] = []
     # Rather than determine the correct pyxel colour for every pixel individually, we maintain a dictionary of existing
     # mappings, so we do not need to reconvert RGB values that have already been converted.
-    rgb_pyxel_mappings: typing.Dict[typing.Tuple[int, int, int], str] = {}
+    rgb_pyxel_mappings: Dict[Tuple[int, int, int], str] = {}
     for y in range(image.height):
         # Initialise the row as an empty string, with each character added to it being a pixel in the row.
         row_colours: str = ""
