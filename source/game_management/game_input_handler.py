@@ -915,3 +915,9 @@ def on_key_x(game_state: GameState):
             dispatch_event(du_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
         game_state.board.selected_unit = None
         game_state.board.overlay.toggle_unit(None)
+
+
+def on_key_t(game_state: GameState):
+    if game_state.game_started and game_state.board.overlay.is_standard() \
+            and game_state.board.overlay.current_standard_overlay_view is StandardOverlayView.VAULT:
+        game_state.board.overlay.toggle_trade()

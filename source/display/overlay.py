@@ -77,7 +77,7 @@ class Overlay:
         Toggle the standard overlay.
         """
         # Ensure that we can only remove the standard overlay if the player is not choosing a blessing.
-        if OverlayType.STANDARD in self.showing and not self.is_blessing():
+        if OverlayType.STANDARD in self.showing and not self.is_blessing() and not self.is_trade():
             self.showing.remove(OverlayType.STANDARD)
         elif not self.is_tutorial() and not self.is_lvl_notif() and not self.is_constr_notif() and \
                 not self.is_bless_notif() and not self.is_deployment() and not self.is_warning() and \
@@ -796,6 +796,17 @@ class Overlay:
         :return: Whether the desync overlay is being displayed.
         """
         return OverlayType.DESYNC in self.showing
+
+    def toggle_trade(self):
+        if OverlayType.TRADE in self.showing:
+            self.showing.remove(OverlayType.TRADE)
+        elif not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_bless_notif() and \
+                 not self.is_deployment() and not self.is_warning() and not self.is_pause() and \
+                 not self.is_controls() and not self.is_victory() and not self.is_ach_notif() and not self.is_desync():
+            self.showing.append(OverlayType.TRADE)
+
+    def is_trade(self):
+        return OverlayType.TRADE in self.showing
 
     def remove_layer(self) -> Optional[OverlayType]:
         """

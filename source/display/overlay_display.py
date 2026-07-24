@@ -661,6 +661,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
                     pyxel.text(30, 65,
                                f"{round(overlay.current_player.wealth)} ({sign}{abs(round(wealth_per_turn, 2))})",
                                pyxel.COLOR_WHITE)
+                    pyxel.text(95, 55, "Press T to trade!", pyxel.COLOR_YELLOW)
+                    draw_paragraph(95, 65, "Press E to view the exchange!", 15, pyxel.COLOR_YELLOW)
                     pyxel.text(30, 80, "Resources", pyxel.COLOR_YELLOW)
                     pyxel.text(30, 90, "Ore", pyxel.COLOR_GRAY)
                     pyxel.text(70, 90, str(overlay.current_player.resources.ore), pyxel.COLOR_WHITE)
@@ -935,3 +937,17 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.blt(180, 150, 0, 8, 76, 8, 8)
 
                 pyxel.text(54, 150, "Press SPACE to go back.", pyxel.COLOR_WHITE)
+        if OverlayType.TRADE in overlay.showing:
+            pyxel.load("resources/sprites.pyxres")
+            pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
+            pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
+            pyxel.text(90, 30, "Trade", pyxel.COLOR_YELLOW)
+            # TODO this should probably display as rows with columns for wealth and then each core resource.
+            #  The current player should be the first row, and indicated somehow.
+            pyxel.text(30, 40, "Resources", pyxel.COLOR_YELLOW)
+            pyxel.text(30, 50, "Ore", pyxel.COLOR_GRAY)
+            pyxel.text(70, 50, str(overlay.current_player.resources.ore), pyxel.COLOR_WHITE)
+            pyxel.text(30, 60, "Timber", pyxel.COLOR_BROWN)
+            pyxel.text(70, 60, str(overlay.current_player.resources.timber), pyxel.COLOR_WHITE)
+            pyxel.text(30, 70, "Magma", pyxel.COLOR_RED)
+            pyxel.text(70, 70, str(overlay.current_player.resources.magma), pyxel.COLOR_WHITE)

@@ -183,6 +183,8 @@ class OverlayType(Enum):
     ACH_NOTIF = "ACH_NOTIF"
     PLAYER_CHANGE = "PLAYER_CHANGE"
     DESYNC = "DESYNC"
+    TRADE = "TRADE"
+    EXCHANGE = "EXCHANGE"
 
 
 class SettlementAttackType(Enum):
