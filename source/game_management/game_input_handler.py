@@ -1,7 +1,7 @@
 import random
 import time
-import typing
 from copy import deepcopy
+from typing import List, Optional
 
 import pyxel
 
@@ -20,7 +20,7 @@ from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
 from source.foundation.models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, \
     OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView, Improvement, LobbyDetails, \
-    PlayerDetails, MultiplayerStatus, SaveDetails
+    PlayerDetails, MultiplayerStatus, SaveDetails, Player
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
 from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats_achievements, get_stats
@@ -47,6 +47,8 @@ def on_key_arrow_down(game_controller: GameController, game_state: GameState, is
             game_state.board.overlay.show_additional_controls = True
         elif game_state.board.overlay.is_pause():
             game_state.board.overlay.navigate_pause(down=True)
+        elif game_state.board.overlay.is_trade():
+            game_state.board.overlay.navigate_trade(down=True)
         elif game_state.board.overlay.is_standard():
             game_state.board.overlay.navigate_standard(down=True)
         elif game_state.board.overlay.is_unit() and game_state.board.overlay.show_unit_passengers:
@@ -81,6 +83,8 @@ def on_key_arrow_up(game_controller: GameController, game_state: GameState, is_c
             game_state.board.overlay.show_additional_controls = False
         elif game_state.board.overlay.is_pause():
             game_state.board.overlay.navigate_pause(down=False)
+        elif game_state.board.overlay.is_trade():
+            game_state.board.overlay.navigate_trade(up=True)
         elif game_state.board.overlay.is_standard():
             game_state.board.overlay.navigate_standard(up=True)
         elif game_state.board.overlay.is_unit() and game_state.board.overlay.show_unit_passengers:
@@ -259,7 +263,7 @@ def on_key_return(game_controller: GameController, game_state: GameState):
             game_controller.namer.reset()
         elif game_controller.menu.viewing_lobbies:
             current_lobby: LobbyDetails = game_controller.menu.multiplayer_lobbies[game_controller.menu.lobby_index]
-            human_players: typing.List[PlayerDetails] = [p for p in current_lobby.current_players if p.id]
+            human_players: List[PlayerDetails] = [p for p in current_lobby.current_players if p.id]
             if len(human_players) < current_lobby.cfg.player_count:
                 # If the game is in progress, then the player can join as any faction that is currently played by an AI
                 # player.
@@ -385,6 +389,11 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                                           game_state.players[game_state.player_idx].ongoing_blessing)
                 dispatch_event(sb_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
         game_state.board.overlay.toggle_blessing([])
+    elif game_state.game_started and (overlay := game_state.board.overlay).is_trade():
+        if overlay.trade_idx is None:
+            overlay.toggle_trade([])
+        else:
+            overlay.trade_player = overlay.other_players[overlay.trade_idx]
     elif game_state.game_started and game_state.board.overlay.is_setl_click():
         match game_state.board.overlay.setl_attack_opt:
             # If the player has chosen to attack a settlement, execute the attack.
@@ -751,7 +760,7 @@ def on_key_escape(game_state: GameState):
             game_state.board.overlay.toggle_pause()
         # Remove one overlay layer per ESCAPE press, assuming it is a layer that can be removed.
         elif not game_state.board.overlay.is_tutorial() and not game_state.board.overlay.is_deployment():
-            to_reset: typing.Optional[OverlayType] = game_state.board.overlay.remove_layer()
+            to_reset: Optional[OverlayType] = game_state.board.overlay.remove_layer()
             # Make sure we reset board selections if necessary.
             if to_reset == OverlayType.UNIT:
                 game_state.board.selected_unit = None
@@ -920,4 +929,6 @@ def on_key_x(game_state: GameState):
 def on_key_t(game_state: GameState):
     if game_state.game_started and game_state.board.overlay.is_standard() \
             and game_state.board.overlay.current_standard_overlay_view is StandardOverlayView.VAULT:
-        game_state.board.overlay.toggle_trade()
+        other_players: List[Player] = [p for (idx, p) in enumerate(game_state.players)
+                                       if idx != game_state.player_idx and not p.eliminated]
+        game_state.board.overlay.toggle_trade(other_players)

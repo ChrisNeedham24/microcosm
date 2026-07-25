@@ -942,12 +942,36 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
             pyxel.text(90, 30, "Trade", pyxel.COLOR_YELLOW)
-            # TODO this should probably display as rows with columns for wealth and then each core resource.
-            #  The current player should be the first row, and indicated somehow.
-            pyxel.text(30, 40, "Resources", pyxel.COLOR_YELLOW)
+            pyxel.text(30, 40, "Wealth", pyxel.COLOR_YELLOW)
+            pyxel.text(60, 40, str(overlay.current_player.wealth), pyxel.COLOR_WHITE)
             pyxel.text(30, 50, "Ore", pyxel.COLOR_GRAY)
-            pyxel.text(70, 50, str(overlay.current_player.resources.ore), pyxel.COLOR_WHITE)
+            pyxel.text(60, 50, str(overlay.current_player.resources.ore), pyxel.COLOR_WHITE)
             pyxel.text(30, 60, "Timber", pyxel.COLOR_BROWN)
-            pyxel.text(70, 60, str(overlay.current_player.resources.timber), pyxel.COLOR_WHITE)
+            pyxel.text(60, 60, str(overlay.current_player.resources.timber), pyxel.COLOR_WHITE)
             pyxel.text(30, 70, "Magma", pyxel.COLOR_RED)
-            pyxel.text(70, 70, str(overlay.current_player.resources.magma), pyxel.COLOR_WHITE)
+            pyxel.text(60, 70, str(overlay.current_player.resources.magma), pyxel.COLOR_WHITE)
+
+            # TODO trade table with vertical lines around it containing what's in the proposed trade
+
+            # TODO make sure this layout doesn't look funky late-game
+            if overlay.trade_player:
+                # TODO these numbers probably need to move over slightly
+                pyxel.text(120, 40, str(overlay.trade_player.wealth), pyxel.COLOR_WHITE)
+                pyxel.text(120, 50, str(overlay.trade_player.resources.ore), pyxel.COLOR_WHITE)
+                pyxel.text(120, 60, str(overlay.trade_player.resources.timber), pyxel.COLOR_WHITE)
+                pyxel.text(120, 70, str(overlay.trade_player.resources.magma), pyxel.COLOR_WHITE)
+                # TODO adjust the icon placement to align when names are longer
+                pyxel.blt(153, 50, 0, list(Faction).index(overlay.trade_player.faction) * 8, 92, 8, 8)
+                pyxel.text(150, 60, overlay.trade_player.name, FACTION_COLOURS[overlay.trade_player.faction])
+
+            pyxel.line(25, 80, 174, 80, pyxel.COLOR_WHITE)
+            for idx, player in enumerate(overlay.other_players):
+                if overlay.trade_boundaries[0] <= idx <= overlay.trade_boundaries[1]:
+                    y_offset: int = (idx - overlay.trade_boundaries[0]) * 10
+                    pyxel.text(30, 85 + y_offset, f"{player.name} - {player.faction.value}",
+                               FACTION_COLOURS[player.faction])
+                    # TODO make sure this layout works for the longest multiplayer name and faction combos
+                    pyxel.text(125, 85 + y_offset, "Ask to trade",
+                               pyxel.COLOR_RED if idx == overlay.trade_idx else pyxel.COLOR_WHITE)
+            pyxel.text(90, 155, "Cancel",
+                       pyxel.COLOR_RED if overlay.trade_idx is None else pyxel.COLOR_WHITE)

@@ -66,6 +66,10 @@ class Overlay:
         self.total_settlement_count: int = 0
         self.player_changing: Optional[Player] = None
         self.changed_player_is_leaving: Optional[bool] = None  # False means they're joining.
+        self.other_players: List[Player] = []
+        self.trade_idx: Optional[int] = 0  # None means Cancel is selected.
+        self.trade_boundaries: Tuple[int, int] = 0, 6
+        self.trade_player: Optional[Player] = None
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
@@ -797,16 +801,33 @@ class Overlay:
         """
         return OverlayType.DESYNC in self.showing
 
-    def toggle_trade(self):
+    def toggle_trade(self, other_players: List[Player]):
         if OverlayType.TRADE in self.showing:
             self.showing.remove(OverlayType.TRADE)
         elif not self.is_lvl_notif() and not self.is_constr_notif() and not self.is_bless_notif() and \
                  not self.is_deployment() and not self.is_warning() and not self.is_pause() and \
                  not self.is_controls() and not self.is_victory() and not self.is_ach_notif() and not self.is_desync():
+            self.other_players = other_players
             self.showing.append(OverlayType.TRADE)
 
     def is_trade(self):
         return OverlayType.TRADE in self.showing
+
+    def navigate_trade(self, up: bool = False, down: bool = False):
+        if down and self.trade_idx is not None:
+            if self.trade_idx != len(self.other_players) - 1:
+                if self.trade_idx == self.trade_boundaries[1]:
+                    self.trade_boundaries = self.trade_boundaries[0] + 1, self.trade_boundaries[1] + 1
+                self.trade_idx += 1
+            else:
+                self.trade_idx = None
+        elif up:
+            if self.trade_idx is None:
+                self.trade_idx = len(self.other_players) - 1
+            elif self.trade_idx != 0:
+                if self.trade_idx == self.trade_boundaries[0]:
+                    self.trade_boundaries = self.trade_boundaries[0] - 1, self.trade_boundaries[1] - 1
+                self.trade_idx -= 1
 
     def remove_layer(self) -> Optional[OverlayType]:
         """
@@ -838,6 +859,8 @@ class Overlay:
             self.toggle_blessing([])
         elif self.is_setl_click():
             self.toggle_setl_click(None, None)
+        elif self.is_trade():
+            self.toggle_trade([])
         elif self.is_standard():
             self.toggle_standard()
         elif self.is_constructing():
