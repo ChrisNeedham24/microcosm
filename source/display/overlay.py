@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple
 
 from source.foundation.models import Settlement, Player, Improvement, Unit, Blessing, CompletedConstruction, UnitPlan, \
     Heathen, AttackData, SetlAttackData, Victory, InvestigationResult, OverlayType, SettlementAttackType, PauseOption, \
-    Project, ConstructionMenu, HealData, Achievement, StandardOverlayView, GameConfig
+    Project, ConstructionMenu, HealData, Achievement, StandardOverlayView, GameConfig, TradeTable
 
 
 class Overlay:
@@ -70,6 +70,8 @@ class Overlay:
         self.trade_idx: Optional[int] = 0  # None means Cancel is selected.
         self.trade_boundaries: Tuple[int, int] = 0, 6
         self.trade_player: Optional[Player] = None
+        self.trade_table_idx: int = 0  # 0-3 is the current player's side, 4-7 is the trade player's side.
+        self.trade_table: Optional[TradeTable] = None
 
     """
     Note that the below methods feature some somewhat complex conditional logic in terms of which overlays may be
@@ -813,21 +815,32 @@ class Overlay:
     def is_trade(self):
         return OverlayType.TRADE in self.showing
 
-    def navigate_trade(self, up: bool = False, down: bool = False):
-        if down and self.trade_idx is not None:
-            if self.trade_idx != len(self.other_players) - 1:
-                if self.trade_idx == self.trade_boundaries[1]:
-                    self.trade_boundaries = self.trade_boundaries[0] + 1, self.trade_boundaries[1] + 1
-                self.trade_idx += 1
-            else:
-                self.trade_idx = None
+    def navigate_trade(self, up: bool = False, down: bool = False, left: bool = False, right: bool = False):
+        if down:
+            if self.trade_player:
+                if self.trade_table_idx != 3 and self.trade_table_idx != 7:
+                    self.trade_table_idx += 1
+            elif self.trade_idx is not None:
+                if self.trade_idx != len(self.other_players) - 1:
+                    if self.trade_idx == self.trade_boundaries[1]:
+                        self.trade_boundaries = self.trade_boundaries[0] + 1, self.trade_boundaries[1] + 1
+                    self.trade_idx += 1
+                else:
+                    self.trade_idx = None
         elif up:
-            if self.trade_idx is None:
+            if self.trade_player:
+                if self.trade_table_idx != 0 and self.trade_table_idx != 4:
+                    self.trade_table_idx -= 1
+            elif self.trade_idx is None:
                 self.trade_idx = len(self.other_players) - 1
             elif self.trade_idx != 0:
                 if self.trade_idx == self.trade_boundaries[0]:
                     self.trade_boundaries = self.trade_boundaries[0] - 1, self.trade_boundaries[1] - 1
                 self.trade_idx -= 1
+        elif left and self.trade_player and self.trade_table_idx > 3:
+            self.trade_table_idx -= 4
+        elif right and self.trade_player and self.trade_table_idx < 4:
+            self.trade_table_idx += 4
 
     def remove_layer(self) -> Optional[OverlayType]:
         """

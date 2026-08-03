@@ -20,7 +20,7 @@ from source.game_management.game_state import GameState
 from source.display.menu import MainMenuOption, SetupOption, WikiOption
 from source.foundation.models import Construction, OngoingBlessing, CompletedConstruction, Heathen, GameConfig, \
     OverlayType, Faction, ConstructionMenu, Project, DeployerUnit, StandardOverlayView, Improvement, LobbyDetails, \
-    PlayerDetails, MultiplayerStatus, SaveDetails, Player
+    PlayerDetails, MultiplayerStatus, SaveDetails, Player, TradeTable
 from source.game_management.movemaker import set_player_construction
 from source.display.overlay import SettlementAttackType, PauseOption
 from source.saving.game_save_manager import load_game, get_saves, save_game, save_stats_achievements, get_stats
@@ -129,6 +129,8 @@ def on_key_arrow_left(game_controller: GameController, game_state: GameState, is
             elif game_state.board.overlay.current_construction_menu is ConstructionMenu.UNITS:
                 game_state.board.overlay.current_construction_menu = ConstructionMenu.PROJECTS
                 game_state.board.overlay.selected_construction = game_state.board.overlay.available_projects[0]
+        elif game_state.board.overlay.is_trade():
+            game_state.board.overlay.navigate_trade(left=True)
         elif game_state.board.overlay.is_standard() and not game_state.board.overlay.is_blessing():
             game_state.board.overlay.navigate_standard(left=True)
         elif game_state.board.overlay.is_setl_click():
@@ -174,6 +176,8 @@ def on_key_arrow_right(game_controller: GameController, game_state: GameState, i
                 game_state.board.overlay.current_construction_menu = ConstructionMenu.UNITS
                 game_state.board.overlay.selected_construction = game_state.board.overlay.available_unit_plans[0]
                 game_state.board.overlay.unit_plan_boundaries = 0, 5
+        elif game_state.board.overlay.is_trade():
+            game_state.board.overlay.navigate_trade(right=True)
         elif game_state.board.overlay.is_standard() and not game_state.board.overlay.is_blessing():
             game_state.board.overlay.navigate_standard(right=True)
         elif game_state.board.overlay.is_setl_click():
@@ -390,10 +394,32 @@ def on_key_return(game_controller: GameController, game_state: GameState):
                 dispatch_event(sb_evt, game_state.event_dispatchers, game_state.board.game_config.multiplayer)
         game_state.board.overlay.toggle_blessing([])
     elif game_state.game_started and (overlay := game_state.board.overlay).is_trade():
-        if overlay.trade_idx is None:
+        if overlay.trade_player:
+            # TODO can't go past zero
+            # TODO maybe like shift+ENTER and alt+ENTER for 10 or 100 at a time
+            increment: int = 100 if pyxel.btn(pyxel.KEY_SHIFT) else 1
+            match overlay.trade_table_idx:
+                case 0:
+                    overlay.trade_table.current_player_package.wealth += increment
+                case 1:
+                    overlay.trade_table.current_player_package.ore += increment
+                case 2:
+                    overlay.trade_table.current_player_package.timber += increment
+                case 3:
+                    overlay.trade_table.current_player_package.magma += increment
+                case 4:
+                    overlay.trade_table.trade_player_package.wealth += increment
+                case 5:
+                    overlay.trade_table.trade_player_package.ore += increment
+                case 6:
+                    overlay.trade_table.trade_player_package.timber += increment
+                case 7:
+                    overlay.trade_table.trade_player_package.magma += increment
+        elif overlay.trade_idx is None:
             overlay.toggle_trade([])
         else:
             overlay.trade_player = overlay.other_players[overlay.trade_idx]
+            overlay.trade_table = TradeTable()
     elif game_state.game_started and game_state.board.overlay.is_setl_click():
         match game_state.board.overlay.setl_attack_opt:
             # If the player has chosen to attack a settlement, execute the attack.
@@ -674,6 +700,8 @@ def on_key_space(game_controller: GameController, game_state: GameState):
         game_state.board.overlay.toggle_controls()
     elif game_state.game_started and game_state.board.overlay.is_investigation():
         game_state.board.overlay.toggle_investigation(None)
+    elif game_state.game_started and game_state.board.overlay.is_trade() and game_state.board.overlay.trade_player:
+        game_state.board.overlay.trade_player = None
     elif game_state.game_started and game_state.board.overlay.can_iter_settlements_units() and \
             len(game_state.players[game_state.player_idx].units) > 0:
         game_state.board.overlay.remove_warning_if_possible()

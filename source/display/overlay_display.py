@@ -333,31 +333,31 @@ def display_overlay(overlay: Overlay, is_night: bool):
 
             pyxel.text(20, 24, "Resources:", pyxel.COLOR_WHITE)
             if res := overlay.current_settlement.resources:
-                x_offset = 0
+                name_x_offset = 0
                 for _ in range(res.ore):
-                    pyxel.text(62 + x_offset, 24, "Ore", pyxel.COLOR_GRAY)
-                    x_offset += 15
+                    pyxel.text(62 + name_x_offset, 24, "Ore", pyxel.COLOR_GRAY)
+                    name_x_offset += 15
                 for _ in range(res.timber):
-                    pyxel.text(62 + x_offset, 24, "Timber", pyxel.COLOR_BROWN)
-                    x_offset += 27
+                    pyxel.text(62 + name_x_offset, 24, "Timber", pyxel.COLOR_BROWN)
+                    name_x_offset += 27
                 for _ in range(res.magma):
-                    pyxel.text(62 + x_offset, 24, "Magma", pyxel.COLOR_RED)
-                    x_offset += 23
+                    pyxel.text(62 + name_x_offset, 24, "Magma", pyxel.COLOR_RED)
+                    name_x_offset += 23
                 for _ in range(res.aurora):
-                    pyxel.text(62 + x_offset, 24, "Aurora", pyxel.COLOR_YELLOW)
-                    x_offset += 27
+                    pyxel.text(62 + name_x_offset, 24, "Aurora", pyxel.COLOR_YELLOW)
+                    name_x_offset += 27
                 for _ in range(res.bloodstone):
-                    pyxel.text(62 + x_offset, 24, "Bloodstone", pyxel.COLOR_RED)
-                    x_offset += 44
+                    pyxel.text(62 + name_x_offset, 24, "Bloodstone", pyxel.COLOR_RED)
+                    name_x_offset += 44
                 for _ in range(res.obsidian):
-                    pyxel.text(62 + x_offset, 24, "Obsidian", pyxel.COLOR_GRAY)
-                    x_offset += 36
+                    pyxel.text(62 + name_x_offset, 24, "Obsidian", pyxel.COLOR_GRAY)
+                    name_x_offset += 36
                 for _ in range(res.sunstone):
-                    pyxel.text(62 + x_offset, 24, "Sunstone", pyxel.COLOR_ORANGE)
-                    x_offset += 36
+                    pyxel.text(62 + name_x_offset, 24, "Sunstone", pyxel.COLOR_ORANGE)
+                    name_x_offset += 36
                 for _ in range(res.aquamarine):
-                    pyxel.text(62 + x_offset, 24, "Aquamarine", pyxel.COLOR_LIGHT_BLUE)
-                    x_offset += 50
+                    pyxel.text(62 + name_x_offset, 24, "Aquamarine", pyxel.COLOR_LIGHT_BLUE)
+                    name_x_offset += 50
             else:
                 pyxel.text(62, 24, "None", pyxel.COLOR_GRAY)
 
@@ -422,25 +422,25 @@ def display_overlay(overlay: Overlay, is_night: bool):
         # unit is the player's and they are currently placing an enemy settlement under siege.
         if OverlayType.UNIT in overlay.showing:
             y_offset = 0 if overlay.selected_unit in overlay.current_player.units else 20
-            x_offset = 8 if round(overlay.selected_unit.plan.cost / 10) >= 10 and \
-                overlay.selected_unit in overlay.current_player.units else 0
+            name_x_offset = 8 if round(overlay.selected_unit.plan.cost / 10) >= 10 and \
+                                 overlay.selected_unit in overlay.current_player.units else 0
             if overlay.selected_unit in overlay.current_player.units and \
                     isinstance(overlay.selected_unit, DeployerUnit):
                 if overlay.show_unit_passengers:
-                    pyxel.rectb(70 + x_offset, 110 + y_offset, 56 + x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
-                    pyxel.rect(71 + x_offset, 111 + y_offset, 54 + x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
+                    pyxel.rectb(70 + name_x_offset, 110 + y_offset, 56 + name_x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
+                    pyxel.rect(71 + name_x_offset, 111 + y_offset, 54 + name_x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
                     for idx, unit in enumerate(overlay.selected_unit.passengers):
-                        pyxel.text(75 + x_offset, 115 + y_offset + 10 * idx, unit.plan.name, pyxel.COLOR_WHITE)
+                        pyxel.text(75 + name_x_offset, 115 + y_offset + 10 * idx, unit.plan.name, pyxel.COLOR_WHITE)
                         if idx == overlay.unit_passengers_idx:
-                            pyxel.blt(110 + x_offset, 115 + y_offset + 10 * idx, 0, 64, 36, 8, 8)
+                            pyxel.blt(110 + name_x_offset, 115 + y_offset + 10 * idx, 0, 64, 36, 8, 8)
                         else:
-                            pyxel.blt(110 + x_offset, 115 + y_offset + 10 * idx, 0, 56, 36, 8, 8)
+                            pyxel.blt(110 + name_x_offset, 115 + y_offset + 10 * idx, 0, 56, 36, 8, 8)
                     pyxel.text(83, 162, "Close (D)", pyxel.COLOR_WHITE)
                 else:
-                    pyxel.rectb(17, 105 + y_offset, 56 + x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
-                    pyxel.rect(18, 106 + y_offset, 54 + x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
-            pyxel.rectb(12, 110 + y_offset, 56 + x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
-            pyxel.rect(13, 111 + y_offset, 54 + x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
+                    pyxel.rectb(17, 105 + y_offset, 56 + name_x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
+                    pyxel.rect(18, 106 + y_offset, 54 + name_x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
+            pyxel.rectb(12, 110 + y_offset, 56 + name_x_offset, 60 - y_offset, pyxel.COLOR_WHITE)
+            pyxel.rect(13, 111 + y_offset, 54 + name_x_offset, 58 - y_offset, pyxel.COLOR_BLACK)
             pyxel.text(20, 114 + y_offset, overlay.selected_unit.plan.name, pyxel.COLOR_WHITE)
             if overlay.selected_unit.plan.can_settle:
                 pyxel.blt(55, 113 + y_offset, 0, 24, 36, 8, 8)
@@ -799,8 +799,8 @@ def display_overlay(overlay: Overlay, is_night: bool):
             pyxel.rectb(50, 60, 100, 70, pyxel.COLOR_WHITE)
             pyxel.rect(51, 61, 98, 68, pyxel.COLOR_BLACK)
             name_len = len(overlay.attacked_settlement.name)
-            x_offset = 11 - name_len
-            pyxel.text(82 + x_offset, 70, str(overlay.attacked_settlement.name),
+            name_x_offset = 11 - name_len
+            pyxel.text(82 + name_x_offset, 70, str(overlay.attacked_settlement.name),
                        overlay.attacked_settlement_owner.colour)
             pyxel.blt(90, 78, 0, 0, 28, 8, 8)
             pyxel.text(100, 80, str(round(overlay.attacked_settlement.strength)), pyxel.COLOR_WHITE)
@@ -939,39 +939,85 @@ def display_overlay(overlay: Overlay, is_night: bool):
                 pyxel.text(54, 150, "Press SPACE to go back.", pyxel.COLOR_WHITE)
         if OverlayType.TRADE in overlay.showing:
             pyxel.load("resources/sprites.pyxres")
+            # TODO numbers should be grey if at zero
             pyxel.rectb(20, 20, 160, 144, pyxel.COLOR_WHITE)
             pyxel.rect(21, 21, 158, 142, pyxel.COLOR_BLACK)
             pyxel.text(90, 30, "Trade", pyxel.COLOR_YELLOW)
-            pyxel.text(30, 40, "Wealth", pyxel.COLOR_YELLOW)
-            pyxel.text(60, 40, str(overlay.current_player.wealth), pyxel.COLOR_WHITE)
-            pyxel.text(30, 50, "Ore", pyxel.COLOR_GRAY)
-            pyxel.text(60, 50, str(overlay.current_player.resources.ore), pyxel.COLOR_WHITE)
-            pyxel.text(30, 60, "Timber", pyxel.COLOR_BROWN)
-            pyxel.text(60, 60, str(overlay.current_player.resources.timber), pyxel.COLOR_WHITE)
-            pyxel.text(30, 70, "Magma", pyxel.COLOR_RED)
-            pyxel.text(60, 70, str(overlay.current_player.resources.magma), pyxel.COLOR_WHITE)
+            pyxel.text(25, 40, "Wealth", pyxel.COLOR_YELLOW)
+            wealth_offset: int = overlay.trade_table.current_player_package.wealth if overlay.trade_table else 0
+            pyxel.text(55, 40, str(round(overlay.current_player.wealth) - wealth_offset),
+                       pyxel.COLOR_RED if overlay.trade_player and overlay.trade_table_idx == 0 else pyxel.COLOR_WHITE)
+            pyxel.text(25, 50, "Ore", pyxel.COLOR_GRAY)
+            ore_offset: int = overlay.trade_table.current_player_package.ore if overlay.trade_table else 0
+            pyxel.text(55, 50, str(overlay.current_player.resources.ore - ore_offset),
+                       pyxel.COLOR_RED if overlay.trade_player and overlay.trade_table_idx == 1 else pyxel.COLOR_WHITE)
+            pyxel.text(25, 60, "Timber", pyxel.COLOR_BROWN)
+            timber_offset: int = overlay.trade_table.current_player_package.timber if overlay.trade_table else 0
+            pyxel.text(55, 60, str(overlay.current_player.resources.timber - timber_offset),
+                       pyxel.COLOR_RED if overlay.trade_player and overlay.trade_table_idx == 2 else pyxel.COLOR_WHITE)
+            pyxel.text(25, 70, "Magma", pyxel.COLOR_RED)
+            magma_offset: int = overlay.trade_table.current_player_package.magma if overlay.trade_table else 0
+            pyxel.text(55, 70, str(overlay.current_player.resources.magma - magma_offset),
+                       pyxel.COLOR_RED if overlay.trade_player and overlay.trade_table_idx == 3 else pyxel.COLOR_WHITE)
 
-            # TODO trade table with vertical lines around it containing what's in the proposed trade
+            # TODO human-AI trades
+            # TODO AI-AI trades
+            # TODO human-human trades
 
             # TODO make sure this layout doesn't look funky late-game
             if overlay.trade_player:
-                # TODO these numbers probably need to move over slightly
-                pyxel.text(120, 40, str(overlay.trade_player.wealth), pyxel.COLOR_WHITE)
-                pyxel.text(120, 50, str(overlay.trade_player.resources.ore), pyxel.COLOR_WHITE)
-                pyxel.text(120, 60, str(overlay.trade_player.resources.timber), pyxel.COLOR_WHITE)
-                pyxel.text(120, 70, str(overlay.trade_player.resources.magma), pyxel.COLOR_WHITE)
-                # TODO adjust the icon placement to align when names are longer
+                pyxel.text(70, 40, "->", pyxel.COLOR_RED if overlay.trade_table_idx == 0 else pyxel.COLOR_WHITE)
+                pyxel.text(70, 50, "->", pyxel.COLOR_RED if overlay.trade_table_idx == 1 else pyxel.COLOR_WHITE)
+                pyxel.text(70, 60, "->", pyxel.COLOR_RED if overlay.trade_table_idx == 2 else pyxel.COLOR_WHITE)
+                pyxel.text(70, 70, "->", pyxel.COLOR_RED if overlay.trade_table_idx == 3 else pyxel.COLOR_WHITE)
+
+                pyxel.line(80, 40, 80, 75, pyxel.COLOR_WHITE)
+                # TODO make sure late-game wealth and resources still fit here
+                pyxel.text(85, 40, str(overlay.trade_table.current_player_package.wealth), pyxel.COLOR_WHITE)
+                pyxel.text(85, 50, str(overlay.trade_table.current_player_package.ore), pyxel.COLOR_WHITE)
+                pyxel.text(85, 60, str(overlay.trade_table.current_player_package.timber), pyxel.COLOR_WHITE)
+                pyxel.text(85, 70, str(overlay.trade_table.current_player_package.magma), pyxel.COLOR_WHITE)
+                # TODO this offset is not quite right - fix it and apply it to all package values for the trade player
+                wealth_x_offset: int = (len(str(overlay.trade_table.trade_player_package.wealth)) -1) * 2
+                pyxel.text(112 - wealth_x_offset, 40, str(overlay.trade_table.trade_player_package.wealth),
+                           pyxel.COLOR_WHITE)
+                pyxel.text(110, 50, str(overlay.trade_table.trade_player_package.ore), pyxel.COLOR_WHITE)
+                pyxel.text(110, 60, str(overlay.trade_table.trade_player_package.timber), pyxel.COLOR_WHITE)
+                pyxel.text(110, 70, str(overlay.trade_table.trade_player_package.magma), pyxel.COLOR_WHITE)
+                pyxel.line(117, 40, 117, 75, pyxel.COLOR_WHITE)
+
+                wealth_offset: int = overlay.trade_table.trade_player_package.wealth if overlay.trade_table else 0
+                pyxel.text(120, 40, f"<- {round(overlay.trade_player.wealth) - wealth_offset}",
+                           pyxel.COLOR_RED if overlay.trade_table_idx == 4 else pyxel.COLOR_WHITE)
+                ore_offset: int = overlay.trade_table.trade_player_package.ore if overlay.trade_table else 0
+                pyxel.text(120, 50, f"<- {overlay.trade_player.resources.ore - ore_offset}",
+                           pyxel.COLOR_RED if overlay.trade_table_idx == 5 else pyxel.COLOR_WHITE)
+                timber_offset: int = overlay.trade_table.trade_player_package.timber if overlay.trade_table else 0
+                pyxel.text(120, 60, f"<- {overlay.trade_player.resources.timber - timber_offset}",
+                           pyxel.COLOR_RED if overlay.trade_table_idx == 6 else pyxel.COLOR_WHITE)
+                magma_offset: int = overlay.trade_table.trade_player_package.magma if overlay.trade_table else 0
+                pyxel.text(120, 70, f"<- {overlay.trade_player.resources.magma - magma_offset}",
+                           pyxel.COLOR_RED if overlay.trade_table_idx == 7 else pyxel.COLOR_WHITE)
                 pyxel.blt(153, 50, 0, list(Faction).index(overlay.trade_player.faction) * 8, 92, 8, 8)
-                pyxel.text(150, 60, overlay.trade_player.name, FACTION_COLOURS[overlay.trade_player.faction])
+                name: str = overlay.trade_player.name
+                name_x_offset: int = (len(name) - 4) * 2
+                pyxel.text(150 - name_x_offset, 60, name, FACTION_COLOURS[overlay.trade_player.faction])
 
             pyxel.line(25, 80, 174, 80, pyxel.COLOR_WHITE)
-            for idx, player in enumerate(overlay.other_players):
-                if overlay.trade_boundaries[0] <= idx <= overlay.trade_boundaries[1]:
-                    y_offset: int = (idx - overlay.trade_boundaries[0]) * 10
-                    pyxel.text(30, 85 + y_offset, f"{player.name} - {player.faction.value}",
-                               FACTION_COLOURS[player.faction])
-                    # TODO make sure this layout works for the longest multiplayer name and faction combos
-                    pyxel.text(125, 85 + y_offset, "Ask to trade",
-                               pyxel.COLOR_RED if idx == overlay.trade_idx else pyxel.COLOR_WHITE)
-            pyxel.text(90, 155, "Cancel",
-                       pyxel.COLOR_RED if overlay.trade_idx is None else pyxel.COLOR_WHITE)
+            if overlay.trade_player:
+                # TODO implement pressing P
+                pyxel.text(43, 90, "Press P to propose the trade!", pyxel.COLOR_WHITE)
+                pyxel.text(23, 107, "Navigate resources with the arrow keys.", pyxel.COLOR_WHITE)
+                pyxel.text(38, 124, "Press ENTER to add to the trade.", pyxel.COLOR_WHITE)
+                pyxel.text(33, 141, "Press SPACE to pick another player.", pyxel.COLOR_WHITE)
+                # TODO how to take away resources
+            else:
+                for idx, player in enumerate(overlay.other_players):
+                    if overlay.trade_boundaries[0] <= idx <= overlay.trade_boundaries[1]:
+                        y_offset: int = (idx - overlay.trade_boundaries[0]) * 10
+                        pyxel.text(28, 85 + y_offset, f"{player.name} - {player.faction.value}",
+                                   FACTION_COLOURS[player.faction])
+                        pyxel.text(148, 85 + y_offset, "Trade?",
+                                   pyxel.COLOR_RED if idx == overlay.trade_idx else pyxel.COLOR_WHITE)
+                pyxel.text(90, 155, "Cancel",
+                           pyxel.COLOR_RED if overlay.trade_idx is None else pyxel.COLOR_WHITE)

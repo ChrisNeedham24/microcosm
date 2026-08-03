@@ -623,3 +623,17 @@ class SaveDetails:
         :return: The formatted name for this save.
         """
         return self.date_time.strftime("%Y-%m-%d %H:%M:%S") + (" (auto)" if self.auto else "")
+
+
+@dataclass
+class TradePackage:
+    wealth: int = 0
+    ore: int = 0
+    timber: int = 0
+    magma: int = 0
+
+
+@dataclass
+class TradeTable:
+    current_player_package: TradePackage = field(default_factory=TradePackage)
+    trade_player_package: TradePackage = field(default_factory=TradePackage)
