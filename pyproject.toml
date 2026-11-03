@@ -32,7 +32,8 @@ dependencies = [
     # systems. All releases since have been for Windows only. As such, we pin different versions for Windows and
     # non-Windows machines.
     "miniupnpc==2.0.2; platform_system != 'Windows'",
-    "miniupnpc==2.2.7; platform_system == 'Windows'"
+    "miniupnpc==2.2.7; platform_system == 'Windows'",
+    "filelock==4.2.1"
 ]
 dynamic = [
     "version"
